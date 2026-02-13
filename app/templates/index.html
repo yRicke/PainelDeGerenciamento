@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <h1>Inicio</h1>
+    <p>Visao geral rapida dos principais indicadores da operacao.</p>
+</section>
+
+<section class="panel">
+    <h2>Dashboard Geral</h2>
+    <div class="kpi-grid">
+        <a class="kpi-card" href="{% url 'financeiro' %}">
+            <h3>Financeiro</h3>
+            <p>Acompanhe receita, caixa e metas.</p>
+        </a>
+        <a class="kpi-card" href="{% url 'administrativo' %}">
+            <h3>Administrativo</h3>
+            <p>Monitore processos internos e RH.</p>
+        </a>
+        <a class="kpi-card" href="{% url 'comercial' %}">
+            <h3>Comercial</h3>
+            <p>Visibilidade sobre vendas e carteira.</p>
+        </a>
+        <a class="kpi-card" href="{% url 'operacional' %}">
+            <h3>Operacional</h3>
+            <p>Status de cargas, estoque e producao.</p>
+        </a>
+    </div>
+</section>
+{% endblock %}

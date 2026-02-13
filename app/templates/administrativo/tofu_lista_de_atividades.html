@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load render_table from django_tables2 %}
+{% load static %}
+
+{% block title %}TOFU Lista de Atividades{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .atividade-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1200px;
+    }
+
+    .atividade-table th,
+    .atividade-table td {
+        border: 1px solid #d8dee4;
+        padding: 0.45rem;
+        text-align: left;
+        vertical-align: top;
+        font-size: 0.9rem;
+    }
+
+    .atividade-table th {
+        background: #f3f5f7;
+        white-space: nowrap;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(170px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .form-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .form-grid textarea {
+        min-height: 58px;
+        resize: vertical;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: 2fr repeat(5, minmax(140px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+        align-items: end;
+    }
+
+    .btn-primary {
+        background: #175cd3;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-light {
+        background: #f3f5f7;
+        color: #111;
+        border: 1px solid #d8dee4;
+        padding: 0.45rem 0.6rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'administrativo' %}">Voltar</a>
+    <h1>TOFU Lista de Atividades</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Nova Atividade</h2>
+    <form action="{% url 'criar_atividade_tofu' empresa.id %}" method="POST" data-atividade-form>
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Projeto</label>
+                <select name="projeto_id" required>
+                    <option value="">Selecione</option>
+                    {% for projeto in projetos %}
+                    <option value="{{ projeto.id }}">{{ projeto.nome }} ({{ projeto.codigo|default:"-" }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Gestor</label>
+                <select name="gestor_id">
+                    <option value="">-</option>
+                    {% for colaborador in colaboradores %}
+                    <option value="{{ colaborador.id }}">{{ colaborador.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Responsavel</label>
+                <select name="responsavel_id">
+                    <option value="">-</option>
+                    {% for colaborador in colaboradores %}
+                    <option value="{{ colaborador.id }}">{{ colaborador.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Interlocutor</label>
+                <input type="text" name="interlocutor">
+            </div>
+
+            <div>
+                <label>Prev. Inicio</label>
+                <input type="date" name="data_previsao_inicio">
+            </div>
+
+            <div>
+                <label>Prev. Termino</label>
+                <input type="date" name="data_previsao_termino">
+            </div>
+
+            <div>
+                <label>Data Finalizada</label>
+                <input type="date" name="data_finalizada" data-data-finalizada>
+            </div>
+
+            <div>
+                <label>Progresso (%)</label>
+                <input type="number" name="progresso" min="0" max="100" value="0" required data-progresso>
+            </div>
+
+            <div class="full">
+                <label>Historico</label>
+                <textarea name="historico"></textarea>
+            </div>
+
+            <div class="full">
+                <label>Tarefa</label>
+                <textarea name="tarefa"></textarea>
+            </div>
+        </div>
+        <button type="submit" class="btn-primary">Criar atividade</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Atividades Cadastradas</h2>
+
+    <form method="GET" class="filter-grid">
+        <div>
+            <label>Busca</label>
+            <input type="text" name="q" value="{{ filtro_busca }}" placeholder="Projeto, tarefa, historico...">
+        </div>
+        <div>
+            <label>Projeto</label>
+            <select name="projeto_id">
+                <option value="">Todos</option>
+                {% for projeto in projetos %}
+                <option value="{{ projeto.id }}" {% if filtro_projeto_id == projeto.id|stringformat:"s" %}selected{% endif %}>{{ projeto.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Gestor</label>
+            <select name="gestor_id">
+                <option value="">Todos</option>
+                {% for colaborador in colaboradores %}
+                <option value="{{ colaborador.id }}" {% if filtro_gestor_id == colaborador.id|stringformat:"s" %}selected{% endif %}>{{ colaborador.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Responsavel</label>
+            <select name="responsavel_id">
+                <option value="">Todos</option>
+                {% for colaborador in colaboradores %}
+                <option value="{{ colaborador.id }}" {% if filtro_responsavel_id == colaborador.id|stringformat:"s" %}selected{% endif %}>{{ colaborador.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Progresso (%)</label>
+            <input type="number" min="0" max="100" name="progresso" value="{{ filtro_progresso }}">
+        </div>
+        <div>
+            <label>Indicador</label>
+            <select name="indicador">
+                <option value="">Todos</option>
+                <option value="concluido" {% if filtro_indicador == "concluido" %}selected{% endif %}>Concluido</option>
+                <option value="em_andamento" {% if filtro_indicador == "em_andamento" %}selected{% endif %}>Em Andamento</option>
+                <option value="atencao" {% if filtro_indicador == "atencao" %}selected{% endif %}>Atencao</option>
+                <option value="atrasado" {% if filtro_indicador == "atrasado" %}selected{% endif %}>Atrasado</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn-primary">Filtrar</button>
+            <a href="{% url 'tofu_lista_de_atividades' empresa.id %}" class="btn-light">Limpar</a>
+        </div>
+    </form>
+
+    <div class="table-wrapper">
+        {% render_table atividades_table %}
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/tofu-atividade-form.js' %}"></script>
+{% endblock %}
+

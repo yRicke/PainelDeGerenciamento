@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Comercial{% endblock %}
+
+{% block extra_css %}
+<style>
+    .module-link--blocked {
+        opacity: 0.45;
+        filter: grayscale(0.5);
+        pointer-events: none;
+        cursor: not-allowed;
+    }
+
+    .module-link-note {
+        font-size: 0.85rem;
+        margin-left: 0.4rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <h1>Comercial</h1>
+    <p>Modulos para performance de vendas e gestao da carteira de clientes.</p>
+</section>
+
+<section class="panel">
+    <h2>Modulos</h2>
+    <ul class="module-list">
+        {% for modulo in modulos %}
+        <li>
+            <a
+                href="{% if user.empresa_id %}{% url modulo.url user.empresa_id %}{% else %}#{% endif %}"
+                class="{% if not modulo.permitido %}module-link--blocked{% endif %}"
+                {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
+            >
+                {{ modulo.nome }}
+                {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

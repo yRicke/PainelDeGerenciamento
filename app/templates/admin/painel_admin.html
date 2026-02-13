@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Admin{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <h1>Painel Admin</h1>
+</section>
+
+<section class="panel">
+    <h2>Empresas</h2>
+    <section class="panel">
+        <h3>Cadastrar Empresa</h3>
+        <form action="{% url 'criar_empresa' %}" method="POST">
+            {% csrf_token %}
+            <input type="text" name="nome" placeholder="Nome da Empresa" required>
+            <button type="submit">Cadastrar</button>
+        </form>
+    </section>
+    <br>
+    <section class="panel">
+        <ul>
+            {% for empresa in empresas %}
+            <li>
+                <form action="{% url 'editar_empresa' empresa.id %}" method="POST">
+                    {% csrf_token %}
+                    <input type="text" name="nome" value="{{ empresa.nome }}" required>
+                    <button type="submit">Editar</button>
+                    <a href="{% url 'excluir_empresa' empresa.id %}">Excluir</a>
+                    <a href="{% url 'usuarios_permissoes' empresa.id %}">Ver Usuários com Acesso</a>
+                </form>
+            </li>
+            {% empty %}
+            <li>Nenhuma empresa cadastrada.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</section>
+{% endblock %}

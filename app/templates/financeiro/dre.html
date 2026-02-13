@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}DRE{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'financeiro' %}">Voltar</a>
+    <h1>DRE</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>DRE</h2>
+    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+</section>
+{% endblock %}

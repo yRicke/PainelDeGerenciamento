@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Cargas em Aberto{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'operacional' %}">Voltar</a>
+    <h1>Cargas em Aberto</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Cargas em Aberto</h2>
+    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+</section>
+{% endblock %}

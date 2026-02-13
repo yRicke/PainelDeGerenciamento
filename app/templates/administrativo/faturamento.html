@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Faturamento{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'administrativo' %}">Voltar</a>
+    <h1>Faturamento</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Faturamento</h2>
+    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+</section>
+{% endblock %}

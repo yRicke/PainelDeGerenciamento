@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Colaboradores{% endblock %}
+
+{% block extra_css %}
+<style>
+    .simple-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .simple-table th,
+    .simple-table td {
+        border: 1px solid #d8dee4;
+        padding: 0.5rem;
+        text-align: left;
+    }
+
+    .simple-table th {
+        background: #f3f5f7;
+    }
+
+    .action-group {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+    }
+
+    .inline-form {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+        width: 100%;
+    }
+
+    .inline-form input {
+        flex: 1;
+    }
+
+    .btn-danger {
+        background: #b42318;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: #175cd3;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'administrativo' %}">Voltar</a>
+    <h1>Colaboradores</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Novo Colaborador</h2>
+    <form action="{% url 'criar_colaborador_modulo' empresa.id %}" method="POST" class="inline-form">
+        {% csrf_token %}
+        <input type="text" name="nome" placeholder="Nome do colaborador" required>
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Lista de Colaboradores</h2>
+    {% if colaboradores %}
+    <table class="simple-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Acoes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for colaborador in colaboradores %}
+            <tr>
+                <td>{{ colaborador.id }}</td>
+                <td>
+                    <form action="{% url 'editar_colaborador_modulo' empresa.id colaborador.id %}" method="POST" class="inline-form">
+                        {% csrf_token %}
+                        <input type="text" name="nome" value="{{ colaborador.nome }}" required>
+                        <button type="submit" class="btn-primary">Salvar</button>
+                    </form>
+                </td>
+                <td>
+                    <form action="{% url 'excluir_colaborador_modulo' empresa.id colaborador.id %}" method="POST" onsubmit="return confirm('Excluir colaborador?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-danger">Excluir</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Nenhum colaborador cadastrado.</p>
+    {% endif %}
+</section>
+{% endblock %}

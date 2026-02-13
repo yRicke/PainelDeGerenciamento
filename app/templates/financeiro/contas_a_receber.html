@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Contas a Receber{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'financeiro' %}">Voltar</a>
+    <h1>Contas a Receber</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Contas a Receber</h2>
+    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+</section>
+{% endblock %}

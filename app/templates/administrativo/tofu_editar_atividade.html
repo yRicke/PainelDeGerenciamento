@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Atividade TOFU{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(170px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .form-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .form-grid textarea {
+        min-height: 70px;
+        resize: vertical;
+    }
+
+    .btn-primary {
+        background: #175cd3;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .btn-danger {
+        background: #b42318;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .action-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .inline-form {
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'tofu_lista_de_atividades' empresa.id %}">Voltar para lista</a>
+    <h1>Editar Atividade #{{ atividade.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <form action="{% url 'editar_atividade_tofu' empresa.id atividade.id %}" method="POST" data-atividade-form>
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Projeto</label>
+                <select name="projeto_id" required>
+                    {% for projeto in projetos %}
+                    <option value="{{ projeto.id }}" {% if projeto.id == atividade.projeto_id %}selected{% endif %}>
+                        {{ projeto.nome }} ({{ projeto.codigo|default:"-" }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Gestor</label>
+                <select name="gestor_id">
+                    <option value="">-</option>
+                    {% for colaborador in colaboradores %}
+                    <option value="{{ colaborador.id }}" {% if atividade.gestor_id == colaborador.id %}selected{% endif %}>{{ colaborador.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Responsavel</label>
+                <select name="responsavel_id">
+                    <option value="">-</option>
+                    {% for colaborador in colaboradores %}
+                    <option value="{{ colaborador.id }}" {% if atividade.responsavel_id == colaborador.id %}selected{% endif %}>{{ colaborador.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Interlocutor</label>
+                <input type="text" name="interlocutor" value="{{ atividade.interlocutor }}">
+            </div>
+
+            <div>
+                <label>Prev. Inicio</label>
+                <input type="date" name="data_previsao_inicio" value="{% if atividade.data_previsao_inicio %}{{ atividade.data_previsao_inicio|date:'Y-m-d' }}{% endif %}">
+            </div>
+
+            <div>
+                <label>Prev. Termino</label>
+                <input type="date" name="data_previsao_termino" value="{% if atividade.data_previsao_termino %}{{ atividade.data_previsao_termino|date:'Y-m-d' }}{% endif %}">
+            </div>
+
+            <div>
+                <label>Data Finalizada</label>
+                <input type="date" name="data_finalizada" value="{% if atividade.data_finalizada %}{{ atividade.data_finalizada|date:'Y-m-d' }}{% endif %}" data-data-finalizada>
+            </div>
+
+            <div>
+                <label>Progresso (%)</label>
+                <input type="number" min="0" max="100" name="progresso" value="{{ atividade.progresso }}" required data-progresso>
+            </div>
+
+            <div class="full">
+                <label>Historico</label>
+                <textarea name="historico">{{ atividade.historico }}</textarea>
+            </div>
+
+            <div class="full">
+                <label>Tarefa</label>
+                <textarea name="tarefa">{{ atividade.tarefa }}</textarea>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+    </form>
+
+    <div class="action-group">
+        <form class="inline-form" action="{% url 'excluir_atividade_tofu' empresa.id atividade.id %}" method="POST" onsubmit="return confirm('Excluir atividade {{ atividade.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir atividade</button>
+        </form>
+        </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/tofu-atividade-form.js' %}"></script>
+{% endblock %}
+

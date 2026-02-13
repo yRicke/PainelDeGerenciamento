@@ -1,0 +1,13 @@
+{% if messages %}
+<div class="message-container">
+    {% for message in messages %}
+        {% if message.level == 40 %}
+            <div class="message message-error">Erro: {{ message }}</div>
+        {% elif message.level == 25 %}
+            <div class="message message-success">Sucesso: {{ message }}</div>
+        {% else %}
+            <div class="message message-info">Info: {{ message }}</div>
+        {% endif %}
+    {% endfor %}
+</div>
+{% endif %}

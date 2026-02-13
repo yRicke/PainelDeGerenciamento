@@ -1,0 +1,257 @@
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+from datetime import timedelta
+
+UNSET = object()
+
+
+class Empresa(models.Model):
+    nome = models.CharField(max_length=150)
+
+    def __str__(self):
+        return self.nome
+
+    @classmethod
+    def criar_empresa(cls, nome):
+        empresa = cls(nome=nome)
+        empresa.save()
+        return empresa
+
+    def atualizar_nome(self, novo_nome):
+        self.nome = novo_nome
+        self.save()
+
+    def excluir_empresa(self):
+        self.delete()
+
+class Permissao(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.nome
+
+class Usuario(AbstractUser):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="usuarios",
+    )
+    permissoes = models.ManyToManyField(Permissao, blank=True)
+
+    def __str__(self):
+        return f"{self.username} ({self.empresa})"
+
+    @classmethod
+    def criar_usuario(cls, username, password, empresa, permissoes=None):
+        usuario = cls.objects.create_user(
+            username=username,
+            password=password,
+            empresa=empresa,
+        )
+        if permissoes:
+            usuario.permissoes.set(permissoes)
+        return usuario
+
+    @classmethod
+    def listar_usuarios_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_usuario(self, username=None, password=None, permissoes=None):
+        if username:
+            self.username = username
+        if password:
+            self.set_password(password)
+        self.save()
+        if permissoes is not None:
+            self.permissoes.set(permissoes)
+
+    def excluir_usuario(self):
+        self.delete()
+
+class Colaborador(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="colaboradores",
+    )
+    nome = models.CharField(max_length=150)
+
+    def __str__(self):
+        return f"{self.nome} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_colaborador(cls, nome, empresa):
+        colaborador = cls(nome=nome, empresa=empresa)
+        colaborador.save()
+        return colaborador
+
+    @classmethod
+    def listar_colaboradores_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_colaborador(self, novo_nome):
+        self.nome = novo_nome
+        self.save()
+
+    def excluir_colaborador(self):
+        self.delete()
+
+class Projeto(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="projetos",
+    )
+    nome = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=50, blank=True, default="")
+
+    def __str__(self):
+        return f"{self.nome} ({self.codigo})"
+
+    @classmethod
+    def criar_projeto(cls, nome, empresa, codigo=""):
+        projeto = cls(nome=nome, empresa=empresa, codigo=codigo)
+        projeto.save()
+        return projeto
+
+    @classmethod
+    def listar_projetos_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_projeto(self, novo_nome=None, novo_codigo=None):
+        if novo_nome:
+            self.nome = novo_nome
+        if novo_codigo is not None:
+            self.codigo = novo_codigo
+        self.save()
+
+    def excluir_projeto(self):
+        self.delete()
+
+class Atividade(models.Model):
+    INDICADOR_CONCLUIDO = "Concluido"
+    INDICADOR_EM_ANDAMENTO = "Em Andamento"
+    INDICADOR_ATENCAO = "Atencao"
+    INDICADOR_ATRASADO = "Atrasado"
+
+    projeto = models.ForeignKey(
+        Projeto,
+        on_delete=models.CASCADE,
+        related_name="atividades",
+    )
+
+    # Pelo seu DER: Atividade tem 2 relacionamentos com Colaborador
+    gestor = models.ForeignKey(
+        Colaborador,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="atividades_como_gestor",
+    )
+    responsavel = models.ForeignKey(
+        Colaborador,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="atividades_como_responsavel",
+    )
+
+    interlocutor = models.CharField(max_length=150, blank=True, default="")
+
+    data_previsao_inicio = models.DateField(null=True, blank=True)
+    data_previsao_termino = models.DateField(null=True, blank=True)
+    data_finalizada = models.DateField(null=True, blank=True)
+
+    historico = models.TextField(blank=True, default="")
+    tarefa = models.TextField(blank=True, default="")
+    progresso = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return f"Atividade #{self.id} - {self.projeto.nome}"
+
+    def clean(self):
+        if self.data_finalizada and self.progresso < 100:
+            raise ValidationError(
+                {"data_finalizada": "A data finalizada so pode ser preenchida quando o progresso for 100%."}
+            )
+
+    @property
+    def indicador(self):
+        hoje = timezone.localdate()
+        limite_atencao = hoje + timedelta(days=3)
+
+        if self.progresso >= 100:
+            return self.INDICADOR_CONCLUIDO
+        if self.data_previsao_termino and self.data_previsao_termino < hoje:
+            return self.INDICADOR_ATRASADO
+        if (
+            self.data_previsao_termino
+            and hoje <= self.data_previsao_termino <= limite_atencao
+        ):
+            return self.INDICADOR_ATENCAO
+        return self.INDICADOR_EM_ANDAMENTO
+
+    @classmethod
+    def criar_atividade(cls, projeto, gestor=None, responsavel=None, interlocutor="", data_previsao_inicio=None, data_previsao_termino=None, data_finalizada=None, historico="", tarefa="", progresso=0):
+        atividade = cls(
+            projeto=projeto,
+            gestor=gestor,
+            responsavel=responsavel,
+            interlocutor=interlocutor,
+            data_previsao_inicio=data_previsao_inicio,
+            data_previsao_termino=data_previsao_termino,
+            data_finalizada=data_finalizada,
+            historico=historico,
+            tarefa=tarefa,
+            progresso=progresso
+        )
+        atividade.full_clean()
+        atividade.save()
+        return atividade
+
+    @classmethod
+    def listar_atividades_por_empresa(cls, empresa):
+        return cls.objects.filter(projeto__empresa=empresa)
+
+    def atualizar_atividade(
+        self,
+        projeto=UNSET,
+        gestor=UNSET,
+        responsavel=UNSET,
+        interlocutor=UNSET,
+        data_previsao_inicio=UNSET,
+        data_previsao_termino=UNSET,
+        data_finalizada=UNSET,
+        historico=UNSET,
+        tarefa=UNSET,
+        progresso=UNSET,
+    ):
+        if projeto is not UNSET:
+            self.projeto = projeto
+        if gestor is not UNSET:
+            self.gestor = gestor
+        if responsavel is not UNSET:
+            self.responsavel = responsavel
+        if interlocutor is not UNSET:
+            self.interlocutor = interlocutor
+        if data_previsao_inicio is not UNSET:
+            self.data_previsao_inicio = data_previsao_inicio
+        if data_previsao_termino is not UNSET:
+            self.data_previsao_termino = data_previsao_termino
+        if data_finalizada is not UNSET:
+            self.data_finalizada = data_finalizada
+        if historico is not UNSET:
+            self.historico = historico
+        if tarefa is not UNSET:
+            self.tarefa = tarefa
+        if progresso is not UNSET:
+            self.progresso = progresso
+        self.full_clean()
+        self.save()
+
+    def excluir_atividade(self):
+        self.delete()

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios e Permissoes{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'painel_admin' %}">Voltar</a>
+    <h1>Usuarios e Permissoes</h1>
+</section>
+
+<section class="panel">
+    <h2>Usuarios e Permissoes: {{ empresa.nome }}</h2>
+
+    <section class="panel">
+        <h3>Cadastrar Usuario</h3>
+        <form action="{% url 'cadastrar_usuario' empresa.id %}" method="POST">
+            {% csrf_token %}
+            <input type="text" name="nome" placeholder="Nome de Usuario" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+
+            {% for modulo, permissoes in permissoes_por_modulo %}
+            <fieldset>
+                <legend>{{ modulo }}</legend>
+                {% for permissao in permissoes %}
+                <label>
+                    <input type="checkbox" name="permissoes" value="{{ permissao.id }}">
+                    {{ permissao.nome }}
+                </label>
+                <br>
+                {% endfor %}
+            </fieldset>
+            {% endfor %}
+
+            <button type="submit">Cadastrar</button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h3>Usuarios Cadastrados</h3>
+        <ul>
+            {% for usuario in usuarios %}
+            <li>
+                <form action="{% url 'editar_usuario' usuario.id %}" method="POST">
+                    {% csrf_token %}
+                    <input type="text" name="nome" value="{{ usuario.username }}" required>
+                    <input type="password" name="senha" placeholder="Nova senha (opcional)">
+
+                    {% for modulo, permissoes in permissoes_por_modulo %}
+                    <fieldset>
+                        <legend>{{ modulo }}</legend>
+                        {% for permissao in permissoes %}
+                        <label>
+                            <input
+                                type="checkbox"
+                                name="permissoes"
+                                value="{{ permissao.id }}"
+                                {% if permissao.id in usuario.permissoes_ids %}checked{% endif %}
+                            >
+                            {{ permissao.nome }}
+                        </label>
+                        <br>
+                        {% endfor %}
+                    </fieldset>
+                    {% endfor %}
+
+                    <button type="submit">Salvar Alteracoes</button>
+                    <a href="{% url 'excluir_usuario' usuario.id %}">Excluir</a>
+                </form>
+            </li>
+            {% empty %}
+            <li>Nenhum usuario cadastrado.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</section>
+{% endblock %}

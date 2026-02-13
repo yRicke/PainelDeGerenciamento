@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Controle de Margem{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'comercial' %}">Voltar</a>
+    <h1>Controle de Margem</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Controle de Margem</h2>
+    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+    <div class="auth-card">
+        <h1>Entrar</h1>
+        <p>Acesse com seu usuario para ver os modulos do painel.</p>
+
+        <form action="{% url 'entrar' %}" method="POST" class="auth-form">
+            {% csrf_token %}
+            <label for="username">Usuario</label>
+            <input type="text" id="username" name="username" required>
+
+            <label for="password">Senha</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

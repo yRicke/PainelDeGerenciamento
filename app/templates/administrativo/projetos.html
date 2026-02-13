@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Projetos{% endblock %}
+
+{% block extra_css %}
+<style>
+    .simple-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .simple-table th,
+    .simple-table td {
+        border: 1px solid #d8dee4;
+        padding: 0.5rem;
+        text-align: left;
+    }
+
+    .simple-table th {
+        background: #f3f5f7;
+    }
+
+    .inline-form {
+        display: grid;
+        grid-template-columns: 1fr 180px auto;
+        gap: 0.4rem;
+        align-items: center;
+        width: 100%;
+    }
+
+    .btn-danger {
+        background: #b42318;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: #175cd3;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'administrativo' %}">Voltar</a>
+    <h1>Projetos</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Novo Projeto</h2>
+    <form action="{% url 'criar_projeto_modulo' empresa.id %}" method="POST" class="inline-form">
+        {% csrf_token %}
+        <input type="text" name="nome" placeholder="Nome do projeto" required>
+        <input type="text" name="codigo" placeholder="Codigo (opcional)">
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Lista de Projetos</h2>
+    {% if projetos %}
+    <table class="simple-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome / Codigo</th>
+                <th>Acoes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for projeto in projetos %}
+            <tr>
+                <td>{{ projeto.id }}</td>
+                <td>
+                    <form action="{% url 'editar_projeto_modulo' empresa.id projeto.id %}" method="POST" class="inline-form">
+                        {% csrf_token %}
+                        <input type="text" name="nome" value="{{ projeto.nome }}" required>
+                        <input type="text" name="codigo" value="{{ projeto.codigo }}">
+                        <button type="submit" class="btn-primary">Salvar</button>
+                    </form>
+                </td>
+                <td>
+                    <form action="{% url 'excluir_projeto_modulo' empresa.id projeto.id %}" method="POST" onsubmit="return confirm('Excluir projeto?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-danger">Excluir</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Nenhum projeto cadastrado.</p>
+    {% endif %}
+</section>
+{% endblock %}
