@@ -134,6 +134,7 @@ class AtividadeModelTest(TestCase):
             gestor=self.colaborador1,
             responsavel=self.colaborador2,
             interlocutor="Interlocutor Teste",
+            semana_de_prazo=27,
             data_previsao_inicio="2024-07-01",
             data_previsao_termino="2024-07-31",
             data_finalizada=None,
@@ -147,6 +148,7 @@ class AtividadeModelTest(TestCase):
         self.assertEqual(self.atividade.gestor, self.colaborador1)
         self.assertEqual(self.atividade.responsavel, self.colaborador2)
         self.assertEqual(self.atividade.interlocutor, "Interlocutor Teste")
+        self.assertEqual(self.atividade.semana_de_prazo, 27)
         self.assertEqual(str(self.atividade.data_previsao_inicio), "2024-07-01")
         self.assertEqual(str(self.atividade.data_previsao_termino), "2024-07-31")
         self.assertIsNone(self.atividade.data_finalizada)
@@ -163,23 +165,25 @@ class AtividadeModelTest(TestCase):
             gestor= colaborador4,
             responsavel=colaborador3,
             interlocutor="Novo Interlocutor",
+            semana_de_prazo=31,
             data_previsao_inicio="2024-08-01",
             data_previsao_termino="2024-08-31",
             data_finalizada="2024-08-15",
             historico="Histórico atualizado",
             tarefa="Tarefa atualizada",
-            progresso=50
+            progresso=100
         )
         self.assertEqual(self.atividade.projeto, projeto2)
         self.assertEqual(self.atividade.gestor, colaborador4)
         self.assertEqual(self.atividade.responsavel, colaborador3)
         self.assertEqual(self.atividade.interlocutor, "Novo Interlocutor")
+        self.assertEqual(self.atividade.semana_de_prazo, 31)
         self.assertEqual(str(self.atividade.data_previsao_inicio), "2024-08-01")
         self.assertEqual(str(self.atividade.data_previsao_termino), "2024-08-31")
         self.assertEqual(str(self.atividade.data_finalizada), "2024-08-15")
         self.assertEqual(self.atividade.historico, "Histórico atualizado")
         self.assertEqual(self.atividade.tarefa, "Tarefa atualizada")
-        self.assertEqual(self.atividade.progresso, 50)
+        self.assertEqual(self.atividade.progresso, 100)
         
     def test_excluir_atividade(self):
         self.atividade.excluir_atividade()
@@ -194,15 +198,21 @@ class AtividadeModelTest(TestCase):
         self.atividade.data_previsao_termino = timezone.localdate() - timedelta(days=1)
         self.assertEqual(self.atividade.indicador, Atividade.INDICADOR_ATRASADO)
 
-    def test_indicador_atencao(self):
+    def test_indicador_alerta(self):
         self.atividade.progresso = 50
-        self.atividade.data_previsao_termino = timezone.localdate() + timedelta(days=2)
-        self.assertEqual(self.atividade.indicador, Atividade.INDICADOR_ATENCAO)
+        hoje = timezone.localdate()
+        inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
+        fim_proxima_semana = inicio_semana_atual + timedelta(days=13)
+        self.atividade.data_previsao_termino = fim_proxima_semana
+        self.assertEqual(self.atividade.indicador, Atividade.INDICADOR_ALERTA)
 
-    def test_indicador_em_andamento(self):
+    def test_indicador_a_fazer(self):
         self.atividade.progresso = 50
-        self.atividade.data_previsao_termino = timezone.localdate() + timedelta(days=10)
-        self.assertEqual(self.atividade.indicador, Atividade.INDICADOR_EM_ANDAMENTO)
+        hoje = timezone.localdate()
+        inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
+        inicio_duas_semanas_apos = inicio_semana_atual + timedelta(days=14)
+        self.atividade.data_previsao_termino = inicio_duas_semanas_apos
+        self.assertEqual(self.atividade.indicador, Atividade.INDICADOR_A_FAZER)
 
     def test_nao_permite_data_finalizada_com_progresso_menor_que_100_em_criacao(self):
         with self.assertRaises(ValidationError):

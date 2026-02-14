@@ -4,14 +4,14 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import F, Q
 from django_tables2 import RequestConfig
 from django.utils import timezone
 from datetime import timedelta
 
 from .models import Empresa, Usuario, Permissao, Colaborador, Projeto, Atividade
 from .tables import AtividadeTable
-from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _to_int_or_none, _to_date_or_none, _render_modulo_com_permissao
+from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _to_int_or_none, _to_date_or_none, _to_iso_week_parts_or_none, _week_bounds, _render_modulo_com_permissao
 
 @login_required(login_url="entrar")
 def index(request):
@@ -191,6 +191,7 @@ def tofu_lista_de_atividades(request, empresa_id):
         .select_related("projeto", "gestor", "responsavel")
         .order_by("-id")
     )
+    atividades_dashboard_qs = atividades_qs
     filtro_busca = (request.GET.get("q") or "").strip()
     filtro_projeto_id = request.GET.get("projeto_id") or ""
     filtro_gestor_id = request.GET.get("gestor_id") or ""
@@ -198,7 +199,84 @@ def tofu_lista_de_atividades(request, empresa_id):
     filtro_progresso = request.GET.get("progresso") or ""
     filtro_indicador = request.GET.get("indicador") or ""
     hoje = timezone.localdate()
-    limite_atencao = hoje + timedelta(days=3)
+    inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
+    fim_semana_atual = inicio_semana_atual + timedelta(days=6)
+    inicio_proxima_semana = inicio_semana_atual + timedelta(days=7)
+    fim_proxima_semana = inicio_semana_atual + timedelta(days=13)
+    inicio_duas_semanas_apos = inicio_semana_atual + timedelta(days=14)
+
+    atrasados_qs = atividades_dashboard_qs.filter(
+        progresso__lt=100,
+        data_previsao_termino__lt=hoje,
+    )
+    alertas_qs = atividades_dashboard_qs.filter(
+        progresso__lt=100,
+        data_previsao_termino__gte=hoje,
+        data_previsao_termino__lte=fim_proxima_semana,
+    )
+    concluidos_qs = atividades_dashboard_qs.filter(progresso__gte=100)
+    a_fazer_qs = atividades_dashboard_qs.filter(
+        progresso__lt=100,
+        data_previsao_termino__gte=inicio_duas_semanas_apos,
+    )
+
+    atrasados_total = atrasados_qs.count()
+    alertas_total = alertas_qs.count()
+    concluidos_total = concluidos_qs.count()
+    a_fazer_total = a_fazer_qs.count()
+    total_atividades = atividades_dashboard_qs.count()
+
+    concluidos_no_prazo = concluidos_qs.filter(
+        data_finalizada__isnull=False,
+        data_previsao_inicio__isnull=False,
+        data_previsao_termino__isnull=False,
+        data_finalizada__gte=F("data_previsao_inicio"),
+        data_finalizada__lte=F("data_previsao_termino"),
+    ).count()
+    concluidos_fora_prazo = concluidos_qs.filter(
+        data_finalizada__isnull=False,
+        data_previsao_termino__isnull=False,
+        data_finalizada__gt=F("data_previsao_termino"),
+    ).count()
+
+    def _pct(valor, total):
+        if total <= 0:
+            return 0
+        return round((valor * 100) / total, 1)
+
+    dashboard = {
+        "atrasados": {
+            "total": atrasados_total,
+            "parados": atrasados_qs.filter(progresso=0).count(),
+            "em_andamento": atrasados_qs.filter(progresso__gt=0).count(),
+            "percentual": _pct(atrasados_total, total_atividades),
+        },
+        "alertas": {
+            "total": alertas_total,
+            "semana_atual": alertas_qs.filter(
+                data_previsao_termino__gte=inicio_semana_atual,
+                data_previsao_termino__lte=fim_semana_atual,
+            ).count(),
+            "proxima_semana": alertas_qs.filter(
+                data_previsao_termino__gte=inicio_proxima_semana,
+                data_previsao_termino__lte=fim_proxima_semana,
+            ).count(),
+            "percentual": _pct(alertas_total, total_atividades),
+        },
+        "concluidos": {
+            "total": concluidos_total,
+            "no_prazo": concluidos_no_prazo,
+            "fora_do_prazo": concluidos_fora_prazo,
+            "percentual": _pct(concluidos_total, total_atividades),
+        },
+        "a_fazer": {
+            "total": a_fazer_total,
+            "parados": a_fazer_qs.filter(progresso=0).count(),
+            "em_andamento": a_fazer_qs.filter(progresso__gt=0).count(),
+            "percentual": _pct(a_fazer_total, total_atividades),
+        },
+        "total_atividades": total_atividades,
+    }
 
     if filtro_busca:
         atividades_qs = atividades_qs.filter(
@@ -223,18 +301,16 @@ def tofu_lista_de_atividades(request, empresa_id):
             progresso__lt=100,
             data_previsao_termino__lt=hoje,
         )
-    elif filtro_indicador == "atencao":
+    elif filtro_indicador == "alerta":
         atividades_qs = atividades_qs.filter(
             progresso__lt=100,
             data_previsao_termino__gte=hoje,
-            data_previsao_termino__lte=limite_atencao,
+            data_previsao_termino__lte=fim_proxima_semana,
         )
-    elif filtro_indicador == "em_andamento":
+    elif filtro_indicador == "a_fazer":
         atividades_qs = atividades_qs.filter(
-            progresso__lt=100
-        ).filter(
-            Q(data_previsao_termino__isnull=True)
-            | Q(data_previsao_termino__gt=limite_atencao)
+            progresso__lt=100,
+            data_previsao_termino__gte=inicio_duas_semanas_apos,
         )
 
     atividades_table = AtividadeTable(atividades_qs)
@@ -245,6 +321,7 @@ def tofu_lista_de_atividades(request, empresa_id):
 
     contexto = {
         "empresa": empresa,
+        "dashboard": dashboard,
         "atividades_table": atividades_table,
         "projetos": projetos,
         "colaboradores": colaboradores,
@@ -283,14 +360,25 @@ def criar_atividade_tofu(request, empresa_id):
         empresa=empresa,
     ).first()
 
+    semana_info = _to_iso_week_parts_or_none(request.POST.get("semana_de_prazo"))
+    if semana_info:
+        ano, semana = semana_info
+        data_previsao_inicio, data_previsao_termino = _week_bounds(ano, semana)
+        semana_de_prazo = semana
+    else:
+        data_previsao_inicio = None
+        data_previsao_termino = None
+        semana_de_prazo = None
+
     try:
         Atividade.criar_atividade(
             projeto=projeto,
             gestor=gestor,
             responsavel=responsavel,
             interlocutor=request.POST.get("interlocutor", ""),
-            data_previsao_inicio=_to_date_or_none(request.POST.get("data_previsao_inicio")),
-            data_previsao_termino=_to_date_or_none(request.POST.get("data_previsao_termino")),
+            semana_de_prazo=semana_de_prazo,
+            data_previsao_inicio=data_previsao_inicio,
+            data_previsao_termino=data_previsao_termino,
             data_finalizada=_to_date_or_none(request.POST.get("data_finalizada")),
             historico=request.POST.get("historico", ""),
             tarefa=request.POST.get("tarefa", ""),
@@ -329,14 +417,25 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
             empresa=empresa,
         ).first()
 
+        semana_info = _to_iso_week_parts_or_none(request.POST.get("semana_de_prazo"))
+        if semana_info:
+            ano, semana = semana_info
+            data_previsao_inicio, data_previsao_termino = _week_bounds(ano, semana)
+            semana_de_prazo = semana
+        else:
+            data_previsao_inicio = None
+            data_previsao_termino = None
+            semana_de_prazo = None
+
         try:
             atividade.atualizar_atividade(
                 projeto=projeto,
                 gestor=gestor,
                 responsavel=responsavel,
                 interlocutor=request.POST.get("interlocutor", ""),
-                data_previsao_inicio=_to_date_or_none(request.POST.get("data_previsao_inicio")),
-                data_previsao_termino=_to_date_or_none(request.POST.get("data_previsao_termino")),
+                semana_de_prazo=semana_de_prazo,
+                data_previsao_inicio=data_previsao_inicio,
+                data_previsao_termino=data_previsao_termino,
                 data_finalizada=_to_date_or_none(request.POST.get("data_finalizada")),
                 historico=request.POST.get("historico", ""),
                 tarefa=request.POST.get("tarefa", ""),
@@ -350,11 +449,16 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
 
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
     colaboradores = Colaborador.objects.filter(empresa=empresa).order_by("nome")
+    semana_de_prazo_valor = ""
+    if atividade.data_previsao_inicio:
+        iso = atividade.data_previsao_inicio.isocalendar()
+        semana_de_prazo_valor = f"{iso.year}-W{iso.week:02d}"
     contexto = {
         "empresa": empresa,
         "atividade": atividade,
         "projetos": projetos,
         "colaboradores": colaboradores,
+        "semana_de_prazo_valor": semana_de_prazo_valor,
     }
     return render(request, "administrativo/tofu_editar_atividade.html", contexto)
 

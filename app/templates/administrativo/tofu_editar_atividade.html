@@ -104,13 +104,23 @@
             </div>
 
             <div>
+                <label>Prazo (semana)</label>
+                <input
+                    type="week"
+                    name="semana_de_prazo"
+                    value="{{ semana_de_prazo_valor }}"
+                    data-semana-prazo
+                >
+            </div>
+
+            <div>
                 <label>Prev. Inicio</label>
-                <input type="date" name="data_previsao_inicio" value="{% if atividade.data_previsao_inicio %}{{ atividade.data_previsao_inicio|date:'Y-m-d' }}{% endif %}">
+                <input type="date" name="data_previsao_inicio" value="{% if atividade.data_previsao_inicio %}{{ atividade.data_previsao_inicio|date:'Y-m-d' }}{% endif %}" readonly data-data-previsao-inicio>
             </div>
 
             <div>
                 <label>Prev. Termino</label>
-                <input type="date" name="data_previsao_termino" value="{% if atividade.data_previsao_termino %}{{ atividade.data_previsao_termino|date:'Y-m-d' }}{% endif %}">
+                <input type="date" name="data_previsao_termino" value="{% if atividade.data_previsao_termino %}{{ atividade.data_previsao_termino|date:'Y-m-d' }}{% endif %}" readonly data-data-previsao-termino>
             </div>
 
             <div>
@@ -149,4 +159,3 @@
 {% block extra_js %}
 <script src="{% static 'js/tofu-atividade-form.js' %}"></script>
 {% endblock %}
-

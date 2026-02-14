@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from datetime import timedelta
 
@@ -134,8 +135,8 @@ class Projeto(models.Model):
 
 class Atividade(models.Model):
     INDICADOR_CONCLUIDO = "Concluido"
-    INDICADOR_EM_ANDAMENTO = "Em Andamento"
-    INDICADOR_ATENCAO = "Atencao"
+    INDICADOR_ALERTA = "Alerta"
+    INDICADOR_A_FAZER = "A Fazer"
     INDICADOR_ATRASADO = "Atrasado"
 
     projeto = models.ForeignKey(
@@ -162,6 +163,11 @@ class Atividade(models.Model):
 
     interlocutor = models.CharField(max_length=150, blank=True, default="")
 
+    semana_de_prazo = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(53)],
+    )
     data_previsao_inicio = models.DateField(null=True, blank=True)
     data_previsao_termino = models.DateField(null=True, blank=True)
     data_finalizada = models.DateField(null=True, blank=True)
@@ -182,7 +188,9 @@ class Atividade(models.Model):
     @property
     def indicador(self):
         hoje = timezone.localdate()
-        limite_atencao = hoje + timedelta(days=3)
+        inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
+        fim_proxima_semana = inicio_semana_atual + timedelta(days=13)
+        inicio_duas_semanas_apos = inicio_semana_atual + timedelta(days=14)
 
         if self.progresso >= 100:
             return self.INDICADOR_CONCLUIDO
@@ -190,18 +198,37 @@ class Atividade(models.Model):
             return self.INDICADOR_ATRASADO
         if (
             self.data_previsao_termino
-            and hoje <= self.data_previsao_termino <= limite_atencao
+            and self.data_previsao_termino <= fim_proxima_semana
         ):
-            return self.INDICADOR_ATENCAO
-        return self.INDICADOR_EM_ANDAMENTO
+            return self.INDICADOR_ALERTA
+        if (
+            self.data_previsao_termino
+            and self.data_previsao_termino >= inicio_duas_semanas_apos
+        ):
+            return self.INDICADOR_A_FAZER
+        return self.INDICADOR_A_FAZER
 
     @classmethod
-    def criar_atividade(cls, projeto, gestor=None, responsavel=None, interlocutor="", data_previsao_inicio=None, data_previsao_termino=None, data_finalizada=None, historico="", tarefa="", progresso=0):
+    def criar_atividade(
+        cls,
+        projeto,
+        gestor=None,
+        responsavel=None,
+        interlocutor="",
+        semana_de_prazo=None,
+        data_previsao_inicio=None,
+        data_previsao_termino=None,
+        data_finalizada=None,
+        historico="",
+        tarefa="",
+        progresso=0,
+    ):
         atividade = cls(
             projeto=projeto,
             gestor=gestor,
             responsavel=responsavel,
             interlocutor=interlocutor,
+            semana_de_prazo=semana_de_prazo,
             data_previsao_inicio=data_previsao_inicio,
             data_previsao_termino=data_previsao_termino,
             data_finalizada=data_finalizada,
@@ -223,6 +250,7 @@ class Atividade(models.Model):
         gestor=UNSET,
         responsavel=UNSET,
         interlocutor=UNSET,
+        semana_de_prazo=UNSET,
         data_previsao_inicio=UNSET,
         data_previsao_termino=UNSET,
         data_finalizada=UNSET,
@@ -238,6 +266,8 @@ class Atividade(models.Model):
             self.responsavel = responsavel
         if interlocutor is not UNSET:
             self.interlocutor = interlocutor
+        if semana_de_prazo is not UNSET:
+            self.semana_de_prazo = semana_de_prazo
         if data_previsao_inicio is not UNSET:
             self.data_previsao_inicio = data_previsao_inicio
         if data_previsao_termino is not UNSET:

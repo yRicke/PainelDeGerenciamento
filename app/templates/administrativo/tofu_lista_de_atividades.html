@@ -80,6 +80,29 @@
         text-decoration: none;
         display: inline-block;
     }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .dashboard-card {
+        border: 1px solid #d8dee4;
+        background: #fff;
+        padding: 0.75rem;
+    }
+
+    .dashboard-card h3 {
+        margin: 0 0 0.45rem;
+        font-size: 1rem;
+    }
+
+    .dashboard-card p {
+        margin: 0.2rem 0;
+        font-size: 0.9rem;
+    }
 </style>
 {% endblock %}
 
@@ -88,6 +111,44 @@
     <a href="{% url 'administrativo' %}">Voltar</a>
     <h1>TOFU Lista de Atividades</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Dashboard</h2>
+    <p><strong>Total de atividades:</strong> {{ dashboard.total_atividades }}</p>
+    <div class="dashboard-grid">
+        <article class="dashboard-card">
+            <h3>Atrasados</h3>
+            <p>Total: {{ dashboard.atrasados.total }}</p>
+            <p>Parados: {{ dashboard.atrasados.parados }}</p>
+            <p>Em andamento: {{ dashboard.atrasados.em_andamento }}</p>
+            <p>% do total: {{ dashboard.atrasados.percentual }}%</p>
+        </article>
+
+        <article class="dashboard-card">
+            <h3>Alertas</h3>
+            <p>Total: {{ dashboard.alertas.total }}</p>
+            <p>Semana atual: {{ dashboard.alertas.semana_atual }}</p>
+            <p>Proxima semana: {{ dashboard.alertas.proxima_semana }}</p>
+            <p>% do total: {{ dashboard.alertas.percentual }}%</p>
+        </article>
+
+        <article class="dashboard-card">
+            <h3>Concluidos</h3>
+            <p>Total: {{ dashboard.concluidos.total }}</p>
+            <p>No prazo: {{ dashboard.concluidos.no_prazo }}</p>
+            <p>Fora do prazo: {{ dashboard.concluidos.fora_do_prazo }}</p>
+            <p>% do total: {{ dashboard.concluidos.percentual }}%</p>
+        </article>
+
+        <article class="dashboard-card">
+            <h3>A Fazer</h3>
+            <p>Total: {{ dashboard.a_fazer.total }}</p>
+            <p>Parados: {{ dashboard.a_fazer.parados }}</p>
+            <p>Em andamento: {{ dashboard.a_fazer.em_andamento }}</p>
+            <p>% do total: {{ dashboard.a_fazer.percentual }}%</p>
+        </article>
+    </div>
 </section>
 
 <section class="panel">
@@ -131,13 +192,18 @@
             </div>
 
             <div>
+                <label>Prazo (semana)</label>
+                <input type="week" name="semana_de_prazo" data-semana-prazo>
+            </div>
+
+            <div>
                 <label>Prev. Inicio</label>
-                <input type="date" name="data_previsao_inicio">
+                <input type="date" name="data_previsao_inicio" readonly data-data-previsao-inicio>
             </div>
 
             <div>
                 <label>Prev. Termino</label>
-                <input type="date" name="data_previsao_termino">
+                <input type="date" name="data_previsao_termino" readonly data-data-previsao-termino>
             </div>
 
             <div>
@@ -208,8 +274,8 @@
             <select name="indicador">
                 <option value="">Todos</option>
                 <option value="concluido" {% if filtro_indicador == "concluido" %}selected{% endif %}>Concluido</option>
-                <option value="em_andamento" {% if filtro_indicador == "em_andamento" %}selected{% endif %}>Em Andamento</option>
-                <option value="atencao" {% if filtro_indicador == "atencao" %}selected{% endif %}>Atencao</option>
+                <option value="alerta" {% if filtro_indicador == "alerta" %}selected{% endif %}>Alerta</option>
+                <option value="a_fazer" {% if filtro_indicador == "a_fazer" %}selected{% endif %}>A Fazer</option>
                 <option value="atrasado" {% if filtro_indicador == "atrasado" %}selected{% endif %}>Atrasado</option>
             </select>
         </div>
@@ -228,4 +294,3 @@
 {% block extra_js %}
 <script src="{% static 'js/tofu-atividade-form.js' %}"></script>
 {% endblock %}
-

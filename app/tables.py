@@ -12,6 +12,7 @@ class AtividadeTable(tables.Table):
     gestor = tables.Column(accessor="gestor.nome", verbose_name="Gestor", order_by=("gestor__nome",), default="-")
     responsavel = tables.Column(accessor="responsavel.nome", verbose_name="Responsavel", order_by=("responsavel__nome",), default="-")
     interlocutor = tables.Column(verbose_name="Interlocutor")
+    semana_de_prazo = tables.Column(verbose_name="Prazo (semana)", default="-")
     data_previsao_inicio = tables.DateColumn(verbose_name="Prev. Inicio", format="d/m/Y")
     data_previsao_termino = tables.DateColumn(verbose_name="Prev. Termino", format="d/m/Y")
     data_finalizada = tables.DateColumn(verbose_name="Finalizada", format="d/m/Y")
@@ -32,6 +33,7 @@ class AtividadeTable(tables.Table):
             "gestor",
             "responsavel",
             "interlocutor",
+            "semana_de_prazo",
             "data_previsao_inicio",
             "data_previsao_termino",
             "data_finalizada",

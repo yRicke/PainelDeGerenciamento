@@ -1,6 +1,6 @@
 from .models import Permissao, Empresa
 from django.contrib import messages
-from datetime import datetime
+from datetime import date, datetime
 from django.shortcuts import render, redirect
 
 MODULOS_POR_AREA = {
@@ -144,3 +144,24 @@ def _to_date_or_none(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except (TypeError, ValueError):
         return None
+
+
+def _to_iso_week_parts_or_none(value):
+    if not value:
+        return None
+    try:
+        ano_str, semana_str = value.split("-W")
+        ano = int(ano_str)
+        semana = int(semana_str)
+        if semana < 1 or semana > 53:
+            return None
+        date.fromisocalendar(ano, semana, 1)
+        return ano, semana
+    except (TypeError, ValueError):
+        return None
+
+
+def _week_bounds(ano, semana):
+    inicio = date.fromisocalendar(ano, semana, 1)
+    termino = date.fromisocalendar(ano, semana, 7)
+    return inicio, termino
