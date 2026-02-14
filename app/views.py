@@ -4,13 +4,17 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db.models import F
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
+from pathlib import Path
+from datetime import datetime
 
 from .models import Empresa, Usuario, Permissao, Colaborador, Projeto, Atividade
-from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _to_int_or_none, _to_date_or_none, _to_iso_week_parts_or_none, _week_bounds, _render_modulo_com_permissao
+from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _transformar_int_ou_none, _transformar_date_ou_none, _transformar_iso_week_parts_ou_none, _set_prazo_inicio_e_prazo_termino, _render_modulo_com_permissao
+from .utils_importacao import importar_carteira_do_diretorio
 
 @login_required(login_url="entrar")
 def index(request):
@@ -331,18 +335,18 @@ def criar_atividade_tofu(request, empresa_id):
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     gestor = Colaborador.objects.filter(
-        id=_to_int_or_none(request.POST.get("gestor_id")),
+        id=_transformar_int_ou_none(request.POST.get("gestor_id")),
         empresa=empresa,
     ).first()
     responsavel = Colaborador.objects.filter(
-        id=_to_int_or_none(request.POST.get("responsavel_id")),
+        id=_transformar_int_ou_none(request.POST.get("responsavel_id")),
         empresa=empresa,
     ).first()
 
-    semana_info = _to_iso_week_parts_or_none(request.POST.get("semana_de_prazo"))
+    semana_info = _transformar_iso_week_parts_ou_none(request.POST.get("semana_de_prazo"))
     if semana_info:
         ano, semana = semana_info
-        data_previsao_inicio, data_previsao_termino = _week_bounds(ano, semana)
+        data_previsao_inicio, data_previsao_termino = _set_prazo_inicio_e_prazo_termino(ano, semana)
         semana_de_prazo = semana
     else:
         data_previsao_inicio = None
@@ -358,10 +362,10 @@ def criar_atividade_tofu(request, empresa_id):
             semana_de_prazo=semana_de_prazo,
             data_previsao_inicio=data_previsao_inicio,
             data_previsao_termino=data_previsao_termino,
-            data_finalizada=_to_date_or_none(request.POST.get("data_finalizada")),
+            data_finalizada=_transformar_date_ou_none(request.POST.get("data_finalizada")),
             historico=request.POST.get("historico", ""),
             tarefa=request.POST.get("tarefa", ""),
-            progresso=_to_int_or_none(request.POST.get("progresso")) or 0,
+            progresso=_transformar_int_ou_none(request.POST.get("progresso")) or 0,
         )
     except ValidationError as exc:
         messages.error(request, "; ".join(exc.messages))
@@ -388,18 +392,18 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
             return redirect("editar_atividade_tofu", empresa_id=empresa.id, atividade_id=atividade.id)
 
         gestor = Colaborador.objects.filter(
-            id=_to_int_or_none(request.POST.get("gestor_id")),
+            id=_transformar_int_ou_none(request.POST.get("gestor_id")),
             empresa=empresa,
         ).first()
         responsavel = Colaborador.objects.filter(
-            id=_to_int_or_none(request.POST.get("responsavel_id")),
+            id=_transformar_int_ou_none(request.POST.get("responsavel_id")),
             empresa=empresa,
         ).first()
 
-        semana_info = _to_iso_week_parts_or_none(request.POST.get("semana_de_prazo"))
+        semana_info = _transformar_iso_week_parts_ou_none(request.POST.get("semana_de_prazo"))
         if semana_info:
             ano, semana = semana_info
-            data_previsao_inicio, data_previsao_termino = _week_bounds(ano, semana)
+            data_previsao_inicio, data_previsao_termino = _set_prazo_inicio_e_prazo_termino(ano, semana)
             semana_de_prazo = semana
         else:
             data_previsao_inicio = None
@@ -415,10 +419,10 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
                 semana_de_prazo=semana_de_prazo,
                 data_previsao_inicio=data_previsao_inicio,
                 data_previsao_termino=data_previsao_termino,
-                data_finalizada=_to_date_or_none(request.POST.get("data_finalizada")),
+                data_finalizada=_transformar_date_ou_none(request.POST.get("data_finalizada")),
                 historico=request.POST.get("historico", ""),
                 tarefa=request.POST.get("tarefa", ""),
-                progresso=_to_int_or_none(request.POST.get("progresso")) or 0,
+                progresso=_transformar_int_ou_none(request.POST.get("progresso")) or 0,
             )
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages))
@@ -705,7 +709,72 @@ def projetos(request, empresa_id):
 @login_required(login_url="entrar")
 def carteira(request, empresa_id):
     modulo = MODULOS_POR_AREA["Comercial"][0]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "carteira"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+
+    if request.method == "POST":
+        arquivo = request.FILES.get("arquivo_carteira")
+        if not arquivo:
+            messages.error(request, "Selecione um arquivo .xlsx para importar.")
+            return redirect("carteira", empresa_id=empresa_id)
+
+        nome_arquivo = Path(arquivo.name).name
+        if not nome_arquivo.lower().endswith(".xlsx"):
+            messages.error(request, "Formato invalido. Envie apenas arquivo .xlsx.")
+            return redirect("carteira", empresa_id=empresa_id)
+
+        arquivos_existentes = [
+            f for f in diretorio_importacao.iterdir()
+            if f.is_file()
+        ]
+        confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+        if arquivos_existentes and not confirmou_substituicao:
+            messages.error(request, "Ja existe arquivo na pasta. Confirme a substituicao para continuar.")
+            return redirect("carteira", empresa_id=empresa_id)
+
+        for arquivo_antigo in arquivos_existentes:
+            destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+            if destino_subscrito.exists():
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+            arquivo_antigo.rename(destino_subscrito)
+
+        destino = diretorio_importacao / nome_arquivo
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo.chunks():
+                file_out.write(chunk)
+
+        try:
+            resultado = importar_carteira_do_diretorio(
+                empresa=empresa,
+                diretorio=str(diretorio_importacao),
+                limpar_antes=True,
+            )
+            messages.success(
+                request,
+                (
+                    f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+                    f"linhas: {resultado['linhas']}, carteiras: {resultado['carteiras']}."
+                ),
+            )
+        except Exception as exc:
+            messages.error(request, f"Falha ao importar carteira: {exc}")
+        return redirect("carteira", empresa_id=empresa_id)
+
+    arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": arquivos_existentes[0] if arquivos_existentes else "",
+        "tem_arquivo_existente": bool(arquivos_existentes),
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")

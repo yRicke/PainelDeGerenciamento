@@ -128,7 +128,7 @@ def _obter_empresa_e_validar_permissao_tofu(request, empresa_id):
     )
 
 
-def _to_int_or_none(value):
+def _transformar_int_ou_none(value):
     if value in (None, ""):
         return None
     try:
@@ -137,7 +137,7 @@ def _to_int_or_none(value):
         return None
 
 
-def _to_date_or_none(value):
+def _transformar_date_ou_none(value):
     if not value:
         return None
     try:
@@ -146,7 +146,7 @@ def _to_date_or_none(value):
         return None
 
 
-def _to_iso_week_parts_or_none(value):
+def _transformar_iso_week_parts_ou_none(value):
     if not value:
         return None
     try:
@@ -161,7 +161,8 @@ def _to_iso_week_parts_or_none(value):
         return None
 
 
-def _week_bounds(ano, semana):
+def _set_prazo_inicio_e_prazo_termino(ano, semana):
     inicio = date.fromisocalendar(ano, semana, 1)
     termino = date.fromisocalendar(ano, semana, 7)
     return inicio, termino
+

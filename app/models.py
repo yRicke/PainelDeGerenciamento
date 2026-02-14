@@ -7,7 +7,6 @@ from datetime import timedelta
 
 UNSET = object()
 
-
 class Empresa(models.Model):
     nome = models.CharField(max_length=150)
 
@@ -285,3 +284,112 @@ class Atividade(models.Model):
 
     def excluir_atividade(self):
         self.delete()
+
+class Cidade(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="cidades")
+    nome = models.CharField(max_length=100)
+    codigo = models.CharField(max_length=4, default="", unique=True)
+
+    def __str__(self):
+        return self.nome
+    
+    @classmethod
+    def criar_cidade(cls, nome, empresa, codigo):
+        cidade = cls(nome=nome, empresa=empresa, codigo=codigo)
+        cidade.save()
+        return cidade
+    
+    @classmethod
+    def listar_cidades_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+    
+    @classmethod
+    def verificar_cidade_existe(cls, codigo, empresa):
+        return cls.objects.filter(codigo=codigo, empresa=empresa).exists()
+    
+class Regiao(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="regioes")
+    nome = models.CharField(max_length=100)
+    codigo = models.CharField(max_length=7, default="", unique=True)
+
+    def __str__(self):
+        return self.nome
+    
+    @classmethod
+    def criar_regiao(cls, nome, empresa, codigo):
+        regiao = cls(nome=nome, empresa=empresa, codigo=codigo)
+        regiao.save()
+        return regiao
+    
+    @classmethod
+    def listar_regioes_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+    
+    @classmethod
+    def verificar_regiao_existe(cls, nome, empresa):
+        return cls.objects.filter(nome=nome, empresa=empresa).exists()
+
+class Carteira(models.Model):
+    empresa = models.ForeignKey( Empresa, on_delete=models.CASCADE, related_name="carteiras")
+    regiao = models.ForeignKey(Regiao, on_delete=models.SET_NULL, null=True, blank=True)
+    cidade = models.ForeignKey(Cidade, on_delete=models.SET_NULL, null=True, blank=True)
+    valor_faturado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    limite_credito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    ultima_venda = models.DateField(null=True, blank=True)
+    qtd_dias_sem_venda = models.PositiveIntegerField(default=0)
+    intervalo = models.CharField(max_length=20, blank=True, default="")
+    data_cadastro = models.DateField(auto_now_add=True)
+    gerente = models.CharField(max_length=150, blank=True, default="")
+    vendedor = models.CharField(max_length=150, blank=True, default="")
+    descricao_perfil = models.CharField(max_length=200, blank=True, default="")
+    nome_parceiro = models.CharField(max_length=150, blank=True, default="")
+    ativo_indicador = models.BooleanField(default=True)
+    cliente_indicador = models.BooleanField(default=False)
+    fornecedor_indicador = models.BooleanField(default=False)
+    transporte_indicador = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Carteira #{self.id} - {self.nome_parceiro}"
+    
+    @classmethod
+    def criar_carteira(
+        cls,
+        empresa,
+        regiao=None,
+        cidade=None,
+        valor_faturado=0,
+        limite_credito=0,
+        ultima_venda=None,
+        qtd_dias_sem_venda=0,
+        intervalo="",
+        gerente=None,
+        descricao_perfil="",
+        nome_parceiro="",
+        ativo_indicador=True,
+        cliente_indicador=False,
+        fornecedor_indicador=False,
+        transporte_indicador=False
+    ):
+        carteira = cls(
+            empresa=empresa,
+            regiao=regiao,
+            cidade=cidade,
+            valor_faturado=valor_faturado,
+            limite_credito=limite_credito,
+            ultima_venda=ultima_venda,
+            qtd_dias_sem_venda=qtd_dias_sem_venda,
+            intervalo=intervalo,
+            gerente=gerente,
+            descricao_perfil=descricao_perfil,
+            nome_parceiro=nome_parceiro,
+            ativo_indicador=ativo_indicador,
+            cliente_indicador=cliente_indicador,
+            fornecedor_indicador=fornecedor_indicador,
+            transporte_indicador=transporte_indicador
+        )
+        carteira.save()
+        return carteira
+    
+    @classmethod
+    def listar_carteiras_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)

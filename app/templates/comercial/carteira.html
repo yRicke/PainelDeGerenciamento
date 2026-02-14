@@ -2,6 +2,85 @@
 
 {% block title %}Carteira{% endblock %}
 
+{% block extra_css %}
+<style>
+    .upload-form {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .dropzone {
+        border: 2px dashed #9db4d6;
+        border-radius: 12px;
+        background: #f6f9ff;
+        padding: 1.2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+
+    .dropzone.dragover {
+        border-color: #1e5aa7;
+        background: #e9f2ff;
+    }
+
+    .dropzone strong {
+        display: block;
+        margin-bottom: 0.4rem;
+    }
+
+    .upload-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .upload-button {
+        border: 0;
+        border-radius: 10px;
+        background: #1e5aa7;
+        color: #fff;
+        font-weight: 600;
+        padding: 0.65rem 1rem;
+        cursor: pointer;
+    }
+
+    .upload-button:hover {
+        background: #15427d;
+    }
+
+    .file-status {
+        color: #5a6778;
+        font-size: 0.92rem;
+    }
+
+    .loading-status {
+        display: none;
+        border: 1px solid #c2d4eb;
+        border-radius: 10px;
+        background: #edf5ff;
+        color: #1e3a5f;
+        padding: 0.75rem 0.9rem;
+        font-size: 0.92rem;
+    }
+
+    .loading-status.is-visible {
+        display: block;
+    }
+
+    .upload-form.is-loading .dropzone {
+        opacity: 0.65;
+        pointer-events: none;
+    }
+
+    .upload-form.is-loading .upload-button {
+        opacity: 0.65;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="page-hero">
     <a href="{% url 'comercial' %}">Voltar</a>
@@ -10,7 +89,164 @@
 </section>
 
 <section class="panel">
-    <h2>Carteira</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+    <h2>Importacao de Carteira</h2>
+    <p>Arraste um arquivo <code>.xlsx</code> para importar. Apenas um arquivo permanece na pasta.</p>
+
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form
+        id="upload-carteira-form"
+        class="upload-form"
+        method="post"
+        enctype="multipart/form-data"
+        data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
+    >
+        {% csrf_token %}
+        <input type="file" id="arquivo-carteira-input" name="arquivo_carteira" accept=".xlsx" hidden>
+        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+
+        <div id="dropzone-carteira" class="dropzone">
+            <strong>Arraste e solte o arquivo aqui</strong>
+            <span>ou clique para selecionar um arquivo <code>.xlsx</code>.</span>
+        </div>
+
+        <div class="upload-actions">
+            <button type="submit" class="upload-button">Enviar e importar</button>
+            <span id="nome-arquivo-selecionado" class="file-status"></span>
+        </div>
+
+        <div id="carteira-loading-status" class="loading-status">
+            Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+        </div>
+    </form>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const form = document.getElementById("upload-carteira-form");
+        const dropzone = document.getElementById("dropzone-carteira");
+        const input = document.getElementById("arquivo-carteira-input");
+        const confirmInput = document.getElementById("confirmar-substituicao-input");
+        const fileStatus = document.getElementById("nome-arquivo-selecionado");
+        const loadingStatus = document.getElementById("carteira-loading-status");
+        const temArquivoExistente = form.dataset.temArquivoExistente === "1";
+
+        function iniciarCarregamento() {
+            form.classList.add("is-loading");
+            loadingStatus.classList.add("is-visible");
+        }
+
+        function limparSelecaoArquivo() {
+            input.value = "";
+            confirmInput.value = "0";
+            fileStatus.textContent = "";
+            dropzone.classList.remove("dragover");
+        }
+
+        function atualizarNomeArquivo() {
+            if (!input.files || !input.files.length) {
+                fileStatus.textContent = "";
+                return;
+            }
+            fileStatus.textContent = "Arquivo selecionado: " + input.files[0].name;
+        }
+
+        function validarExtensaoXlsx(file) {
+            return file && file.name.toLowerCase().endsWith(".xlsx");
+        }
+
+        function confirmarSubstituicaoSeNecessario() {
+            if (!temArquivoExistente) {
+                confirmInput.value = "0";
+                return true;
+            }
+
+            const confirmou = window.confirm("Ja existe um arquivo de carteira. Deseja substituir o arquivo atual?");
+            if (!confirmou) {
+                return false;
+            }
+
+            confirmInput.value = "1";
+            return true;
+        }
+
+        dropzone.addEventListener("click", function () {
+            input.click();
+        });
+
+        dropzone.addEventListener("dragover", function (event) {
+            event.preventDefault();
+            dropzone.classList.add("dragover");
+        });
+
+        dropzone.addEventListener("dragleave", function () {
+            dropzone.classList.remove("dragover");
+        });
+
+        dropzone.addEventListener("drop", function (event) {
+            event.preventDefault();
+            dropzone.classList.remove("dragover");
+            const files = event.dataTransfer.files;
+            if (!files || !files.length) {
+                return;
+            }
+
+            const file = files[0];
+            if (!validarExtensaoXlsx(file)) {
+                window.alert("Envie apenas arquivo .xlsx.");
+                return;
+            }
+
+            input.files = files;
+            atualizarNomeArquivo();
+        });
+
+        input.addEventListener("change", function () {
+            if (!input.files || !input.files.length) {
+                return;
+            }
+
+            const file = input.files[0];
+            if (!validarExtensaoXlsx(file)) {
+                window.alert("Envie apenas arquivo .xlsx.");
+                input.value = "";
+                atualizarNomeArquivo();
+                return;
+            }
+
+            atualizarNomeArquivo();
+        });
+
+        form.addEventListener("submit", function (event) {
+            if (!input.files || !input.files.length) {
+                event.preventDefault();
+                window.alert("Selecione um arquivo .xlsx para continuar.");
+                return;
+            }
+
+            const file = input.files[0];
+            if (!validarExtensaoXlsx(file)) {
+                event.preventDefault();
+                window.alert("Envie apenas arquivo .xlsx.");
+                return;
+            }
+
+            if (temArquivoExistente && confirmInput.value !== "1") {
+                if (!confirmarSubstituicaoSeNecessario()) {
+                    event.preventDefault();
+                    limparSelecaoArquivo();
+                    return;
+                }
+            }
+
+            iniciarCarregamento();
+        });
+    })();
+</script>
 {% endblock %}
