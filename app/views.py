@@ -4,13 +4,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import F, Q
-from django_tables2 import RequestConfig
+from django.db.models import F
+from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 
 from .models import Empresa, Usuario, Permissao, Colaborador, Projeto, Atividade
-from .tables import AtividadeTable
 from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _to_int_or_none, _to_date_or_none, _to_iso_week_parts_or_none, _week_bounds, _render_modulo_com_permissao
 
 @login_required(login_url="entrar")
@@ -192,12 +191,6 @@ def tofu_lista_de_atividades(request, empresa_id):
         .order_by("-id")
     )
     atividades_dashboard_qs = atividades_qs
-    filtro_busca = (request.GET.get("q") or "").strip()
-    filtro_projeto_id = request.GET.get("projeto_id") or ""
-    filtro_gestor_id = request.GET.get("gestor_id") or ""
-    filtro_responsavel_id = request.GET.get("responsavel_id") or ""
-    filtro_progresso = request.GET.get("progresso") or ""
-    filtro_indicador = request.GET.get("indicador") or ""
     hoje = timezone.localdate()
     inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
     fim_semana_atual = inicio_semana_atual + timedelta(days=6)
@@ -278,43 +271,35 @@ def tofu_lista_de_atividades(request, empresa_id):
         "total_atividades": total_atividades,
     }
 
-    if filtro_busca:
-        atividades_qs = atividades_qs.filter(
-            Q(interlocutor__icontains=filtro_busca)
-            | Q(historico__icontains=filtro_busca)
-            | Q(tarefa__icontains=filtro_busca)
-            | Q(projeto__nome__icontains=filtro_busca)
-            | Q(projeto__codigo__icontains=filtro_busca)
-        )
-    if filtro_projeto_id:
-        atividades_qs = atividades_qs.filter(projeto_id=filtro_projeto_id)
-    if filtro_gestor_id:
-        atividades_qs = atividades_qs.filter(gestor_id=filtro_gestor_id)
-    if filtro_responsavel_id:
-        atividades_qs = atividades_qs.filter(responsavel_id=filtro_responsavel_id)
-    if filtro_progresso:
-        atividades_qs = atividades_qs.filter(progresso=filtro_progresso)
-    if filtro_indicador == "concluido":
-        atividades_qs = atividades_qs.filter(progresso__gte=100)
-    elif filtro_indicador == "atrasado":
-        atividades_qs = atividades_qs.filter(
-            progresso__lt=100,
-            data_previsao_termino__lt=hoje,
-        )
-    elif filtro_indicador == "alerta":
-        atividades_qs = atividades_qs.filter(
-            progresso__lt=100,
-            data_previsao_termino__gte=hoje,
-            data_previsao_termino__lte=fim_proxima_semana,
-        )
-    elif filtro_indicador == "a_fazer":
-        atividades_qs = atividades_qs.filter(
-            progresso__lt=100,
-            data_previsao_termino__gte=inicio_duas_semanas_apos,
-        )
+    def _fmt_date(data):
+        if not data:
+            return ""
+        return data.strftime("%d/%m/%Y")
 
-    atividades_table = AtividadeTable(atividades_qs)
-    RequestConfig(request, paginate={"per_page": 10}).configure(atividades_table)
+    atividades_tabulator = []
+    for atividade in atividades_qs:
+        atividades_tabulator.append(
+            {
+                "id": atividade.id,
+                "projeto": atividade.projeto.nome,
+                "codigo_projeto": atividade.projeto.codigo or "-",
+                "gestor": atividade.gestor.nome if atividade.gestor else "-",
+                "responsavel": atividade.responsavel.nome if atividade.responsavel else "-",
+                "interlocutor": atividade.interlocutor,
+                "semana_de_prazo": atividade.semana_de_prazo or "-",
+                "data_previsao_inicio": _fmt_date(atividade.data_previsao_inicio),
+                "data_previsao_termino": _fmt_date(atividade.data_previsao_termino),
+                "data_finalizada": _fmt_date(atividade.data_finalizada),
+                "indicador": atividade.indicador,
+                "historico": atividade.historico,
+                "tarefa": atividade.tarefa,
+                "progresso": atividade.progresso,
+                "editar_url": reverse(
+                    "editar_atividade_tofu",
+                    kwargs={"empresa_id": empresa.id, "atividade_id": atividade.id},
+                ),
+            }
+        )
 
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
     colaboradores = Colaborador.objects.filter(empresa=empresa).order_by("nome")
@@ -322,15 +307,9 @@ def tofu_lista_de_atividades(request, empresa_id):
     contexto = {
         "empresa": empresa,
         "dashboard": dashboard,
-        "atividades_table": atividades_table,
+        "atividades_tabulator": atividades_tabulator,
         "projetos": projetos,
         "colaboradores": colaboradores,
-        "filtro_busca": filtro_busca,
-        "filtro_projeto_id": filtro_projeto_id,
-        "filtro_gestor_id": filtro_gestor_id,
-        "filtro_responsavel_id": filtro_responsavel_id,
-        "filtro_progresso": filtro_progresso,
-        "filtro_indicador": filtro_indicador,
     }
     return render(request, "administrativo/tofu_lista_de_atividades.html", contexto)
 

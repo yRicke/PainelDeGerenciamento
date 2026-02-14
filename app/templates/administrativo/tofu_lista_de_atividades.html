@@ -1,34 +1,18 @@
 {% extends "base.html" %}
-{% load render_table from django_tables2 %}
 {% load static %}
 
 {% block title %}TOFU Lista de Atividades{% endblock %}
 
 {% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <style>
     .table-wrapper {
         width: 100%;
         overflow-x: auto;
     }
 
-    .atividade-table {
-        width: 100%;
-        border-collapse: collapse;
+    #atividades-tabulator {
         min-width: 1200px;
-    }
-
-    .atividade-table th,
-    .atividade-table td {
-        border: 1px solid #d8dee4;
-        padding: 0.45rem;
-        text-align: left;
-        vertical-align: top;
-        font-size: 0.9rem;
-    }
-
-    .atividade-table th {
-        background: #f3f5f7;
-        white-space: nowrap;
     }
 
     .form-grid {
@@ -56,7 +40,7 @@
 
     .filter-grid {
         display: grid;
-        grid-template-columns: 2fr repeat(5, minmax(140px, 1fr));
+        grid-template-columns: repeat(4, minmax(170px, 1fr)) 120px;
         gap: 0.6rem;
         margin-bottom: 0.8rem;
         align-items: end;
@@ -233,64 +217,132 @@
 <section class="panel">
     <h2>Atividades Cadastradas</h2>
 
-    <form method="GET" class="filter-grid">
+    <div class="filter-grid">
         <div>
-            <label>Busca</label>
-            <input type="text" name="q" value="{{ filtro_busca }}" placeholder="Projeto, tarefa, historico...">
-        </div>
-        <div>
-            <label>Projeto</label>
-            <select name="projeto_id">
-                <option value="">Todos</option>
-                {% for projeto in projetos %}
-                <option value="{{ projeto.id }}" {% if filtro_projeto_id == projeto.id|stringformat:"s" %}selected{% endif %}>{{ projeto.nome }}</option>
-                {% endfor %}
-            </select>
+            <label>Codigo</label>
+            <input type="text" id="filtro-codigo" placeholder="Codigo do projeto">
         </div>
         <div>
             <label>Gestor</label>
-            <select name="gestor_id">
+            <select id="filtro-gestor">
                 <option value="">Todos</option>
-                {% for colaborador in colaboradores %}
-                <option value="{{ colaborador.id }}" {% if filtro_gestor_id == colaborador.id|stringformat:"s" %}selected{% endif %}>{{ colaborador.nome }}</option>
-                {% endfor %}
             </select>
         </div>
         <div>
             <label>Responsavel</label>
-            <select name="responsavel_id">
+            <select id="filtro-responsavel">
                 <option value="">Todos</option>
-                {% for colaborador in colaboradores %}
-                <option value="{{ colaborador.id }}" {% if filtro_responsavel_id == colaborador.id|stringformat:"s" %}selected{% endif %}>{{ colaborador.nome }}</option>
-                {% endfor %}
             </select>
-        </div>
-        <div>
-            <label>Progresso (%)</label>
-            <input type="number" min="0" max="100" name="progresso" value="{{ filtro_progresso }}">
         </div>
         <div>
             <label>Indicador</label>
-            <select name="indicador">
+            <select id="filtro-indicador">
                 <option value="">Todos</option>
-                <option value="concluido" {% if filtro_indicador == "concluido" %}selected{% endif %}>Concluido</option>
-                <option value="alerta" {% if filtro_indicador == "alerta" %}selected{% endif %}>Alerta</option>
-                <option value="a_fazer" {% if filtro_indicador == "a_fazer" %}selected{% endif %}>A Fazer</option>
-                <option value="atrasado" {% if filtro_indicador == "atrasado" %}selected{% endif %}>Atrasado</option>
             </select>
         </div>
         <div>
-            <button type="submit" class="btn-primary">Filtrar</button>
-            <a href="{% url 'tofu_lista_de_atividades' empresa.id %}" class="btn-light">Limpar</a>
+            <button type="button" class="btn-light" id="limpar-filtros-tabulator">Limpar</button>
         </div>
-    </form>
+    </div>
 
     <div class="table-wrapper">
-        {% render_table atividades_table %}
+        <div id="atividades-tabulator"></div>
     </div>
 </section>
 {% endblock %}
 
 {% block extra_js %}
+{{ atividades_tabulator|json_script:"atividades-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/tofu-atividade-form.js' %}"></script>
+<script>
+    (function () {
+        var dataElement = document.getElementById("atividades-tabulator-data");
+        if (!dataElement || !window.Tabulator) return;
+
+        var data = JSON.parse(dataElement.textContent || "[]");
+        var codigoInput = document.getElementById("filtro-codigo");
+        var gestorSelect = document.getElementById("filtro-gestor");
+        var responsavelSelect = document.getElementById("filtro-responsavel");
+        var indicadorSelect = document.getElementById("filtro-indicador");
+        var limparBtn = document.getElementById("limpar-filtros-tabulator");
+
+        function preencherSelect(select, valores) {
+            valores.forEach(function (valor) {
+                var option = document.createElement("option");
+                option.value = valor;
+                option.textContent = valor;
+                select.appendChild(option);
+            });
+        }
+
+        var gestores = [...new Set(data.map(function (item) { return item.gestor; }).filter(Boolean))].sort();
+        var responsaveis = [...new Set(data.map(function (item) { return item.responsavel; }).filter(Boolean))].sort();
+        var indicadores = [...new Set(data.map(function (item) { return item.indicador; }).filter(Boolean))].sort();
+
+        preencherSelect(gestorSelect, gestores);
+        preencherSelect(responsavelSelect, responsaveis);
+        preencherSelect(indicadorSelect, indicadores);
+
+        var tabela = new Tabulator("#atividades-tabulator", {
+            data: data,
+            layout: "fitDataStretch",
+            pagination: true,
+            paginationSize: 10,
+            columns: [
+                {title: "ID", field: "id", width: 70, hozAlign: "center"},
+                {title: "Projeto", field: "projeto"},
+                {title: "Codigo", field: "codigo_projeto"},
+                {title: "Gestor", field: "gestor"},
+                {title: "Responsavel", field: "responsavel"},
+                {title: "Interlocutor", field: "interlocutor"},
+                {title: "Prazo (semana)", field: "semana_de_prazo", hozAlign: "center"},
+                {title: "Prev. Inicio", field: "data_previsao_inicio"},
+                {title: "Prev. Termino", field: "data_previsao_termino"},
+                {title: "Finalizada", field: "data_finalizada"},
+                {title: "Indicador", field: "indicador"},
+                {title: "Historico", field: "historico"},
+                {title: "Tarefa", field: "tarefa"},
+                {title: "Progresso (%)", field: "progresso", hozAlign: "center"},
+                {
+                    title: "Acoes",
+                    field: "editar_url",
+                    formatter: function (cell) {
+                        var url = cell.getValue();
+                        return '<a class="btn-primary" href="' + url + '">Editar</a>';
+                    },
+                    hozAlign: "center",
+                },
+            ],
+        });
+
+        function aplicarFiltros() {
+            var codigo = (codigoInput.value || "").toLowerCase().trim();
+            var gestor = gestorSelect.value || "";
+            var responsavel = responsavelSelect.value || "";
+            var indicador = indicadorSelect.value || "";
+
+            tabela.setFilter(function (dataRow) {
+                if (codigo && !(dataRow.codigo_projeto || "").toLowerCase().includes(codigo)) return false;
+                if (gestor && dataRow.gestor !== gestor) return false;
+                if (responsavel && dataRow.responsavel !== responsavel) return false;
+                if (indicador && dataRow.indicador !== indicador) return false;
+                return true;
+            });
+        }
+
+        [codigoInput, gestorSelect, responsavelSelect, indicadorSelect].forEach(function (el) {
+            el.addEventListener("input", aplicarFiltros);
+            el.addEventListener("change", aplicarFiltros);
+        });
+
+        limparBtn.addEventListener("click", function () {
+            codigoInput.value = "";
+            gestorSelect.value = "";
+            responsavelSelect.value = "";
+            indicadorSelect.value = "";
+            tabela.clearFilter(true);
+        });
+    })();
+</script>
 {% endblock %}
