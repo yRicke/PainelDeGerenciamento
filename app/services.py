@@ -10,13 +10,13 @@ from django.db.models import F
 from django.utils import timezone
 
 from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario
-from .utils import (
+from .utils.administrativo_utils import (
     _set_prazo_inicio_e_prazo_termino,
     _transformar_date_ou_none,
     _transformar_int_ou_none,
     _transformar_iso_week_parts_ou_none,
 )
-from .utils_importacao import importar_carteira_do_diretorio
+from .utils.comercial_importacao import importar_carteira_do_diretorio
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -257,9 +257,17 @@ def atualizar_regiao_por_dados(regiao, nome, codigo, empresa):
 
 
 def _parse_decimal_ou_zero(valor):
-    texto = (valor or "").strip().replace(".", "").replace(",", ".")
+    texto = (valor or "").strip()
     if not texto:
         return Decimal("0")
+
+    texto = texto.replace("R$", "").replace(" ", "")
+    texto_lower = texto.lower()
+    if "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    elif texto.count(".") > 1 and "e" not in texto_lower:
+        texto = texto.replace(".", "")
+
     try:
         return Decimal(texto)
     except InvalidOperation:

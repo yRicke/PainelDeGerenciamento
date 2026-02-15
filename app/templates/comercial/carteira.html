@@ -1,129 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Carteira{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<style>
-    .upload-form {
-        display: grid;
-        gap: 0.9rem;
-    }
-
-    .dropzone {
-        border: 2px dashed #9db4d6;
-        border-radius: 12px;
-        background: #f6f9ff;
-        padding: 1.2rem;
-        text-align: center;
-        cursor: pointer;
-        transition: 0.2s ease;
-    }
-
-    .dropzone.dragover {
-        border-color: #1e5aa7;
-        background: #e9f2ff;
-    }
-
-    .dropzone strong {
-        display: block;
-        margin-bottom: 0.4rem;
-    }
-
-    .upload-actions {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .upload-button {
-        border: 0;
-        border-radius: 10px;
-        background: #1e5aa7;
-        color: #fff;
-        font-weight: 600;
-        padding: 0.65rem 1rem;
-        cursor: pointer;
-    }
-
-    .upload-button:hover {
-        background: #15427d;
-    }
-
-    .file-status {
-        color: #5a6778;
-        font-size: 0.92rem;
-    }
-
-    .loading-status {
-        display: none;
-        border: 1px solid #c2d4eb;
-        border-radius: 10px;
-        background: #edf5ff;
-        color: #1e3a5f;
-        padding: 0.75rem 0.9rem;
-        font-size: 0.92rem;
-    }
-
-    .loading-status.is-visible {
-        display: block;
-    }
-
-    .upload-form.is-loading .dropzone {
-        opacity: 0.65;
-        pointer-events: none;
-    }
-
-    .upload-form.is-loading .upload-button {
-        opacity: 0.65;
-        pointer-events: none;
-    }
-
-    .filter-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(170px, 1fr));
-        gap: 0.6rem;
-        margin-bottom: 0.8rem;
-        align-items: end;
-    }
-
-    .table-wrapper {
-        width: 100%;
-        overflow-x: auto;
-    }
-
-    #carteira-tabulator {
-        min-width: 1500px;
-    }
-
-    .btn-light {
-        background: #f3f5f7;
-        color: #111;
-        border: 1px solid #d8dee4;
-        padding: 0.45rem 0.6rem;
-        text-decoration: none;
-        display: inline-block;
-        cursor: pointer;
-    }
-
-    .btn-primary {
-        background: #175cd3;
-        color: #fff;
-        border: 0;
-        padding: 0.45rem 0.6rem;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-    }
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(170px, 1fr));
-        gap: 0.6rem;
-        margin-bottom: 0.75rem;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'css/carteira.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -132,21 +14,6 @@
     <a href="{% url 'comercial' %}">Voltar</a>
     <h1>Carteira</h1>
     <p>Empresa: {{ empresa.nome }}</p>
-</section>
-
-<section class="panel">
-    <div style="display:flex;gap:0.8rem;align-items:end;justify-content:space-between;flex-wrap:wrap;">
-        <h2 style="margin:0;">Dashboard de Carteira</h2>
-        <div>
-            <label for="filtro-ano-dashboard-carteira">Ano</label>
-            <select id="filtro-ano-dashboard-carteira">
-                {% for ano in dashboard_carteira_anos_disponiveis %}
-                <option value="{{ ano }}" {% if ano == dashboard_carteira_ano_inicial %}selected{% endif %}>{{ ano }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    </div>
-    <div id="carteira-dashboard-chart"></div>
 </section>
 
 <section class="panel">
@@ -214,7 +81,7 @@
                 <label>Descricao perfil</label>
                 <input type="text" name="descricao_perfil">
             </div>
-            <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+            <div class="indicadores-grid">
                 <label><input type="checkbox" name="ativo_indicador" checked> Ativo</label>
                 <label><input type="checkbox" name="cliente_indicador"> Cliente</label>
                 <label><input type="checkbox" name="fornecedor_indicador"> Fornecedor</label>
@@ -260,6 +127,51 @@
             Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
         </div>
     </form>
+</section>
+
+<section class="panel">
+    <div class="dashboard-header">
+        <h2>Grafico da Carteira</h2>
+        <div>
+            <label for="filtro-ano-dashboard-carteira">Ano</label>
+            <select id="filtro-ano-dashboard-carteira">
+                {% for ano in dashboard_carteira_anos_disponiveis %}
+                <option value="{{ ano }}" {% if ano == dashboard_carteira_ano_inicial %}selected{% endif %}>{{ ano }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div id="carteira-dashboard-chart"></div>
+</section>
+
+<section class="panel">
+    <h2>Resumo da Carteira</h2>
+    <div class="kpi-grid">
+        <article class="kpi-card">
+            <h3>Total Carteira</h3>
+            <dl class="kpi-list">
+                <div><dt>Qtd. Total</dt><dd id="kpi-total-carteira-qtd-total">{{ dashboard_resumo_total_carteira.qtd_total }}</dd></div>
+                <div><dt>Positivacao</dt><dd id="kpi-total-carteira-positivacao">{{ dashboard_resumo_total_carteira.positivacao }}</dd></div>
+                <div><dt>Limite de Credito</dt><dd id="kpi-total-carteira-limite">{{ dashboard_resumo_total_carteira.limite_credito }}</dd></div>
+                <div><dt>Total Faturamento</dt><dd id="kpi-total-carteira-faturamento">{{ dashboard_resumo_total_carteira.total_faturamento }}</dd></div>
+                <div><dt>Media</dt><dd id="kpi-total-carteira-media">{{ dashboard_resumo_total_carteira.media_limite }}</dd></div>
+                <div><dt>Media Faturamento</dt><dd id="kpi-total-carteira-media-faturamento">{{ dashboard_resumo_total_carteira.media_faturamento }}</dd></div>
+                <div><dt>PULGA</dt><dd id="kpi-total-carteira-pulga">{{ dashboard_resumo_total_carteira.pulga }}</dd></div>
+            </dl>
+        </article>
+        <article class="kpi-card">
+            <h3>Total Real</h3>
+            <dl class="kpi-list">
+                <div><dt>Qtd. Total</dt><dd id="kpi-total-real-qtd-total">{{ dashboard_resumo_total_real.qtd_total }}</dd></div>
+                <div><dt>Positivacao</dt><dd id="kpi-total-real-positivacao">{{ dashboard_resumo_total_real.positivacao }}</dd></div>
+                <div><dt>Limite de Credito</dt><dd id="kpi-total-real-limite">{{ dashboard_resumo_total_real.limite_credito }}</dd></div>
+                <div><dt>Total Faturamento</dt><dd id="kpi-total-real-faturamento">{{ dashboard_resumo_total_real.total_faturamento }}</dd></div>
+                <div><dt>Media</dt><dd id="kpi-total-real-media">{{ dashboard_resumo_total_real.media_limite }}</dd></div>
+                <div><dt>Media Faturamento</dt><dd id="kpi-total-real-media-faturamento">{{ dashboard_resumo_total_real.media_faturamento }}</dd></div>
+                <div><dt>PULGA</dt><dd id="kpi-total-real-pulga">{{ dashboard_resumo_total_real.pulga }}</dd></div>
+            </dl>
+        </article>
+    </div>
 </section>
 
 <section class="panel">
@@ -341,444 +253,5 @@
 {{ carteiras_tabulator|json_script:"carteira-tabulator-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-<script>
-    (function () {
-        var chartContainer = document.getElementById("carteira-dashboard-chart");
-        if (!chartContainer || !window.ApexCharts) return;
-
-        var anoSelect = document.getElementById("filtro-ano-dashboard-carteira");
-        var anosDisponiveis = JSON.parse(document.getElementById("dashboard-carteira-anos-disponiveis").textContent || "[]");
-        var agregados = JSON.parse(document.getElementById("dashboard-carteira-agregados-ano-mes").textContent || "{}");
-        var anoInicial = parseInt(JSON.parse(document.getElementById("dashboard-carteira-ano-inicial").textContent || "0"), 10);
-        var anoAtual = parseInt(JSON.parse(document.getElementById("dashboard-carteira-ano-atual").textContent || "0"), 10);
-        var mesAtual = parseInt(JSON.parse(document.getElementById("dashboard-carteira-mes-atual").textContent || "1"), 10);
-        var nomesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-        function montarSeriesPorAno(anoSelecionado) {
-            var limiteMeses = anoSelecionado < anoAtual ? 12 : (anoSelecionado === anoAtual ? mesAtual : 0);
-            var categorias = [];
-            var qtdCadastramentos = [];
-            var valorFaturado = [];
-
-            for (var mes = 1; mes <= limiteMeses; mes++) {
-                categorias.push(nomesMeses[mes - 1]);
-                var chave = String(anoSelecionado) + "-" + String(mes).padStart(2, "0");
-                var agregado = agregados[chave] || {qtd: 0, valor: 0};
-                qtdCadastramentos.push(parseInt(agregado.qtd || 0, 10));
-                valorFaturado.push(parseInt(agregado.valor || 0, 10));
-            }
-
-            var yMaxQtd = Math.max.apply(null, qtdCadastramentos.concat([0]));
-            var yMaxValor = Math.max.apply(null, valorFaturado.concat([0]));
-            if (!Number.isFinite(yMaxQtd) || yMaxQtd <= 0) yMaxQtd = 10;
-            if (!Number.isFinite(yMaxValor) || yMaxValor <= 0) yMaxValor = 10;
-            return {
-                categorias: categorias,
-                qtdCadastramentos: qtdCadastramentos,
-                valorFaturado: valorFaturado,
-                yMaxQtd: yMaxQtd,
-                yMaxValor: yMaxValor
-            };
-        }
-
-        if (anoSelect && anosDisponiveis.length && !anoSelect.value) {
-            anoSelect.value = String(anoInicial || anosDisponiveis[anosDisponiveis.length - 1]);
-        }
-
-        var anoSelecionadoInicial = anoSelect && anoSelect.value
-            ? parseInt(anoSelect.value, 10)
-            : (anoInicial || anoAtual);
-        var dadosIniciais = montarSeriesPorAno(anoSelecionadoInicial);
-
-        var chart = new ApexCharts(chartContainer, {
-            chart: {
-                type: "line",
-                height: 360,
-                toolbar: {show: true}
-            },
-            series: [
-                {
-                    name: "Qtd Cadastramentos",
-                    type: "column",
-                    data: dadosIniciais.qtdCadastramentos
-                },
-                {
-                    name: "Valor Faturado",
-                    type: "line",
-                    data: dadosIniciais.valorFaturado
-                }
-            ],
-            stroke: {
-                width: [0, 3]
-            },
-            colors: ["#175cd3", "#f38744"],
-            plotOptions: {
-                bar: {
-                    columnWidth: "55%"
-                }
-            },
-            dataLabels: {
-                enabled: true,
-                enabledOnSeries: [1]
-            },
-            labels: dadosIniciais.categorias,
-            xaxis: {
-                categories: dadosIniciais.categorias
-            },
-            yaxis: [
-                {
-                    seriesName: "Qtd Cadastramentos",
-                    min: 0,
-                    max: dadosIniciais.yMaxQtd,
-                    tickAmount: 6,
-                    forceNiceScale: true,
-                    labels: {
-                        formatter: function (value) {
-                            return Math.round(value);
-                        }
-                    },
-                    title: {
-                        text: "Qtd Cadastramentos"
-                    }
-                },
-                {
-                    seriesName: "Valor Faturado",
-                    opposite: true,
-                    min: 0,
-                    max: dadosIniciais.yMaxValor,
-                    tickAmount: 6,
-                    forceNiceScale: true,
-                    labels: {
-                        formatter: function (value) {
-                            return Math.round(value);
-                        }
-                    },
-                    title: {
-                        text: "Valor Faturado"
-                    }
-                },
-            ],
-            tooltip: {
-                shared: true,
-                intersect: false
-            }
-        });
-
-        chart.render();
-
-        if (anoSelect) {
-            anoSelect.addEventListener("change", function () {
-                var anoSelecionado = parseInt(anoSelect.value, 10);
-                var dados = montarSeriesPorAno(anoSelecionado);
-                chart.updateOptions({
-                    labels: dados.categorias,
-                    xaxis: {categories: dados.categorias},
-                    yaxis: [
-                        {
-                            seriesName: "Qtd Cadastramentos",
-                            min: 0,
-                            max: dados.yMaxQtd,
-                            tickAmount: 6,
-                            forceNiceScale: true,
-                            labels: {
-                                formatter: function (value) {
-                                    return Math.round(value);
-                                }
-                            },
-                            title: {
-                                text: "Qtd Cadastramentos"
-                            }
-                        },
-                        {
-                            seriesName: "Valor Faturado",
-                            opposite: true,
-                            min: 0,
-                            max: dados.yMaxValor,
-                            tickAmount: 6,
-                            forceNiceScale: true,
-                            labels: {
-                                formatter: function (value) {
-                                    return Math.round(value);
-                                }
-                            },
-                            title: {
-                                text: "Valor Faturado"
-                            }
-                        },
-                    ]
-                });
-                chart.updateSeries([
-                    {name: "Qtd Cadastramentos", type: "column", data: dados.qtdCadastramentos},
-                    {name: "Valor Faturado", type: "line", data: dados.valorFaturado}
-                ]);
-            });
-        }
-    })();
-</script>
-<script>
-    (function () {
-        const form = document.getElementById("upload-carteira-form");
-        const dropzone = document.getElementById("dropzone-carteira");
-        const input = document.getElementById("arquivo-carteira-input");
-        const confirmInput = document.getElementById("confirmar-substituicao-input");
-        const fileStatus = document.getElementById("nome-arquivo-selecionado");
-        const loadingStatus = document.getElementById("carteira-loading-status");
-        const temArquivoExistente = form.dataset.temArquivoExistente === "1";
-
-        function iniciarCarregamento() {
-            form.classList.add("is-loading");
-            loadingStatus.classList.add("is-visible");
-        }
-
-        function limparSelecaoArquivo() {
-            input.value = "";
-            confirmInput.value = "0";
-            fileStatus.textContent = "";
-            dropzone.classList.remove("dragover");
-        }
-
-        function atualizarNomeArquivo() {
-            if (!input.files || !input.files.length) {
-                fileStatus.textContent = "";
-                return;
-            }
-            fileStatus.textContent = "Arquivo selecionado: " + input.files[0].name;
-        }
-
-        function validarExtensaoXlsx(file) {
-            return file && file.name.toLowerCase().endsWith(".xlsx");
-        }
-
-        function confirmarSubstituicaoSeNecessario() {
-            if (!temArquivoExistente) {
-                confirmInput.value = "0";
-                return true;
-            }
-
-            const confirmou = window.confirm("Ja existe um arquivo de carteira. Deseja substituir o arquivo atual?");
-            if (!confirmou) {
-                return false;
-            }
-
-            confirmInput.value = "1";
-            return true;
-        }
-
-        dropzone.addEventListener("click", function () {
-            input.click();
-        });
-
-        dropzone.addEventListener("dragover", function (event) {
-            event.preventDefault();
-            dropzone.classList.add("dragover");
-        });
-
-        dropzone.addEventListener("dragleave", function () {
-            dropzone.classList.remove("dragover");
-        });
-
-        dropzone.addEventListener("drop", function (event) {
-            event.preventDefault();
-            dropzone.classList.remove("dragover");
-            const files = event.dataTransfer.files;
-            if (!files || !files.length) {
-                return;
-            }
-
-            const file = files[0];
-            if (!validarExtensaoXlsx(file)) {
-                window.alert("Envie apenas arquivo .xlsx.");
-                return;
-            }
-
-            input.files = files;
-            atualizarNomeArquivo();
-        });
-
-        input.addEventListener("change", function () {
-            if (!input.files || !input.files.length) {
-                return;
-            }
-
-            const file = input.files[0];
-            if (!validarExtensaoXlsx(file)) {
-                window.alert("Envie apenas arquivo .xlsx.");
-                input.value = "";
-                atualizarNomeArquivo();
-                return;
-            }
-
-            atualizarNomeArquivo();
-        });
-
-        form.addEventListener("submit", function (event) {
-            if (!input.files || !input.files.length) {
-                event.preventDefault();
-                window.alert("Selecione um arquivo .xlsx para continuar.");
-                return;
-            }
-
-            const file = input.files[0];
-            if (!validarExtensaoXlsx(file)) {
-                event.preventDefault();
-                window.alert("Envie apenas arquivo .xlsx.");
-                return;
-            }
-
-            if (temArquivoExistente && confirmInput.value !== "1") {
-                if (!confirmarSubstituicaoSeNecessario()) {
-                    event.preventDefault();
-                    limparSelecaoArquivo();
-                    return;
-                }
-            }
-
-            iniciarCarregamento();
-        });
-    })();
-</script>
-<script>
-    (function () {
-        const dataElement = document.getElementById("carteira-tabulator-data");
-        if (!dataElement || !window.Tabulator) return;
-
-        const data = JSON.parse(dataElement.textContent || "[]");
-        const gerenteSelect = document.getElementById("filtro-gerente");
-        const ativoSelect = document.getElementById("filtro-ativo");
-        const clienteSelect = document.getElementById("filtro-cliente");
-        const fornecedorSelect = document.getElementById("filtro-fornecedor");
-        const transportadoraSelect = document.getElementById("filtro-transportadora");
-        const intervaloSelect = document.getElementById("filtro-intervalo");
-        const descricaoPerfilSelect = document.getElementById("filtro-descricao-perfil");
-        const anoCadastroSelect = document.getElementById("filtro-ano-cadastro");
-        const limparBtn = document.getElementById("limpar-filtros-carteira");
-
-        function preencherSelect(select, valores) {
-            valores.forEach(function (valor) {
-                const option = document.createElement("option");
-                option.value = String(valor);
-                option.textContent = String(valor);
-                select.appendChild(option);
-            });
-        }
-
-        const gerentes = [...new Set(data.map(function (item) { return item.gerente; }).filter(Boolean))].sort();
-        const intervalos = [...new Set(data.map(function (item) { return item.intervalo; }).filter(Boolean))].sort();
-        const descricoesPerfil = [...new Set(data.map(function (item) { return item.descricao_perfil; }).filter(Boolean))].sort();
-        const anosCadastro = [...new Set(data.map(function (item) { return item.ano_cadastro; }).filter(Boolean))].sort(function (a, b) { return b - a; });
-
-        preencherSelect(gerenteSelect, gerentes);
-        preencherSelect(intervaloSelect, intervalos);
-        preencherSelect(descricaoPerfilSelect, descricoesPerfil);
-        preencherSelect(anoCadastroSelect, anosCadastro);
-
-        const tabela = new Tabulator("#carteira-tabulator", {
-            data: data,
-            layout: "fitDataStretch",
-            pagination: true,
-            paginationSize: 10,
-            columns: [
-                {title: "ID", field: "id", width: 75, hozAlign: "center", headerFilter: "input"},
-                {title: "Parceiro", field: "nome_parceiro", headerFilter: "input"},
-                {title: "Gerente", field: "gerente", headerFilter: "input"},
-                {title: "Vendedor", field: "vendedor", headerFilter: "input"},
-                {
-                    title: "Valor faturado",
-                    field: "valor_faturado",
-                    hozAlign: "right",
-                    headerFilter: "input",
-                    formatter: "money",
-                    formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-                },
-                {
-                    title: "Limite credito",
-                    field: "limite_credito",
-                    hozAlign: "right",
-                    headerFilter: "input",
-                    formatter: "money",
-                    formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-                },
-                {title: "Ultima venda", field: "ultima_venda", headerFilter: "input"},
-                {title: "Dias sem venda", field: "qtd_dias_sem_venda", hozAlign: "center", headerFilter: "input"},
-                {title: "Intervalo", field: "intervalo", headerFilter: "input"},
-                {title: "Descricao perfil", field: "descricao_perfil", headerFilter: "input"},
-                {title: "Ativo", field: "ativo_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-                {title: "Cliente", field: "cliente_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-                {title: "Fornecedor", field: "fornecedor_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-                {title: "Transportadora", field: "transporte_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-                {title: "Ano cadastro", field: "ano_cadastro", hozAlign: "center", headerFilter: "input"},
-                {title: "Data cadastro", field: "data_cadastro", headerFilter: "input"},
-                {title: "Regiao", field: "regiao_nome", headerFilter: "input"},
-                {title: "Codigo regiao", field: "regiao_codigo", headerFilter: "input"},
-                {title: "Cidade", field: "cidade_nome", headerFilter: "input"},
-                {title: "Codigo cidade", field: "cidade_codigo", headerFilter: "input"},
-                {
-                    title: "Acoes",
-                    field: "editar_url",
-                    formatter: function (cell) {
-                        const url = cell.getValue();
-                        return '<a class="btn-primary" href="' + url + '">Editar</a>';
-                    },
-                    hozAlign: "center",
-                },
-            ],
-        });
-
-        function parseBool(value) {
-            if (value === "true") return true;
-            if (value === "false") return false;
-            return null;
-        }
-
-        function aplicarFiltros() {
-            const gerente = gerenteSelect.value || "";
-            const ativo = parseBool(ativoSelect.value);
-            const cliente = parseBool(clienteSelect.value);
-            const fornecedor = parseBool(fornecedorSelect.value);
-            const transportadora = parseBool(transportadoraSelect.value);
-            const intervalo = intervaloSelect.value || "";
-            const descricaoPerfil = descricaoPerfilSelect.value || "";
-            const anoCadastro = anoCadastroSelect.value || "";
-
-            tabela.setFilter(function (dataRow) {
-                if (gerente && dataRow.gerente !== gerente) return false;
-                if (ativo !== null && dataRow.ativo_indicador !== ativo) return false;
-                if (cliente !== null && dataRow.cliente_indicador !== cliente) return false;
-                if (fornecedor !== null && dataRow.fornecedor_indicador !== fornecedor) return false;
-                if (transportadora !== null && dataRow.transporte_indicador !== transportadora) return false;
-                if (intervalo && dataRow.intervalo !== intervalo) return false;
-                if (descricaoPerfil && dataRow.descricao_perfil !== descricaoPerfil) return false;
-                if (anoCadastro && String(dataRow.ano_cadastro) !== String(anoCadastro)) return false;
-                return true;
-            });
-        }
-
-        [
-            gerenteSelect,
-            ativoSelect,
-            clienteSelect,
-            fornecedorSelect,
-            transportadoraSelect,
-            intervaloSelect,
-            descricaoPerfilSelect,
-            anoCadastroSelect,
-        ].forEach(function (element) {
-            element.addEventListener("change", aplicarFiltros);
-            element.addEventListener("input", aplicarFiltros);
-        });
-
-        limparBtn.addEventListener("click", function () {
-            gerenteSelect.value = "";
-            ativoSelect.value = "";
-            clienteSelect.value = "";
-            fornecedorSelect.value = "";
-            transportadoraSelect.value = "";
-            intervaloSelect.value = "";
-            descricaoPerfilSelect.value = "";
-            anoCadastroSelect.value = "";
-            tabela.clearFilter(true);
-            tabela.clearHeaderFilter();
-        });
-    })();
-</script>
+<script src="{% static 'js/carteira-page.js' %}"></script>
 {% endblock %}

@@ -3,14 +3,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from datetime import date
 from django.db.models import FloatField
 from django.db.models.functions import Cast
 
 from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario
-from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _render_modulo_com_permissao
+from .utils.administrativo_transformers import montar_contexto_tofu_lista
+from .utils.comercial_transformers import montar_contexto_carteira
+from .utils.modulos_permissoes import (
+    MODULOS_POR_AREA,
+    _modulos_com_acesso,
+    _obter_empresa_e_validar_permissao_modulo,
+    _obter_empresa_e_validar_permissao_tofu,
+    _obter_permissoes_do_form,
+    _obter_permissoes_por_modulo,
+    _render_modulo_com_permissao,
+)
 from .services import (
-    calcular_dashboard_tofu,
     criar_atividade_por_post,
     atualizar_atividade_por_post,
     semana_iso_input_atividade,
@@ -35,8 +43,6 @@ from .services import (
     atualizar_regiao_por_dados,
 )
 from .tabulator import (
-    build_atividades_tabulator,
-    build_carteiras_tabulator,
     build_cidades_tabulator,
     build_colaboradores_tabulator,
     build_projetos_tabulator,
@@ -189,28 +195,29 @@ def excluir_usuario(request, usuario_id):
 
 @login_required(login_url="entrar")
 def tofu_lista_de_atividades(request, empresa_id):
+    # 1) Autorizacao
     empresa, autorizado = _obter_empresa_e_validar_permissao_tofu(request, empresa_id)
     if not autorizado:
         return redirect("index")
 
+    # 2) Query
     atividades_qs = (
         Atividade.objects.filter(projeto__empresa=empresa)
         .select_related("projeto", "gestor", "responsavel")
         .order_by("-id")
     )
-    dashboard = calcular_dashboard_tofu(atividades_qs)
-    atividades_tabulator = build_atividades_tabulator(atividades_qs, empresa.id)
-
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
     colaboradores = Colaborador.objects.filter(empresa=empresa).order_by("nome")
 
-    contexto = {
-        "empresa": empresa,
-        "dashboard": dashboard,
-        "atividades_tabulator": atividades_tabulator,
-        "projetos": projetos,
-        "colaboradores": colaboradores,
-    }
+    # 3) Transformacao
+    contexto = montar_contexto_tofu_lista(
+        empresa=empresa,
+        atividades_qs=atividades_qs,
+        projetos=projetos,
+        colaboradores=colaboradores,
+    )
+
+    # 4) Render
     return render(request, "administrativo/tofu_lista_de_atividades.html", contexto)
 
 
@@ -521,6 +528,7 @@ def projetos(request, empresa_id):
 
 @login_required(login_url="entrar")
 def carteira(request, empresa_id):
+    # 1) Autorizacao
     modulo = MODULOS_POR_AREA["Comercial"][0]
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
     if not permitido:
@@ -552,6 +560,7 @@ def carteira(request, empresa_id):
                 messages.error(request, mensagem)
         return redirect("carteira", empresa_id=empresa_id)
 
+    # 2) Query
     carteiras_qs = (
         Carteira.objects.filter(empresa=empresa)
         .annotate(
@@ -581,62 +590,28 @@ def carteira(request, empresa_id):
         )
         .order_by("-id")
     )
-
-    carteiras_tabulator = build_carteiras_tabulator(carteiras_qs, empresa.id)
-
-    hoje = date.today()
-    ano_atual = hoje.year
-    mes_atual = hoje.month
     carteiras_dashboard_qs = (
         Carteira.objects.filter(empresa=empresa, data_cadastro__isnull=False)
         .values("data_cadastro", "valor_faturado")
     )
 
-    agregados_por_ano_mes = {}
-    anos_disponiveis_set = set()
-    for item in carteiras_dashboard_qs:
-        data_cadastro = item.get("data_cadastro")
-        if not data_cadastro:
-            continue
-        ano = data_cadastro.year
-        mes = data_cadastro.month
-        anos_disponiveis_set.add(ano)
-        chave = f"{ano}-{mes:02d}"
-        if chave not in agregados_por_ano_mes:
-            agregados_por_ano_mes[chave] = {"qtd": 0, "valor": 0}
-        agregados_por_ano_mes[chave]["qtd"] += 1
-        valor = item.get("valor_faturado") or 0
-        try:
-            valor_int = int(round(float(valor)))
-        except (TypeError, ValueError):
-            valor_int = 0
-        agregados_por_ano_mes[chave]["valor"] += valor_int
-
-    anos_disponiveis = sorted(anos_disponiveis_set)
-    if ano_atual in anos_disponiveis:
-        ano_dashboard_inicial = ano_atual
-    elif anos_disponiveis:
-        ano_dashboard_inicial = anos_disponiveis[-1]
-    else:
-        ano_dashboard_inicial = ano_atual
-
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
     cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
     regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
-    contexto = {
-        "empresa": empresa,
-        "modulo_nome": modulo["nome"],
-        "arquivo_existente": arquivos_existentes[0] if arquivos_existentes else "",
-        "tem_arquivo_existente": bool(arquivos_existentes),
-        "carteiras_tabulator": carteiras_tabulator,
-        "cidades": cidades,
-        "regioes": regioes,
-        "dashboard_carteira_anos_disponiveis": anos_disponiveis,
-        "dashboard_carteira_agregados_por_ano_mes": agregados_por_ano_mes,
-        "dashboard_carteira_ano_inicial": ano_dashboard_inicial,
-        "dashboard_carteira_ano_atual": ano_atual,
-        "dashboard_carteira_mes_atual": mes_atual,
-    }
+
+    # 3) Transformacao
+    contexto = montar_contexto_carteira(
+        empresa=empresa,
+        modulo_nome=modulo["nome"],
+        arquivo_existente=arquivos_existentes[0] if arquivos_existentes else "",
+        tem_arquivo_existente=bool(arquivos_existentes),
+        carteiras_qs=carteiras_qs,
+        cidades=cidades,
+        regioes=regioes,
+        carteiras_dashboard_qs=carteiras_dashboard_qs,
+    )
+
+    # 4) Render
     return render(request, modulo["template"], contexto)
 
 

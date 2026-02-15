@@ -1,0 +1,12 @@
+from ..services import calcular_dashboard_tofu
+from ..tabulator import build_atividades_tabulator
+
+
+def montar_contexto_tofu_lista(*, empresa, atividades_qs, projetos, colaboradores):
+    return {
+        "empresa": empresa,
+        "dashboard": calcular_dashboard_tofu(atividades_qs),
+        "atividades_tabulator": build_atividades_tabulator(atividades_qs, empresa.id),
+        "projetos": projetos,
+        "colaboradores": colaboradores,
+    }
