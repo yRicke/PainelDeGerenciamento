@@ -3,29 +3,8 @@
 {% block title %}Colaboradores{% endblock %}
 
 {% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <style>
-    .simple-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .simple-table th,
-    .simple-table td {
-        border: 1px solid #d8dee4;
-        padding: 0.5rem;
-        text-align: left;
-    }
-
-    .simple-table th {
-        background: #f3f5f7;
-    }
-
-    .action-group {
-        display: flex;
-        gap: 0.4rem;
-        align-items: center;
-    }
-
     .inline-form {
         display: flex;
         gap: 0.4rem;
@@ -52,6 +31,33 @@
         padding: 0.45rem 0.6rem;
         cursor: pointer;
     }
+
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    #colaboradores-tabulator {
+        min-width: 780px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 120px;
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+        align-items: end;
+    }
+
+    .btn-light {
+        background: #f3f5f7;
+        color: #111;
+        border: 1px solid #d8dee4;
+        padding: 0.45rem 0.6rem;
+        text-decoration: none;
+        display: inline-block;
+        cursor: pointer;
+    }
 </style>
 {% endblock %}
 
@@ -73,38 +79,99 @@
 
 <section class="panel">
     <h2>Lista de Colaboradores</h2>
-    {% if colaboradores %}
-    <table class="simple-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nome</th>
-                <th>Acoes</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for colaborador in colaboradores %}
-            <tr>
-                <td>{{ colaborador.id }}</td>
-                <td>
-                    <form action="{% url 'editar_colaborador_modulo' empresa.id colaborador.id %}" method="POST" class="inline-form">
-                        {% csrf_token %}
-                        <input type="text" name="nome" value="{{ colaborador.nome }}" required>
-                        <button type="submit" class="btn-primary">Salvar</button>
-                    </form>
-                </td>
-                <td>
-                    <form action="{% url 'excluir_colaborador_modulo' empresa.id colaborador.id %}" method="POST" onsubmit="return confirm('Excluir colaborador?');">
-                        {% csrf_token %}
-                        <button type="submit" class="btn-danger">Excluir</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>Nenhum colaborador cadastrado.</p>
-    {% endif %}
+    <div class="filter-grid">
+        <div>
+            <label>Buscar por nome</label>
+            <input type="text" id="filtro-colaborador-nome" placeholder="Digite o nome">
+        </div>
+        <div>
+            <button type="button" class="btn-light" id="limpar-filtros-colaboradores">Limpar</button>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <div id="colaboradores-tabulator"></div>
+    </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ colaboradores_tabulator|json_script:"colaboradores-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script>
+    (function () {
+        var dataElement = document.getElementById("colaboradores-tabulator-data");
+        if (!dataElement || !window.Tabulator) return;
+
+        var data = JSON.parse(dataElement.textContent || "[]");
+        var csrfToken = "{{ csrf_token }}";
+        var filtroNome = document.getElementById("filtro-colaborador-nome");
+        var limparFiltrosBtn = document.getElementById("limpar-filtros-colaboradores");
+
+        function submitPost(url, fields, confirmMsg) {
+            if (confirmMsg && !window.confirm(confirmMsg)) return;
+            var form = document.createElement("form");
+            form.method = "POST";
+            form.action = url;
+
+            var csrfInput = document.createElement("input");
+            csrfInput.type = "hidden";
+            csrfInput.name = "csrfmiddlewaretoken";
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+
+            Object.keys(fields || {}).forEach(function (key) {
+                var input = document.createElement("input");
+                input.type = "hidden";
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        var tabela = new Tabulator("#colaboradores-tabulator", {
+            data: data,
+            layout: "fitDataStretch",
+            pagination: true,
+            paginationSize: 10,
+            columns: [
+                {title: "ID", field: "id", width: 80, hozAlign: "center"},
+                {title: "Nome", field: "nome", editor: "input"},
+                {
+                    title: "Acoes",
+                    field: "editar_url",
+                    hozAlign: "center",
+                    formatter: function () {
+                        return '<button class="btn-primary" type="button">Salvar</button> <button class="btn-danger" type="button">Excluir</button>';
+                    },
+                    cellClick: function (e, cell) {
+                        var row = cell.getRow().getData();
+                        if (e.target && e.target.classList.contains("btn-primary")) {
+                            submitPost(row.editar_url, {nome: row.nome || ""});
+                        }
+                        if (e.target && e.target.classList.contains("btn-danger")) {
+                            submitPost(row.excluir_url, {}, "Excluir colaborador?");
+                        }
+                    },
+                },
+            ],
+        });
+
+        function aplicarFiltros() {
+            var nome = (filtroNome.value || "").toLowerCase().trim();
+            tabela.setFilter(function (dataRow) {
+                if (nome && !(dataRow.nome || "").toLowerCase().includes(nome)) return false;
+                return true;
+            });
+        }
+
+        filtroNome.addEventListener("input", aplicarFiltros);
+        limparFiltrosBtn.addEventListener("click", function () {
+            filtroNome.value = "";
+            tabela.clearFilter(true);
+        });
+    })();
+</script>
 {% endblock %}

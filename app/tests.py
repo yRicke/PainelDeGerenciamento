@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from datetime import timedelta
-from .models import Empresa, Usuario, Permissao, Colaborador, Projeto, Atividade
+from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Permissao, Projeto, Regiao, Usuario
 
 # Create your tests here.
 
@@ -238,3 +238,81 @@ class AtividadeModelTest(TestCase):
 
         self.atividade.atualizar_atividade(data_finalizada=None, progresso=80)
         self.assertIsNone(self.atividade.data_finalizada)
+
+
+class CidadeModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.cidade = Cidade.criar_cidade(nome="Sao Paulo", empresa=self.empresa, codigo="1001")
+
+    def test_criar_cidade(self):
+        self.assertEqual(self.cidade.nome, "Sao Paulo")
+        self.assertEqual(self.cidade.codigo, "1001")
+        self.assertEqual(self.cidade.empresa, self.empresa)
+
+    def test_atualizar_cidade(self):
+        self.cidade.atualizar_cidade(novo_nome="Campinas", novo_codigo="1002")
+        self.assertEqual(self.cidade.nome, "Campinas")
+        self.assertEqual(self.cidade.codigo, "1002")
+
+    def test_excluir_cidade(self):
+        self.cidade.excluir_cidade()
+        self.assertFalse(Cidade.objects.filter(id=self.cidade.id).exists())
+
+
+class RegiaoModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.regiao = Regiao.criar_regiao(nome="Sudeste", empresa=self.empresa, codigo="RG0001")
+
+    def test_criar_regiao(self):
+        self.assertEqual(self.regiao.nome, "Sudeste")
+        self.assertEqual(self.regiao.codigo, "RG0001")
+        self.assertEqual(self.regiao.empresa, self.empresa)
+
+    def test_atualizar_regiao(self):
+        self.regiao.atualizar_regiao(novo_nome="Centro-Oeste", novo_codigo="RG0002")
+        self.assertEqual(self.regiao.nome, "Centro-Oeste")
+        self.assertEqual(self.regiao.codigo, "RG0002")
+
+    def test_excluir_regiao(self):
+        self.regiao.excluir_regiao()
+        self.assertFalse(Regiao.objects.filter(id=self.regiao.id).exists())
+
+
+class CarteiraModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.regiao = Regiao.criar_regiao(nome="Sudeste", empresa=self.empresa, codigo="RG1001")
+        self.cidade = Cidade.criar_cidade(nome="Sao Paulo", empresa=self.empresa, codigo="2001")
+        self.carteira = Carteira.criar_carteira(
+            empresa=self.empresa,
+            regiao=self.regiao,
+            cidade=self.cidade,
+            nome_parceiro="Parceiro 1",
+            gerente="Gerente 1",
+            vendedor="Vendedor 1",
+            ativo_indicador=True,
+        )
+
+    def test_criar_carteira(self):
+        self.assertEqual(self.carteira.nome_parceiro, "Parceiro 1")
+        self.assertEqual(self.carteira.regiao, self.regiao)
+        self.assertEqual(self.carteira.cidade, self.cidade)
+        self.assertEqual(self.carteira.vendedor, "Vendedor 1")
+
+    def test_atualizar_carteira(self):
+        self.carteira.atualizar_carteira(
+            nome_parceiro="Parceiro 2",
+            gerente="Gerente 2",
+            vendedor="Vendedor 2",
+            cliente_indicador=True,
+        )
+        self.assertEqual(self.carteira.nome_parceiro, "Parceiro 2")
+        self.assertEqual(self.carteira.gerente, "Gerente 2")
+        self.assertEqual(self.carteira.vendedor, "Vendedor 2")
+        self.assertTrue(self.carteira.cliente_indicador)
+
+    def test_excluir_carteira(self):
+        self.carteira.excluir_carteira()
+        self.assertFalse(Carteira.objects.filter(id=self.carteira.id).exists())

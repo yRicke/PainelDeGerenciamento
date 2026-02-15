@@ -1,0 +1,461 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db.models import F
+from django.utils import timezone
+
+from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario
+from .utils import (
+    _set_prazo_inicio_e_prazo_termino,
+    _transformar_date_ou_none,
+    _transformar_int_ou_none,
+    _transformar_iso_week_parts_ou_none,
+)
+from .utils_importacao import importar_carteira_do_diretorio
+
+
+def calcular_dashboard_tofu(atividades_qs):
+    hoje = timezone.localdate()
+    inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
+    fim_semana_atual = inicio_semana_atual + timedelta(days=6)
+    inicio_proxima_semana = inicio_semana_atual + timedelta(days=7)
+    fim_proxima_semana = inicio_semana_atual + timedelta(days=13)
+    inicio_duas_semanas_apos = inicio_semana_atual + timedelta(days=14)
+
+    atrasados_qs = atividades_qs.filter(
+        progresso__lt=100,
+        data_previsao_termino__lt=hoje,
+    )
+    alertas_qs = atividades_qs.filter(
+        progresso__lt=100,
+        data_previsao_termino__gte=hoje,
+        data_previsao_termino__lte=fim_proxima_semana,
+    )
+    concluidos_qs = atividades_qs.filter(progresso__gte=100)
+    a_fazer_qs = atividades_qs.filter(
+        progresso__lt=100,
+        data_previsao_termino__gte=inicio_duas_semanas_apos,
+    )
+
+    atrasados_total = atrasados_qs.count()
+    alertas_total = alertas_qs.count()
+    concluidos_total = concluidos_qs.count()
+    a_fazer_total = a_fazer_qs.count()
+    total_atividades = atividades_qs.count()
+
+    concluidos_no_prazo = concluidos_qs.filter(
+        data_finalizada__isnull=False,
+        data_previsao_inicio__isnull=False,
+        data_previsao_termino__isnull=False,
+        data_finalizada__gte=F("data_previsao_inicio"),
+        data_finalizada__lte=F("data_previsao_termino"),
+    ).count()
+    concluidos_fora_prazo = concluidos_qs.filter(
+        data_finalizada__isnull=False,
+        data_previsao_termino__isnull=False,
+        data_finalizada__gt=F("data_previsao_termino"),
+    ).count()
+
+    def _pct(valor, total):
+        if total <= 0:
+            return 0
+        return round((valor * 100) / total, 1)
+
+    return {
+        "atrasados": {
+            "total": atrasados_total,
+            "parados": atrasados_qs.filter(progresso=0).count(),
+            "em_andamento": atrasados_qs.filter(progresso__gt=0).count(),
+            "percentual": _pct(atrasados_total, total_atividades),
+        },
+        "alertas": {
+            "total": alertas_total,
+            "semana_atual": alertas_qs.filter(
+                data_previsao_termino__gte=inicio_semana_atual,
+                data_previsao_termino__lte=fim_semana_atual,
+            ).count(),
+            "proxima_semana": alertas_qs.filter(
+                data_previsao_termino__gte=inicio_proxima_semana,
+                data_previsao_termino__lte=fim_proxima_semana,
+            ).count(),
+            "percentual": _pct(alertas_total, total_atividades),
+        },
+        "concluidos": {
+            "total": concluidos_total,
+            "no_prazo": concluidos_no_prazo,
+            "fora_do_prazo": concluidos_fora_prazo,
+            "percentual": _pct(concluidos_total, total_atividades),
+        },
+        "a_fazer": {
+            "total": a_fazer_total,
+            "parados": a_fazer_qs.filter(progresso=0).count(),
+            "em_andamento": a_fazer_qs.filter(progresso__gt=0).count(),
+            "percentual": _pct(a_fazer_total, total_atividades),
+        },
+        "total_atividades": total_atividades,
+    }
+
+
+def usuarios_com_permissoes_ids(usuarios_qs):
+    usuarios = list(usuarios_qs)
+    for usuario in usuarios:
+        usuario.permissoes_ids = set(usuario.permissoes.values_list("id", flat=True))
+    return usuarios
+
+
+def criar_empresa_por_nome(nome):
+    nome = (nome or "").strip()
+    if not nome:
+        return "O nome da empresa e obrigatorio."
+    Empresa.criar_empresa(nome=nome)
+    return ""
+
+
+def atualizar_empresa_por_nome(empresa, novo_nome):
+    novo_nome = (novo_nome or "").strip()
+    if not novo_nome:
+        return "O nome da empresa e obrigatorio."
+    empresa.atualizar_nome(novo_nome=novo_nome)
+    return ""
+
+
+def excluir_empresa_por_id(empresa_id):
+    try:
+        empresa = Empresa.objects.get(id=empresa_id)
+    except Empresa.DoesNotExist as exc:
+        return False, f"Empresa nao encontrada. {exc}"
+    empresa.excluir_empresa()
+    return True, "Empresa excluida com sucesso!"
+
+
+def criar_usuario_por_post(empresa, post_data, permissoes):
+    nome = post_data.get("nome")
+    senha = post_data.get("senha")
+    Usuario.criar_usuario(
+        empresa=empresa,
+        username=nome,
+        password=senha,
+        permissoes=permissoes,
+    )
+
+
+def atualizar_usuario_por_post(usuario, post_data, permissoes):
+    usuario.atualizar_usuario(
+        username=post_data.get("nome"),
+        password=post_data.get("senha"),
+        permissoes=permissoes,
+    )
+
+
+def excluir_usuario_por_id(usuario_id):
+    try:
+        usuario = Usuario.objects.get(id=usuario_id)
+    except Usuario.DoesNotExist as exc:
+        return False, None, f"Usuario nao encontrado. {exc}"
+    empresa_id = usuario.empresa.id
+    usuario.excluir_usuario()
+    return True, empresa_id, "Usuario excluido com sucesso!"
+
+
+def criar_colaborador_por_nome(empresa, nome):
+    nome = (nome or "").strip()
+    if not nome:
+        return "Nome do colaborador e obrigatorio."
+    Colaborador.criar_colaborador(nome=nome, empresa=empresa)
+    return ""
+
+
+def atualizar_colaborador_por_nome(colaborador, nome):
+    nome = (nome or "").strip()
+    if not nome:
+        return "Nome do colaborador e obrigatorio."
+    colaborador.atualizar_colaborador(novo_nome=nome)
+    return ""
+
+
+def criar_projeto_por_dados(empresa, nome, codigo):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome do projeto e obrigatorio."
+    Projeto.criar_projeto(nome=nome, empresa=empresa, codigo=codigo)
+    return ""
+
+
+def atualizar_projeto_por_dados(projeto, nome, codigo):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome do projeto e obrigatorio."
+    projeto.atualizar_projeto(novo_nome=nome, novo_codigo=codigo)
+    return ""
+
+
+def criar_cidade_por_dados(empresa, nome, codigo):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome da cidade e obrigatorio."
+    if not codigo:
+        return "Codigo da cidade e obrigatorio."
+    if Cidade.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
+        return "Ja existe cidade com este codigo em outra empresa."
+    if Cidade.objects.filter(empresa=empresa, codigo=codigo).exists():
+        return "Ja existe cidade com este codigo nesta empresa."
+    Cidade.criar_cidade(nome=nome, empresa=empresa, codigo=codigo)
+    return ""
+
+
+def atualizar_cidade_por_dados(cidade, nome, codigo, empresa):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome da cidade e obrigatorio."
+    if not codigo:
+        return "Codigo da cidade e obrigatorio."
+    if Cidade.objects.filter(codigo=codigo).exclude(id=cidade.id).exclude(empresa=empresa).exists():
+        return "Ja existe cidade com este codigo em outra empresa."
+    if Cidade.objects.filter(empresa=empresa, codigo=codigo).exclude(id=cidade.id).exists():
+        return "Ja existe cidade com este codigo nesta empresa."
+    cidade.atualizar_cidade(novo_nome=nome, novo_codigo=codigo)
+    return ""
+
+
+def criar_regiao_por_dados(empresa, nome, codigo):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome da regiao e obrigatorio."
+    if not codigo:
+        return "Codigo da regiao e obrigatorio."
+    if Regiao.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
+        return "Ja existe regiao com este codigo em outra empresa."
+    if Regiao.objects.filter(empresa=empresa, codigo=codigo).exists():
+        return "Ja existe regiao com este codigo nesta empresa."
+    Regiao.criar_regiao(nome=nome, empresa=empresa, codigo=codigo)
+    return ""
+
+
+def atualizar_regiao_por_dados(regiao, nome, codigo, empresa):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome da regiao e obrigatorio."
+    if not codigo:
+        return "Codigo da regiao e obrigatorio."
+    if Regiao.objects.filter(codigo=codigo).exclude(id=regiao.id).exclude(empresa=empresa).exists():
+        return "Ja existe regiao com este codigo em outra empresa."
+    if Regiao.objects.filter(empresa=empresa, codigo=codigo).exclude(id=regiao.id).exists():
+        return "Ja existe regiao com este codigo nesta empresa."
+    regiao.atualizar_regiao(novo_nome=nome, novo_codigo=codigo)
+    return ""
+
+
+def _parse_decimal_ou_zero(valor):
+    texto = (valor or "").strip().replace(".", "").replace(",", ".")
+    if not texto:
+        return Decimal("0")
+    try:
+        return Decimal(texto)
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def _parse_date_ou_none(valor):
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_int_ou_zero(valor):
+    if valor in (None, ""):
+        return 0
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _parse_bool_checkbox(post_data, campo):
+    return post_data.get(campo) == "on"
+
+
+def _dados_carteira_from_post(post_data, empresa):
+    regiao = Regiao.objects.filter(id=post_data.get("regiao_id"), empresa=empresa).first()
+    cidade = Cidade.objects.filter(id=post_data.get("cidade_id"), empresa=empresa).first()
+
+    data_cadastro_raw = post_data.get("data_cadastro")
+    data_cadastro = _parse_date_ou_none(data_cadastro_raw)
+
+    return {
+        "data_cadastro_raw": data_cadastro_raw,
+        "regiao": regiao,
+        "cidade": cidade,
+        "valor_faturado": _parse_decimal_ou_zero(post_data.get("valor_faturado")),
+        "limite_credito": _parse_decimal_ou_zero(post_data.get("limite_credito")),
+        "ultima_venda": _parse_date_ou_none(post_data.get("ultima_venda")),
+        "qtd_dias_sem_venda": _parse_int_ou_zero(post_data.get("qtd_dias_sem_venda")),
+        "intervalo": (post_data.get("intervalo") or "").strip(),
+        "data_cadastro": data_cadastro,
+        "gerente": (post_data.get("gerente") or "").strip(),
+        "vendedor": (post_data.get("vendedor") or "").strip(),
+        "descricao_perfil": (post_data.get("descricao_perfil") or "").strip(),
+        "nome_parceiro": (post_data.get("nome_parceiro") or "").strip(),
+        "ativo_indicador": _parse_bool_checkbox(post_data, "ativo_indicador"),
+        "cliente_indicador": _parse_bool_checkbox(post_data, "cliente_indicador"),
+        "fornecedor_indicador": _parse_bool_checkbox(post_data, "fornecedor_indicador"),
+        "transporte_indicador": _parse_bool_checkbox(post_data, "transporte_indicador"),
+    }
+
+
+def criar_carteira_por_post(empresa, post_data):
+    dados = _dados_carteira_from_post(post_data, empresa)
+    if not dados["nome_parceiro"]:
+        return "Nome do parceiro e obrigatorio."
+    if not dados["data_cadastro_raw"]:
+        return "Data de cadastramento e obrigatoria."
+    if not dados["data_cadastro"]:
+        return "Data de cadastramento invalida."
+    dados.pop("data_cadastro_raw", None)
+    Carteira.criar_carteira(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_carteira_por_post(carteira, empresa, post_data):
+    dados = _dados_carteira_from_post(post_data, empresa)
+    if not dados["nome_parceiro"]:
+        return "Nome do parceiro e obrigatorio."
+    if not dados["data_cadastro_raw"]:
+        return "Data de cadastramento e obrigatoria."
+    if not dados["data_cadastro"]:
+        return "Data de cadastramento invalida."
+    dados.pop("data_cadastro_raw", None)
+    carteira.atualizar_carteira(**dados)
+    return ""
+
+
+def _dados_atividade_from_post(post_data, empresa):
+    projeto = Projeto.objects.filter(id=post_data.get("projeto_id"), empresa=empresa).first()
+    if not projeto:
+        return None, "Projeto invalido para esta empresa."
+
+    gestor = Colaborador.objects.filter(
+        id=_transformar_int_ou_none(post_data.get("gestor_id")),
+        empresa=empresa,
+    ).first()
+    responsavel = Colaborador.objects.filter(
+        id=_transformar_int_ou_none(post_data.get("responsavel_id")),
+        empresa=empresa,
+    ).first()
+
+    semana_info = _transformar_iso_week_parts_ou_none(post_data.get("semana_de_prazo"))
+    if semana_info:
+        ano, semana = semana_info
+        data_previsao_inicio, data_previsao_termino = _set_prazo_inicio_e_prazo_termino(ano, semana)
+        semana_de_prazo = semana
+    else:
+        data_previsao_inicio = None
+        data_previsao_termino = None
+        semana_de_prazo = None
+
+    dados = {
+        "projeto": projeto,
+        "gestor": gestor,
+        "responsavel": responsavel,
+        "interlocutor": post_data.get("interlocutor", ""),
+        "semana_de_prazo": semana_de_prazo,
+        "data_previsao_inicio": data_previsao_inicio,
+        "data_previsao_termino": data_previsao_termino,
+        "data_finalizada": _transformar_date_ou_none(post_data.get("data_finalizada")),
+        "historico": post_data.get("historico", ""),
+        "tarefa": post_data.get("tarefa", ""),
+        "progresso": _transformar_int_ou_none(post_data.get("progresso")) or 0,
+    }
+    return dados, ""
+
+
+def criar_atividade_por_post(post_data, empresa):
+    dados, erro = _dados_atividade_from_post(post_data, empresa)
+    if erro:
+        return erro
+    try:
+        Atividade.criar_atividade(**dados)
+    except ValidationError as exc:
+        return "; ".join(exc.messages)
+    return ""
+
+
+def atualizar_atividade_por_post(atividade, post_data, empresa):
+    dados, erro = _dados_atividade_from_post(post_data, empresa)
+    if erro:
+        return erro
+    try:
+        atividade.atualizar_atividade(**dados)
+    except ValidationError as exc:
+        return "; ".join(exc.messages)
+    return ""
+
+
+def semana_iso_input_atividade(atividade):
+    if not atividade.data_previsao_inicio:
+        return ""
+    iso = atividade.data_previsao_inicio.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+def preparar_diretorios_carteira():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "carteira"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
+def importar_upload_carteira(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+    if not arquivo:
+        return False, "Selecione um arquivo .xlsx para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xlsx"):
+        return False, "Formato invalido. Envie apenas arquivo .xlsx."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_carteira_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar carteira: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, carteiras: {resultado['carteiras']}."
+        ),
+    )

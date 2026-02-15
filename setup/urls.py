@@ -80,6 +80,16 @@ urlpatterns = [
 
     # Modulos - Comercial
     path('carteira/<int:empresa_id>/', views.carteira, name='carteira'),
+    path('carteira/<int:empresa_id>/editar/<int:carteira_id>/', views.editar_carteira_modulo, name='editar_carteira_modulo'),
+    path('carteira/<int:empresa_id>/excluir/<int:carteira_id>/', views.excluir_carteira_modulo, name='excluir_carteira_modulo'),
+    path('cidades/<int:empresa_id>/', views.cidades, name='cidades'),
+    path('cidades/<int:empresa_id>/criar/', views.criar_cidade_modulo, name='criar_cidade_modulo'),
+    path('cidades/<int:empresa_id>/editar/<int:cidade_id>/', views.editar_cidade_modulo, name='editar_cidade_modulo'),
+    path('cidades/<int:empresa_id>/excluir/<int:cidade_id>/', views.excluir_cidade_modulo, name='excluir_cidade_modulo'),
+    path('regioes/<int:empresa_id>/', views.regioes, name='regioes'),
+    path('regioes/<int:empresa_id>/criar/', views.criar_regiao_modulo, name='criar_regiao_modulo'),
+    path('regioes/<int:empresa_id>/editar/<int:regiao_id>/', views.editar_regiao_modulo, name='editar_regiao_modulo'),
+    path('regioes/<int:empresa_id>/excluir/<int:regiao_id>/', views.excluir_regiao_modulo, name='excluir_regiao_modulo'),
     path('pedidos_pendentes/<int:empresa_id>/', views.pedidos_pendentes, name='pedidos_pendentes'),
     path('vendas_por_categoria/<int:empresa_id>/', views.vendas_por_categoria, name='vendas_por_categoria'),
     path('precificacao/<int:empresa_id>/', views.precificacao, name='precificacao'),

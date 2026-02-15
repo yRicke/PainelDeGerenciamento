@@ -3,23 +3,8 @@
 {% block title %}Projetos{% endblock %}
 
 {% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <style>
-    .simple-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .simple-table th,
-    .simple-table td {
-        border: 1px solid #d8dee4;
-        padding: 0.5rem;
-        text-align: left;
-    }
-
-    .simple-table th {
-        background: #f3f5f7;
-    }
-
     .inline-form {
         display: grid;
         grid-template-columns: 1fr 180px auto;
@@ -41,6 +26,33 @@
         color: #fff;
         border: 0;
         padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    #projetos-tabulator {
+        min-width: 900px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr)) 120px;
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+        align-items: end;
+    }
+
+    .btn-light {
+        background: #f3f5f7;
+        color: #111;
+        border: 1px solid #d8dee4;
+        padding: 0.45rem 0.6rem;
+        text-decoration: none;
+        display: inline-block;
         cursor: pointer;
     }
 </style>
@@ -65,39 +77,114 @@
 
 <section class="panel">
     <h2>Lista de Projetos</h2>
-    {% if projetos %}
-    <table class="simple-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nome / Codigo</th>
-                <th>Acoes</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for projeto in projetos %}
-            <tr>
-                <td>{{ projeto.id }}</td>
-                <td>
-                    <form action="{% url 'editar_projeto_modulo' empresa.id projeto.id %}" method="POST" class="inline-form">
-                        {% csrf_token %}
-                        <input type="text" name="nome" value="{{ projeto.nome }}" required>
-                        <input type="text" name="codigo" value="{{ projeto.codigo }}">
-                        <button type="submit" class="btn-primary">Salvar</button>
-                    </form>
-                </td>
-                <td>
-                    <form action="{% url 'excluir_projeto_modulo' empresa.id projeto.id %}" method="POST" onsubmit="return confirm('Excluir projeto?');">
-                        {% csrf_token %}
-                        <button type="submit" class="btn-danger">Excluir</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>Nenhum projeto cadastrado.</p>
-    {% endif %}
+    <div class="filter-grid">
+        <div>
+            <label>Buscar por nome</label>
+            <input type="text" id="filtro-projeto-nome" placeholder="Digite o nome">
+        </div>
+        <div>
+            <label>Buscar por codigo</label>
+            <input type="text" id="filtro-projeto-codigo" placeholder="Digite o codigo">
+        </div>
+        <div>
+            <button type="button" class="btn-light" id="limpar-filtros-projetos">Limpar</button>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <div id="projetos-tabulator"></div>
+    </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ projetos_tabulator|json_script:"projetos-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script>
+    (function () {
+        var dataElement = document.getElementById("projetos-tabulator-data");
+        if (!dataElement || !window.Tabulator) return;
+
+        var data = JSON.parse(dataElement.textContent || "[]");
+        var csrfToken = "{{ csrf_token }}";
+        var filtroNome = document.getElementById("filtro-projeto-nome");
+        var filtroCodigo = document.getElementById("filtro-projeto-codigo");
+        var limparFiltrosBtn = document.getElementById("limpar-filtros-projetos");
+
+        function submitPost(url, fields, confirmMsg) {
+            if (confirmMsg && !window.confirm(confirmMsg)) return;
+            var form = document.createElement("form");
+            form.method = "POST";
+            form.action = url;
+
+            var csrfInput = document.createElement("input");
+            csrfInput.type = "hidden";
+            csrfInput.name = "csrfmiddlewaretoken";
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+
+            Object.keys(fields || {}).forEach(function (key) {
+                var input = document.createElement("input");
+                input.type = "hidden";
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        var tabela = new Tabulator("#projetos-tabulator", {
+            data: data,
+            layout: "fitDataStretch",
+            pagination: true,
+            paginationSize: 10,
+            columns: [
+                {title: "ID", field: "id", width: 80, hozAlign: "center"},
+                {title: "Nome", field: "nome", editor: "input"},
+                {title: "Codigo", field: "codigo", editor: "input"},
+                {
+                    title: "Acoes",
+                    field: "editar_url",
+                    hozAlign: "center",
+                    formatter: function () {
+                        return '<button class="btn-primary" type="button">Salvar</button> <button class="btn-danger" type="button">Excluir</button>';
+                    },
+                    cellClick: function (e, cell) {
+                        var row = cell.getRow().getData();
+                        if (e.target && e.target.classList.contains("btn-primary")) {
+                            submitPost(row.editar_url, {
+                                nome: row.nome || "",
+                                codigo: row.codigo || "",
+                            });
+                        }
+                        if (e.target && e.target.classList.contains("btn-danger")) {
+                            submitPost(row.excluir_url, {}, "Excluir projeto?");
+                        }
+                    },
+                },
+            ],
+        });
+
+        function aplicarFiltros() {
+            var nome = (filtroNome.value || "").toLowerCase().trim();
+            var codigo = (filtroCodigo.value || "").toLowerCase().trim();
+            tabela.setFilter(function (dataRow) {
+                if (nome && !(dataRow.nome || "").toLowerCase().includes(nome)) return false;
+                if (codigo && !(dataRow.codigo || "").toLowerCase().includes(codigo)) return false;
+                return true;
+            });
+        }
+
+        [filtroNome, filtroCodigo].forEach(function (element) {
+            element.addEventListener("input", aplicarFiltros);
+        });
+
+        limparFiltrosBtn.addEventListener("click", function () {
+            filtroNome.value = "";
+            filtroCodigo.value = "";
+            tabela.clearFilter(true);
+        });
+    })();
+</script>
 {% endblock %}

@@ -3,18 +3,45 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.core.exceptions import ValidationError
-from django.conf import settings
-from django.db.models import F
-from django.urls import reverse
-from django.utils import timezone
-from datetime import timedelta
-from pathlib import Path
-from datetime import datetime
+from datetime import date
+from django.db.models import FloatField
+from django.db.models.functions import Cast
 
-from .models import Empresa, Usuario, Permissao, Colaborador, Projeto, Atividade
-from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _transformar_int_ou_none, _transformar_date_ou_none, _transformar_iso_week_parts_ou_none, _set_prazo_inicio_e_prazo_termino, _render_modulo_com_permissao
-from .utils_importacao import importar_carteira_do_diretorio
+from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario
+from .utils import MODULOS_POR_AREA, _modulos_com_acesso, _obter_permissoes_por_modulo, _obter_permissoes_do_form, _obter_empresa_e_validar_permissao_tofu, _obter_empresa_e_validar_permissao_modulo, _render_modulo_com_permissao
+from .services import (
+    calcular_dashboard_tofu,
+    criar_atividade_por_post,
+    atualizar_atividade_por_post,
+    semana_iso_input_atividade,
+    preparar_diretorios_carteira,
+    importar_upload_carteira,
+    usuarios_com_permissoes_ids,
+    criar_empresa_por_nome,
+    atualizar_empresa_por_nome,
+    excluir_empresa_por_id,
+    criar_usuario_por_post,
+    atualizar_usuario_por_post,
+    excluir_usuario_por_id,
+    criar_colaborador_por_nome,
+    atualizar_colaborador_por_nome,
+    criar_carteira_por_post,
+    atualizar_carteira_por_post,
+    criar_cidade_por_dados,
+    atualizar_cidade_por_dados,
+    criar_projeto_por_dados,
+    criar_regiao_por_dados,
+    atualizar_projeto_por_dados,
+    atualizar_regiao_por_dados,
+)
+from .tabulator import (
+    build_atividades_tabulator,
+    build_carteiras_tabulator,
+    build_cidades_tabulator,
+    build_colaboradores_tabulator,
+    build_projetos_tabulator,
+    build_regioes_tabulator,
+)
 
 @login_required(login_url="entrar")
 def index(request):
@@ -81,12 +108,11 @@ def painel_admin(request):
 @staff_member_required(login_url="entrar")
 def criar_empresa(request):
     if request.method == "POST":
-        nome = request.POST.get("nome")
-        if nome:
-            Empresa.criar_empresa(nome=nome)
-            messages.success(request, "Empresa criada com sucesso!")
+        erro = criar_empresa_por_nome(request.POST.get("nome"))
+        if erro:
+            messages.error(request, erro)
             return redirect("painel_admin")
-        messages.error(request, "O nome da empresa e obrigatorio.")
+        messages.success(request, "Empresa criada com sucesso!")
     return redirect("painel_admin")
 
 
@@ -94,33 +120,29 @@ def criar_empresa(request):
 def editar_empresa(request, empresa_id):
     empresa = Empresa.objects.get(id=empresa_id)
     if request.method == "POST":
-        novo_nome = request.POST.get("nome")
-        if novo_nome:
-            empresa.atualizar_nome(novo_nome=novo_nome)
-            messages.success(request, "Empresa atualizada com sucesso!")
+        erro = atualizar_empresa_por_nome(empresa, request.POST.get("nome"))
+        if erro:
+            messages.error(request, erro)
             return redirect("painel_admin")
-        messages.error(request, "O nome da empresa e obrigatorio.")
+        messages.success(request, "Empresa atualizada com sucesso!")
     return redirect("painel_admin")
 
 
 @staff_member_required(login_url="entrar")
 def excluir_empresa(request, empresa_id):
-    try:
-        empresa = Empresa.objects.get(id=empresa_id)
-        empresa.excluir_empresa()
-        messages.success(request, "Empresa excluida com sucesso!")
-    except Empresa.DoesNotExist as exc:
-        messages.error(request, f"Empresa nao encontrada. {exc}")
+    ok, mensagem = excluir_empresa_por_id(empresa_id)
+    if ok:
+        messages.success(request, mensagem)
+    else:
+        messages.error(request, mensagem)
     return redirect("painel_admin")
 
 
 @staff_member_required(login_url="entrar")
 def usuarios_permissoes(request, empresa_id):
     empresa = Empresa.objects.get(id=empresa_id)
-    usuarios = Usuario.objects.filter(empresa=empresa).prefetch_related("permissoes")
-
-    for usuario in usuarios:
-        usuario.permissoes_ids = set(usuario.permissoes.values_list("id", flat=True))
+    usuarios_qs = Usuario.objects.filter(empresa=empresa).prefetch_related("permissoes")
+    usuarios = usuarios_com_permissoes_ids(usuarios_qs)
 
     contexto = {
         "empresa": empresa,
@@ -134,16 +156,8 @@ def usuarios_permissoes(request, empresa_id):
 def cadastrar_usuario(request, empresa_id):
     empresa = Empresa.objects.get(id=empresa_id)
     if empresa and request.method == "POST":
-        nome = request.POST.get("nome")
-        senha = request.POST.get("senha")
         permissoes = _obter_permissoes_do_form(request)
-
-        Usuario.criar_usuario(
-            empresa=empresa,
-            username=nome,
-            password=senha,
-            permissoes=permissoes,
-        )
+        criar_usuario_por_post(empresa, request.POST, permissoes)
         messages.success(request, "Usuario criado com sucesso!")
         return redirect("usuarios_permissoes", empresa_id=empresa_id)
 
@@ -155,15 +169,8 @@ def cadastrar_usuario(request, empresa_id):
 def editar_usuario(request, usuario_id):
     usuario = Usuario.objects.get(id=usuario_id)
     if usuario and request.method == "POST":
-        nome = request.POST.get("nome")
-        senha = request.POST.get("senha")
         permissoes = _obter_permissoes_do_form(request)
-
-        usuario.atualizar_usuario(
-            username=nome,
-            password=senha,
-            permissoes=permissoes,
-        )
+        atualizar_usuario_por_post(usuario, request.POST, permissoes)
         messages.success(request, "Usuario atualizado com sucesso!")
         return redirect("usuarios_permissoes", empresa_id=usuario.empresa.id)
 
@@ -173,15 +180,12 @@ def editar_usuario(request, usuario_id):
 
 @staff_member_required(login_url="entrar")
 def excluir_usuario(request, usuario_id):
-    try:
-        usuario = Usuario.objects.get(id=usuario_id)
-        empresa_id = usuario.empresa.id
-        usuario.excluir_usuario()
-        messages.success(request, "Usuario excluido com sucesso!")
+    ok, empresa_id, mensagem = excluir_usuario_por_id(usuario_id)
+    if ok:
+        messages.success(request, mensagem)
         return redirect("usuarios_permissoes", empresa_id=empresa_id)
-    except Usuario.DoesNotExist as exc:
-        messages.error(request, f"Usuario nao encontrado. {exc}")
-        return redirect("painel_admin")
+    messages.error(request, mensagem)
+    return redirect("painel_admin")
 
 @login_required(login_url="entrar")
 def tofu_lista_de_atividades(request, empresa_id):
@@ -194,116 +198,8 @@ def tofu_lista_de_atividades(request, empresa_id):
         .select_related("projeto", "gestor", "responsavel")
         .order_by("-id")
     )
-    atividades_dashboard_qs = atividades_qs
-    hoje = timezone.localdate()
-    inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
-    fim_semana_atual = inicio_semana_atual + timedelta(days=6)
-    inicio_proxima_semana = inicio_semana_atual + timedelta(days=7)
-    fim_proxima_semana = inicio_semana_atual + timedelta(days=13)
-    inicio_duas_semanas_apos = inicio_semana_atual + timedelta(days=14)
-
-    atrasados_qs = atividades_dashboard_qs.filter(
-        progresso__lt=100,
-        data_previsao_termino__lt=hoje,
-    )
-    alertas_qs = atividades_dashboard_qs.filter(
-        progresso__lt=100,
-        data_previsao_termino__gte=hoje,
-        data_previsao_termino__lte=fim_proxima_semana,
-    )
-    concluidos_qs = atividades_dashboard_qs.filter(progresso__gte=100)
-    a_fazer_qs = atividades_dashboard_qs.filter(
-        progresso__lt=100,
-        data_previsao_termino__gte=inicio_duas_semanas_apos,
-    )
-
-    atrasados_total = atrasados_qs.count()
-    alertas_total = alertas_qs.count()
-    concluidos_total = concluidos_qs.count()
-    a_fazer_total = a_fazer_qs.count()
-    total_atividades = atividades_dashboard_qs.count()
-
-    concluidos_no_prazo = concluidos_qs.filter(
-        data_finalizada__isnull=False,
-        data_previsao_inicio__isnull=False,
-        data_previsao_termino__isnull=False,
-        data_finalizada__gte=F("data_previsao_inicio"),
-        data_finalizada__lte=F("data_previsao_termino"),
-    ).count()
-    concluidos_fora_prazo = concluidos_qs.filter(
-        data_finalizada__isnull=False,
-        data_previsao_termino__isnull=False,
-        data_finalizada__gt=F("data_previsao_termino"),
-    ).count()
-
-    def _pct(valor, total):
-        if total <= 0:
-            return 0
-        return round((valor * 100) / total, 1)
-
-    dashboard = {
-        "atrasados": {
-            "total": atrasados_total,
-            "parados": atrasados_qs.filter(progresso=0).count(),
-            "em_andamento": atrasados_qs.filter(progresso__gt=0).count(),
-            "percentual": _pct(atrasados_total, total_atividades),
-        },
-        "alertas": {
-            "total": alertas_total,
-            "semana_atual": alertas_qs.filter(
-                data_previsao_termino__gte=inicio_semana_atual,
-                data_previsao_termino__lte=fim_semana_atual,
-            ).count(),
-            "proxima_semana": alertas_qs.filter(
-                data_previsao_termino__gte=inicio_proxima_semana,
-                data_previsao_termino__lte=fim_proxima_semana,
-            ).count(),
-            "percentual": _pct(alertas_total, total_atividades),
-        },
-        "concluidos": {
-            "total": concluidos_total,
-            "no_prazo": concluidos_no_prazo,
-            "fora_do_prazo": concluidos_fora_prazo,
-            "percentual": _pct(concluidos_total, total_atividades),
-        },
-        "a_fazer": {
-            "total": a_fazer_total,
-            "parados": a_fazer_qs.filter(progresso=0).count(),
-            "em_andamento": a_fazer_qs.filter(progresso__gt=0).count(),
-            "percentual": _pct(a_fazer_total, total_atividades),
-        },
-        "total_atividades": total_atividades,
-    }
-
-    def _fmt_date(data):
-        if not data:
-            return ""
-        return data.strftime("%d/%m/%Y")
-
-    atividades_tabulator = []
-    for atividade in atividades_qs:
-        atividades_tabulator.append(
-            {
-                "id": atividade.id,
-                "projeto": atividade.projeto.nome,
-                "codigo_projeto": atividade.projeto.codigo or "-",
-                "gestor": atividade.gestor.nome if atividade.gestor else "-",
-                "responsavel": atividade.responsavel.nome if atividade.responsavel else "-",
-                "interlocutor": atividade.interlocutor,
-                "semana_de_prazo": atividade.semana_de_prazo or "-",
-                "data_previsao_inicio": _fmt_date(atividade.data_previsao_inicio),
-                "data_previsao_termino": _fmt_date(atividade.data_previsao_termino),
-                "data_finalizada": _fmt_date(atividade.data_finalizada),
-                "indicador": atividade.indicador,
-                "historico": atividade.historico,
-                "tarefa": atividade.tarefa,
-                "progresso": atividade.progresso,
-                "editar_url": reverse(
-                    "editar_atividade_tofu",
-                    kwargs={"empresa_id": empresa.id, "atividade_id": atividade.id},
-                ),
-            }
-        )
+    dashboard = calcular_dashboard_tofu(atividades_qs)
+    atividades_tabulator = build_atividades_tabulator(atividades_qs, empresa.id)
 
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
     colaboradores = Colaborador.objects.filter(empresa=empresa).order_by("nome")
@@ -329,46 +225,9 @@ def criar_atividade_tofu(request, empresa_id):
     if request.method != "POST":
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
-    projeto = Projeto.objects.filter(id=request.POST.get("projeto_id"), empresa=empresa).first()
-    if not projeto:
-        messages.error(request, "Projeto invalido para esta empresa.")
-        return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
-
-    gestor = Colaborador.objects.filter(
-        id=_transformar_int_ou_none(request.POST.get("gestor_id")),
-        empresa=empresa,
-    ).first()
-    responsavel = Colaborador.objects.filter(
-        id=_transformar_int_ou_none(request.POST.get("responsavel_id")),
-        empresa=empresa,
-    ).first()
-
-    semana_info = _transformar_iso_week_parts_ou_none(request.POST.get("semana_de_prazo"))
-    if semana_info:
-        ano, semana = semana_info
-        data_previsao_inicio, data_previsao_termino = _set_prazo_inicio_e_prazo_termino(ano, semana)
-        semana_de_prazo = semana
-    else:
-        data_previsao_inicio = None
-        data_previsao_termino = None
-        semana_de_prazo = None
-
-    try:
-        Atividade.criar_atividade(
-            projeto=projeto,
-            gestor=gestor,
-            responsavel=responsavel,
-            interlocutor=request.POST.get("interlocutor", ""),
-            semana_de_prazo=semana_de_prazo,
-            data_previsao_inicio=data_previsao_inicio,
-            data_previsao_termino=data_previsao_termino,
-            data_finalizada=_transformar_date_ou_none(request.POST.get("data_finalizada")),
-            historico=request.POST.get("historico", ""),
-            tarefa=request.POST.get("tarefa", ""),
-            progresso=_transformar_int_ou_none(request.POST.get("progresso")) or 0,
-        )
-    except ValidationError as exc:
-        messages.error(request, "; ".join(exc.messages))
+    erro = criar_atividade_por_post(request.POST, empresa)
+    if erro:
+        messages.error(request, erro)
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
     messages.success(request, "Atividade criada com sucesso.")
     return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
@@ -386,56 +245,16 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     if request.method == "POST":
-        projeto = Projeto.objects.filter(id=request.POST.get("projeto_id"), empresa=empresa).first()
-        if not projeto:
-            messages.error(request, "Projeto invalido para esta empresa.")
-            return redirect("editar_atividade_tofu", empresa_id=empresa.id, atividade_id=atividade.id)
-
-        gestor = Colaborador.objects.filter(
-            id=_transformar_int_ou_none(request.POST.get("gestor_id")),
-            empresa=empresa,
-        ).first()
-        responsavel = Colaborador.objects.filter(
-            id=_transformar_int_ou_none(request.POST.get("responsavel_id")),
-            empresa=empresa,
-        ).first()
-
-        semana_info = _transformar_iso_week_parts_ou_none(request.POST.get("semana_de_prazo"))
-        if semana_info:
-            ano, semana = semana_info
-            data_previsao_inicio, data_previsao_termino = _set_prazo_inicio_e_prazo_termino(ano, semana)
-            semana_de_prazo = semana
-        else:
-            data_previsao_inicio = None
-            data_previsao_termino = None
-            semana_de_prazo = None
-
-        try:
-            atividade.atualizar_atividade(
-                projeto=projeto,
-                gestor=gestor,
-                responsavel=responsavel,
-                interlocutor=request.POST.get("interlocutor", ""),
-                semana_de_prazo=semana_de_prazo,
-                data_previsao_inicio=data_previsao_inicio,
-                data_previsao_termino=data_previsao_termino,
-                data_finalizada=_transformar_date_ou_none(request.POST.get("data_finalizada")),
-                historico=request.POST.get("historico", ""),
-                tarefa=request.POST.get("tarefa", ""),
-                progresso=_transformar_int_ou_none(request.POST.get("progresso")) or 0,
-            )
-        except ValidationError as exc:
-            messages.error(request, "; ".join(exc.messages))
+        erro = atualizar_atividade_por_post(atividade, request.POST, empresa)
+        if erro:
+            messages.error(request, erro)
             return redirect("editar_atividade_tofu", empresa_id=empresa.id, atividade_id=atividade.id)
         messages.success(request, "Atividade atualizada com sucesso.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
     colaboradores = Colaborador.objects.filter(empresa=empresa).order_by("nome")
-    semana_de_prazo_valor = ""
-    if atividade.data_previsao_inicio:
-        iso = atividade.data_previsao_inicio.isocalendar()
-        semana_de_prazo_valor = f"{iso.year}-W{iso.week:02d}"
+    semana_de_prazo_valor = semana_iso_input_atividade(atividade)
     contexto = {
         "empresa": empresa,
         "atividade": atividade,
@@ -472,9 +291,11 @@ def colaboradores_modulo(request, empresa_id):
         return redirect("index")
 
     colaboradores = Colaborador.objects.filter(empresa=empresa).order_by("nome")
+    colaboradores_tabulator = build_colaboradores_tabulator(colaboradores, empresa.id)
     contexto = {
         "empresa": empresa,
         "colaboradores": colaboradores,
+        "colaboradores_tabulator": colaboradores_tabulator,
     }
     return render(request, "administrativo/colaboradores.html", contexto)
 
@@ -488,12 +309,10 @@ def criar_colaborador_modulo(request, empresa_id):
     if request.method != "POST":
         return redirect("colaboradores", empresa_id=empresa.id)
 
-    nome = (request.POST.get("nome") or "").strip()
-    if not nome:
-        messages.error(request, "Nome do colaborador e obrigatorio.")
+    erro = criar_colaborador_por_nome(empresa, request.POST.get("nome"))
+    if erro:
+        messages.error(request, erro)
         return redirect("colaboradores", empresa_id=empresa.id)
-
-    Colaborador.criar_colaborador(nome=nome, empresa=empresa)
     messages.success(request, "Colaborador criado com sucesso.")
     return redirect("colaboradores", empresa_id=empresa.id)
 
@@ -512,12 +331,10 @@ def editar_colaborador_modulo(request, empresa_id, colaborador_id):
         messages.error(request, "Colaborador nao encontrado.")
         return redirect("colaboradores", empresa_id=empresa.id)
 
-    nome = (request.POST.get("nome") or "").strip()
-    if not nome:
-        messages.error(request, "Nome do colaborador e obrigatorio.")
+    erro = atualizar_colaborador_por_nome(colaborador, request.POST.get("nome"))
+    if erro:
+        messages.error(request, erro)
         return redirect("colaboradores", empresa_id=empresa.id)
-
-    colaborador.atualizar_colaborador(novo_nome=nome)
     messages.success(request, "Colaborador atualizado com sucesso.")
     return redirect("colaboradores", empresa_id=empresa.id)
 
@@ -548,9 +365,11 @@ def projetos_modulo(request, empresa_id):
         return redirect("index")
 
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
+    projetos_tabulator = build_projetos_tabulator(projetos, empresa.id)
     contexto = {
         "empresa": empresa,
         "projetos": projetos,
+        "projetos_tabulator": projetos_tabulator,
     }
     return render(request, "administrativo/projetos.html", contexto)
 
@@ -564,13 +383,10 @@ def criar_projeto_modulo(request, empresa_id):
     if request.method != "POST":
         return redirect("projetos", empresa_id=empresa.id)
 
-    nome = (request.POST.get("nome") or "").strip()
-    codigo = (request.POST.get("codigo") or "").strip()
-    if not nome:
-        messages.error(request, "Nome do projeto e obrigatorio.")
+    erro = criar_projeto_por_dados(empresa, request.POST.get("nome"), request.POST.get("codigo"))
+    if erro:
+        messages.error(request, erro)
         return redirect("projetos", empresa_id=empresa.id)
-
-    Projeto.criar_projeto(nome=nome, empresa=empresa, codigo=codigo)
     messages.success(request, "Projeto criado com sucesso.")
     return redirect("projetos", empresa_id=empresa.id)
 
@@ -589,13 +405,10 @@ def editar_projeto_modulo(request, empresa_id, projeto_id):
         messages.error(request, "Projeto nao encontrado.")
         return redirect("projetos", empresa_id=empresa.id)
 
-    nome = (request.POST.get("nome") or "").strip()
-    codigo = (request.POST.get("codigo") or "").strip()
-    if not nome:
-        messages.error(request, "Nome do projeto e obrigatorio.")
+    erro = atualizar_projeto_por_dados(projeto, request.POST.get("nome"), request.POST.get("codigo"))
+    if erro:
+        messages.error(request, erro)
         return redirect("projetos", empresa_id=empresa.id)
-
-    projeto.atualizar_projeto(novo_nome=nome, novo_codigo=codigo)
     messages.success(request, "Projeto atualizado com sucesso.")
     return redirect("projetos", empresa_id=empresa.id)
 
@@ -713,91 +526,338 @@ def carteira(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "carteira"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_carteira()
 
     if request.method == "POST":
-        arquivo = request.FILES.get("arquivo_carteira")
-        if not arquivo:
-            messages.error(request, "Selecione um arquivo .xlsx para importar.")
-            return redirect("carteira", empresa_id=empresa_id)
-
-        nome_arquivo = Path(arquivo.name).name
-        if not nome_arquivo.lower().endswith(".xlsx"):
-            messages.error(request, "Formato invalido. Envie apenas arquivo .xlsx.")
-            return redirect("carteira", empresa_id=empresa_id)
-
-        arquivos_existentes = [
-            f for f in diretorio_importacao.iterdir()
-            if f.is_file()
-        ]
-        confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
-        if arquivos_existentes and not confirmou_substituicao:
-            messages.error(request, "Ja existe arquivo na pasta. Confirme a substituicao para continuar.")
-            return redirect("carteira", empresa_id=empresa_id)
-
-        for arquivo_antigo in arquivos_existentes:
-            destino_subscrito = diretorio_subscritos / arquivo_antigo.name
-            if destino_subscrito.exists():
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
-            arquivo_antigo.rename(destino_subscrito)
-
-        destino = diretorio_importacao / nome_arquivo
-        with destino.open("wb+") as file_out:
-            for chunk in arquivo.chunks():
-                file_out.write(chunk)
-
-        try:
-            resultado = importar_carteira_do_diretorio(
+        acao = request.POST.get("acao")
+        if acao == "criar_carteira":
+            erro = criar_carteira_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Carteira criada com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_carteira")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_carteira(
                 empresa=empresa,
-                diretorio=str(diretorio_importacao),
-                limpar_antes=True,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
             )
-            messages.success(
-                request,
-                (
-                    f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
-                    f"linhas: {resultado['linhas']}, carteiras: {resultado['carteiras']}."
-                ),
-            )
-        except Exception as exc:
-            messages.error(request, f"Falha ao importar carteira: {exc}")
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
         return redirect("carteira", empresa_id=empresa_id)
 
+    carteiras_qs = (
+        Carteira.objects.filter(empresa=empresa)
+        .annotate(
+            valor_faturado_num=Cast("valor_faturado", FloatField()),
+            limite_credito_num=Cast("limite_credito", FloatField()),
+        )
+        .values(
+            "id",
+            "nome_parceiro",
+            "gerente",
+            "vendedor",
+            "valor_faturado_num",
+            "limite_credito_num",
+            "ultima_venda",
+            "qtd_dias_sem_venda",
+            "intervalo",
+            "descricao_perfil",
+            "ativo_indicador",
+            "cliente_indicador",
+            "fornecedor_indicador",
+            "transporte_indicador",
+            "data_cadastro",
+            "regiao__nome",
+            "regiao__codigo",
+            "cidade__nome",
+            "cidade__codigo",
+        )
+        .order_by("-id")
+    )
+
+    carteiras_tabulator = build_carteiras_tabulator(carteiras_qs, empresa.id)
+
+    hoje = date.today()
+    ano_atual = hoje.year
+    mes_atual = hoje.month
+    carteiras_dashboard_qs = (
+        Carteira.objects.filter(empresa=empresa, data_cadastro__isnull=False)
+        .values("data_cadastro", "valor_faturado")
+    )
+
+    agregados_por_ano_mes = {}
+    anos_disponiveis_set = set()
+    for item in carteiras_dashboard_qs:
+        data_cadastro = item.get("data_cadastro")
+        if not data_cadastro:
+            continue
+        ano = data_cadastro.year
+        mes = data_cadastro.month
+        anos_disponiveis_set.add(ano)
+        chave = f"{ano}-{mes:02d}"
+        if chave not in agregados_por_ano_mes:
+            agregados_por_ano_mes[chave] = {"qtd": 0, "valor": 0}
+        agregados_por_ano_mes[chave]["qtd"] += 1
+        valor = item.get("valor_faturado") or 0
+        try:
+            valor_int = int(round(float(valor)))
+        except (TypeError, ValueError):
+            valor_int = 0
+        agregados_por_ano_mes[chave]["valor"] += valor_int
+
+    anos_disponiveis = sorted(anos_disponiveis_set)
+    if ano_atual in anos_disponiveis:
+        ano_dashboard_inicial = ano_atual
+    elif anos_disponiveis:
+        ano_dashboard_inicial = anos_disponiveis[-1]
+    else:
+        ano_dashboard_inicial = ano_atual
+
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+    cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
+    regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivos_existentes[0] if arquivos_existentes else "",
         "tem_arquivo_existente": bool(arquivos_existentes),
+        "carteiras_tabulator": carteiras_tabulator,
+        "cidades": cidades,
+        "regioes": regioes,
+        "dashboard_carteira_anos_disponiveis": anos_disponiveis,
+        "dashboard_carteira_agregados_por_ano_mes": agregados_por_ano_mes,
+        "dashboard_carteira_ano_inicial": ano_dashboard_inicial,
+        "dashboard_carteira_ano_atual": ano_atual,
+        "dashboard_carteira_mes_atual": mes_atual,
     }
     return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
+def editar_carteira_modulo(request, empresa_id, carteira_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Carteira")
+    if not autorizado:
+        return redirect("index")
+
+    carteira_item = Carteira.objects.filter(id=carteira_id, empresa=empresa).first()
+    if not carteira_item:
+        messages.error(request, "Carteira nao encontrada.")
+        return redirect("carteira", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_carteira_por_post(carteira_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_carteira_modulo", empresa_id=empresa.id, carteira_id=carteira_item.id)
+        messages.success(request, "Carteira atualizada com sucesso.")
+        return redirect("carteira", empresa_id=empresa.id)
+
+    cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
+    regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
+    contexto = {
+        "empresa": empresa,
+        "carteira": carteira_item,
+        "cidades": cidades,
+        "regioes": regioes,
+    }
+    return render(request, "comercial/carteira_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_carteira_modulo(request, empresa_id, carteira_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Carteira")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("carteira", empresa_id=empresa.id)
+
+    carteira_item = Carteira.objects.filter(id=carteira_id, empresa=empresa).first()
+    if not carteira_item:
+        messages.error(request, "Carteira nao encontrada.")
+        return redirect("carteira", empresa_id=empresa.id)
+
+    carteira_item.excluir_carteira()
+    messages.success(request, "Carteira excluida com sucesso.")
+    return redirect("carteira", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def cidades(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cidades")
+    if not autorizado:
+        return redirect("index")
+
+    cidades_qs = Cidade.objects.filter(empresa=empresa).order_by("nome")
+    cidades_tabulator = build_cidades_tabulator(cidades_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "cidades": cidades_qs,
+        "cidades_tabulator": cidades_tabulator,
+    }
+    return render(request, "comercial/cidades.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_cidade_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cidades")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("cidades", empresa_id=empresa.id)
+
+    erro = criar_cidade_por_dados(empresa, request.POST.get("nome"), request.POST.get("codigo"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("cidades", empresa_id=empresa.id)
+    messages.success(request, "Cidade criada com sucesso.")
+    return redirect("cidades", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_cidade_modulo(request, empresa_id, cidade_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cidades")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("cidades", empresa_id=empresa.id)
+
+    cidade = Cidade.objects.filter(id=cidade_id, empresa=empresa).first()
+    if not cidade:
+        messages.error(request, "Cidade nao encontrada.")
+        return redirect("cidades", empresa_id=empresa.id)
+
+    erro = atualizar_cidade_por_dados(cidade, request.POST.get("nome"), request.POST.get("codigo"), empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("cidades", empresa_id=empresa.id)
+    messages.success(request, "Cidade atualizada com sucesso.")
+    return redirect("cidades", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_cidade_modulo(request, empresa_id, cidade_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cidades")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("cidades", empresa_id=empresa.id)
+
+    cidade = Cidade.objects.filter(id=cidade_id, empresa=empresa).first()
+    if not cidade:
+        messages.error(request, "Cidade nao encontrada.")
+        return redirect("cidades", empresa_id=empresa.id)
+
+    cidade.excluir_cidade()
+    messages.success(request, "Cidade excluida com sucesso.")
+    return redirect("cidades", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def regioes(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Regioes")
+    if not autorizado:
+        return redirect("index")
+
+    regioes_qs = Regiao.objects.filter(empresa=empresa).order_by("nome")
+    regioes_tabulator = build_regioes_tabulator(regioes_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "regioes": regioes_qs,
+        "regioes_tabulator": regioes_tabulator,
+    }
+    return render(request, "comercial/regioes.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_regiao_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Regioes")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("regioes", empresa_id=empresa.id)
+
+    erro = criar_regiao_por_dados(empresa, request.POST.get("nome"), request.POST.get("codigo"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("regioes", empresa_id=empresa.id)
+    messages.success(request, "Regiao criada com sucesso.")
+    return redirect("regioes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_regiao_modulo(request, empresa_id, regiao_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Regioes")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("regioes", empresa_id=empresa.id)
+
+    regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
+    if not regiao:
+        messages.error(request, "Regiao nao encontrada.")
+        return redirect("regioes", empresa_id=empresa.id)
+
+    erro = atualizar_regiao_por_dados(regiao, request.POST.get("nome"), request.POST.get("codigo"), empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("regioes", empresa_id=empresa.id)
+    messages.success(request, "Regiao atualizada com sucesso.")
+    return redirect("regioes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_regiao_modulo(request, empresa_id, regiao_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Regioes")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("regioes", empresa_id=empresa.id)
+
+    regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
+    if not regiao:
+        messages.error(request, "Regiao nao encontrada.")
+        return redirect("regioes", empresa_id=empresa.id)
+
+    regiao.excluir_regiao()
+    messages.success(request, "Regiao excluida com sucesso.")
+    return redirect("regioes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def pedidos_pendentes(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Comercial"][1]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
-
-
-@login_required(login_url="entrar")
-def vendas_por_categoria(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Comercial"][2]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
-
-
-@login_required(login_url="entrar")
-def precificacao(request, empresa_id):
     modulo = MODULOS_POR_AREA["Comercial"][3]
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
-def controle_de_margem(request, empresa_id):
+def vendas_por_categoria(request, empresa_id):
     modulo = MODULOS_POR_AREA["Comercial"][4]
+    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+
+
+@login_required(login_url="entrar")
+def precificacao(request, empresa_id):
+    modulo = MODULOS_POR_AREA["Comercial"][5]
+    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+
+
+@login_required(login_url="entrar")
+def controle_de_margem(request, empresa_id):
+    modulo = MODULOS_POR_AREA["Comercial"][6]
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 

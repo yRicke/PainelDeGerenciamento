@@ -113,14 +113,26 @@ def _normalizar_codigo(valor) -> str:
     return texto
 
 
-def _to_decimal(valor) -> Decimal:
+def _to_decimal(valor, max_digits: int = 10, decimal_places: int = 2) -> Decimal:
     texto = _normalizar_texto(valor).replace(".", "").replace(",", ".")
     if not texto:
         return Decimal("0")
     try:
-        return Decimal(texto)
+        decimal_valor = Decimal(texto)
     except InvalidOperation:
         return Decimal("0")
+
+    escala = Decimal("1").scaleb(-decimal_places)
+    try:
+        decimal_valor = decimal_valor.quantize(escala)
+    except InvalidOperation:
+        return Decimal("0")
+
+    max_inteiro = Decimal(10) ** (max_digits - decimal_places)
+    if decimal_valor.copy_abs() >= max_inteiro:
+        return Decimal("0")
+
+    return decimal_valor
 
 
 def _to_int(valor) -> int:
@@ -143,9 +155,17 @@ def _excel_date(valor):
     if not texto:
         return None
 
-    for formato in ("%d/%m/%Y", "%Y-%m-%d"):
+    hoje = datetime.today()
+    for formato in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y", "%d-%m-%y"):
         try:
             return datetime.strptime(texto, formato).date()
+        except ValueError:
+            pass
+
+    for formato_sem_ano in ("%d/%m", "%d-%m"):
+        try:
+            parcial = datetime.strptime(texto, formato_sem_ano)
+            return datetime(hoje.year, parcial.month, parcial.day).date()
         except ValueError:
             pass
 
@@ -157,6 +177,26 @@ def _excel_date(valor):
     if serial <= 0:
         return None
     return (datetime(1899, 12, 30) + timedelta(days=serial)).date()
+
+
+def _obter_primeiro_valor(registro: dict, nomes_coluna: list[str]):
+    def _token(valor):
+        return "".join(ch for ch in str(valor).lower().strip() if ch.isalnum())
+
+    chaves = list(registro.keys())
+    mapa_tokens = {chave: _token(chave) for chave in chaves}
+
+    for nome in nomes_coluna:
+        token_nome = _token(nome)
+        for chave in chaves:
+            token_chave = mapa_tokens[chave]
+            if (
+                token_chave == token_nome
+                or token_nome in token_chave
+                or token_chave in token_nome
+            ) and _normalizar_texto(registro.get(chave)):
+                return registro.get(chave)
+    return ""
 
 
 def _cidade_por_codigo(empresa, codigo: str, nome: str):
@@ -234,6 +274,18 @@ def importar_carteira_do_diretorio(
                     cache_regioes[codigo_regiao] = regiao
 
             intervalo_str = _normalizar_texto(registro.get("Intervalo p/ análise de crédito"))
+            valor_data_cadastro = _obter_primeiro_valor(
+                registro,
+                [
+                    "Data de cadastramento",
+                    "Data Cadastramento",
+                    "Data cadastramento",
+                    "Data de cadastro",
+                    "Data Cadastro",
+                    "Cadastro",
+                ],
+            )
+            data_cadastro = _excel_date(valor_data_cadastro)
             objetos.append(
                 Carteira(
                     empresa=empresa,
@@ -244,6 +296,7 @@ def importar_carteira_do_diretorio(
                     ultima_venda=_excel_date(registro.get("Última venda [SAFIA]")),
                     qtd_dias_sem_venda=_to_int(intervalo_str),
                     intervalo=intervalo_str,
+                    data_cadastro=data_cadastro or datetime.today().date(),
                     gerente=_normalizar_texto(registro.get("Gerente")),
                     vendedor=_normalizar_texto(registro.get("Apelido (Vendedor)")),
                     descricao_perfil=_normalizar_texto(registro.get("Descrição (Perfil)")),

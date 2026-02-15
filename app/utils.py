@@ -26,6 +26,8 @@ MODULOS_POR_AREA = {
     ],
     "Comercial": [
         {"nome": "Carteira", "url": "carteira", "template": "comercial/carteira.html"},
+        {"nome": "Cidades", "url": "cidades", "template": "comercial/cidades.html"},
+        {"nome": "Regioes", "url": "regioes", "template": "comercial/regioes.html"},
         {"nome": "Pedidos Pendentes", "url": "pedidos_pendentes", "template": "comercial/pedidos_pendentes.html"},
         {"nome": "Vendas por Categoria", "url": "vendas_por_categoria", "template": "comercial/vendas_por_categoria.html"},
         {"nome": "Precificacao", "url": "precificacao", "template": "comercial/precificacao.html"},
@@ -165,4 +167,3 @@ def _set_prazo_inicio_e_prazo_termino(ano, semana):
     inicio = date.fromisocalendar(ano, semana, 1)
     termino = date.fromisocalendar(ano, semana, 7)
     return inicio, termino
-

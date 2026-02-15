@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Carteira{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(170px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .btn-primary {
+        background: #175cd3;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .btn-danger {
+        background: #b42318;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .action-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'carteira' empresa.id %}">Voltar para carteira</a>
+    <h1>Editar Carteira #{{ carteira.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <form action="{% url 'editar_carteira_modulo' empresa.id carteira.id %}" method="POST">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div>
+                <label>Nome parceiro</label>
+                <input type="text" name="nome_parceiro" value="{{ carteira.nome_parceiro }}" required>
+            </div>
+            <div>
+                <label>Regiao</label>
+                <select name="regiao_id">
+                    <option value="">-</option>
+                    {% for regiao in regioes %}
+                    <option value="{{ regiao.id }}" {% if carteira.regiao_id == regiao.id %}selected{% endif %}>
+                        {{ regiao.nome }} ({{ regiao.codigo }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Cidade</label>
+                <select name="cidade_id">
+                    <option value="">-</option>
+                    {% for cidade in cidades %}
+                    <option value="{{ cidade.id }}" {% if carteira.cidade_id == cidade.id %}selected{% endif %}>
+                        {{ cidade.nome }} ({{ cidade.codigo }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Ultima venda</label>
+                <input type="date" name="ultima_venda" value="{% if carteira.ultima_venda %}{{ carteira.ultima_venda|date:'Y-m-d' }}{% endif %}">
+            </div>
+            <div>
+                <label>Data de cadastramento</label>
+                <input type="date" name="data_cadastro" value="{{ carteira.data_cadastro|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+                <label>Valor faturado</label>
+                <input type="text" name="valor_faturado" value="{{ carteira.valor_faturado }}">
+            </div>
+            <div>
+                <label>Limite credito</label>
+                <input type="text" name="limite_credito" value="{{ carteira.limite_credito }}">
+            </div>
+            <div>
+                <label>Dias sem venda</label>
+                <input type="number" min="0" name="qtd_dias_sem_venda" value="{{ carteira.qtd_dias_sem_venda }}">
+            </div>
+            <div>
+                <label>Intervalo</label>
+                <input type="text" name="intervalo" value="{{ carteira.intervalo }}">
+            </div>
+            <div>
+                <label>Gerente</label>
+                <input type="text" name="gerente" value="{{ carteira.gerente }}">
+            </div>
+            <div>
+                <label>Vendedor</label>
+                <input type="text" name="vendedor" value="{{ carteira.vendedor }}">
+            </div>
+            <div>
+                <label>Descricao perfil</label>
+                <input type="text" name="descricao_perfil" value="{{ carteira.descricao_perfil }}">
+            </div>
+            <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+                <label><input type="checkbox" name="ativo_indicador" {% if carteira.ativo_indicador %}checked{% endif %}> Ativo</label>
+                <label><input type="checkbox" name="cliente_indicador" {% if carteira.cliente_indicador %}checked{% endif %}> Cliente</label>
+                <label><input type="checkbox" name="fornecedor_indicador" {% if carteira.fornecedor_indicador %}checked{% endif %}> Fornecedor</label>
+                <label><input type="checkbox" name="transporte_indicador" {% if carteira.transporte_indicador %}checked{% endif %}> Transportadora</label>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+    </form>
+
+    <div class="action-group">
+        <form action="{% url 'excluir_carteira_modulo' empresa.id carteira.id %}" method="POST" onsubmit="return confirm('Excluir carteira {{ carteira.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir carteira</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

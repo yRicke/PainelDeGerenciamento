@@ -306,6 +306,16 @@ class Cidade(models.Model):
     @classmethod
     def verificar_cidade_existe(cls, codigo, empresa):
         return cls.objects.filter(codigo=codigo, empresa=empresa).exists()
+
+    def atualizar_cidade(self, novo_nome=None, novo_codigo=None):
+        if novo_nome:
+            self.nome = novo_nome
+        if novo_codigo is not None:
+            self.codigo = novo_codigo
+        self.save()
+
+    def excluir_cidade(self):
+        self.delete()
     
 class Regiao(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="regioes")
@@ -329,6 +339,16 @@ class Regiao(models.Model):
     def verificar_regiao_existe(cls, nome, empresa):
         return cls.objects.filter(nome=nome, empresa=empresa).exists()
 
+    def atualizar_regiao(self, novo_nome=None, novo_codigo=None):
+        if novo_nome:
+            self.nome = novo_nome
+        if novo_codigo is not None:
+            self.codigo = novo_codigo
+        self.save()
+
+    def excluir_regiao(self):
+        self.delete()
+
 class Carteira(models.Model):
     empresa = models.ForeignKey( Empresa, on_delete=models.CASCADE, related_name="carteiras")
     regiao = models.ForeignKey(Regiao, on_delete=models.SET_NULL, null=True, blank=True)
@@ -338,7 +358,7 @@ class Carteira(models.Model):
     ultima_venda = models.DateField(null=True, blank=True)
     qtd_dias_sem_venda = models.PositiveIntegerField(default=0)
     intervalo = models.CharField(max_length=20, blank=True, default="")
-    data_cadastro = models.DateField(auto_now_add=True)
+    data_cadastro = models.DateField(default=timezone.localdate)
     gerente = models.CharField(max_length=150, blank=True, default="")
     vendedor = models.CharField(max_length=150, blank=True, default="")
     descricao_perfil = models.CharField(max_length=200, blank=True, default="")
@@ -362,7 +382,9 @@ class Carteira(models.Model):
         ultima_venda=None,
         qtd_dias_sem_venda=0,
         intervalo="",
+        data_cadastro=None,
         gerente=None,
+        vendedor="",
         descricao_perfil="",
         nome_parceiro="",
         ativo_indicador=True,
@@ -379,7 +401,9 @@ class Carteira(models.Model):
             ultima_venda=ultima_venda,
             qtd_dias_sem_venda=qtd_dias_sem_venda,
             intervalo=intervalo,
+            data_cadastro=data_cadastro or timezone.localdate(),
             gerente=gerente,
+            vendedor=vendedor,
             descricao_perfil=descricao_perfil,
             nome_parceiro=nome_parceiro,
             ativo_indicador=ativo_indicador,
@@ -393,3 +417,59 @@ class Carteira(models.Model):
     @classmethod
     def listar_carteiras_por_empresa(cls, empresa):
         return cls.objects.filter(empresa=empresa)
+
+    def atualizar_carteira(
+        self,
+        regiao=UNSET,
+        cidade=UNSET,
+        valor_faturado=UNSET,
+        limite_credito=UNSET,
+        ultima_venda=UNSET,
+        qtd_dias_sem_venda=UNSET,
+        intervalo=UNSET,
+        data_cadastro=UNSET,
+        gerente=UNSET,
+        vendedor=UNSET,
+        descricao_perfil=UNSET,
+        nome_parceiro=UNSET,
+        ativo_indicador=UNSET,
+        cliente_indicador=UNSET,
+        fornecedor_indicador=UNSET,
+        transporte_indicador=UNSET,
+    ):
+        if regiao is not UNSET:
+            self.regiao = regiao
+        if cidade is not UNSET:
+            self.cidade = cidade
+        if valor_faturado is not UNSET:
+            self.valor_faturado = valor_faturado
+        if limite_credito is not UNSET:
+            self.limite_credito = limite_credito
+        if ultima_venda is not UNSET:
+            self.ultima_venda = ultima_venda
+        if qtd_dias_sem_venda is not UNSET:
+            self.qtd_dias_sem_venda = qtd_dias_sem_venda
+        if intervalo is not UNSET:
+            self.intervalo = intervalo
+        if data_cadastro is not UNSET:
+            self.data_cadastro = data_cadastro
+        if gerente is not UNSET:
+            self.gerente = gerente
+        if vendedor is not UNSET:
+            self.vendedor = vendedor
+        if descricao_perfil is not UNSET:
+            self.descricao_perfil = descricao_perfil
+        if nome_parceiro is not UNSET:
+            self.nome_parceiro = nome_parceiro
+        if ativo_indicador is not UNSET:
+            self.ativo_indicador = ativo_indicador
+        if cliente_indicador is not UNSET:
+            self.cliente_indicador = cliente_indicador
+        if fornecedor_indicador is not UNSET:
+            self.fornecedor_indicador = fornecedor_indicador
+        if transporte_indicador is not UNSET:
+            self.transporte_indicador = transporte_indicador
+        self.save()
+
+    def excluir_carteira(self):
+        self.delete()
