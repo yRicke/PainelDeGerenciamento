@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.db.models import FloatField
 from django.db.models.functions import Cast
 
-from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
+from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
 from .utils.administrativo_transformers import montar_contexto_tofu_lista
 from .utils.comercial_transformers import montar_contexto_carteira, montar_contexto_vendas
 from .utils.modulos_permissoes import (
@@ -24,8 +24,10 @@ from .services import (
     semana_iso_input_atividade,
     preparar_diretorios_carteira,
     preparar_diretorios_vendas,
+    preparar_diretorios_cargas,
     importar_upload_carteira,
     importar_upload_vendas,
+    importar_upload_cargas,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
     atualizar_empresa_por_nome,
@@ -39,6 +41,8 @@ from .services import (
     atualizar_carteira_por_post,
     criar_venda_por_post,
     atualizar_venda_por_post,
+    criar_carga_por_post,
+    atualizar_carga_por_post,
     criar_cidade_por_dados,
     atualizar_cidade_por_dados,
     criar_projeto_por_dados,
@@ -51,6 +55,7 @@ from .tabulator import (
     build_colaboradores_tabulator,
     build_projetos_tabulator,
     build_regioes_tabulator,
+    build_cargas_tabulator,
 )
 
 @login_required(login_url="entrar")
@@ -955,7 +960,105 @@ def controle_de_margem(request, empresa_id):
 @login_required(login_url="entrar")
 def cargas_em_aberto(request, empresa_id):
     modulo = MODULOS_POR_AREA["Operacional"][0]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_carga":
+            erro = criar_carga_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Carga criada com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_cargas")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_cargas(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("cargas_em_aberto", empresa_id=empresa_id)
+
+    cargas_qs = (
+        Cargas.objects.filter(empresa=empresa)
+        .select_related("regiao")
+        .order_by("-id")
+    )
+    cargas_lista = list(cargas_qs)
+    dashboard_total_cargas = len(cargas_lista)
+    dashboard_fora_prazo = sum(1 for carga in cargas_lista if carga.verificacao)
+    dashboard_no_prazo = dashboard_total_cargas - dashboard_fora_prazo
+    arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": arquivos_existentes[0] if arquivos_existentes else "",
+        "tem_arquivo_existente": bool(arquivos_existentes),
+        "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
+        "dashboard_total_cargas": dashboard_total_cargas,
+        "dashboard_no_prazo": dashboard_no_prazo,
+        "dashboard_fora_prazo": dashboard_fora_prazo,
+        "cargas_tabulator": build_cargas_tabulator(cargas_lista, empresa.id),
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def editar_carga_modulo(request, empresa_id, carga_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cargas em Aberto")
+    if not autorizado:
+        return redirect("index")
+
+    carga_item = Cargas.objects.filter(id=carga_id, empresa=empresa).first()
+    if not carga_item:
+        messages.error(request, "Carga nao encontrada.")
+        return redirect("cargas_em_aberto", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_carga_por_post(carga_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_carga_modulo", empresa_id=empresa.id, carga_id=carga_item.id)
+        messages.success(request, "Carga atualizada com sucesso.")
+        return redirect("cargas_em_aberto", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "carga": carga_item,
+        "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
+    }
+    return render(request, "operacional/cargas_em_aberto_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_carga_modulo(request, empresa_id, carga_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cargas em Aberto")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("cargas_em_aberto", empresa_id=empresa.id)
+
+    carga_item = Cargas.objects.filter(id=carga_id, empresa=empresa).first()
+    if not carga_item:
+        messages.error(request, "Carga nao encontrada.")
+        return redirect("cargas_em_aberto", empresa_id=empresa.id)
+
+    carga_item.excluir_carga()
+    messages.success(request, "Carga excluida com sucesso.")
+    return redirect("cargas_em_aberto", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

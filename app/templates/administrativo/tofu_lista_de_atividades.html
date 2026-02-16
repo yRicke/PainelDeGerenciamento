@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
 <link rel="stylesheet" href="{% static 'css/tofu_lista_de_atividades.css' %}">
 {% endblock %}
 
@@ -13,47 +14,14 @@
     <a href="{% url 'administrativo' %}">Voltar</a>
     <h1>TOFU Lista de Atividades</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes do TOFU">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Dashboard</h2>
-    <p><strong>Total de atividades:</strong> {{ dashboard.total_atividades }}</p>
-    <div class="dashboard-grid">
-        <article class="dashboard-card">
-            <h3>Atrasados</h3>
-            <p>Total: {{ dashboard.atrasados.total }}</p>
-            <p>Parados: {{ dashboard.atrasados.parados }}</p>
-            <p>Em andamento: {{ dashboard.atrasados.em_andamento }}</p>
-            <p>% do total: {{ dashboard.atrasados.percentual }}%</p>
-        </article>
-
-        <article class="dashboard-card">
-            <h3>Alertas</h3>
-            <p>Total: {{ dashboard.alertas.total }}</p>
-            <p>Semana atual: {{ dashboard.alertas.semana_atual }}</p>
-            <p>Proxima semana: {{ dashboard.alertas.proxima_semana }}</p>
-            <p>% do total: {{ dashboard.alertas.percentual }}%</p>
-        </article>
-
-        <article class="dashboard-card">
-            <h3>Concluidos</h3>
-            <p>Total: {{ dashboard.concluidos.total }}</p>
-            <p>No prazo: {{ dashboard.concluidos.no_prazo }}</p>
-            <p>Fora do prazo: {{ dashboard.concluidos.fora_do_prazo }}</p>
-            <p>% do total: {{ dashboard.concluidos.percentual }}%</p>
-        </article>
-
-        <article class="dashboard-card">
-            <h3>A Fazer</h3>
-            <p>Total: {{ dashboard.a_fazer.total }}</p>
-            <p>Parados: {{ dashboard.a_fazer.parados }}</p>
-            <p>Em andamento: {{ dashboard.a_fazer.em_andamento }}</p>
-            <p>% do total: {{ dashboard.a_fazer.percentual }}%</p>
-        </article>
-    </div>
-</section>
-
-<section class="panel">
+<section id="sec-cadastro" class="panel module-section">
     <h2>Nova Atividade</h2>
     <form action="{% url 'criar_atividade_tofu' empresa.id %}" method="POST" data-atividade-form>
         {% csrf_token %}
@@ -132,7 +100,45 @@
     </form>
 </section>
 
-<section class="panel">
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Dashboard</h2>
+    <p><strong>Total de atividades:</strong> {{ dashboard.total_atividades }}</p>
+    <div class="dashboard-grid">
+        <article class="dashboard-card">
+            <h3>Atrasados</h3>
+            <p>Total: {{ dashboard.atrasados.total }}</p>
+            <p>Parados: {{ dashboard.atrasados.parados }}</p>
+            <p>Em andamento: {{ dashboard.atrasados.em_andamento }}</p>
+            <p>% do total: {{ dashboard.atrasados.percentual }}%</p>
+        </article>
+
+        <article class="dashboard-card">
+            <h3>Alertas</h3>
+            <p>Total: {{ dashboard.alertas.total }}</p>
+            <p>Semana atual: {{ dashboard.alertas.semana_atual }}</p>
+            <p>Proxima semana: {{ dashboard.alertas.proxima_semana }}</p>
+            <p>% do total: {{ dashboard.alertas.percentual }}%</p>
+        </article>
+
+        <article class="dashboard-card">
+            <h3>Concluidos</h3>
+            <p>Total: {{ dashboard.concluidos.total }}</p>
+            <p>No prazo: {{ dashboard.concluidos.no_prazo }}</p>
+            <p>Fora do prazo: {{ dashboard.concluidos.fora_do_prazo }}</p>
+            <p>% do total: {{ dashboard.concluidos.percentual }}%</p>
+        </article>
+
+        <article class="dashboard-card">
+            <h3>A Fazer</h3>
+            <p>Total: {{ dashboard.a_fazer.total }}</p>
+            <p>Parados: {{ dashboard.a_fazer.parados }}</p>
+            <p>Em andamento: {{ dashboard.a_fazer.em_andamento }}</p>
+            <p>% do total: {{ dashboard.a_fazer.percentual }}%</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
     <h2>Atividades Cadastradas</h2>
 
     <div class="filter-grid">

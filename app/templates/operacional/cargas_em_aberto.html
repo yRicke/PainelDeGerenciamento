@@ -1,16 +1,186 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Cargas em Aberto{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/cargas-em-aberto.css' %}">
+{% endblock %}
+
 {% block content %}
+{% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
     <a href="{% url 'operacional' %}">Voltar</a>
     <h1>Cargas em Aberto</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes de Cargas em Aberto">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importacao</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Cargas em Aberto</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Nova Carga (Cadastro Manual)</h2>
+    <form id="criar-carga-form" action="{% url 'cargas_em_aberto' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_carga">
+
+        <div class="form-grid">
+            <div>
+                <label>Situacao</label>
+                <select name="situacao" required>
+                    <option value="Aberta" selected>Aberta</option>
+                    <option value="Fechada">Fechada</option>
+                </select>
+            </div>
+            <div>
+                <label>Ordem de carga</label>
+                <input type="text" name="ordem_de_carga_codigo" required>
+            </div>
+            <div>
+                <label>Data inicio</label>
+                <input type="date" name="data_inicio" value="{{ hoje_iso }}" required>
+            </div>
+            <div>
+                <label>Data prevista para saida</label>
+                <input type="date" name="data_prevista_saida" value="{{ hoje_iso }}" required>
+            </div>
+            <div>
+                <label>Data chegada</label>
+                <input type="date" id="data-chegada-criar" name="data_chegada">
+            </div>
+            <div>
+                <label>Data finalizacao</label>
+                <input type="date" id="data-finalizacao-criar" name="data_finalizacao" disabled>
+            </div>
+            <div>
+                <label>Nome motorista</label>
+                <input type="text" name="nome_motorista">
+            </div>
+            <div>
+                <label>Nome fantasia empresa</label>
+                <input type="text" name="nome_fantasia_empresa" required>
+            </div>
+            <div>
+                <label>Regiao</label>
+                <select name="regiao_id">
+                    <option value="">-</option>
+                    {% for regiao in regioes %}
+                    <option value="{{ regiao.id }}">{{ regiao.nome }} ({{ regiao.codigo }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Prazo maximo (dias)</label>
+                <input type="number" name="prazo_maximo_dias" min="0" value="10">
+            </div>
+        </div>
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
 </section>
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importacao de Cargas</h2>
+    <p>Arraste um arquivo <code>.xls</code> para importar. Apenas um arquivo permanece na pasta.</p>
+
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form
+        id="upload-cargas-form"
+        class="upload-form"
+        action="{% url 'cargas_em_aberto' empresa.id %}"
+        method="post"
+        enctype="multipart/form-data"
+        data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
+    >
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="importar_cargas">
+        <input type="file" id="arquivo-cargas-input" name="arquivo_cargas" accept=".xls" hidden>
+        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+
+        <div id="dropzone-cargas" class="dropzone">
+            <strong>Arraste e solte o arquivo aqui</strong>
+            <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
+        </div>
+
+        <div class="upload-actions">
+            <button type="submit" class="upload-button">Enviar e importar</button>
+            <span id="nome-arquivo-cargas-selecionado" class="file-status"></span>
+        </div>
+
+        <div id="cargas-loading-status" class="loading-status">
+            Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+        </div>
+    </form>
+</section>
+
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Cargas Abertas</h2>
+    <div class="cargas-dashboard-grid">
+        <article class="cargas-kpi-card cargas-kpi-card--neutro">
+            <h3>Cargas em Aberto</h3>
+            <p id="kpi-cargas-em-aberto">{{ dashboard_total_cargas }}</p>
+        </article>
+        <article class="cargas-kpi-card cargas-kpi-card--ok">
+            <h3>No Prazo</h3>
+            <p id="kpi-cargas-no-prazo">{{ dashboard_no_prazo }}</p>
+        </article>
+        <article class="cargas-kpi-card cargas-kpi-card--alerta">
+            <h3>Fora do Prazo</h3>
+            <p id="kpi-cargas-fora-prazo">{{ dashboard_fora_prazo }}</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados das Cargas</h2>
+    <div class="filter-grid">
+        <div>
+            <label for="filtro-situacao">Situacao</label>
+            <select id="filtro-situacao">
+                <option value="">Todas</option>
+                <option value="aberta">Aberta</option>
+                <option value="fechada">Fechada</option>
+            </select>
+        </div>
+        <div>
+            <label for="filtro-verificacao">Verificacao</label>
+            <select id="filtro-verificacao">
+                <option value="">Todas</option>
+                <option value="ok">Ok</option>
+                <option value="verificar">Verificar</option>
+            </select>
+        </div>
+        <div>
+            <label for="filtro-critica">Critica</label>
+            <select id="filtro-critica">
+                <option value="">Todas</option>
+                <option value="positiva">Positiva (&gt; 0)</option>
+                <option value="zero">Zero (= 0)</option>
+                <option value="negativa">Negativa (&lt; 0)</option>
+            </select>
+        </div>
+        <div>
+            <label for="filtro-empresa">Nome Fantasia (Empresa)</label>
+            <input type="text" id="filtro-empresa" placeholder="Digite para filtrar">
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <div id="cargas-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ cargas_tabulator|json_script:"cargas-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/cargas-em-aberto-page.js' %}"></script>
 {% endblock %}

@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
 <link rel="stylesheet" href="{% static 'css/carteira.css' %}">
 {% endblock %}
 
@@ -14,9 +15,15 @@
     <a href="{% url 'comercial' %}">Voltar</a>
     <h1>Carteira</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes da Carteira">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importacao</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
+<section id="sec-cadastro" class="panel module-section">
     <h2>Nova Carteira (Cadastro Manual)</h2>
     <form action="{% url 'carteira' empresa.id %}" method="post">
         {% csrf_token %}
@@ -92,7 +99,7 @@
     </form>
 </section>
 
-<section class="panel">
+<section id="sec-importacao" class="panel module-section">
     <h2>Importacao de Carteira</h2>
     <p>Arraste um arquivo <code>.xlsx</code> para importar. Apenas um arquivo permanece na pasta.</p>
 
@@ -129,7 +136,7 @@
     </form>
 </section>
 
-<section class="panel">
+<section id="sec-dashboard" class="panel module-section">
     <div class="dashboard-header">
         <h2>Grafico da Carteira</h2>
         <div>
@@ -144,7 +151,7 @@
     <div id="carteira-dashboard-chart"></div>
 </section>
 
-<section class="panel">
+<section class="panel module-section">
     <h2>Resumo da Carteira</h2>
     <div class="kpi-grid">
         <article class="kpi-card">
@@ -174,7 +181,7 @@
     </div>
 </section>
 
-<section class="panel">
+<section id="sec-visualizacao" class="panel module-section">
     <h2>Dados da Carteira</h2>
 
     <div class="filter-grid">

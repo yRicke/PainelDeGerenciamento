@@ -100,6 +100,8 @@ urlpatterns = [
 
     # Modulos - Operacional
     path('cargas_em_aberto/<int:empresa_id>/', views.cargas_em_aberto, name='cargas_em_aberto'),
+    path('cargas_em_aberto/<int:empresa_id>/editar/<int:carga_id>/', views.editar_carga_modulo, name='editar_carga_modulo'),
+    path('cargas_em_aberto/<int:empresa_id>/excluir/<int:carga_id>/', views.excluir_carga_modulo, name='excluir_carga_modulo'),
     path('operador_logistico/<int:empresa_id>/', views.operador_logistico, name='operador_logistico'),
     path('tabela_de_fretes/<int:empresa_id>/', views.tabela_de_fretes, name='tabela_de_fretes'),
     path('estoque_pcp/<int:empresa_id>/', views.estoque_pcp, name='estoque_pcp'),

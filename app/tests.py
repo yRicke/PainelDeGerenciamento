@@ -9,8 +9,15 @@ import shutil
 from uuid import uuid4
 from pathlib import Path
 from unittest.mock import patch
-from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Permissao, Projeto, Regiao, Usuario, Venda
-from .services import preparar_diretorios_vendas, importar_upload_vendas
+from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Permissao, Projeto, Regiao, Usuario, Venda
+from .services import (
+    atualizar_carga_por_post,
+    criar_carga_por_post,
+    preparar_diretorios_cargas,
+    preparar_diretorios_vendas,
+    importar_upload_cargas,
+    importar_upload_vendas,
+)
 
 # Create your tests here.
 
@@ -370,6 +377,66 @@ class VendaModelTest(TestCase):
         self.assertFalse(Venda.objects.filter(id=venda_id).exists())
 
 
+class CargasModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.regiao = Regiao.criar_regiao(nome="Sul", empresa=self.empresa, codigo="RG2001")
+        self.data_inicio = timezone.localdate() - timedelta(days=10)
+        self.carga = Cargas.criar_carga(
+            empresa=self.empresa,
+            situacao="Em Aberto",
+            ordem_de_carga_codigo="OC123",
+            data_inicio=self.data_inicio,
+            data_prevista_saida=timezone.localdate(),
+            nome_motorista="Motorista Teste",
+            nome_fantasia_empresa="Cliente Teste",
+            regiao=self.regiao,
+            prazo_maximo_dias=7,
+        )
+
+    def test_criar_carga_calcula_indicadores(self):
+        self.assertEqual(self.carga.idade_dias, 10)
+        self.assertTrue(self.carga.verificacao)
+        self.assertEqual(self.carga.critica, 3)
+
+    def test_atualizar_carga_recalcula_indicadores(self):
+        self.carga.atualizar_carga(
+            data_inicio=timezone.localdate() - timedelta(days=2),
+            prazo_maximo_dias=5,
+        )
+        self.assertEqual(self.carga.idade_dias, 2)
+        self.assertFalse(self.carga.verificacao)
+        self.assertEqual(self.carga.critica, -3)
+
+    def test_verificacao_true_quando_critica_maior_que_zero(self):
+        self.assertGreater(self.carga.critica, 0)
+        self.assertTrue(self.carga.verificacao)
+
+    def test_verificacao_false_quando_critica_menor_que_zero(self):
+        self.carga.atualizar_carga(
+            data_inicio=timezone.localdate() - timedelta(days=1),
+            prazo_maximo_dias=5,
+        )
+        self.assertLess(self.carga.critica, 0)
+        self.assertFalse(self.carga.verificacao)
+
+    def test_prazo_maximo_padrao_deve_ser_dez(self):
+        carga_padrao = Cargas.criar_carga(
+            empresa=self.empresa,
+            situacao="Aberta",
+            ordem_de_carga_codigo="OCPADRAO",
+            data_inicio=timezone.localdate(),
+            data_prevista_saida=timezone.localdate(),
+            nome_fantasia_empresa="Cliente",
+        )
+        self.assertEqual(carga_padrao.prazo_maximo_dias, 10)
+
+    def test_excluir_carga(self):
+        carga_id = self.carga.id
+        self.carga.excluir_carga()
+        self.assertFalse(Cargas.objects.filter(id=carga_id).exists())
+
+
 class VendasImportacaoServiceTest(TestCase):
     def setUp(self):
         self.empresa = Empresa.criar_empresa(nome="Empresa Teste Importacao")
@@ -425,3 +492,127 @@ class VendasImportacaoServiceTest(TestCase):
 
             self.assertFalse(ok)
             self.assertIn("arquivo .xls", mensagem)
+
+
+class CargasImportacaoServiceTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste Importacao Cargas")
+        self.base_dir = str((Path(settings.BASE_DIR) / f".tmp_test_cargas_{uuid4().hex}"))
+        Path(self.base_dir).mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(self.base_dir, ignore_errors=True))
+
+    def test_preparar_diretorios_cargas_cria_estrutura(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+            self.assertTrue(diretorio_importacao.exists())
+            self.assertTrue(diretorio_subscritos.exists())
+            self.assertEqual(diretorio_subscritos.parent, diretorio_importacao)
+
+    def test_importar_upload_cargas_mantem_apenas_novo_e_move_antigo(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+            antigo = diretorio_importacao / "cargas_antigo.xls"
+            antigo.write_bytes(b"arquivo-antigo")
+
+            arquivo = SimpleUploadedFile("cargas_novo.xls", b"novo", content_type="application/vnd.ms-excel")
+
+            with patch("app.services.importar_cargas_do_diretorio") as importar_mock:
+                importar_mock.return_value = {"arquivos": 1, "linhas": 1, "cargas": 1}
+                ok, mensagem = importar_upload_cargas(
+                    empresa=self.empresa,
+                    arquivo=arquivo,
+                    confirmar_substituicao=True,
+                    diretorio_importacao=diretorio_importacao,
+                    diretorio_subscritos=diretorio_subscritos,
+                )
+
+            self.assertTrue(ok)
+            self.assertIn("Importacao concluida", mensagem)
+            self.assertTrue((diretorio_importacao / "cargas_novo.xls").exists())
+            self.assertTrue((diretorio_subscritos / "cargas_antigo.xls").exists())
+            importar_mock.assert_called_once()
+
+    def test_importar_upload_cargas_sem_confirmacao_retorna_erro(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+            (diretorio_importacao / "cargas_antigo.xls").write_bytes(b"arquivo-antigo")
+            arquivo = SimpleUploadedFile("cargas_novo.xls", b"novo", content_type="application/vnd.ms-excel")
+
+            ok, mensagem = importar_upload_cargas(
+                empresa=self.empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=False,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+
+            self.assertFalse(ok)
+            self.assertIn("Confirme a substituicao", mensagem)
+
+
+class CargasCrudServiceTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Service Cargas")
+        self.regiao = Regiao.criar_regiao(nome="Nordeste", empresa=self.empresa, codigo="RG5555")
+
+    def test_criar_carga_por_post(self):
+        erro = criar_carga_por_post(
+            self.empresa,
+            {
+                "situacao": "Aberta",
+                "ordem_de_carga_codigo": "OC900",
+                "data_inicio": timezone.localdate().strftime("%Y-%m-%d"),
+                "data_prevista_saida": timezone.localdate().strftime("%Y-%m-%d"),
+                "nome_motorista": "Motorista X",
+                "nome_fantasia_empresa": "Empresa X",
+                "regiao_id": str(self.regiao.id),
+                "prazo_maximo_dias": "",
+            },
+        )
+        self.assertEqual(erro, "")
+        carga = Cargas.objects.get(ordem_de_carga_codigo="OC900", empresa=self.empresa)
+        self.assertEqual(carga.prazo_maximo_dias, 10)
+
+    def test_atualizar_carga_por_post(self):
+        carga = Cargas.criar_carga(
+            empresa=self.empresa,
+            situacao="Aberta",
+            ordem_de_carga_codigo="OC901",
+            data_inicio=timezone.localdate(),
+            data_prevista_saida=timezone.localdate(),
+            nome_fantasia_empresa="Empresa Y",
+            prazo_maximo_dias=10,
+        )
+        erro = atualizar_carga_por_post(
+            carga,
+            self.empresa,
+            {
+                "situacao": "Fechada",
+                "ordem_de_carga_codigo": "OC901A",
+                "data_inicio": timezone.localdate().strftime("%Y-%m-%d"),
+                "data_prevista_saida": timezone.localdate().strftime("%Y-%m-%d"),
+                "nome_motorista": "Motorista Y",
+                "nome_fantasia_empresa": "Empresa Y",
+                "regiao_id": str(self.regiao.id),
+                "prazo_maximo_dias": "15",
+            },
+        )
+        self.assertEqual(erro, "")
+        carga.refresh_from_db()
+        self.assertEqual(carga.situacao, "Fechada")
+        self.assertEqual(carga.ordem_de_carga_codigo, "OC901A")
+        self.assertEqual(carga.prazo_maximo_dias, 15)
+
+    def test_nao_permite_data_finalizacao_sem_data_chegada(self):
+        erro = criar_carga_por_post(
+            self.empresa,
+            {
+                "situacao": "Aberta",
+                "ordem_de_carga_codigo": "OC902",
+                "data_inicio": timezone.localdate().strftime("%Y-%m-%d"),
+                "data_prevista_saida": timezone.localdate().strftime("%Y-%m-%d"),
+                "data_finalizacao": timezone.localdate().strftime("%Y-%m-%d"),
+                "nome_fantasia_empresa": "Empresa Z",
+            },
+        )
+        self.assertIn("Data de finalizacao", erro)

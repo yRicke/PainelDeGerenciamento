@@ -563,3 +563,110 @@ class Venda(models.Model):
     
     def excluir_venda(self):
         self.delete()
+
+class Cargas(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="cargas")
+    situacao = models.CharField(max_length=20)
+    ordem_de_carga_codigo = models.CharField(max_length=50)
+    data_inicio = models.DateField()
+    data_prevista_saida = models.DateField()
+    data_chegada = models.DateField(null=True, blank=True)
+    data_finalizacao = models.DateField(null=True, blank=True)
+    nome_motorista = models.CharField(max_length=150, blank=True, default="")
+    nome_fantasia_empresa = models.CharField(max_length=150)
+    regiao = models.ForeignKey(Regiao, on_delete=models.SET_NULL, null=True, blank=True)
+    prazo_maximo_dias = models.PositiveIntegerField(default=10)
+
+    def __str__(self):
+        return f"Carga #{self.ordem_de_carga_codigo} - {self.nome_fantasia_empresa}"
+
+    def _calcular_idade_dias(self):
+        hoje = timezone.localdate()
+        if not self.data_inicio:
+            return 0
+        return max(0, (hoje - self.data_inicio).days)
+
+    @property
+    def idade_dias(self):
+        return self._calcular_idade_dias()
+
+    @property
+    def critica(self):
+        return self.idade_dias - int(self.prazo_maximo_dias or 0)
+
+    @property
+    def verificacao(self):
+        return self.critica > 0
+
+    @classmethod
+    def criar_carga(
+        cls,
+        empresa,
+        situacao,
+        ordem_de_carga_codigo,
+        data_inicio,
+        data_prevista_saida,
+        data_chegada=None,
+        data_finalizacao=None,
+        nome_motorista="",
+        nome_fantasia_empresa="",
+        regiao=None,
+        prazo_maximo_dias=10,
+    ):
+        carga = cls(
+            empresa=empresa,
+            situacao=situacao,
+            ordem_de_carga_codigo=ordem_de_carga_codigo,
+            data_inicio=data_inicio,
+            data_prevista_saida=data_prevista_saida,
+            data_chegada=data_chegada,
+            data_finalizacao=data_finalizacao,
+            nome_motorista=nome_motorista,
+            nome_fantasia_empresa=nome_fantasia_empresa,
+            regiao=regiao,
+            prazo_maximo_dias=prazo_maximo_dias,
+        )
+        carga.save()
+        return carga
+
+    @classmethod
+    def listar_cargas_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_carga(
+        self,
+        situacao=UNSET,
+        ordem_de_carga_codigo=UNSET,
+        data_inicio=UNSET,
+        data_prevista_saida=UNSET,
+        data_chegada=UNSET,
+        data_finalizacao=UNSET,
+        nome_motorista=UNSET,
+        nome_fantasia_empresa=UNSET,
+        regiao=UNSET,
+        prazo_maximo_dias=UNSET,
+    ):
+        if situacao is not UNSET:
+            self.situacao = situacao
+        if ordem_de_carga_codigo is not UNSET:
+            self.ordem_de_carga_codigo = ordem_de_carga_codigo
+        if data_inicio is not UNSET:
+            self.data_inicio = data_inicio
+        if data_prevista_saida is not UNSET:
+            self.data_prevista_saida = data_prevista_saida
+        if data_chegada is not UNSET:
+            self.data_chegada = data_chegada
+        if data_finalizacao is not UNSET:
+            self.data_finalizacao = data_finalizacao
+        if nome_motorista is not UNSET:
+            self.nome_motorista = nome_motorista
+        if nome_fantasia_empresa is not UNSET:
+            self.nome_fantasia_empresa = nome_fantasia_empresa
+        if regiao is not UNSET:
+            self.regiao = regiao
+        if prazo_maximo_dias is not UNSET:
+            self.prazo_maximo_dias = prazo_maximo_dias
+        self.save()
+
+    def excluir_carga(self):
+        self.delete()

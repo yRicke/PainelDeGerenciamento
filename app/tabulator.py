@@ -116,6 +116,35 @@ def build_vendas_tabulator(vendas_qs, empresa_id: int):
     return resultado
 
 
+def build_cargas_tabulator(cargas_qs, empresa_id: int):
+    resultado = []
+    for carga in cargas_qs:
+        resultado.append(
+            {
+                "id": carga.id,
+                "situacao": carga.situacao or "",
+                "ordem_de_carga_codigo": carga.ordem_de_carga_codigo or "",
+                "data_inicio": _fmt_date_br(carga.data_inicio),
+                "data_prevista_saida": _fmt_date_br(carga.data_prevista_saida),
+                "data_chegada": _fmt_date_br(carga.data_chegada),
+                "data_finalizacao": _fmt_date_br(carga.data_finalizacao),
+                "nome_motorista": carga.nome_motorista or "",
+                "nome_fantasia_empresa": carga.nome_fantasia_empresa or "",
+                "regiao_nome": carga.regiao.nome if carga.regiao else "",
+                "regiao_codigo": carga.regiao.codigo if carga.regiao else "",
+                "prazo_maximo_dias": carga.prazo_maximo_dias or 0,
+                "idade_dias": carga.idade_dias or 0,
+                "verificacao": bool(carga.verificacao),
+                "critica": carga.critica,
+                "editar_url": reverse(
+                    "editar_carga_modulo",
+                    kwargs={"empresa_id": empresa_id, "carga_id": carga.id},
+                ),
+            }
+        )
+    return resultado
+
+
 def build_colaboradores_tabulator(colaboradores_qs, empresa_id: int):
     return [
         {

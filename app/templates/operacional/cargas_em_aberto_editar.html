@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Carga{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(170px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .btn-primary {
+        background: #175cd3;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+
+    .btn-danger {
+        background: #b42318;
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.6rem;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'cargas_em_aberto' empresa.id %}">Voltar para cargas em aberto</a>
+    <h1>Editar Carga #{{ carga.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <form action="{% url 'editar_carga_modulo' empresa.id carga.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Situacao</label>
+                <select name="situacao" required>
+                    <option value="Aberta" {% if carga.situacao|lower == 'aberta' %}selected{% endif %}>Aberta</option>
+                    <option value="Fechada" {% if carga.situacao|lower == 'fechada' %}selected{% endif %}>Fechada</option>
+                </select>
+            </div>
+            <div>
+                <label>Ordem de carga</label>
+                <input type="text" name="ordem_de_carga_codigo" value="{{ carga.ordem_de_carga_codigo }}" required>
+            </div>
+            <div>
+                <label>Data inicio</label>
+                <input type="date" id="data-inicio-editar" name="data_inicio" value="{{ carga.data_inicio|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+                <label>Data prevista para saida</label>
+                <input type="date" name="data_prevista_saida" value="{{ carga.data_prevista_saida|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+                <label>Data chegada</label>
+                <input type="date" id="data-chegada-editar" name="data_chegada" value="{% if carga.data_chegada %}{{ carga.data_chegada|date:'Y-m-d' }}{% endif %}">
+            </div>
+            <div>
+                <label>Data finalizacao</label>
+                <input type="date" id="data-finalizacao-editar" name="data_finalizacao" value="{% if carga.data_finalizacao %}{{ carga.data_finalizacao|date:'Y-m-d' }}{% endif %}" {% if not carga.data_chegada %}disabled{% endif %}>
+            </div>
+            <div>
+                <label>Nome motorista</label>
+                <input type="text" name="nome_motorista" value="{{ carga.nome_motorista }}">
+            </div>
+            <div>
+                <label>Nome fantasia empresa</label>
+                <input type="text" name="nome_fantasia_empresa" value="{{ carga.nome_fantasia_empresa }}" required>
+            </div>
+            <div>
+                <label>Regiao</label>
+                <select name="regiao_id">
+                    <option value="">-</option>
+                    {% for regiao in regioes %}
+                    <option value="{{ regiao.id }}" {% if carga.regiao_id == regiao.id %}selected{% endif %}>
+                        {{ regiao.nome }} ({{ regiao.codigo }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Prazo maximo (dias)</label>
+                <input type="number" min="0" id="prazo-maximo-editar" name="prazo_maximo_dias" value="{{ carga.prazo_maximo_dias }}">
+            </div>
+            <div>
+                <label>Idade (dias)</label>
+                <input type="text" id="idade-dias-preview" value="{{ carga.idade_dias }}" disabled>
+            </div>
+            <div>
+                <label>Critica</label>
+                <input type="text" id="critica-preview" value="{{ carga.critica }}" disabled>
+            </div>
+            <div>
+                <label>Verificacao</label>
+                <input type="text" id="verificacao-preview" value="{% if carga.verificacao %}Verificar{% else %}Ok{% endif %}" disabled>
+            </div>
+        </div>
+        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+    </form>
+
+    <hr>
+
+    <form action="{% url 'excluir_carga_modulo' empresa.id carga.id %}" method="POST" onsubmit="return confirm('Excluir carga {{ carga.id }}?');">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Excluir carga</button>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/cargas-em-aberto-editar-page.js' %}"></script>
+{% endblock %}

@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.utils import timezone
 
-from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
+from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
 from .utils.administrativo_utils import (
     _set_prazo_inicio_e_prazo_termino,
     _transformar_date_ou_none,
@@ -18,6 +18,7 @@ from .utils.administrativo_utils import (
     _transformar_iso_week_parts_ou_none,
 )
 from .utils.comercial_importacao import importar_carteira_do_diretorio, importar_vendas_do_diretorio
+from .utils.operacional_importacao import importar_cargas_do_diretorio
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -396,6 +397,81 @@ def atualizar_venda_por_post(venda, empresa, post_data):
     return ""
 
 
+def _dados_carga_from_post(post_data, empresa):
+    regiao = Regiao.objects.filter(id=post_data.get("regiao_id"), empresa=empresa).first()
+    data_inicio_raw = post_data.get("data_inicio")
+    data_prevista_saida_raw = post_data.get("data_prevista_saida")
+    prazo_maximo_dias_raw = (post_data.get("prazo_maximo_dias") or "").strip()
+
+    return {
+        "situacao": (post_data.get("situacao") or "").strip(),
+        "ordem_de_carga_codigo": (post_data.get("ordem_de_carga_codigo") or "").strip(),
+        "data_inicio_raw": data_inicio_raw,
+        "data_prevista_saida_raw": data_prevista_saida_raw,
+        "data_inicio": _parse_date_ou_none(data_inicio_raw),
+        "data_prevista_saida": _parse_date_ou_none(data_prevista_saida_raw),
+        "data_chegada": _parse_date_ou_none(post_data.get("data_chegada")),
+        "data_finalizacao": _parse_date_ou_none(post_data.get("data_finalizacao")),
+        "nome_motorista": (post_data.get("nome_motorista") or "").strip(),
+        "nome_fantasia_empresa": (post_data.get("nome_fantasia_empresa") or "").strip(),
+        "regiao": regiao,
+        "prazo_maximo_dias_raw": prazo_maximo_dias_raw,
+        "prazo_maximo_dias": 10 if prazo_maximo_dias_raw == "" else max(0, _parse_int_ou_zero(prazo_maximo_dias_raw)),
+    }
+
+
+def criar_carga_por_post(empresa, post_data):
+    dados = _dados_carga_from_post(post_data, empresa)
+    if not dados["situacao"]:
+        return "Situacao da carga e obrigatoria."
+    if not dados["ordem_de_carga_codigo"]:
+        return "Ordem de carga e obrigatoria."
+    if not dados["nome_fantasia_empresa"]:
+        return "Nome fantasia da empresa e obrigatorio."
+    if not dados["data_inicio_raw"]:
+        return "Data de inicio e obrigatoria."
+    if not dados["data_inicio"]:
+        return "Data de inicio invalida."
+    if not dados["data_prevista_saida_raw"]:
+        return "Data prevista para saida e obrigatoria."
+    if not dados["data_prevista_saida"]:
+        return "Data prevista para saida invalida."
+    if dados["data_finalizacao"] and not dados["data_chegada"]:
+        return "Data de finalizacao so pode ser preenchida quando data de chegada estiver preenchida."
+
+    dados.pop("data_inicio_raw", None)
+    dados.pop("data_prevista_saida_raw", None)
+    dados.pop("prazo_maximo_dias_raw", None)
+    Cargas.criar_carga(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_carga_por_post(carga, empresa, post_data):
+    dados = _dados_carga_from_post(post_data, empresa)
+    if not dados["situacao"]:
+        return "Situacao da carga e obrigatoria."
+    if not dados["ordem_de_carga_codigo"]:
+        return "Ordem de carga e obrigatoria."
+    if not dados["nome_fantasia_empresa"]:
+        return "Nome fantasia da empresa e obrigatorio."
+    if not dados["data_inicio_raw"]:
+        return "Data de inicio e obrigatoria."
+    if not dados["data_inicio"]:
+        return "Data de inicio invalida."
+    if not dados["data_prevista_saida_raw"]:
+        return "Data prevista para saida e obrigatoria."
+    if not dados["data_prevista_saida"]:
+        return "Data prevista para saida invalida."
+    if dados["data_finalizacao"] and not dados["data_chegada"]:
+        return "Data de finalizacao so pode ser preenchida quando data de chegada estiver preenchida."
+
+    dados.pop("data_inicio_raw", None)
+    dados.pop("data_prevista_saida_raw", None)
+    dados.pop("prazo_maximo_dias_raw", None)
+    carga.atualizar_carga(**dados)
+    return ""
+
+
 def _dados_atividade_from_post(post_data, empresa):
     projeto = Projeto.objects.filter(id=post_data.get("projeto_id"), empresa=empresa).first()
     if not projeto:
@@ -560,5 +636,55 @@ def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, vendas: {resultado['vendas']}."
+        ),
+    )
+
+
+def preparar_diretorios_cargas():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "cargas_em_aberto"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
+def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+    if not arquivo:
+        return False, "Selecione um arquivo .xls para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xls"):
+        return False, "Formato invalido. Envie apenas arquivo .xls."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_cargas_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar cargas: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, cargas: {resultado['cargas']}."
         ),
     )

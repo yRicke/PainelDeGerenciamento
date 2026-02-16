@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
 <link rel="stylesheet" href="{% static 'css/vendas.css' %}">
 {% endblock %}
 
@@ -14,9 +15,15 @@
     <a href="{% url 'comercial' %}">Voltar</a>
     <h1>Vendas por Categoria</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes de Vendas por Categoria">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importacao</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
+<section id="sec-cadastro" class="panel module-section">
     <h2>Nova Venda (Cadastro Manual)</h2>
     <form action="{% url 'vendas_por_categoria' empresa.id %}" method="post">
         {% csrf_token %}
@@ -60,7 +67,7 @@
     </form>
 </section>
 
-<section class="panel">
+<section id="sec-importacao" class="panel module-section">
     <h2>Importacao de Vendas</h2>
     <p>Arraste uma pasta com arquivos <code>.xls</code> ou clique para selecionar a pasta.</p>
 
@@ -106,7 +113,7 @@
     </form>
 </section>
 
-<section class="panel">
+<section id="sec-dashboard" class="panel module-section">
     <div class="dashboard-vendas-header">
         <div class="dashboard-vendas-title-row">
             <h2>Dashboard Vendas</h2>
@@ -167,7 +174,7 @@
     </div>
 </section>
 
-<section class="panel">
+<section id="sec-visualizacao" class="panel module-section">
     <h2>Dados de Vendas</h2>
 
     <div class="filter-grid">
