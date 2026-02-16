@@ -107,12 +107,73 @@
 </section>
 
 <section class="panel">
+    <div class="dashboard-vendas-header">
+        <div class="dashboard-vendas-title-row">
+            <h2>Dashboard Vendas</h2>
+            <button type="button" class="btn-light" id="dashboard-vendas-limpar-filtros">Limpar todos os filtros</button>
+        </div>
+        <div class="dashboard-vendas-filtros">
+            <div class="dashboard-filtro-box">
+                <h3>Ano</h3>
+                <div id="dashboard-vendas-ano-container" class="dashboard-chip-group"></div>
+            </div>
+            <div class="dashboard-filtro-box">
+                <h3>Mes</h3>
+                <div id="dashboard-vendas-mes-container" class="dashboard-chip-group"></div>
+            </div>
+            <div class="dashboard-filtro-box">
+                <h3>Dias (Data Venda)</h3>
+                <div id="dashboard-vendas-dia-container" class="dashboard-chip-group dashboard-chip-group-scroll"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-kpi-grid">
+        <article class="dashboard-kpi-card">
+            <h3>Vendas</h3>
+            <p id="dashboard-kpi-vendas">R$ 0,00</p>
+        </article>
+        <article class="dashboard-kpi-card">
+            <h3>CMV</h3>
+            <p id="dashboard-kpi-cmv">R$ 0,00</p>
+        </article>
+        <article class="dashboard-kpi-card">
+            <h3>Lucro Bruto</h3>
+            <p id="dashboard-kpi-lucro">R$ 0,00</p>
+        </article>
+        <article class="dashboard-kpi-card">
+            <h3>Margem</h3>
+            <p id="dashboard-kpi-margem">0,00%</p>
+        </article>
+    </div>
+
+    <div class="dashboard-chart-grid">
+        <div class="dashboard-chart-card dashboard-chart-card-full">
+            <h3>Vendas por dia</h3>
+            <div id="dashboard-vendas-dia-chart"></div>
+        </div>
+        <div class="dashboard-chart-card dashboard-chart-card-full">
+            <h3>Vendas por Mes</h3>
+            <div id="dashboard-vendas-mes-chart"></div>
+        </div>
+        <div class="dashboard-chart-card dashboard-chart-card-full">
+            <h3>10 Produtos Mais Vendidos</h3>
+            <div id="dashboard-vendas-top10-chart"></div>
+        </div>
+        <div class="dashboard-chart-card">
+            <h3>Situacao Margens</h3>
+            <div id="dashboard-vendas-margens-chart"></div>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
     <h2>Dados de Vendas</h2>
 
     <div class="filter-grid">
         <div>
             <label>Situacao de margem</label>
-            <select id="filtro-situacao-margem">
+            <select id="filtro-situacao-margem-tabela">
                 <option value="">Todos</option>
                 <option value="Roxo">Roxo (&lt; 10%)</option>
                 <option value="Vermelho">Vermelho (10% a 13%)</option>
@@ -122,13 +183,13 @@
         </div>
         <div>
             <label>Ano de venda</label>
-            <select id="filtro-ano-venda">
+            <select id="filtro-ano-venda-tabela">
                 <option value="">Todos</option>
             </select>
         </div>
         <div>
             <label>Mes de venda</label>
-            <select id="filtro-mes-venda">
+            <select id="filtro-mes-venda-tabela">
                 <option value="">Todos</option>
             </select>
         </div>
@@ -144,6 +205,7 @@
 
 {% block extra_js %}
 {{ vendas_tabulator|json_script:"vendas-tabulator-data" }}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/vendas-page.js' %}"></script>
 {% endblock %}
