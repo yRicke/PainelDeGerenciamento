@@ -9,6 +9,21 @@ def _fmt_date_br(data):
     return data.strftime("%d/%m/%Y")
 
 
+def _situacao_margem(margem):
+    try:
+        valor = float(margem)
+    except (TypeError, ValueError):
+        valor = 0.0
+
+    if valor < 10:
+        return "Roxo"
+    if valor < 13:
+        return "Vermelho"
+    if valor <= 14:
+        return "Amarelo"
+    return "Verde"
+
+
 def build_atividades_tabulator(atividades_qs, empresa_id: int):
     return [
         {
@@ -64,6 +79,37 @@ def build_carteiras_tabulator(carteiras_qs, empresa_id: int):
                 "editar_url": reverse(
                     "editar_carteira_modulo",
                     kwargs={"empresa_id": empresa_id, "carteira_id": carteira_item.get("id")},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_vendas_tabulator(vendas_qs, empresa_id: int):
+    resultado = []
+    for venda in vendas_qs:
+        data_venda = venda.get("data_venda")
+        margem_num = float(venda.get("margem_num") or 0)
+        resultado.append(
+            {
+                "id": venda.get("id"),
+                "codigo": venda.get("codigo") or "",
+                "descricao": venda.get("descricao") or "",
+                "valor_venda": float(venda.get("valor_venda_num") or 0),
+                "qtd_notas": venda.get("qtd_notas") or 0,
+                "custo_medio_icms_cmv": float(venda.get("custo_medio_icms_cmv_num") or 0),
+                "lucro": float(venda.get("lucro_num") or 0),
+                "peso_bruto": float(venda.get("peso_bruto_num") or 0),
+                "peso_liquido": float(venda.get("peso_liquido_num") or 0),
+                "margem": margem_num,
+                "margem_situacao": _situacao_margem(margem_num),
+                "data_venda": _fmt_date_br(data_venda),
+                "data_venda_iso": data_venda.strftime("%Y-%m-%d") if data_venda else "",
+                "ano_venda": data_venda.year if data_venda else "",
+                "mes_venda": data_venda.month if data_venda else "",
+                "editar_url": reverse(
+                    "editar_venda_modulo",
+                    kwargs={"empresa_id": empresa_id, "venda_id": venda.get("id")},
                 ),
             }
         )

@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from datetime import timedelta
+from .utils.comercial_transformers import _definir_margem, _definir_lucro
 
 UNSET = object()
 
@@ -472,4 +473,93 @@ class Carteira(models.Model):
         self.save()
 
     def excluir_carteira(self):
+        self.delete()
+
+class Venda(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="vendas")
+    codigo = models.CharField(max_length=50)
+    descricao = models.CharField(max_length=200, default="")
+    valor_venda = models.DecimalField(max_digits=10, decimal_places=2)
+    qtd_notas = models.PositiveIntegerField()
+    custo_medio_icms_cmv = models.DecimalField(max_digits=10, decimal_places=2)
+    lucro = models.DecimalField(max_digits=10, decimal_places=2)
+    peso_bruto = models.DecimalField(max_digits=10, decimal_places=2)
+    peso_liquido = models.DecimalField(max_digits=10, decimal_places=2)
+    margem = models.DecimalField(max_digits=5, decimal_places=2)
+    data_venda = models.DateField(default=timezone.localdate)
+
+    def __str__(self):
+        return f"Venda #{self.codigo} - {self.empresa.nome}"
+    
+    @classmethod
+    def criar_venda(
+        cls,
+        empresa,
+        codigo,
+        descricao,
+        valor_venda,
+        qtd_notas,
+        custo_medio_icms_cmv,
+        peso_bruto,
+        peso_liquido,
+        data_venda=None
+    ):
+        lucro = _definir_lucro(valor_venda, custo_medio_icms_cmv)
+        margem = _definir_margem(lucro, valor_venda)
+        venda = cls(
+            empresa=empresa,
+            codigo=codigo,
+            descricao=descricao,
+            valor_venda=valor_venda,
+            qtd_notas=qtd_notas,
+            custo_medio_icms_cmv=custo_medio_icms_cmv,
+            lucro=lucro,
+            peso_bruto=peso_bruto,
+            peso_liquido=peso_liquido,
+            margem=margem,
+            data_venda=data_venda or timezone.localdate()
+        )
+        venda.save()
+        return venda
+    
+    @classmethod
+    def listar_vendas_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+    
+    def atualizar_venda(
+        self,
+        codigo=UNSET,
+        descricao=UNSET,
+        valor_venda=UNSET,
+        qtd_notas=UNSET,
+        custo_medio_icms_cmv=UNSET,
+        peso_bruto=UNSET,
+        peso_liquido=UNSET,
+        data_venda=UNSET
+    ):
+        if codigo is not UNSET:
+            self.codigo = codigo
+        if descricao is not UNSET:
+            self.descricao = descricao
+        if valor_venda is not UNSET:
+            self.valor_venda = valor_venda
+        if qtd_notas is not UNSET:
+            self.qtd_notas = qtd_notas
+        if custo_medio_icms_cmv is not UNSET:
+            self.custo_medio_icms_cmv = custo_medio_icms_cmv
+        if peso_bruto is not UNSET:
+            self.peso_bruto = peso_bruto
+        if peso_liquido is not UNSET:
+            self.peso_liquido = peso_liquido
+        if data_venda is not UNSET:
+            self.data_venda = data_venda
+        
+        # Recalcular lucro e margem se valor_venda ou custo_medio_icms_cmv foram atualizados
+        if valor_venda is not UNSET or custo_medio_icms_cmv is not UNSET:
+            self.lucro = _definir_lucro(self.valor_venda, self.custo_medio_icms_cmv)
+            self.margem = _definir_margem(self.lucro, self.valor_venda)
+        
+        self.save()
+    
+    def excluir_venda(self):
         self.delete()

@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-from ..tabulator import build_carteiras_tabulator
+from ..tabulator import build_carteiras_tabulator, build_vendas_tabulator
 
 
 def _to_decimal(valor):
@@ -157,3 +157,29 @@ def montar_contexto_carteira(
     }
     contexto.update(_calcular_dashboard_carteira(carteiras_dashboard_qs))
     return contexto
+
+
+def montar_contexto_vendas(
+    *,
+    empresa,
+    modulo_nome,
+    arquivo_existente,
+    tem_arquivo_existente,
+    vendas_qs,
+):
+    return {
+        "empresa": empresa,
+        "modulo_nome": modulo_nome,
+        "arquivo_existente": arquivo_existente,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "vendas_tabulator": build_vendas_tabulator(vendas_qs, empresa.id),
+    }
+
+def _definir_lucro(valor_venda, custo_medio_icms_cmv):
+    lucro = _to_decimal(valor_venda) - _to_decimal(custo_medio_icms_cmv)
+    return lucro
+
+
+def _definir_margem(lucro, valor_venda):
+    margem = _dividir_ou_zero(lucro, valor_venda) * 100
+    return margem

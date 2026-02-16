@@ -5,10 +5,16 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import zipfile
 import xml.etree.ElementTree as ET
+import unicodedata
 
 from django.db import transaction
 
-from ..models import Carteira, Cidade, Regiao
+from ..models import Carteira, Cidade, Regiao, Venda
+
+try:
+    import xlrd
+except ModuleNotFoundError:  # pragma: no cover - dependencia opcional em tempo de execucao
+    xlrd = None
 
 
 XML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -187,6 +193,44 @@ def _excel_date(valor):
     return (datetime(1899, 12, 30) + timedelta(days=serial)).date()
 
 
+def _normalizar_nome_coluna(valor: str) -> str:
+    texto = _normalizar_texto(valor).lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return "".join(ch for ch in texto if ch.isalnum())
+
+
+def _extrair_data_venda_do_nome_arquivo(caminho: Path):
+    nome = caminho.stem.strip()
+    try:
+        return datetime.strptime(nome, "%d.%m.%Y").date()
+    except ValueError as exc:
+        raise ValueError(
+            f"Nome de arquivo invalido '{caminho.name}'. Use o padrao dd.mm.aaaa (ex.: 02.01.2026.xls)."
+        ) from exc
+
+
+def _iterar_linhas_xls(caminho: Path):
+    if xlrd is None:
+        raise RuntimeError(
+            "Dependencia 'xlrd' nao encontrada. Instale com: pip install xlrd==2.0.1"
+        )
+
+    workbook = xlrd.open_workbook(str(caminho))
+    if workbook.nsheets <= 0:
+        return
+
+    sheet = workbook.sheet_by_index(0)
+    for row_idx in range(sheet.nrows):
+        linha = []
+        for col_idx in range(sheet.ncols):
+            valor = sheet.cell_value(row_idx, col_idx)
+            if isinstance(valor, float) and valor.is_integer():
+                valor = int(valor)
+            linha.append(valor)
+        yield linha
+
+
 def _obter_primeiro_valor(registro: dict, nomes_coluna: list[str]):
     def _token(valor):
         return "".join(ch for ch in str(valor).lower().strip() if ch.isalnum())
@@ -332,4 +376,109 @@ def importar_carteira_do_diretorio(
         "carteiras": total_carteiras,
         "cidades": len(cache_cidades),
         "regioes": len(cache_regioes),
+    }
+
+
+@transaction.atomic
+def importar_vendas_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/comercial/vendas",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {"arquivos": 0, "linhas": 0, "vendas": 0}
+
+    if limpar_antes:
+        Venda.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_vendas = 0
+    objetos: list[Venda] = []
+
+    mapeamento_colunas = {
+        "codigo": ["codigo", "codigoproduto", "cod"],
+        "descricao": ["descricao", "descricaoproduto", "produto"],
+        "valor_venda": ["vlrvendas", "valorvenda", "vendas"],
+        "qtd_notas": ["qtdnotas", "quantidadenotas", "qtdnota"],
+        "custo_medio_icms_cmv": ["customedcomicmscmv", "customedioicmscmv", "cmv", "custo"],
+        "peso_bruto": ["pesobruto"],
+        "peso_liquido": ["pesoliquido"],
+    }
+
+    for arquivo in arquivos:
+        data_venda = _extrair_data_venda_do_nome_arquivo(arquivo)
+        cabecalho = None
+        indices = None
+
+        for linha in _iterar_linhas_xls(arquivo):
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            if cabecalho is None:
+                normalizadas = [_normalizar_nome_coluna(valor) for valor in linha]
+                idx_map = {}
+                for chave, aliases in mapeamento_colunas.items():
+                    idx = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                    idx_map[chave] = idx
+                if idx_map["codigo"] is not None and idx_map["valor_venda"] is not None:
+                    cabecalho = linha
+                    indices = idx_map
+                continue
+
+            if indices is None:
+                continue
+
+            def _valor_por_indice(chave):
+                idx = indices.get(chave)
+                if idx is None or idx >= len(linha):
+                    return ""
+                return linha[idx]
+
+            codigo = _normalizar_codigo(_valor_por_indice("codigo"))
+            if not codigo:
+                continue
+
+            descricao = _normalizar_texto(_valor_por_indice("descricao"))
+            valor_venda = _to_decimal(_valor_por_indice("valor_venda"))
+            custo_medio = _to_decimal(_valor_por_indice("custo_medio_icms_cmv"))
+            peso_bruto = _to_decimal(_valor_por_indice("peso_bruto"))
+            peso_liquido = _to_decimal(_valor_por_indice("peso_liquido"))
+            qtd_notas = max(0, _to_int(_valor_por_indice("qtd_notas")))
+            lucro = valor_venda - custo_medio
+            margem = Decimal("0")
+            if valor_venda > 0:
+                margem = (lucro / valor_venda) * Decimal("100")
+
+            objetos.append(
+                Venda(
+                    empresa=empresa,
+                    codigo=codigo,
+                    descricao=descricao,
+                    valor_venda=valor_venda,
+                    qtd_notas=qtd_notas,
+                    custo_medio_icms_cmv=custo_medio,
+                    lucro=lucro,
+                    peso_bruto=peso_bruto,
+                    peso_liquido=peso_liquido,
+                    margem=margem,
+                    data_venda=data_venda,
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                Venda.objects.bulk_create(objetos, batch_size=1000)
+                total_vendas += len(objetos)
+                objetos = []
+
+    if objetos:
+        Venda.objects.bulk_create(objetos, batch_size=1000)
+        total_vendas += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "vendas": total_vendas,
     }

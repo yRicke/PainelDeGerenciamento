@@ -1,8 +1,16 @@
 from django.test import TestCase
+from django.test import override_settings
+from django.conf import settings
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from datetime import timedelta
-from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Permissao, Projeto, Regiao, Usuario
+import shutil
+from uuid import uuid4
+from pathlib import Path
+from unittest.mock import patch
+from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Permissao, Projeto, Regiao, Usuario, Venda
+from .services import preparar_diretorios_vendas, importar_upload_vendas
 
 # Create your tests here.
 
@@ -316,3 +324,104 @@ class CarteiraModelTest(TestCase):
     def test_excluir_carteira(self):
         self.carteira.excluir_carteira()
         self.assertFalse(Carteira.objects.filter(id=self.carteira.id).exists())
+
+
+class VendaModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.venda = Venda.criar_venda(
+            empresa=self.empresa,
+            codigo="VD001",
+            descricao="Venda categoria A",
+            valor_venda=1000,
+            qtd_notas=2,
+            custo_medio_icms_cmv=850,
+            peso_bruto=100,
+            peso_liquido=95,
+            data_venda=timezone.localdate(),
+        )
+
+    def test_criar_venda(self):
+        self.assertEqual(self.venda.codigo, "VD001")
+        self.assertEqual(self.venda.descricao, "Venda categoria A")
+        self.assertEqual(self.venda.qtd_notas, 2)
+        self.assertEqual(round(float(self.venda.lucro), 2), 150.0)
+        self.assertEqual(round(float(self.venda.margem), 2), 15.0)
+
+    def test_atualizar_venda(self):
+        self.venda.atualizar_venda(
+            codigo="VD002",
+            descricao="Venda categoria B",
+            valor_venda=2000,
+            custo_medio_icms_cmv=1700,
+            qtd_notas=4,
+            peso_bruto=210,
+            peso_liquido=200,
+        )
+        self.assertEqual(self.venda.codigo, "VD002")
+        self.assertEqual(self.venda.descricao, "Venda categoria B")
+        self.assertEqual(self.venda.qtd_notas, 4)
+        self.assertEqual(round(float(self.venda.lucro), 2), 300.0)
+        self.assertEqual(round(float(self.venda.margem), 2), 15.0)
+
+    def test_excluir_venda(self):
+        venda_id = self.venda.id
+        self.venda.excluir_venda()
+        self.assertFalse(Venda.objects.filter(id=venda_id).exists())
+
+
+class VendasImportacaoServiceTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste Importacao")
+        self.base_dir = str((Path(settings.BASE_DIR) / f".tmp_test_vendas_{uuid4().hex}"))
+        Path(self.base_dir).mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(self.base_dir, ignore_errors=True))
+
+    def test_preparar_diretorios_vendas_cria_estrutura(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+            self.assertTrue(diretorio_importacao.exists())
+            self.assertTrue(diretorio_subscritos.exists())
+            self.assertEqual(diretorio_subscritos.parent, diretorio_importacao)
+
+    def test_importar_upload_vendas_mantem_apenas_novos_e_move_antigos(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+            antigo = diretorio_importacao / "01.01.2026.xls"
+            antigo.write_bytes(b"arquivo-antigo")
+
+            arquivo_a = SimpleUploadedFile("02.01.2026.xls", b"novo-a", content_type="application/vnd.ms-excel")
+            arquivo_b = SimpleUploadedFile("03.01.2026.xls", b"novo-b", content_type="application/vnd.ms-excel")
+            arquivo_invalido = SimpleUploadedFile("nao_importar.txt", b"xx", content_type="text/plain")
+
+            with patch("app.services.importar_vendas_do_diretorio") as importar_mock:
+                importar_mock.return_value = {"arquivos": 2, "linhas": 2, "vendas": 2}
+                ok, mensagem = importar_upload_vendas(
+                    empresa=self.empresa,
+                    arquivos=[arquivo_a, arquivo_b, arquivo_invalido],
+                    diretorio_importacao=diretorio_importacao,
+                    diretorio_subscritos=diretorio_subscritos,
+                )
+
+            self.assertTrue(ok)
+            self.assertIn("Importacao concluida", mensagem)
+            self.assertTrue((diretorio_importacao / "02.01.2026.xls").exists())
+            self.assertTrue((diretorio_importacao / "03.01.2026.xls").exists())
+            self.assertFalse((diretorio_importacao / "nao_importar.txt").exists())
+            self.assertTrue((diretorio_subscritos / "01.01.2026.xls").exists())
+            importar_mock.assert_called_once()
+
+    def test_importar_upload_vendas_sem_xls_retorna_erro(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+            arquivo_invalido = SimpleUploadedFile("arquivo.csv", b"1,2,3", content_type="text/csv")
+
+            ok, mensagem = importar_upload_vendas(
+                empresa=self.empresa,
+                arquivos=[arquivo_invalido],
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+
+            self.assertFalse(ok)
+            self.assertIn("arquivo .xls", mensagem)

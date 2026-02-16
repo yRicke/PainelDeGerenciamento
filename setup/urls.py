@@ -92,6 +92,8 @@ urlpatterns = [
     path('regioes/<int:empresa_id>/excluir/<int:regiao_id>/', views.excluir_regiao_modulo, name='excluir_regiao_modulo'),
     path('pedidos_pendentes/<int:empresa_id>/', views.pedidos_pendentes, name='pedidos_pendentes'),
     path('vendas_por_categoria/<int:empresa_id>/', views.vendas_por_categoria, name='vendas_por_categoria'),
+    path('vendas_por_categoria/<int:empresa_id>/editar/<int:venda_id>/', views.editar_venda_modulo, name='editar_venda_modulo'),
+    path('vendas_por_categoria/<int:empresa_id>/excluir/<int:venda_id>/', views.excluir_venda_modulo, name='excluir_venda_modulo'),
     path('precificacao/<int:empresa_id>/', views.precificacao, name='precificacao'),
     path('controle_de_margem/<int:empresa_id>/', views.controle_de_margem, name='controle_de_margem'),
 

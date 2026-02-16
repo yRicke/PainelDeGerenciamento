@@ -3,20 +3,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+import shutil
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.utils import timezone
 
-from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario
+from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
 from .utils.administrativo_utils import (
     _set_prazo_inicio_e_prazo_termino,
     _transformar_date_ou_none,
     _transformar_int_ou_none,
     _transformar_iso_week_parts_ou_none,
 )
-from .utils.comercial_importacao import importar_carteira_do_diretorio
+from .utils.comercial_importacao import importar_carteira_do_diretorio, importar_vendas_do_diretorio
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -350,6 +351,51 @@ def atualizar_carteira_por_post(carteira, empresa, post_data):
     return ""
 
 
+def _dados_venda_from_post(post_data):
+    data_venda_raw = post_data.get("data_venda")
+    data_venda = _parse_date_ou_none(data_venda_raw)
+
+    return {
+        "codigo": (post_data.get("codigo") or "").strip(),
+        "descricao": (post_data.get("descricao") or "").strip(),
+        "valor_venda": _parse_decimal_ou_zero(post_data.get("valor_venda")),
+        "qtd_notas": max(0, _parse_int_ou_zero(post_data.get("qtd_notas"))),
+        "custo_medio_icms_cmv": _parse_decimal_ou_zero(post_data.get("custo_medio_icms_cmv")),
+        "peso_bruto": _parse_decimal_ou_zero(post_data.get("peso_bruto")),
+        "peso_liquido": _parse_decimal_ou_zero(post_data.get("peso_liquido")),
+        "data_venda_raw": data_venda_raw,
+        "data_venda": data_venda,
+    }
+
+
+def criar_venda_por_post(empresa, post_data):
+    dados = _dados_venda_from_post(post_data)
+    if not dados["codigo"]:
+        return "Codigo da venda e obrigatorio."
+    if not dados["data_venda_raw"]:
+        return "Data da venda e obrigatoria."
+    if not dados["data_venda"]:
+        return "Data da venda invalida."
+
+    dados.pop("data_venda_raw", None)
+    Venda.criar_venda(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_venda_por_post(venda, empresa, post_data):
+    dados = _dados_venda_from_post(post_data)
+    if not dados["codigo"]:
+        return "Codigo da venda e obrigatorio."
+    if not dados["data_venda_raw"]:
+        return "Data da venda e obrigatoria."
+    if not dados["data_venda"]:
+        return "Data da venda invalida."
+
+    dados.pop("data_venda_raw", None)
+    venda.atualizar_venda(**dados)
+    return ""
+
+
 def _dados_atividade_from_post(post_data, empresa):
     projeto = Projeto.objects.filter(id=post_data.get("projeto_id"), empresa=empresa).first()
     if not projeto:
@@ -465,5 +511,54 @@ def importar_upload_carteira(*, empresa, arquivo, confirmar_substituicao, direto
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, carteiras: {resultado['carteiras']}."
+        ),
+    )
+
+
+def preparar_diretorios_vendas():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "vendas"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
+def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+    arquivos_xls = []
+    for arquivo in arquivos or []:
+        nome_arquivo = Path(arquivo.name).name
+        if nome_arquivo.lower().endswith(".xls"):
+            arquivos_xls.append((arquivo, nome_arquivo))
+
+    if not arquivos_xls:
+        return False, "Selecione ao menos um arquivo .xls para importar."
+
+    for arquivo_antigo in [f for f in diretorio_importacao.iterdir() if f.is_file()]:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        shutil.move(str(arquivo_antigo), str(destino_subscrito))
+
+    for arquivo_upload, nome_arquivo in arquivos_xls:
+        destino = diretorio_importacao / nome_arquivo
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+
+    try:
+        resultado = importar_vendas_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar vendas: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, vendas: {resultado['vendas']}."
         ),
     )

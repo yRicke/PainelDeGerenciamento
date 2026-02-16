@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Venda{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'vendas_por_categoria' empresa.id %}">Voltar para vendas</a>
+    <h1>Editar Venda #{{ venda.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <form action="{% url 'editar_venda_modulo' empresa.id venda.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Codigo</label>
+                <input type="text" name="codigo" value="{{ venda.codigo }}" required>
+            </div>
+            <div>
+                <label>Descricao</label>
+                <input type="text" name="descricao" value="{{ venda.descricao }}">
+            </div>
+            <div>
+                <label>Data da venda</label>
+                <input type="date" name="data_venda" value="{{ venda.data_venda|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+                <label>Valor da venda</label>
+                <input type="text" name="valor_venda" value="{{ venda.valor_venda }}">
+            </div>
+            <div>
+                <label>Qtd notas</label>
+                <input type="number" name="qtd_notas" min="0" value="{{ venda.qtd_notas }}">
+            </div>
+            <div>
+                <label>Custo medio ICMS CMV</label>
+                <input type="text" name="custo_medio_icms_cmv" value="{{ venda.custo_medio_icms_cmv }}">
+            </div>
+            <div>
+                <label>Peso bruto</label>
+                <input type="text" name="peso_bruto" value="{{ venda.peso_bruto }}">
+            </div>
+            <div>
+                <label>Peso liquido</label>
+                <input type="text" name="peso_liquido" value="{{ venda.peso_liquido }}">
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+    </form>
+
+    <hr>
+
+    <form action="{% url 'excluir_venda_modulo' empresa.id venda.id %}" method="POST" onsubmit="return confirm('Excluir venda {{ venda.id }}?');">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Excluir venda</button>
+    </form>
+</section>
+{% endblock %}

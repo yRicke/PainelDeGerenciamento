@@ -6,9 +6,9 @@ from django.contrib import messages
 from django.db.models import FloatField
 from django.db.models.functions import Cast
 
-from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario
+from .models import Atividade, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
 from .utils.administrativo_transformers import montar_contexto_tofu_lista
-from .utils.comercial_transformers import montar_contexto_carteira
+from .utils.comercial_transformers import montar_contexto_carteira, montar_contexto_vendas
 from .utils.modulos_permissoes import (
     MODULOS_POR_AREA,
     _modulos_com_acesso,
@@ -23,7 +23,9 @@ from .services import (
     atualizar_atividade_por_post,
     semana_iso_input_atividade,
     preparar_diretorios_carteira,
+    preparar_diretorios_vendas,
     importar_upload_carteira,
+    importar_upload_vendas,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
     atualizar_empresa_por_nome,
@@ -35,6 +37,8 @@ from .services import (
     atualizar_colaborador_por_nome,
     criar_carteira_por_post,
     atualizar_carteira_por_post,
+    criar_venda_por_post,
+    atualizar_venda_por_post,
     criar_cidade_por_dados,
     atualizar_cidade_por_dados,
     criar_projeto_por_dados,
@@ -821,7 +825,119 @@ def pedidos_pendentes(request, empresa_id):
 @login_required(login_url="entrar")
 def vendas_por_categoria(request, empresa_id):
     modulo = MODULOS_POR_AREA["Comercial"][4]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_venda":
+            erro = criar_venda_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Venda criada com sucesso.")
+        elif acao == "importar_vendas":
+            arquivos = request.FILES.getlist("arquivos_vendas")
+            ok, mensagem = importar_upload_vendas(
+                empresa=empresa,
+                arquivos=arquivos,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        else:
+            messages.error(request, "Acao de vendas invalida.")
+        return redirect("vendas_por_categoria", empresa_id=empresa_id)
+
+    vendas_qs = (
+        Venda.objects.filter(empresa=empresa)
+        .annotate(
+            valor_venda_num=Cast("valor_venda", FloatField()),
+            custo_medio_icms_cmv_num=Cast("custo_medio_icms_cmv", FloatField()),
+            lucro_num=Cast("lucro", FloatField()),
+            peso_bruto_num=Cast("peso_bruto", FloatField()),
+            peso_liquido_num=Cast("peso_liquido", FloatField()),
+            margem_num=Cast("margem", FloatField()),
+        )
+        .values(
+            "id",
+            "codigo",
+            "descricao",
+            "valor_venda_num",
+            "qtd_notas",
+            "custo_medio_icms_cmv_num",
+            "lucro_num",
+            "peso_bruto_num",
+            "peso_liquido_num",
+            "margem_num",
+            "data_venda",
+        )
+        .order_by("-data_venda", "-id")
+    )
+
+    arquivos_existentes = sorted(
+        [f.name for f in diretorio_importacao.iterdir() if f.is_file() and f.suffix.lower() == ".xls"]
+    )
+
+    contexto = montar_contexto_vendas(
+        empresa=empresa,
+        modulo_nome=modulo["nome"],
+        arquivo_existente=", ".join(arquivos_existentes),
+        tem_arquivo_existente=bool(arquivos_existentes),
+        vendas_qs=vendas_qs,
+    )
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def editar_venda_modulo(request, empresa_id, venda_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Vendas por Categoria")
+    if not autorizado:
+        return redirect("index")
+
+    venda_item = Venda.objects.filter(id=venda_id, empresa=empresa).first()
+    if not venda_item:
+        messages.error(request, "Venda nao encontrada.")
+        return redirect("vendas_por_categoria", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_venda_por_post(venda_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_venda_modulo", empresa_id=empresa.id, venda_id=venda_item.id)
+        messages.success(request, "Venda atualizada com sucesso.")
+        return redirect("vendas_por_categoria", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "venda": venda_item,
+    }
+    return render(request, "comercial/vendas_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_venda_modulo(request, empresa_id, venda_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Vendas por Categoria")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("vendas_por_categoria", empresa_id=empresa.id)
+
+    venda_item = Venda.objects.filter(id=venda_id, empresa=empresa).first()
+    if not venda_item:
+        messages.error(request, "Venda nao encontrada.")
+        return redirect("vendas_por_categoria", empresa_id=empresa.id)
+
+    venda_item.excluir_venda()
+    messages.success(request, "Venda excluida com sucesso.")
+    return redirect("vendas_por_categoria", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
