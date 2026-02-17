@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
 
 {% block title %}TOFU Lista de Atividades{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
-<link rel="stylesheet" href="{% static 'css/tofu_lista_de_atividades.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/tofu_lista_de_atividades.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -178,6 +178,7 @@
 {% block extra_js %}
 {{ atividades_tabulator|json_script:"atividades-tabulator-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-<script src="{% static 'js/tofu-atividade-form.js' %}"></script>
-<script src="{% static 'js/tofu-lista-de-atividades.js' %}"></script>
+<script src="{% static 'js/administrativo/tofu-atividade-form.js' %}"></script>
+<script src="{% static 'js/administrativo/tofu-lista-de-atividades.js' %}"></script>
 {% endblock %}
+

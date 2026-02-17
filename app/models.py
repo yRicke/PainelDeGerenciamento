@@ -350,10 +350,57 @@ class Regiao(models.Model):
     def excluir_regiao(self):
         self.delete()
 
+class Parceiro(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parceiros")
+    nome = models.CharField(max_length=150)
+    codigo = models.CharField(max_length=50)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo"], name="uq_parceiro_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} ({self.codigo})"
+    
+    @classmethod
+    def criar_parceiro(cls, nome, codigo, empresa):
+        parceiro = cls(nome=nome, codigo=codigo, empresa=empresa)
+        parceiro.save()
+        return parceiro
+    
+    @classmethod
+    def listar_parceiros_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def obter_ou_criar_por_codigo_nome(cls, empresa, codigo, nome):
+        defaults = {"nome": nome}
+        parceiro, created = cls.objects.get_or_create(
+            empresa=empresa,
+            codigo=codigo,
+            defaults=defaults,
+        )
+        if not created and nome and parceiro.nome != nome:
+            parceiro.nome = nome
+            parceiro.save(update_fields=["nome"])
+        return parceiro
+
+    def atualizar_parceiro(self, novo_nome=None, novo_codigo=None):
+        if novo_nome:
+            self.nome = novo_nome
+        if novo_codigo:
+            self.codigo = novo_codigo
+        self.save()
+
+    def excluir_parceiro(self):
+        self.delete()
+
 class Carteira(models.Model):
     empresa = models.ForeignKey( Empresa, on_delete=models.CASCADE, related_name="carteiras")
     regiao = models.ForeignKey(Regiao, on_delete=models.SET_NULL, null=True, blank=True)
     cidade = models.ForeignKey(Cidade, on_delete=models.SET_NULL, null=True, blank=True)
+    parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True, related_name="carteiras")
     valor_faturado = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     limite_credito = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     ultima_venda = models.DateField(null=True, blank=True)
@@ -363,14 +410,14 @@ class Carteira(models.Model):
     gerente = models.CharField(max_length=150, blank=True, default="")
     vendedor = models.CharField(max_length=150, blank=True, default="")
     descricao_perfil = models.CharField(max_length=200, blank=True, default="")
-    nome_parceiro = models.CharField(max_length=150, blank=True, default="")
     ativo_indicador = models.BooleanField(default=True)
     cliente_indicador = models.BooleanField(default=False)
     fornecedor_indicador = models.BooleanField(default=False)
     transporte_indicador = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Carteira #{self.id} - {self.nome_parceiro}"
+        parceiro_nome = self.parceiro.nome if self.parceiro else "Sem parceiro"
+        return f"Carteira #{self.id} - {parceiro_nome}"
     
     @classmethod
     def criar_carteira(
@@ -378,6 +425,7 @@ class Carteira(models.Model):
         empresa,
         regiao=None,
         cidade=None,
+        parceiro=None,
         valor_faturado=0,
         limite_credito=0,
         ultima_venda=None,
@@ -387,7 +435,6 @@ class Carteira(models.Model):
         gerente=None,
         vendedor="",
         descricao_perfil="",
-        nome_parceiro="",
         ativo_indicador=True,
         cliente_indicador=False,
         fornecedor_indicador=False,
@@ -397,6 +444,7 @@ class Carteira(models.Model):
             empresa=empresa,
             regiao=regiao,
             cidade=cidade,
+            parceiro=parceiro,
             valor_faturado=valor_faturado,
             limite_credito=limite_credito,
             ultima_venda=ultima_venda,
@@ -406,7 +454,6 @@ class Carteira(models.Model):
             gerente=gerente,
             vendedor=vendedor,
             descricao_perfil=descricao_perfil,
-            nome_parceiro=nome_parceiro,
             ativo_indicador=ativo_indicador,
             cliente_indicador=cliente_indicador,
             fornecedor_indicador=fornecedor_indicador,
@@ -423,6 +470,7 @@ class Carteira(models.Model):
         self,
         regiao=UNSET,
         cidade=UNSET,
+        parceiro=UNSET,
         valor_faturado=UNSET,
         limite_credito=UNSET,
         ultima_venda=UNSET,
@@ -432,7 +480,6 @@ class Carteira(models.Model):
         gerente=UNSET,
         vendedor=UNSET,
         descricao_perfil=UNSET,
-        nome_parceiro=UNSET,
         ativo_indicador=UNSET,
         cliente_indicador=UNSET,
         fornecedor_indicador=UNSET,
@@ -442,6 +489,8 @@ class Carteira(models.Model):
             self.regiao = regiao
         if cidade is not UNSET:
             self.cidade = cidade
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
         if valor_faturado is not UNSET:
             self.valor_faturado = valor_faturado
         if limite_credito is not UNSET:
@@ -460,8 +509,6 @@ class Carteira(models.Model):
             self.vendedor = vendedor
         if descricao_perfil is not UNSET:
             self.descricao_perfil = descricao_perfil
-        if nome_parceiro is not UNSET:
-            self.nome_parceiro = nome_parceiro
         if ativo_indicador is not UNSET:
             self.ativo_indicador = ativo_indicador
         if cliente_indicador is not UNSET:
@@ -669,4 +716,255 @@ class Cargas(models.Model):
         self.save()
 
     def excluir_carga(self):
+        self.delete()
+
+class Titulo(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="titulos")
+    tipo_titulo_codigo = models.CharField(max_length=50)
+    descricao = models.CharField(max_length=200, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "tipo_titulo_codigo"], name="uq_titulo_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.tipo_titulo_codigo} - {self.descricao}"
+
+    @classmethod
+    def criar_titulo(cls, empresa, tipo_titulo_codigo, descricao=""):
+        titulo = cls(
+            empresa=empresa,
+            tipo_titulo_codigo=tipo_titulo_codigo,
+            descricao=descricao
+        )
+        titulo.save()
+        return titulo
+    
+    @classmethod
+    def listar_titulos_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def obter_ou_criar_por_codigo_descricao(cls, empresa, tipo_titulo_codigo, descricao):
+        defaults = {"descricao": descricao}
+        titulo, created = cls.objects.get_or_create(
+            empresa=empresa,
+            tipo_titulo_codigo=tipo_titulo_codigo,
+            defaults=defaults,
+        )
+        if not created and descricao and titulo.descricao != descricao:
+            titulo.descricao = descricao
+            titulo.save(update_fields=["descricao"])
+        return titulo
+    
+    def atualizar_titulo(self, tipo_titulo_codigo=UNSET, descricao=UNSET):
+        if tipo_titulo_codigo is not UNSET:
+            self.tipo_titulo_codigo = tipo_titulo_codigo
+        if descricao is not UNSET:
+            self.descricao = descricao
+        self.save()
+
+    def excluir_titulo(self):
+        self.delete()
+
+class Natureza(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="naturezas")
+    codigo = models.CharField(max_length=50)
+    descricao = models.CharField(max_length=200, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo"], name="uq_natureza_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.codigo} - {self.descricao}"
+
+    @classmethod
+    def criar_natureza(cls, empresa, codigo, descricao=""):
+        natureza = cls(
+            empresa=empresa,
+            codigo=codigo,
+            descricao=descricao
+        )
+        natureza.save()
+        return natureza
+    
+    @classmethod
+    def listar_naturezas_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def obter_ou_criar_por_codigo_descricao(cls, empresa, codigo, descricao):
+        defaults = {"descricao": descricao}
+        natureza, created = cls.objects.get_or_create(
+            empresa=empresa,
+            codigo=codigo,
+            defaults=defaults,
+        )
+        if not created and descricao and natureza.descricao != descricao:
+            natureza.descricao = descricao
+            natureza.save(update_fields=["descricao"])
+        return natureza
+    
+    def atualizar_natureza(self, codigo=UNSET, descricao=UNSET):
+        if codigo is not UNSET:
+            self.codigo = codigo
+        if descricao is not UNSET:
+            self.descricao = descricao
+        self.save()
+
+    def excluir_natureza(self):
+        self.delete()
+
+class Operacao(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="operacoes")
+    tipo_operacao_codigo = models.CharField(max_length=50)
+    descricao_receita_despesa = models.CharField(max_length=200, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "tipo_operacao_codigo"], name="uq_operacao_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.tipo_operacao_codigo} - {self.descricao_receita_despesa}"
+
+    @classmethod
+    def criar_operacao(cls, empresa, tipo_operacao_codigo, descricao_receita_despesa=""):
+        operacao = cls(
+            empresa=empresa,
+            tipo_operacao_codigo=tipo_operacao_codigo,
+            descricao_receita_despesa=descricao_receita_despesa,
+        )
+        operacao.save()
+        return operacao
+
+    @classmethod
+    def listar_operacoes_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def obter_ou_criar_por_codigo_descricao(cls, empresa, tipo_operacao_codigo, descricao_receita_despesa):
+        defaults = {"descricao_receita_despesa": descricao_receita_despesa}
+        operacao, created = cls.objects.get_or_create(
+            empresa=empresa,
+            tipo_operacao_codigo=tipo_operacao_codigo,
+            defaults=defaults,
+        )
+        if not created and descricao_receita_despesa and operacao.descricao_receita_despesa != descricao_receita_despesa:
+            operacao.descricao_receita_despesa = descricao_receita_despesa
+            operacao.save(update_fields=["descricao_receita_despesa"])
+        return operacao
+
+    def atualizar_operacao(self, tipo_operacao_codigo=UNSET, descricao_receita_despesa=UNSET):
+        if tipo_operacao_codigo is not UNSET:
+            self.tipo_operacao_codigo = tipo_operacao_codigo
+        if descricao_receita_despesa is not UNSET:
+            self.descricao_receita_despesa = descricao_receita_despesa
+        self.save()
+
+    def excluir_operacao(self):
+        self.delete()
+
+class FluxoDeCaixaDFC(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="fluxos_de_caixa_dfc")
+    data_negociacao = models.DateField()
+    data_vencimento = models.DateField()
+    valor_liquido = models.DecimalField(max_digits=10, decimal_places=2)
+    numero_nota = models.CharField(max_length=50, blank=True, default="")
+    titulo = models.ForeignKey(Titulo, on_delete=models.SET_NULL, null=True, blank=True)
+    descricao_centro_resultado = models.CharField(max_length=200, blank=True, default="")
+    descricao_tipo_operacao = models.CharField(max_length=100, blank=True, default="")
+    natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
+    historico = models.TextField(blank=True, default="")
+    parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True)
+    operacao = models.ForeignKey(Operacao, on_delete=models.SET_NULL, null=True, blank=True)
+    tipo_movimento = models.CharField(max_length=20, blank=True, default="")
+
+    def __str__(self):
+        return f"DFC #{self.id} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_fluxo_de_caixa_dfc(
+        cls,
+        empresa,
+        data_negociacao,
+        data_vencimento,
+        valor_liquido=0,
+        numero_nota="",
+        titulo=None,
+        descricao_centro_resultado="",
+        descricao_tipo_operacao="",
+        natureza=None,
+        historico="",
+        parceiro=None,
+        operacao=None,
+        tipo_movimento="",
+    ):
+        fluxo = cls(
+            empresa=empresa,
+            data_negociacao=data_negociacao,
+            data_vencimento=data_vencimento,
+            valor_liquido=valor_liquido,
+            numero_nota=numero_nota,
+            titulo=titulo,
+            descricao_centro_resultado=descricao_centro_resultado,
+            descricao_tipo_operacao=descricao_tipo_operacao,
+            natureza=natureza,
+            historico=historico,
+            parceiro=parceiro,
+            operacao=operacao,
+            tipo_movimento=tipo_movimento,
+        )
+        fluxo.save()
+        return fluxo
+
+    @classmethod
+    def listar_fluxos_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_fluxo_de_caixa_dfc(
+        self,
+        data_negociacao=UNSET,
+        data_vencimento=UNSET,
+        valor_liquido=UNSET,
+        numero_nota=UNSET,
+        titulo=UNSET,
+        descricao_centro_resultado=UNSET,
+        descricao_tipo_operacao=UNSET,
+        natureza=UNSET,
+        historico=UNSET,
+        parceiro=UNSET,
+        operacao=UNSET,
+        tipo_movimento=UNSET,
+    ):
+        if data_negociacao is not UNSET:
+            self.data_negociacao = data_negociacao
+        if data_vencimento is not UNSET:
+            self.data_vencimento = data_vencimento
+        if valor_liquido is not UNSET:
+            self.valor_liquido = valor_liquido
+        if numero_nota is not UNSET:
+            self.numero_nota = numero_nota
+        if titulo is not UNSET:
+            self.titulo = titulo
+        if descricao_centro_resultado is not UNSET:
+            self.descricao_centro_resultado = descricao_centro_resultado
+        if descricao_tipo_operacao is not UNSET:
+            self.descricao_tipo_operacao = descricao_tipo_operacao
+        if natureza is not UNSET:
+            self.natureza = natureza
+        if historico is not UNSET:
+            self.historico = historico
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if operacao is not UNSET:
+            self.operacao = operacao
+        if tipo_movimento is not UNSET:
+            self.tipo_movimento = tipo_movimento
+        self.save()
+
+    def excluir_fluxo_de_caixa_dfc(self):
         self.delete()

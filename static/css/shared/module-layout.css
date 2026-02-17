@@ -1,0 +1,44 @@
+.module-sections-nav {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.module-sections-nav a {
+    border: 1px solid #d6deea;
+    border-radius: 999px;
+    background: #f6f9fd;
+    color: #28405c;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    transition: 0.2s ease;
+}
+
+.module-sections-nav a:hover {
+    border-color: #9eb4cf;
+    background: #eaf2fc;
+    color: #173759;
+}
+
+.module-section {
+    margin-bottom: 1rem;
+    scroll-margin-top: 88px;
+}
+
+.module-section:last-of-type {
+    margin-bottom: 0;
+}
+
+@media (max-width: 780px) {
+    .module-sections-nav {
+        gap: 0.4rem;
+    }
+
+    .module-sections-nav a {
+        font-size: 0.82rem;
+        padding: 0.32rem 0.62rem;
+    }
+}

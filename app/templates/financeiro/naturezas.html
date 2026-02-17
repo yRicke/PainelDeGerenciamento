@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Naturezas{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/financeiro/financeiro-cadastros.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'financeiro' %}">Voltar</a>
+    <h1>Naturezas</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Nova Natureza</h2>
+    <p class="form-note">Cadastre codigo e descricao para uso nos lancamentos financeiros.</p>
+    <form action="{% url 'criar_natureza_modulo' empresa.id %}" method="POST" class="inline-form">
+        {% csrf_token %}
+        <input type="text" name="codigo" placeholder="Codigo" required>
+        <input type="text" name="descricao" placeholder="Descricao">
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Lista de Naturezas</h2>
+    <div class="filter-grid">
+        <div><label>Buscar por codigo</label><input type="text" id="filtro-natureza-codigo" placeholder="Digite o codigo"></div>
+        <div><label>Buscar por descricao</label><input type="text" id="filtro-natureza-descricao" placeholder="Digite a descricao"></div>
+        <div><button type="button" class="btn-light" id="limpar-filtros-naturezas">Limpar</button></div>
+    </div>
+    <div class="table-wrapper"><div id="naturezas-tabulator" class="cadastro-tabulator"></div></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ naturezas_tabulator|json_script:"naturezas-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/financeiro/naturezas-page.js' %}"></script>
+{% endblock %}
+

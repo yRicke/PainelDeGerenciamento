@@ -5,8 +5,8 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
-<link rel="stylesheet" href="{% static 'css/vendas.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/comercial/vendas.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -25,6 +25,7 @@
 
 <section id="sec-cadastro" class="panel module-section">
     <h2>Nova Venda (Cadastro Manual)</h2>
+    <p class="form-note">Preencha os dados da venda para incluir no historico e indicadores.</p>
     <form action="{% url 'vendas_por_categoria' empresa.id %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="acao" value="criar_venda">
@@ -63,7 +64,9 @@
                 <input type="text" name="peso_liquido" placeholder="0,00">
             </div>
         </div>
-        <button type="submit" class="btn-primary">Cadastrar</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
     </form>
 </section>
 
@@ -214,5 +217,6 @@
 {{ vendas_tabulator|json_script:"vendas-tabulator-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-<script src="{% static 'js/vendas-page.js' %}"></script>
+<script src="{% static 'js/comercial/vendas-page.js' %}"></script>
 {% endblock %}
+

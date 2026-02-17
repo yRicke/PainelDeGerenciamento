@@ -5,8 +5,8 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
-<link rel="stylesheet" href="{% static 'css/cargas-em-aberto.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/operacional/cargas-em-aberto.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -25,6 +25,7 @@
 
 <section id="sec-cadastro" class="panel module-section">
     <h2>Nova Carga (Cadastro Manual)</h2>
+    <p class="form-note">Informe os dados operacionais para acompanhar prazo, critica e verificacao.</p>
     <form id="criar-carga-form" action="{% url 'cargas_em_aberto' empresa.id %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="acao" value="criar_carga">
@@ -79,7 +80,9 @@
                 <input type="number" name="prazo_maximo_dias" min="0" value="10">
             </div>
         </div>
-        <button type="submit" class="btn-primary">Cadastrar</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
     </form>
 </section>
 
@@ -182,5 +185,6 @@
 {% block extra_js %}
 {{ cargas_tabulator|json_script:"cargas-tabulator-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-<script src="{% static 'js/cargas-em-aberto-page.js' %}"></script>
+<script src="{% static 'js/operacional/cargas-em-aberto-page.js' %}"></script>
 {% endblock %}
+

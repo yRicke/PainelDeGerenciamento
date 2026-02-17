@@ -10,7 +10,23 @@ from django.core.exceptions import ValidationError
 from django.db.models import F
 from django.utils import timezone
 
-from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
+from .models import (
+    Atividade,
+    Cargas,
+    Carteira,
+    Cidade,
+    Colaborador,
+    Empresa,
+    FluxoDeCaixaDFC,
+    Natureza,
+    Operacao,
+    Parceiro,
+    Projeto,
+    Regiao,
+    Titulo,
+    Usuario,
+    Venda,
+)
 from .utils.administrativo_utils import (
     _set_prazo_inicio_e_prazo_termino,
     _transformar_date_ou_none,
@@ -18,6 +34,7 @@ from .utils.administrativo_utils import (
     _transformar_iso_week_parts_ou_none,
 )
 from .utils.comercial_importacao import importar_carteira_do_diretorio, importar_vendas_do_diretorio
+from .utils.financeiro_importacao import importar_dfc_do_diretorio
 from .utils.operacional_importacao import importar_cargas_do_diretorio
 
 
@@ -257,6 +274,119 @@ def atualizar_regiao_por_dados(regiao, nome, codigo, empresa):
     regiao.atualizar_regiao(novo_nome=nome, novo_codigo=codigo)
     return ""
 
+def criar_parceiro_por_dados(empresa, nome, codigo):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome do parceiro e obrigatorio."
+    if not codigo:
+        return "Codigo do parceiro e obrigatorio."
+    if Parceiro.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
+        return "Ja existe parceiro com este codigo em outra empresa."
+    if Parceiro.objects.filter(empresa=empresa, codigo=codigo).exists():
+        return "Ja existe parceiro com este codigo nesta empresa."
+    Parceiro.criar_parceiro(nome=nome, codigo=codigo, empresa=empresa)
+    return ""
+
+
+def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa):
+    nome = (nome or "").strip()
+    codigo = (codigo or "").strip()
+    if not nome:
+        return "Nome do parceiro e obrigatorio."
+    if not codigo:
+        return "Codigo do parceiro e obrigatorio."
+    if Parceiro.objects.filter(codigo=codigo).exclude(id=parceiro.id).exclude(empresa=empresa).exists():
+        return "Ja existe parceiro com este codigo em outra empresa."
+    if Parceiro.objects.filter(empresa=empresa, codigo=codigo).exclude(id=parceiro.id).exists():
+        return "Ja existe parceiro com este codigo nesta empresa."
+    parceiro.atualizar_parceiro(novo_nome=nome, novo_codigo=codigo)
+    return ""
+
+def criar_titulo_por_dados(empresa, tipo_titulo_codigo, descricao):
+    tipo_titulo_codigo = (tipo_titulo_codigo or "").strip()
+    descricao = (descricao or "").strip()
+    if not tipo_titulo_codigo:
+        return "Codigo do titulo e obrigatorio."
+    if Titulo.objects.filter(tipo_titulo_codigo=tipo_titulo_codigo).exclude(empresa=empresa).exists():
+        return "Ja existe titulo com este codigo em outra empresa."
+    if Titulo.objects.filter(empresa=empresa, tipo_titulo_codigo=tipo_titulo_codigo).exists():
+        return "Ja existe titulo com este codigo nesta empresa."
+    Titulo.criar_titulo(empresa=empresa, tipo_titulo_codigo=tipo_titulo_codigo, descricao=descricao)
+    return ""
+
+
+def atualizar_titulo_por_dados(titulo, tipo_titulo_codigo, descricao, empresa):
+    tipo_titulo_codigo = (tipo_titulo_codigo or "").strip()
+    descricao = (descricao or "").strip()
+    if not tipo_titulo_codigo:
+        return "Codigo do titulo e obrigatorio."
+    if Titulo.objects.filter(tipo_titulo_codigo=tipo_titulo_codigo).exclude(id=titulo.id).exclude(empresa=empresa).exists():
+        return "Ja existe titulo com este codigo em outra empresa."
+    if Titulo.objects.filter(empresa=empresa, tipo_titulo_codigo=tipo_titulo_codigo).exclude(id=titulo.id).exists():
+        return "Ja existe titulo com este codigo nesta empresa."
+    titulo.atualizar_titulo(tipo_titulo_codigo=tipo_titulo_codigo, descricao=descricao)
+    return ""
+
+
+def criar_natureza_por_dados(empresa, codigo, descricao):
+    codigo = (codigo or "").strip()
+    descricao = (descricao or "").strip()
+    if not codigo:
+        return "Codigo da natureza e obrigatorio."
+    if Natureza.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
+        return "Ja existe natureza com este codigo em outra empresa."
+    if Natureza.objects.filter(empresa=empresa, codigo=codigo).exists():
+        return "Ja existe natureza com este codigo nesta empresa."
+    Natureza.criar_natureza(empresa=empresa, codigo=codigo, descricao=descricao)
+    return ""
+
+
+def atualizar_natureza_por_dados(natureza, codigo, descricao, empresa):
+    codigo = (codigo or "").strip()
+    descricao = (descricao or "").strip()
+    if not codigo:
+        return "Codigo da natureza e obrigatorio."
+    if Natureza.objects.filter(codigo=codigo).exclude(id=natureza.id).exclude(empresa=empresa).exists():
+        return "Ja existe natureza com este codigo em outra empresa."
+    if Natureza.objects.filter(empresa=empresa, codigo=codigo).exclude(id=natureza.id).exists():
+        return "Ja existe natureza com este codigo nesta empresa."
+    natureza.atualizar_natureza(codigo=codigo, descricao=descricao)
+    return ""
+
+
+def criar_operacao_por_dados(empresa, tipo_operacao_codigo, descricao_receita_despesa):
+    tipo_operacao_codigo = (tipo_operacao_codigo or "").strip()
+    descricao_receita_despesa = (descricao_receita_despesa or "").strip()
+    if not tipo_operacao_codigo:
+        return "Codigo da operacao e obrigatorio."
+    if Operacao.objects.filter(tipo_operacao_codigo=tipo_operacao_codigo).exclude(empresa=empresa).exists():
+        return "Ja existe operacao com este codigo em outra empresa."
+    if Operacao.objects.filter(empresa=empresa, tipo_operacao_codigo=tipo_operacao_codigo).exists():
+        return "Ja existe operacao com este codigo nesta empresa."
+    Operacao.criar_operacao(
+        empresa=empresa,
+        tipo_operacao_codigo=tipo_operacao_codigo,
+        descricao_receita_despesa=descricao_receita_despesa,
+    )
+    return ""
+
+
+def atualizar_operacao_por_dados(operacao, tipo_operacao_codigo, descricao_receita_despesa, empresa):
+    tipo_operacao_codigo = (tipo_operacao_codigo or "").strip()
+    descricao_receita_despesa = (descricao_receita_despesa or "").strip()
+    if not tipo_operacao_codigo:
+        return "Codigo da operacao e obrigatorio."
+    if Operacao.objects.filter(tipo_operacao_codigo=tipo_operacao_codigo).exclude(id=operacao.id).exclude(empresa=empresa).exists():
+        return "Ja existe operacao com este codigo em outra empresa."
+    if Operacao.objects.filter(empresa=empresa, tipo_operacao_codigo=tipo_operacao_codigo).exclude(id=operacao.id).exists():
+        return "Ja existe operacao com este codigo nesta empresa."
+    operacao.atualizar_operacao(
+        tipo_operacao_codigo=tipo_operacao_codigo,
+        descricao_receita_despesa=descricao_receita_despesa,
+    )
+    return ""
+
 
 def _parse_decimal_ou_zero(valor):
     texto = (valor or "").strip()
@@ -301,6 +431,7 @@ def _parse_bool_checkbox(post_data, campo):
 def _dados_carteira_from_post(post_data, empresa):
     regiao = Regiao.objects.filter(id=post_data.get("regiao_id"), empresa=empresa).first()
     cidade = Cidade.objects.filter(id=post_data.get("cidade_id"), empresa=empresa).first()
+    parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
 
     data_cadastro_raw = post_data.get("data_cadastro")
     data_cadastro = _parse_date_ou_none(data_cadastro_raw)
@@ -309,6 +440,7 @@ def _dados_carteira_from_post(post_data, empresa):
         "data_cadastro_raw": data_cadastro_raw,
         "regiao": regiao,
         "cidade": cidade,
+        "parceiro": parceiro,
         "valor_faturado": _parse_decimal_ou_zero(post_data.get("valor_faturado")),
         "limite_credito": _parse_decimal_ou_zero(post_data.get("limite_credito")),
         "ultima_venda": _parse_date_ou_none(post_data.get("ultima_venda")),
@@ -318,7 +450,6 @@ def _dados_carteira_from_post(post_data, empresa):
         "gerente": (post_data.get("gerente") or "").strip(),
         "vendedor": (post_data.get("vendedor") or "").strip(),
         "descricao_perfil": (post_data.get("descricao_perfil") or "").strip(),
-        "nome_parceiro": (post_data.get("nome_parceiro") or "").strip(),
         "ativo_indicador": _parse_bool_checkbox(post_data, "ativo_indicador"),
         "cliente_indicador": _parse_bool_checkbox(post_data, "cliente_indicador"),
         "fornecedor_indicador": _parse_bool_checkbox(post_data, "fornecedor_indicador"),
@@ -328,8 +459,8 @@ def _dados_carteira_from_post(post_data, empresa):
 
 def criar_carteira_por_post(empresa, post_data):
     dados = _dados_carteira_from_post(post_data, empresa)
-    if not dados["nome_parceiro"]:
-        return "Nome do parceiro e obrigatorio."
+    if not dados["parceiro"]:
+        return "Parceiro e obrigatorio."
     if not dados["data_cadastro_raw"]:
         return "Data de cadastramento e obrigatoria."
     if not dados["data_cadastro"]:
@@ -341,8 +472,8 @@ def criar_carteira_por_post(empresa, post_data):
 
 def atualizar_carteira_por_post(carteira, empresa, post_data):
     dados = _dados_carteira_from_post(post_data, empresa)
-    if not dados["nome_parceiro"]:
-        return "Nome do parceiro e obrigatorio."
+    if not dados["parceiro"]:
+        return "Parceiro e obrigatorio."
     if not dados["data_cadastro_raw"]:
         return "Data de cadastramento e obrigatoria."
     if not dados["data_cadastro"]:
@@ -394,6 +525,64 @@ def atualizar_venda_por_post(venda, empresa, post_data):
 
     dados.pop("data_venda_raw", None)
     venda.atualizar_venda(**dados)
+    return ""
+
+
+def _dados_dfc_from_post(post_data, empresa):
+    titulo = Titulo.objects.filter(id=post_data.get("titulo_id"), empresa=empresa).first()
+    natureza = Natureza.objects.filter(id=post_data.get("natureza_id"), empresa=empresa).first()
+    parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
+    operacao = Operacao.objects.filter(id=post_data.get("operacao_id"), empresa=empresa).first()
+    data_negociacao_raw = post_data.get("data_negociacao")
+    data_vencimento_raw = post_data.get("data_vencimento")
+
+    return {
+        "data_negociacao_raw": data_negociacao_raw,
+        "data_vencimento_raw": data_vencimento_raw,
+        "data_negociacao": _parse_date_ou_none(data_negociacao_raw),
+        "data_vencimento": _parse_date_ou_none(data_vencimento_raw),
+        "valor_liquido": _parse_decimal_ou_zero(post_data.get("valor_liquido")),
+        "numero_nota": (post_data.get("numero_nota") or "").strip(),
+        "titulo": titulo,
+        "descricao_centro_resultado": (post_data.get("descricao_centro_resultado") or "").strip(),
+        "descricao_tipo_operacao": (post_data.get("descricao_tipo_operacao") or "").strip(),
+        "natureza": natureza,
+        "historico": (post_data.get("historico") or "").strip(),
+        "parceiro": parceiro,
+        "operacao": operacao,
+        "tipo_movimento": (post_data.get("tipo_movimento") or "").strip(),
+    }
+
+
+def criar_dfc_por_post(empresa, post_data):
+    dados = _dados_dfc_from_post(post_data, empresa)
+    if not dados["data_negociacao_raw"]:
+        return "Data de negociacao e obrigatoria."
+    if not dados["data_negociacao"]:
+        return "Data de negociacao invalida."
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    dados.pop("data_negociacao_raw", None)
+    dados.pop("data_vencimento_raw", None)
+    FluxoDeCaixaDFC.criar_fluxo_de_caixa_dfc(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_dfc_por_post(dfc_item, empresa, post_data):
+    dados = _dados_dfc_from_post(post_data, empresa)
+    if not dados["data_negociacao_raw"]:
+        return "Data de negociacao e obrigatoria."
+    if not dados["data_negociacao"]:
+        return "Data de negociacao invalida."
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    dados.pop("data_negociacao_raw", None)
+    dados.pop("data_vencimento_raw", None)
+    dfc_item.atualizar_fluxo_de_caixa_dfc(**dados)
     return ""
 
 
@@ -599,6 +788,14 @@ def preparar_diretorios_vendas():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_dfc():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "dfc"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
     arquivos_xls = []
     for arquivo in arquivos or []:
@@ -636,6 +833,48 @@ def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, vendas: {resultado['vendas']}."
+        ),
+    )
+
+
+def importar_upload_dfc(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+    if not arquivo:
+        return False, "Selecione um arquivo .xls para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xls"):
+        return False, "Formato invalido. Envie apenas arquivo .xls."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_dfc_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar DFC: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, dfc: {resultado['dfc']}."
         ),
     )
 

@@ -67,6 +67,7 @@
 
 <section class="panel">
     <h2>Nova Cidade</h2>
+    <p class="form-note">Cadastre cidades com codigo para uso no cadastro de carteira.</p>
     <form action="{% url 'criar_cidade_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
         <input type="text" name="nome" placeholder="Nome da cidade" required>
@@ -138,7 +139,7 @@
             data: data,
             layout: "fitDataStretch",
             pagination: true,
-            paginationSize: 10,
+            paginationSize: 100,
             columns: [
                 {title: "ID", field: "id", width: 80, hozAlign: "center"},
                 {title: "Nome", field: "nome", editor: "input"},
@@ -188,3 +189,4 @@
     })();
 </script>
 {% endblock %}
+

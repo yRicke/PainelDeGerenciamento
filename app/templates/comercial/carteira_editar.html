@@ -11,6 +11,10 @@
         margin-bottom: 0.75rem;
     }
 
+    .form-grid .full {
+        grid-column: 1 / -1;
+    }
+
     .btn-primary {
         background: #175cd3;
         color: #fff;
@@ -43,13 +47,21 @@
 </section>
 
 <section class="panel">
+    <p class="form-note">Atualize os dados cadastrais e indicadores da carteira.</p>
     <form action="{% url 'editar_carteira_modulo' empresa.id carteira.id %}" method="POST">
         {% csrf_token %}
 
         <div class="form-grid">
             <div>
-                <label>Nome parceiro</label>
-                <input type="text" name="nome_parceiro" value="{{ carteira.nome_parceiro }}" required>
+                <label>Parceiro</label>
+                <select name="parceiro_id" required>
+                    <option value="">-</option>
+                    {% for parceiro in parceiros %}
+                    <option value="{{ parceiro.id }}" {% if carteira.parceiro_id == parceiro.id %}selected{% endif %}>
+                        {{ parceiro.nome }} ({{ parceiro.codigo }})
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label>Regiao</label>
@@ -109,7 +121,7 @@
                 <label>Descricao perfil</label>
                 <input type="text" name="descricao_perfil" value="{{ carteira.descricao_perfil }}">
             </div>
-            <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+            <div class="checkbox-group full">
                 <label><input type="checkbox" name="ativo_indicador" {% if carteira.ativo_indicador %}checked{% endif %}> Ativo</label>
                 <label><input type="checkbox" name="cliente_indicador" {% if carteira.cliente_indicador %}checked{% endif %}> Cliente</label>
                 <label><input type="checkbox" name="fornecedor_indicador" {% if carteira.fornecedor_indicador %}checked{% endif %}> Fornecedor</label>
@@ -117,11 +129,14 @@
             </div>
         </div>
 
-        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        </div>
     </form>
 
-    <div class="action-group">
-        <form action="{% url 'excluir_carteira_modulo' empresa.id carteira.id %}" method="POST" onsubmit="return confirm('Excluir carteira {{ carteira.id }}?');">
+    <div class="danger-zone">
+        <p>Acao irreversivel: exclui este registro de carteira.</p>
+        <form class="action-group" action="{% url 'excluir_carteira_modulo' empresa.id carteira.id %}" method="POST" onsubmit="return confirm('Excluir carteira {{ carteira.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir carteira</button>
         </form>

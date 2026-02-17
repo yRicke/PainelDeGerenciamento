@@ -57,7 +57,8 @@ def build_carteiras_tabulator(carteiras_qs, empresa_id: int):
         resultado.append(
             {
                 "id": carteira_item.get("id"),
-                "nome_parceiro": carteira_item.get("nome_parceiro") or "",
+                "nome_parceiro": carteira_item.get("parceiro__nome") or "",
+                "codigo_parceiro": carteira_item.get("parceiro__codigo") or "",
                 "gerente": carteira_item.get("gerente") or "",
                 "vendedor": carteira_item.get("vendedor") or "",
                 "valor_faturado": float(carteira_item.get("valor_faturado_num") or 0),
@@ -218,3 +219,130 @@ def build_regioes_tabulator(regioes_qs, empresa_id: int):
         }
         for regiao in regioes_qs
     ]
+
+
+def build_parceiros_tabulator(parceiros_qs, empresa_id: int):
+    return [
+        {
+            "id": parceiro.id,
+            "nome": parceiro.nome,
+            "codigo": parceiro.codigo,
+            "editar_url": reverse(
+                "editar_parceiro_modulo",
+                kwargs={"empresa_id": empresa_id, "parceiro_id": parceiro.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_parceiro_modulo",
+                kwargs={"empresa_id": empresa_id, "parceiro_id": parceiro.id},
+            ),
+        }
+        for parceiro in parceiros_qs
+    ]
+
+
+def build_titulos_tabulator(titulos_qs, empresa_id: int):
+    return [
+        {
+            "id": titulo.id,
+            "tipo_titulo_codigo": titulo.tipo_titulo_codigo,
+            "descricao": titulo.descricao or "",
+            "editar_url": reverse(
+                "editar_titulo_modulo",
+                kwargs={"empresa_id": empresa_id, "titulo_id": titulo.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_titulo_modulo",
+                kwargs={"empresa_id": empresa_id, "titulo_id": titulo.id},
+            ),
+        }
+        for titulo in titulos_qs
+    ]
+
+
+def build_naturezas_tabulator(naturezas_qs, empresa_id: int):
+    return [
+        {
+            "id": natureza.id,
+            "codigo": natureza.codigo,
+            "descricao": natureza.descricao or "",
+            "editar_url": reverse(
+                "editar_natureza_modulo",
+                kwargs={"empresa_id": empresa_id, "natureza_id": natureza.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_natureza_modulo",
+                kwargs={"empresa_id": empresa_id, "natureza_id": natureza.id},
+            ),
+        }
+        for natureza in naturezas_qs
+    ]
+
+
+def build_operacoes_tabulator(operacoes_qs, empresa_id: int):
+    return [
+        {
+            "id": operacao.id,
+            "tipo_operacao_codigo": operacao.tipo_operacao_codigo,
+            "descricao_receita_despesa": operacao.descricao_receita_despesa or "",
+            "editar_url": reverse(
+                "editar_operacao_modulo",
+                kwargs={"empresa_id": empresa_id, "operacao_id": operacao.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_operacao_modulo",
+                kwargs={"empresa_id": empresa_id, "operacao_id": operacao.id},
+            ),
+        }
+        for operacao in operacoes_qs
+    ]
+
+
+def build_dfc_tabulator(dfc_qs, empresa_id: int):
+    resultado = []
+    for dfc_item in dfc_qs:
+        resultado.append(
+            {
+                "id": dfc_item.get("id"),
+                "data_negociacao": _fmt_date_br(dfc_item.get("data_negociacao")),
+                "data_negociacao_iso": (
+                    dfc_item.get("data_negociacao").strftime("%Y-%m-%d")
+                    if dfc_item.get("data_negociacao")
+                    else ""
+                ),
+                "data_vencimento": _fmt_date_br(dfc_item.get("data_vencimento")),
+                "data_vencimento_iso": (
+                    dfc_item.get("data_vencimento").strftime("%Y-%m-%d")
+                    if dfc_item.get("data_vencimento")
+                    else ""
+                ),
+                "ano_negociacao": (
+                    dfc_item.get("data_negociacao").year
+                    if dfc_item.get("data_negociacao")
+                    else ""
+                ),
+                "mes_negociacao": (
+                    dfc_item.get("data_negociacao").month
+                    if dfc_item.get("data_negociacao")
+                    else ""
+                ),
+                "valor_liquido": float(dfc_item.get("valor_liquido_num") or 0),
+                "numero_nota": dfc_item.get("numero_nota") or "",
+                "titulo_codigo": dfc_item.get("titulo__tipo_titulo_codigo") or "",
+                "titulo_descricao": dfc_item.get("titulo__descricao") or "",
+                "descricao_centro_resultado": dfc_item.get("descricao_centro_resultado") or "",
+                "descricao_tipo_operacao": dfc_item.get("descricao_tipo_operacao") or "",
+                "natureza_codigo": dfc_item.get("natureza__codigo") or "",
+                "natureza_descricao": dfc_item.get("natureza__descricao") or "",
+                "historico": dfc_item.get("historico") or "",
+                "parceiro_codigo": dfc_item.get("parceiro__codigo") or "",
+                "parceiro_nome": dfc_item.get("parceiro__nome") or "",
+                "operacao_codigo": dfc_item.get("operacao__tipo_operacao_codigo") or "",
+                "operacao_descricao": dfc_item.get("operacao__descricao_receita_despesa") or "",
+                "tipo_movimento": dfc_item.get("tipo_movimento") or "",
+                "editar_url": reverse(
+                    "editar_dfc_modulo",
+                    kwargs={"empresa_id": empresa_id, "dfc_id": dfc_item.get("id")},
+                ),
+            }
+        )
+    return resultado

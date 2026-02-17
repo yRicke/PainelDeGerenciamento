@@ -4,30 +4,8 @@
 {% block title %}Editar Carga{% endblock %}
 
 {% block extra_css %}
-<style>
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(170px, 1fr));
-        gap: 0.6rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .btn-primary {
-        background: #175cd3;
-        color: #fff;
-        border: 0;
-        padding: 0.45rem 0.6rem;
-        cursor: pointer;
-    }
-
-    .btn-danger {
-        background: #b42318;
-        color: #fff;
-        border: 0;
-        padding: 0.45rem 0.6rem;
-        cursor: pointer;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'css/operacional/cargas-em-aberto.css' %}">
+<link rel="stylesheet" href="{% static 'css/operacional/cargas-em-aberto-editar.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -38,6 +16,7 @@
 </section>
 
 <section class="panel">
+    <p class="form-note">Revise os campos obrigatorios antes de salvar.</p>
     <form action="{% url 'editar_carga_modulo' empresa.id carga.id %}" method="POST">
         {% csrf_token %}
         <div class="form-grid">
@@ -104,18 +83,22 @@
                 <input type="text" id="verificacao-preview" value="{% if carga.verificacao %}Verificar{% else %}Ok{% endif %}" disabled>
             </div>
         </div>
-        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        </div>
     </form>
 
-    <hr>
-
-    <form action="{% url 'excluir_carga_modulo' empresa.id carga.id %}" method="POST" onsubmit="return confirm('Excluir carga {{ carga.id }}?');">
-        {% csrf_token %}
-        <button type="submit" class="btn-danger">Excluir carga</button>
-    </form>
+    <div class="danger-zone">
+        <p>Acao irreversivel: exclui este registro de carga.</p>
+        <form action="{% url 'excluir_carga_modulo' empresa.id carga.id %}" method="POST" onsubmit="return confirm('Excluir carga {{ carga.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir carga</button>
+        </form>
+    </div>
 </section>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/cargas-em-aberto-editar-page.js' %}"></script>
+<script src="{% static 'js/operacional/cargas-em-aberto-editar-page.js' %}"></script>
 {% endblock %}
+

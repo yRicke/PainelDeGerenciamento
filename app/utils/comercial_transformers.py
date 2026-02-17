@@ -141,6 +141,7 @@ def montar_contexto_carteira(
     carteiras_qs,
     cidades,
     regioes,
+    parceiros,
     carteiras_dashboard_qs,
 ):
     dashboard_resumo = _calcular_dashboard_resumo_carteira(carteiras_qs)
@@ -152,6 +153,7 @@ def montar_contexto_carteira(
         "carteiras_tabulator": build_carteiras_tabulator(dashboard_resumo["registros"], empresa.id),
         "cidades": cidades,
         "regioes": regioes,
+        "parceiros": parceiros,
         "dashboard_resumo_total_carteira": dashboard_resumo["total_carteira"],
         "dashboard_resumo_total_real": dashboard_resumo["total_real"],
     }

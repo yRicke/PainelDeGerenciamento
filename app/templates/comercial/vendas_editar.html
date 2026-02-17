@@ -10,6 +10,7 @@
 </section>
 
 <section class="panel">
+    <p class="form-note">Revise os dados da venda e confirme para salvar.</p>
     <form action="{% url 'editar_venda_modulo' empresa.id venda.id %}" method="POST">
         {% csrf_token %}
         <div class="form-grid">
@@ -46,15 +47,17 @@
                 <input type="text" name="peso_liquido" value="{{ venda.peso_liquido }}">
             </div>
         </div>
-
-        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        </div>
     </form>
 
-    <hr>
-
-    <form action="{% url 'excluir_venda_modulo' empresa.id venda.id %}" method="POST" onsubmit="return confirm('Excluir venda {{ venda.id }}?');">
-        {% csrf_token %}
-        <button type="submit" class="btn-danger">Excluir venda</button>
-    </form>
+    <div class="danger-zone">
+        <p>Acao irreversivel: exclui este registro de venda.</p>
+        <form action="{% url 'excluir_venda_modulo' empresa.id venda.id %}" method="POST" onsubmit="return confirm('Excluir venda {{ venda.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir venda</button>
+        </form>
+    </div>
 </section>
 {% endblock %}

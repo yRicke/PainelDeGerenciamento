@@ -9,7 +9,7 @@ import shutil
 from uuid import uuid4
 from pathlib import Path
 from unittest.mock import patch
-from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Permissao, Projeto, Regiao, Usuario, Venda
+from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Parceiro, Permissao, Projeto, Regiao, Usuario, Venda
 from .services import (
     atualizar_carga_por_post,
     criar_carga_por_post,
@@ -295,35 +295,57 @@ class RegiaoModelTest(TestCase):
         self.assertFalse(Regiao.objects.filter(id=self.regiao.id).exists())
 
 
+class ParceiroModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.parceiro = Parceiro.criar_parceiro(nome="Parceiro Teste", codigo="100", empresa=self.empresa)
+
+    def test_criar_parceiro(self):
+        self.assertEqual(self.parceiro.nome, "Parceiro Teste")
+        self.assertEqual(self.parceiro.codigo, "100")
+        self.assertEqual(self.parceiro.empresa, self.empresa)
+
+    def test_atualizar_parceiro(self):
+        self.parceiro.atualizar_parceiro(novo_nome="Parceiro Novo", novo_codigo="101")
+        self.assertEqual(self.parceiro.nome, "Parceiro Novo")
+        self.assertEqual(self.parceiro.codigo, "101")
+
+    def test_excluir_parceiro(self):
+        self.parceiro.excluir_parceiro()
+        self.assertFalse(Parceiro.objects.filter(id=self.parceiro.id).exists())
+
+
 class CarteiraModelTest(TestCase):
     def setUp(self):
         self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
         self.regiao = Regiao.criar_regiao(nome="Sudeste", empresa=self.empresa, codigo="RG1001")
         self.cidade = Cidade.criar_cidade(nome="Sao Paulo", empresa=self.empresa, codigo="2001")
+        self.parceiro = Parceiro.criar_parceiro(nome="Parceiro 1", codigo="3001", empresa=self.empresa)
         self.carteira = Carteira.criar_carteira(
             empresa=self.empresa,
             regiao=self.regiao,
             cidade=self.cidade,
-            nome_parceiro="Parceiro 1",
+            parceiro=self.parceiro,
             gerente="Gerente 1",
             vendedor="Vendedor 1",
             ativo_indicador=True,
         )
 
     def test_criar_carteira(self):
-        self.assertEqual(self.carteira.nome_parceiro, "Parceiro 1")
+        self.assertEqual(self.carteira.parceiro, self.parceiro)
         self.assertEqual(self.carteira.regiao, self.regiao)
         self.assertEqual(self.carteira.cidade, self.cidade)
         self.assertEqual(self.carteira.vendedor, "Vendedor 1")
 
     def test_atualizar_carteira(self):
+        parceiro_2 = Parceiro.criar_parceiro(nome="Parceiro 2", codigo="3002", empresa=self.empresa)
         self.carteira.atualizar_carteira(
-            nome_parceiro="Parceiro 2",
+            parceiro=parceiro_2,
             gerente="Gerente 2",
             vendedor="Vendedor 2",
             cliente_indicador=True,
         )
-        self.assertEqual(self.carteira.nome_parceiro, "Parceiro 2")
+        self.assertEqual(self.carteira.parceiro, parceiro_2)
         self.assertEqual(self.carteira.gerente, "Gerente 2")
         self.assertEqual(self.carteira.vendedor, "Vendedor 2")
         self.assertTrue(self.carteira.cliente_indicador)

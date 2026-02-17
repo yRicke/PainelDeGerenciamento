@@ -1,0 +1,11 @@
+.module-link--blocked {
+    opacity: 0.45;
+    filter: grayscale(0.5);
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.module-link-note {
+    font-size: 0.85rem;
+    margin-left: 0.4rem;
+}

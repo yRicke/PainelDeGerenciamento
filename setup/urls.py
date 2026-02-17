@@ -49,6 +49,24 @@ urlpatterns = [
     path('dre/<int:empresa_id>/', views.dre, name='dre'),
     path('contas_a_receber/<int:empresa_id>/', views.contas_a_receber, name='contas_a_receber'),
     path('dfc/<int:empresa_id>/', views.dfc, name='dfc'),
+    path('dfc/<int:empresa_id>/editar/<int:dfc_id>/', views.editar_dfc_modulo, name='editar_dfc_modulo'),
+    path('dfc/<int:empresa_id>/excluir/<int:dfc_id>/', views.excluir_dfc_modulo, name='excluir_dfc_modulo'),
+    path('titulos/<int:empresa_id>/', views.titulos, name='titulos'),
+    path('titulos/<int:empresa_id>/criar/', views.criar_titulo_modulo, name='criar_titulo_modulo'),
+    path('titulos/<int:empresa_id>/editar/<int:titulo_id>/', views.editar_titulo_modulo, name='editar_titulo_modulo'),
+    path('titulos/<int:empresa_id>/excluir/<int:titulo_id>/', views.excluir_titulo_modulo, name='excluir_titulo_modulo'),
+    path('naturezas/<int:empresa_id>/', views.naturezas, name='naturezas'),
+    path('naturezas/<int:empresa_id>/criar/', views.criar_natureza_modulo, name='criar_natureza_modulo'),
+    path('naturezas/<int:empresa_id>/editar/<int:natureza_id>/', views.editar_natureza_modulo, name='editar_natureza_modulo'),
+    path('naturezas/<int:empresa_id>/excluir/<int:natureza_id>/', views.excluir_natureza_modulo, name='excluir_natureza_modulo'),
+    path('operacoes/<int:empresa_id>/', views.operacoes, name='operacoes'),
+    path('operacoes/<int:empresa_id>/criar/', views.criar_operacao_modulo, name='criar_operacao_modulo'),
+    path('operacoes/<int:empresa_id>/editar/<int:operacao_id>/', views.editar_operacao_modulo, name='editar_operacao_modulo'),
+    path('operacoes/<int:empresa_id>/excluir/<int:operacao_id>/', views.excluir_operacao_modulo, name='excluir_operacao_modulo'),
+    path('parceiros/<int:empresa_id>/', views.parceiros, name='parceiros'),
+    path('parceiros/<int:empresa_id>/criar/', views.criar_parceiro_modulo, name='criar_parceiro_modulo'),
+    path('parceiros/<int:empresa_id>/editar/<int:parceiro_id>/', views.editar_parceiro_modulo, name='editar_parceiro_modulo'),
+    path('parceiros/<int:empresa_id>/excluir/<int:parceiro_id>/', views.excluir_parceiro_modulo, name='excluir_parceiro_modulo'),
     path('adiantamentos/<int:empresa_id>/', views.adiantamentos, name='adiantamentos'),
     path('contratos_redes/<int:empresa_id>/', views.contratos_redes, name='contratos_redes'),
 
@@ -76,8 +94,6 @@ urlpatterns = [
     path('projetos/<int:empresa_id>/criar/', views.criar_projeto_modulo, name='criar_projeto_modulo'),
     path('projetos/<int:empresa_id>/editar/<int:projeto_id>/', views.editar_projeto_modulo, name='editar_projeto_modulo'),
     path('projetos/<int:empresa_id>/excluir/<int:projeto_id>/', views.excluir_projeto_modulo, name='excluir_projeto_modulo'),
-
-
     # Modulos - Comercial
     path('carteira/<int:empresa_id>/', views.carteira, name='carteira'),
     path('carteira/<int:empresa_id>/editar/<int:carteira_id>/', views.editar_carteira_modulo, name='editar_carteira_modulo'),

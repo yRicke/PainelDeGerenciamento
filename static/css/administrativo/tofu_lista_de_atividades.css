@@ -1,0 +1,81 @@
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#atividades-tabulator {
+    min-width: 1200px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.form-grid .full {
+    grid-column: 1 / -1;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-grid textarea {
+    min-height: 58px;
+    resize: vertical;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(170px, 1fr)) 120px;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+    align-items: end;
+}
+
+.btn-primary {
+    background: #175cd3;
+    color: #fff;
+    border: 0;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-light {
+    background: #f3f5f7;
+    color: #111;
+    border: 1px solid #d8dee4;
+    padding: 0.45rem 0.6rem;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.dashboard-card {
+    border: 1px solid #d8dee4;
+    background: #fff;
+    padding: 0.75rem;
+}
+
+.dashboard-card h3 {
+    margin: 0 0 0.45rem;
+    font-size: 1rem;
+}
+
+.dashboard-card p {
+    margin: 0.2rem 0;
+    font-size: 0.9rem;
+}

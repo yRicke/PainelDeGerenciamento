@@ -1,0 +1,65 @@
+.inline-form {
+    display: grid;
+    grid-template-columns: 180px 1fr auto;
+    gap: 0.4rem;
+    align-items: center;
+    width: 100%;
+}
+
+.inline-form--parceiros {
+    grid-template-columns: 1fr 170px auto;
+}
+
+.btn-danger {
+    background: #b42318;
+    color: #fff;
+    border: 0;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: #175cd3;
+    color: #fff;
+    border: 0;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+}
+
+.btn-light {
+    background: #f3f5f7;
+    color: #111;
+    border: 1px solid #d8dee4;
+    padding: 0.45rem 0.6rem;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.cadastro-tabulator {
+    min-width: 920px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr)) 120px;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+    align-items: end;
+}
+
+@media (max-width: 900px) {
+    .inline-form,
+    .inline-form--parceiros {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+}

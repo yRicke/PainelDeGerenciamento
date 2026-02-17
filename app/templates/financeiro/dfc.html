@@ -1,16 +1,156 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}DFC{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/dfc.css' %}">
+{% endblock %}
+
 {% block content %}
+{% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
     <a href="{% url 'financeiro' %}">Voltar</a>
     <h1>DFC</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes do DFC">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importacao</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>DFC</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Novo Registro DFC (Cadastro Manual)</h2>
+    <p class="form-note">Preencha os dados essenciais do lancamento e conclua o cadastro.</p>
+    <form action="{% url 'dfc' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_dfc">
+        <div class="form-grid">
+            <div><label>Data negociacao</label><input type="date" name="data_negociacao" value="{{ hoje_iso }}" required></div>
+            <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ hoje_iso }}" required></div>
+            <div><label>Valor liquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
+            <div><label>Numero nota</label><input type="text" name="numero_nota"></div>
+            <div>
+                <label>Titulo</label>
+                <select name="titulo_id">
+                    <option value="">-</option>
+                    {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div><label>Descricao centro resultado</label><input type="text" name="descricao_centro_resultado"></div>
+            <div><label>Descricao tipo operacao</label><input type="text" name="descricao_tipo_operacao"></div>
+            <div>
+                <label>Natureza</label>
+                <select name="natureza_id">
+                    <option value="">-</option>
+                    {% for item in naturezas %}<option value="{{ item.id }}">{{ item.codigo }} - {{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div><label>Historico</label><input type="text" name="historico"></div>
+            <div>
+                <label>Parceiro</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for item in parceiros %}<option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo }})</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Operacao</label>
+                <select name="operacao_id">
+                    <option value="">-</option>
+                    {% for item in operacoes %}<option value="{{ item.id }}">{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>{% endfor %}
+                </select>
+            </div>
+            <div><label>Tipo movimento</label><input type="text" name="tipo_movimento"></div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+    </form>
+</section>
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importacao de DFC</h2>
+    <p>Envie um arquivo <code>.xls</code>. Os relacionamentos (Titulo/Natureza/Operacao/Parceiro) sao criados automaticamente quando nao existem.</p>
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form id="upload-dfc-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+        {% csrf_token %}
+        <input type="file" id="arquivo-dfc-input" name="arquivo_dfc" accept=".xls" hidden>
+        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+        <div id="dropzone-dfc" class="dropzone">
+            <strong>Arraste e solte o arquivo aqui</strong>
+            <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
+        </div>
+        <div class="upload-actions">
+            <button type="submit" class="btn-primary">Enviar e importar</button>
+            <span id="nome-arquivo-dfc-selecionado" class="file-status"></span>
+        </div>
+    </form>
+</section>
+
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Dashboard DFC</h2>
+    <div class="dashboard-kpi-grid">
+        <article class="dashboard-kpi-card">
+            <h3>Total Receita</h3>
+            <p id="dfc-kpi-receita">R$ 0,00</p>
+        </article>
+        <article class="dashboard-kpi-card">
+            <h3>Total Despesa</h3>
+            <p id="dfc-kpi-despesa">R$ 0,00</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados DFC</h2>
+    <div class="filter-grid">
+        <div>
+            <label>Receita/Despesa</label>
+            <select id="filtro-dfc-receita-despesa"><option value="">Todos</option></select>
+        </div>
+        <div>
+            <label>Ano</label>
+            <select id="filtro-dfc-ano"><option value="">Todos</option></select>
+        </div>
+        <div>
+            <label>Mes</label>
+            <select id="filtro-dfc-mes"><option value="">Todos</option></select>
+        </div>
+        <div>
+            <label>Tipo de titulo</label>
+            <select id="filtro-dfc-titulo"><option value="">Todos</option></select>
+        </div>
+        <div>
+            <label>Centro de resultado</label>
+            <select id="filtro-dfc-centro-resultado"><option value="">Todos</option></select>
+        </div>
+        <div>
+            <label>Tipo de operacao</label>
+            <select id="filtro-dfc-tipo-operacao"><option value="">Todos</option></select>
+        </div>
+        <div>
+            <label>Tipo de movimento</label>
+            <select id="filtro-dfc-tipo-movimento"><option value="">Todos</option></select>
+        </div>
+    </div>
+    <button type="button" class="btn-light" id="limpar-filtros-dfc">Limpar filtros</button>
+    <div class="table-wrapper"><div id="dfc-tabulator"></div></div>
 </section>
 {% endblock %}
+
+{% block extra_js %}
+{{ dfc_tabulator|json_script:"dfc-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
+{% endblock %}
+

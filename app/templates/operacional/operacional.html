@@ -1,21 +1,10 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% load static %}
 
 {% block title %}Operacional{% endblock %}
 
 {% block extra_css %}
-<style>
-    .module-link--blocked {
-        opacity: 0.45;
-        filter: grayscale(0.5);
-        pointer-events: none;
-        cursor: not-allowed;
-    }
-
-    .module-link-note {
-        font-size: 0.85rem;
-        margin-left: 0.4rem;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'css/shared/module-links.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -42,3 +31,4 @@
     </ul>
 </section>
 {% endblock %}
+

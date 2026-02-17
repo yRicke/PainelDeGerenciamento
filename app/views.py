@@ -6,7 +6,23 @@ from django.contrib import messages
 from django.db.models import FloatField
 from django.db.models.functions import Cast
 
-from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Projeto, Regiao, Usuario, Venda
+from .models import (
+    Atividade,
+    Cargas,
+    Carteira,
+    Cidade,
+    Colaborador,
+    Empresa,
+    FluxoDeCaixaDFC,
+    Natureza,
+    Operacao,
+    Parceiro,
+    Projeto,
+    Regiao,
+    Titulo,
+    Usuario,
+    Venda,
+)
 from .utils.administrativo_transformers import montar_contexto_tofu_lista
 from .utils.comercial_transformers import montar_contexto_carteira, montar_contexto_vendas
 from .utils.modulos_permissoes import (
@@ -24,9 +40,11 @@ from .services import (
     semana_iso_input_atividade,
     preparar_diretorios_carteira,
     preparar_diretorios_vendas,
+    preparar_diretorios_dfc,
     preparar_diretorios_cargas,
     importar_upload_carteira,
     importar_upload_vendas,
+    importar_upload_dfc,
     importar_upload_cargas,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
@@ -37,6 +55,16 @@ from .services import (
     excluir_usuario_por_id,
     criar_colaborador_por_nome,
     atualizar_colaborador_por_nome,
+    criar_parceiro_por_dados,
+    atualizar_parceiro_por_dados,
+    criar_titulo_por_dados,
+    atualizar_titulo_por_dados,
+    criar_natureza_por_dados,
+    atualizar_natureza_por_dados,
+    criar_operacao_por_dados,
+    atualizar_operacao_por_dados,
+    criar_dfc_por_post,
+    atualizar_dfc_por_post,
     criar_carteira_por_post,
     atualizar_carteira_por_post,
     criar_venda_por_post,
@@ -55,6 +83,11 @@ from .tabulator import (
     build_colaboradores_tabulator,
     build_projetos_tabulator,
     build_regioes_tabulator,
+    build_parceiros_tabulator,
+    build_titulos_tabulator,
+    build_naturezas_tabulator,
+    build_operacoes_tabulator,
+    build_dfc_tabulator,
     build_cargas_tabulator,
 )
 
@@ -474,18 +507,85 @@ def contas_a_receber(request, empresa_id):
 @login_required(login_url="entrar")
 def dfc(request, empresa_id):
     modulo = MODULOS_POR_AREA["Financeiro"][4]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_dfc()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_dfc":
+            erro = criar_dfc_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de DFC criado com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_dfc")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_dfc(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("dfc", empresa_id=empresa.id)
+
+    dfc_qs = (
+        FluxoDeCaixaDFC.objects.filter(empresa=empresa)
+        .annotate(valor_liquido_num=Cast("valor_liquido", FloatField()))
+        .values(
+            "id",
+            "data_negociacao",
+            "data_vencimento",
+            "valor_liquido_num",
+            "numero_nota",
+            "titulo__tipo_titulo_codigo",
+            "titulo__descricao",
+            "descricao_centro_resultado",
+            "descricao_tipo_operacao",
+            "natureza__codigo",
+            "natureza__descricao",
+            "historico",
+            "parceiro__codigo",
+            "parceiro__nome",
+            "operacao__tipo_operacao_codigo",
+            "operacao__descricao_receita_despesa",
+            "tipo_movimento",
+        )
+        .order_by("-id")
+    )
+
+    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": ", ".join(arquivos_existentes),
+        "tem_arquivo_existente": bool(arquivos_existentes),
+        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "dfc_tabulator": build_dfc_tabulator(dfc_qs, empresa.id),
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
 def adiantamentos(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][5]
+    modulo = next(m for m in MODULOS_POR_AREA["Financeiro"] if m["nome"] == "Adiantamentos")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def contratos_redes(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][6]
+    modulo = next(m for m in MODULOS_POR_AREA["Financeiro"] if m["nome"] == "Contratos Redes")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
@@ -536,6 +636,347 @@ def projetos(request, empresa_id):
 
 
 @login_required(login_url="entrar")
+def parceiros(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parceiros")
+    if not autorizado:
+        return redirect("index")
+
+    parceiros_qs = Parceiro.objects.filter(empresa=empresa).order_by("nome")
+    parceiros_tabulator = build_parceiros_tabulator(parceiros_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "parceiros": parceiros_qs,
+        "parceiros_tabulator": parceiros_tabulator,
+    }
+    return render(request, "financeiro/parceiros.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_parceiro_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parceiros")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("parceiros", empresa_id=empresa.id)
+
+    erro = criar_parceiro_por_dados(empresa, request.POST.get("nome"), request.POST.get("codigo"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("parceiros", empresa_id=empresa.id)
+    messages.success(request, "Parceiro criado com sucesso.")
+    return redirect("parceiros", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_parceiro_modulo(request, empresa_id, parceiro_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parceiros")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("parceiros", empresa_id=empresa.id)
+
+    parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first()
+    if not parceiro:
+        messages.error(request, "Parceiro nao encontrado.")
+        return redirect("parceiros", empresa_id=empresa.id)
+
+    erro = atualizar_parceiro_por_dados(parceiro, request.POST.get("nome"), request.POST.get("codigo"), empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("parceiros", empresa_id=empresa.id)
+    messages.success(request, "Parceiro atualizado com sucesso.")
+    return redirect("parceiros", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_parceiro_modulo(request, empresa_id, parceiro_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parceiros")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("parceiros", empresa_id=empresa.id)
+
+    parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first()
+    if not parceiro:
+        messages.error(request, "Parceiro nao encontrado.")
+        return redirect("parceiros", empresa_id=empresa.id)
+
+    parceiro.excluir_parceiro()
+    messages.success(request, "Parceiro excluido com sucesso.")
+    return redirect("parceiros", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def titulos(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Titulos")
+    if not autorizado:
+        return redirect("index")
+
+    titulos_qs = Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo")
+    titulos_tabulator = build_titulos_tabulator(titulos_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "titulos": titulos_qs,
+        "titulos_tabulator": titulos_tabulator,
+    }
+    return render(request, "financeiro/titulos.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_titulo_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Titulos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("titulos", empresa_id=empresa.id)
+
+    erro = criar_titulo_por_dados(empresa, request.POST.get("tipo_titulo_codigo"), request.POST.get("descricao"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("titulos", empresa_id=empresa.id)
+    messages.success(request, "Titulo criado com sucesso.")
+    return redirect("titulos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_titulo_modulo(request, empresa_id, titulo_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Titulos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("titulos", empresa_id=empresa.id)
+
+    titulo = Titulo.objects.filter(id=titulo_id, empresa=empresa).first()
+    if not titulo:
+        messages.error(request, "Titulo nao encontrado.")
+        return redirect("titulos", empresa_id=empresa.id)
+
+    erro = atualizar_titulo_por_dados(titulo, request.POST.get("tipo_titulo_codigo"), request.POST.get("descricao"), empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("titulos", empresa_id=empresa.id)
+    messages.success(request, "Titulo atualizado com sucesso.")
+    return redirect("titulos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_titulo_modulo(request, empresa_id, titulo_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Titulos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("titulos", empresa_id=empresa.id)
+
+    titulo = Titulo.objects.filter(id=titulo_id, empresa=empresa).first()
+    if not titulo:
+        messages.error(request, "Titulo nao encontrado.")
+        return redirect("titulos", empresa_id=empresa.id)
+    titulo.excluir_titulo()
+    messages.success(request, "Titulo excluido com sucesso.")
+    return redirect("titulos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def naturezas(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Naturezas")
+    if not autorizado:
+        return redirect("index")
+
+    naturezas_qs = Natureza.objects.filter(empresa=empresa).order_by("codigo")
+    naturezas_tabulator = build_naturezas_tabulator(naturezas_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "naturezas": naturezas_qs,
+        "naturezas_tabulator": naturezas_tabulator,
+    }
+    return render(request, "financeiro/naturezas.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_natureza_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Naturezas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("naturezas", empresa_id=empresa.id)
+
+    erro = criar_natureza_por_dados(empresa, request.POST.get("codigo"), request.POST.get("descricao"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("naturezas", empresa_id=empresa.id)
+    messages.success(request, "Natureza criada com sucesso.")
+    return redirect("naturezas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_natureza_modulo(request, empresa_id, natureza_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Naturezas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("naturezas", empresa_id=empresa.id)
+
+    natureza = Natureza.objects.filter(id=natureza_id, empresa=empresa).first()
+    if not natureza:
+        messages.error(request, "Natureza nao encontrada.")
+        return redirect("naturezas", empresa_id=empresa.id)
+
+    erro = atualizar_natureza_por_dados(natureza, request.POST.get("codigo"), request.POST.get("descricao"), empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("naturezas", empresa_id=empresa.id)
+    messages.success(request, "Natureza atualizada com sucesso.")
+    return redirect("naturezas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_natureza_modulo(request, empresa_id, natureza_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Naturezas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("naturezas", empresa_id=empresa.id)
+
+    natureza = Natureza.objects.filter(id=natureza_id, empresa=empresa).first()
+    if not natureza:
+        messages.error(request, "Natureza nao encontrada.")
+        return redirect("naturezas", empresa_id=empresa.id)
+    natureza.excluir_natureza()
+    messages.success(request, "Natureza excluida com sucesso.")
+    return redirect("naturezas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def operacoes(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Operacoes")
+    if not autorizado:
+        return redirect("index")
+
+    operacoes_qs = Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo")
+    operacoes_tabulator = build_operacoes_tabulator(operacoes_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "operacoes": operacoes_qs,
+        "operacoes_tabulator": operacoes_tabulator,
+    }
+    return render(request, "financeiro/operacoes.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_operacao_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Operacoes")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("operacoes", empresa_id=empresa.id)
+
+    erro = criar_operacao_por_dados(
+        empresa,
+        request.POST.get("tipo_operacao_codigo"),
+        request.POST.get("descricao_receita_despesa"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("operacoes", empresa_id=empresa.id)
+    messages.success(request, "Operacao criada com sucesso.")
+    return redirect("operacoes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_operacao_modulo(request, empresa_id, operacao_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Operacoes")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("operacoes", empresa_id=empresa.id)
+
+    operacao = Operacao.objects.filter(id=operacao_id, empresa=empresa).first()
+    if not operacao:
+        messages.error(request, "Operacao nao encontrada.")
+        return redirect("operacoes", empresa_id=empresa.id)
+
+    erro = atualizar_operacao_por_dados(
+        operacao,
+        request.POST.get("tipo_operacao_codigo"),
+        request.POST.get("descricao_receita_despesa"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("operacoes", empresa_id=empresa.id)
+    messages.success(request, "Operacao atualizada com sucesso.")
+    return redirect("operacoes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_operacao_modulo(request, empresa_id, operacao_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Operacoes")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("operacoes", empresa_id=empresa.id)
+
+    operacao = Operacao.objects.filter(id=operacao_id, empresa=empresa).first()
+    if not operacao:
+        messages.error(request, "Operacao nao encontrada.")
+        return redirect("operacoes", empresa_id=empresa.id)
+    operacao.excluir_operacao()
+    messages.success(request, "Operacao excluida com sucesso.")
+    return redirect("operacoes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_dfc_modulo(request, empresa_id, dfc_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "DFC")
+    if not autorizado:
+        return redirect("index")
+
+    dfc_item = FluxoDeCaixaDFC.objects.filter(id=dfc_id, empresa=empresa).first()
+    if not dfc_item:
+        messages.error(request, "Registro DFC nao encontrado.")
+        return redirect("dfc", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_dfc_por_post(dfc_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_dfc_modulo", empresa_id=empresa.id, dfc_id=dfc_item.id)
+        messages.success(request, "Registro DFC atualizado com sucesso.")
+        return redirect("dfc", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "dfc_item": dfc_item,
+        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+    }
+    return render(request, "financeiro/dfc_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_dfc_modulo(request, empresa_id, dfc_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "DFC")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("dfc", empresa_id=empresa.id)
+
+    dfc_item = FluxoDeCaixaDFC.objects.filter(id=dfc_id, empresa=empresa).first()
+    if not dfc_item:
+        messages.error(request, "Registro DFC nao encontrado.")
+        return redirect("dfc", empresa_id=empresa.id)
+    dfc_item.excluir_fluxo_de_caixa_dfc()
+    messages.success(request, "Registro DFC excluido com sucesso.")
+    return redirect("dfc", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def carteira(request, empresa_id):
     # 1) Autorizacao
     modulo = MODULOS_POR_AREA["Comercial"][0]
@@ -578,7 +1019,8 @@ def carteira(request, empresa_id):
         )
         .values(
             "id",
-            "nome_parceiro",
+            "parceiro__nome",
+            "parceiro__codigo",
             "gerente",
             "vendedor",
             "valor_faturado_num",
@@ -607,6 +1049,7 @@ def carteira(request, empresa_id):
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
     cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
     regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
+    parceiros = Parceiro.objects.filter(empresa=empresa).order_by("nome")
 
     # 3) Transformacao
     contexto = montar_contexto_carteira(
@@ -617,6 +1060,7 @@ def carteira(request, empresa_id):
         carteiras_qs=carteiras_qs,
         cidades=cidades,
         regioes=regioes,
+        parceiros=parceiros,
         carteiras_dashboard_qs=carteiras_dashboard_qs,
     )
 
@@ -645,11 +1089,13 @@ def editar_carteira_modulo(request, empresa_id, carteira_id):
 
     cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
     regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
+    parceiros = Parceiro.objects.filter(empresa=empresa).order_by("nome")
     contexto = {
         "empresa": empresa,
         "carteira": carteira_item,
         "cidades": cidades,
         "regioes": regioes,
+        "parceiros": parceiros,
     }
     return render(request, "comercial/carteira_editar.html", contexto)
 

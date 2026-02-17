@@ -64,6 +64,7 @@
 </section>
 
 <section class="panel">
+    <p class="form-note">Ajuste os dados da atividade e acompanhe prazo/progresso para manter o status correto.</p>
     <form action="{% url 'editar_atividade_tofu' empresa.id atividade.id %}" method="POST" data-atividade-form>
         {% csrf_token %}
         <div class="form-grid">
@@ -144,10 +145,13 @@
             </div>
         </div>
 
-        <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        </div>
     </form>
 
-    <div class="action-group">
+    <div class="danger-zone">
+        <p>Acao irreversivel: exclui esta atividade.</p>
         <form class="inline-form" action="{% url 'excluir_atividade_tofu' empresa.id atividade.id %}" method="POST" onsubmit="return confirm('Excluir atividade {{ atividade.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir atividade</button>
@@ -157,5 +161,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/tofu-atividade-form.js' %}"></script>
+<script src="{% static 'js/administrativo/tofu-atividade-form.js' %}"></script>
 {% endblock %}
+

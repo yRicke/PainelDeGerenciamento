@@ -5,8 +5,8 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/module-layout.css' %}">
-<link rel="stylesheet" href="{% static 'css/carteira.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/comercial/carteira.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -25,14 +25,20 @@
 
 <section id="sec-cadastro" class="panel module-section">
     <h2>Nova Carteira (Cadastro Manual)</h2>
+    <p class="form-note">Cadastre os dados principais da carteira e marque os indicadores aplicaveis.</p>
     <form action="{% url 'carteira' empresa.id %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="acao" value="criar_carteira">
 
         <div class="form-grid">
             <div>
-                <label>Nome parceiro</label>
-                <input type="text" name="nome_parceiro" required>
+                <label>Parceiro</label>
+                <select name="parceiro_id" required>
+                    <option value="">-</option>
+                    {% for parceiro in parceiros %}
+                    <option value="{{ parceiro.id }}">{{ parceiro.nome }} ({{ parceiro.codigo }})</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label>Regiao</label>
@@ -88,14 +94,16 @@
                 <label>Descricao perfil</label>
                 <input type="text" name="descricao_perfil">
             </div>
-            <div class="indicadores-grid">
+            <div class="checkbox-group indicadores-grid">
                 <label><input type="checkbox" name="ativo_indicador" checked> Ativo</label>
                 <label><input type="checkbox" name="cliente_indicador"> Cliente</label>
                 <label><input type="checkbox" name="fornecedor_indicador"> Fornecedor</label>
                 <label><input type="checkbox" name="transporte_indicador"> Transportadora</label>
             </div>
         </div>
-        <button type="submit" class="btn-primary">Cadastrar</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
     </form>
 </section>
 
@@ -260,5 +268,6 @@
 {{ carteiras_tabulator|json_script:"carteira-tabulator-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-<script src="{% static 'js/carteira-page.js' %}"></script>
+<script src="{% static 'js/comercial/carteira-page.js' %}"></script>
 {% endblock %}
+

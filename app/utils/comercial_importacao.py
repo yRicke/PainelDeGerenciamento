@@ -9,7 +9,7 @@ import unicodedata
 
 from django.db import transaction
 
-from ..models import Carteira, Cidade, Regiao, Venda
+from ..models import Carteira, Cidade, Parceiro, Regiao, Venda
 
 try:
     import xlrd
@@ -269,6 +269,10 @@ def _regiao_por_codigo(empresa, codigo: str, nome: str):
     return regiao
 
 
+def _parceiro_por_codigo_nome(empresa, codigo: str, nome: str):
+    return Parceiro.obter_ou_criar_por_codigo_nome(empresa=empresa, codigo=codigo, nome=nome)
+
+
 @transaction.atomic
 def importar_carteira_do_diretorio(
     empresa,
@@ -289,7 +293,7 @@ def importar_carteira_do_diretorio(
     total_carteiras = 0
 
     objetos: list[Carteira] = []
-    colunas_obrigatorias = {"Nome Parceiro", "Cód. Cidade", "Região", "Nome (Cidade)", "Nome (Região)"}
+    colunas_obrigatorias = {"Cód. Parceiro", "Nome Parceiro", "Cód. Cidade", "Região", "Nome (Cidade)", "Nome (Região)"}
 
     for arquivo in arquivos:
         cabecalho = None
@@ -303,9 +307,11 @@ def importar_carteira_do_diretorio(
                 continue
 
             registro = {cabecalho[i]: (linha[i] if i < len(linha) else "") for i in range(len(cabecalho))}
+            codigo_parceiro = _normalizar_codigo(registro.get("Cód. Parceiro"))
             nome_parceiro = _normalizar_texto(registro.get("Nome Parceiro"))
-            if not nome_parceiro:
+            if not codigo_parceiro or not nome_parceiro:
                 continue
+            parceiro = _parceiro_por_codigo_nome(empresa=empresa, codigo=codigo_parceiro, nome=nome_parceiro)
 
             codigo_cidade = _normalizar_codigo(registro.get("Cód. Cidade"))
             nome_cidade = _normalizar_texto(registro.get("Nome (Cidade)"))
@@ -352,7 +358,7 @@ def importar_carteira_do_diretorio(
                     gerente=_normalizar_texto(registro.get("Gerente")),
                     vendedor=_normalizar_texto(registro.get("Apelido (Vendedor)")),
                     descricao_perfil=_normalizar_texto(registro.get("Descrição (Perfil)")),
-                    nome_parceiro=nome_parceiro,
+                    parceiro=parceiro,
                     ativo_indicador=_to_bool(registro.get("Ativo")),
                     cliente_indicador=_to_bool(registro.get("Cliente")),
                     fornecedor_indicador=_to_bool(registro.get("Fornecedor")),
