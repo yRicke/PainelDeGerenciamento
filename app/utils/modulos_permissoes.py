@@ -14,6 +14,7 @@ MODULOS_POR_AREA = {
         {"nome": "Naturezas", "url": "naturezas", "template": "financeiro/naturezas.html"},
         {"nome": "Operacoes", "url": "operacoes", "template": "financeiro/operacoes.html"},
         {"nome": "Parceiros", "url": "parceiros", "template": "financeiro/parceiros.html"},
+        {"nome": "Centro Resultado", "url": "centros_resultado", "template": "financeiro/centros_resultado.html"},
         {"nome": "Adiantamentos", "url": "adiantamentos", "template": "financeiro/adiantamentos.html"},
         {"nome": "Contratos Redes", "url": "contratos_redes", "template": "financeiro/contratos_redes.html"},
     ],

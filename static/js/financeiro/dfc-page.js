@@ -119,13 +119,13 @@
         7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
     });
     preencherSelect(tituloSelect, valoresUnicos("titulo_codigo").sort());
-    preencherSelect(centroResultadoSelect, valoresUnicos("descricao_centro_resultado").sort());
+    preencherSelect(centroResultadoSelect, valoresUnicos("centro_resultado_descricao").sort());
     preencherSelect(tipoOperacaoSelect, valoresUnicos("operacao_codigo").sort());
     preencherSelect(tipoMovimentoSelect, valoresUnicos("tipo_movimento").sort());
 
     var tabela = new Tabulator("#dfc-tabulator", {
         data: data,
-        layout: "fitDataStretch",
+        layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
         columns: [
@@ -167,7 +167,7 @@
             {title: "Numero nota", field: "numero_nota", headerFilter: "input"},
             {title: "Titulo codigo", field: "titulo_codigo", headerFilter: "input"},
             {title: "Titulo descricao", field: "titulo_descricao", headerFilter: "input"},
-            {title: "Centro resultado", field: "descricao_centro_resultado", headerFilter: "input"},
+            {title: "Centro resultado", field: "centro_resultado_descricao", headerFilter: "input"},
             {title: "Tipo operacao", field: "operacao_codigo", headerFilter: "input"},
             {title: "Natureza codigo", field: "natureza_codigo", headerFilter: "input"},
             {title: "Natureza descricao", field: "natureza_descricao", headerFilter: "input"},
@@ -234,7 +234,7 @@
             if (ano && String(item.ano_negociacao) !== String(ano)) return false;
             if (mes && String(item.mes_negociacao) !== String(mes)) return false;
             if (titulo && item.titulo_codigo !== titulo) return false;
-            if (centroResultado && item.descricao_centro_resultado !== centroResultado) return false;
+            if (centroResultado && item.centro_resultado_descricao !== centroResultado) return false;
             if (tipoOperacao && item.operacao_codigo !== tipoOperacao) return false;
             if (tipoMovimento && item.tipo_movimento !== tipoMovimento) return false;
             return true;
@@ -252,6 +252,7 @@
         tipoOperacaoSelect,
         tipoMovimentoSelect,
     ].forEach(function (element) {
+        if (!element) return;
         element.addEventListener("change", aplicarFiltros);
     });
 

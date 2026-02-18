@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Contas a Receber{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/financeiro/contas-a-receber.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'contas_a_receber' empresa.id %}">Voltar para Contas a Receber</a>
+    <h1>Editar Registro #{{ conta_item.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <form action="{% url 'editar_contas_a_receber_modulo' empresa.id conta_item.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div><label>Data negociacao</label><input type="date" name="data_negociacao" value="{{ conta_item.data_negociacao|date:'Y-m-d' }}" required></div>
+            <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ conta_item.data_vencimento|date:'Y-m-d' }}" required></div>
+            <div><label>Data arquivo</label><input type="date" name="data_arquivo" value="{{ conta_item.data_arquivo|date:'Y-m-d' }}"></div>
+            <div><label>Nome fantasia empresa</label><input type="text" name="nome_fantasia_empresa" value="{{ conta_item.nome_fantasia_empresa }}"></div>
+            <div>
+                <label>Parceiro</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for item in parceiros %}
+                    <option value="{{ item.id }}" {% if conta_item.parceiro_id == item.id %}selected{% endif %}>{{ item.nome }} ({{ item.codigo }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div><label>Numero nota</label><input type="text" name="numero_nota" value="{{ conta_item.numero_nota }}"></div>
+            <div><label>Vendedor</label><input type="text" name="vendedor" value="{{ conta_item.vendedor }}"></div>
+            <div><label>Valor desdobramento</label><input type="text" name="valor_desdobramento" value="{{ conta_item.valor_desdobramento }}"></div>
+            <div><label>Valor liquido</label><input type="text" name="valor_liquido" value="{{ conta_item.valor_liquido }}"></div>
+            <div>
+                <label>Titulo</label>
+                <select name="titulo_id">
+                    <option value="">-</option>
+                    {% for item in titulos %}
+                    <option value="{{ item.id }}" {% if conta_item.titulo_id == item.id %}selected{% endif %}>{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Natureza</label>
+                <select name="natureza_id">
+                    <option value="">-</option>
+                    {% for item in naturezas %}
+                    <option value="{{ item.id }}" {% if conta_item.natureza_id == item.id %}selected{% endif %}>{{ item.codigo }} - {{ item.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Centro resultado</label>
+                <select name="centro_resultado_id">
+                    <option value="">-</option>
+                    {% for item in centros_resultado %}
+                    <option value="{{ item.id }}" {% if conta_item.centro_resultado_id == item.id %}selected{% endif %}>{{ item.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Operacao</label>
+                <select name="operacao_id">
+                    <option value="">-</option>
+                    {% for item in operacoes %}
+                    <option value="{{ item.id }}" {% if conta_item.operacao_id == item.id %}selected{% endif %}>{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        </div>
+    </form>
+
+    <div class="danger-zone">
+        <p>Acao irreversivel: exclui este registro.</p>
+        <form action="{% url 'excluir_contas_a_receber_modulo' empresa.id conta_item.id %}" method="POST" onsubmit="return confirm('Excluir registro {{ conta_item.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir registro</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

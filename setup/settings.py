@@ -123,3 +123,6 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 AUTH_USER_MODEL = "app.Usuario"
 
+# Upload de pasta (webkitdirectory) para modulos com muitos arquivos .xls
+DATA_UPLOAD_MAX_NUMBER_FILES = 10000
+

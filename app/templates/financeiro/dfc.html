@@ -6,7 +6,7 @@
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
-<link rel="stylesheet" href="{% static 'css/financeiro/dfc.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/dfc-page.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -41,7 +41,13 @@
                     {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
                 </select>
             </div>
-            <div><label>Descricao centro resultado</label><input type="text" name="descricao_centro_resultado"></div>
+            <div>
+                <label>Centro resultado</label>
+                <select name="centro_resultado_id">
+                    <option value="">-</option>
+                    {% for item in centros_resultado %}<option value="{{ item.id }}">{{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
             <div><label>Descricao tipo operacao</label><input type="text" name="descricao_tipo_operacao"></div>
             <div>
                 <label>Natureza</label>
@@ -75,7 +81,7 @@
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importacao de DFC</h2>
-    <p>Envie um arquivo <code>.xls</code>. Os relacionamentos (Titulo/Natureza/Operacao/Parceiro) sao criados automaticamente quando nao existem.</p>
+    <p>Envie um arquivo <code>.xls</code>. Os relacionamentos (Titulo/Natureza/Operacao/Parceiro/Centro Resultado) sao criados automaticamente quando nao existem.</p>
     {% if arquivo_existente %}
     <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
     {% else %}
@@ -153,4 +159,3 @@
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
 {% endblock %}
-

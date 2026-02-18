@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.urls import reverse
+from django.utils import timezone
 
 
 def _fmt_date_br(data):
@@ -297,6 +298,24 @@ def build_operacoes_tabulator(operacoes_qs, empresa_id: int):
     ]
 
 
+def build_centros_resultado_tabulator(centros_resultado_qs, empresa_id: int):
+    return [
+        {
+            "id": centro.id,
+            "descricao": centro.descricao,
+            "editar_url": reverse(
+                "editar_centro_resultado_modulo",
+                kwargs={"empresa_id": empresa_id, "centro_resultado_id": centro.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_centro_resultado_modulo",
+                kwargs={"empresa_id": empresa_id, "centro_resultado_id": centro.id},
+            ),
+        }
+        for centro in centros_resultado_qs
+    ]
+
+
 def build_dfc_tabulator(dfc_qs, empresa_id: int):
     resultado = []
     for dfc_item in dfc_qs:
@@ -329,7 +348,7 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int):
                 "numero_nota": dfc_item.get("numero_nota") or "",
                 "titulo_codigo": dfc_item.get("titulo__tipo_titulo_codigo") or "",
                 "titulo_descricao": dfc_item.get("titulo__descricao") or "",
-                "descricao_centro_resultado": dfc_item.get("descricao_centro_resultado") or "",
+                "centro_resultado_descricao": dfc_item.get("centro_resultado__descricao") or "",
                 "descricao_tipo_operacao": dfc_item.get("descricao_tipo_operacao") or "",
                 "natureza_codigo": dfc_item.get("natureza__codigo") or "",
                 "natureza_descricao": dfc_item.get("natureza__descricao") or "",
@@ -342,6 +361,100 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int):
                 "editar_url": reverse(
                     "editar_dfc_modulo",
                     kwargs={"empresa_id": empresa_id, "dfc_id": dfc_item.get("id")},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_contas_a_receber_tabulator(contas_qs, empresa_id: int):
+    resultado = []
+    hoje = timezone.localdate()
+    for conta in contas_qs:
+        data_negociacao = conta.get("data_negociacao")
+        data_vencimento = conta.get("data_vencimento")
+        status = ""
+        if data_vencimento:
+            if data_vencimento < hoje:
+                status = "Vencido"
+            elif data_vencimento >= hoje:
+                status = "A Vencer"
+
+        dias_diferenca = ""
+        if data_vencimento:
+            dias_diferenca = (hoje - data_vencimento).days
+
+        intervalo = ""
+        if isinstance(dias_diferenca, int):
+            dias_intervalo = abs(dias_diferenca)
+            if dias_intervalo <= 5:
+                intervalo = "0-5 (CML)"
+            elif dias_intervalo <= 20:
+                intervalo = "6-20 (FIN)"
+            elif dias_intervalo <= 30:
+                intervalo = "21-30 (POL)"
+            elif dias_intervalo <= 60:
+                intervalo = "31-60 (POL)"
+            elif dias_intervalo <= 90:
+                intervalo = "61-90 (POL)"
+            elif dias_intervalo <= 120:
+                intervalo = "91-120 (JUR1)"
+            elif dias_intervalo <= 180:
+                intervalo = "121-180 (JUR1)"
+            else:
+                intervalo = "+180 (JUR2)"
+
+        resultado.append(
+            {
+                "id": conta.get("id"),
+                "data_negociacao": _fmt_date_br(data_negociacao),
+                "data_negociacao_iso": (
+                    data_negociacao.strftime("%Y-%m-%d")
+                    if data_negociacao
+                    else ""
+                ),
+                "data_vencimento": _fmt_date_br(data_vencimento),
+                "data_vencimento_iso": (
+                    data_vencimento.strftime("%Y-%m-%d")
+                    if data_vencimento
+                    else ""
+                ),
+                "data_arquivo": _fmt_date_br(conta.get("data_arquivo")),
+                "data_arquivo_iso": (
+                    conta.get("data_arquivo").strftime("%Y-%m-%d")
+                    if conta.get("data_arquivo")
+                    else ""
+                ),
+                "ano_negociacao": (
+                    conta.get("data_negociacao").year
+                    if conta.get("data_negociacao")
+                    else ""
+                ),
+                "mes_negociacao": (
+                    conta.get("data_negociacao").month
+                    if conta.get("data_negociacao")
+                    else ""
+                ),
+                "nome_fantasia_empresa": conta.get("nome_fantasia_empresa") or "",
+                "numero_nota": conta.get("numero_nota") or "",
+                "vendedor": conta.get("vendedor") or "",
+                "valor_desdobramento": float(conta.get("valor_desdobramento_num") or 0),
+                "valor_liquido": float(conta.get("valor_liquido_num") or 0),
+                "titulo_codigo": conta.get("titulo__tipo_titulo_codigo") or "",
+                "titulo_descricao": conta.get("titulo__descricao") or "",
+                "natureza_codigo": conta.get("natureza__codigo") or "",
+                "natureza_descricao": conta.get("natureza__descricao") or "",
+                "centro_resultado_descricao": conta.get("centro_resultado__descricao") or "",
+                "parceiro_codigo": conta.get("parceiro__codigo") or "",
+                "parceiro_nome": conta.get("parceiro__nome") or "",
+                "operacao_codigo": conta.get("operacao__tipo_operacao_codigo") or "",
+                "operacao_descricao": conta.get("operacao__descricao_receita_despesa") or "",
+                "status": status,
+                "dias_diferenca": dias_diferenca,
+                "intervalo": intervalo,
+                "editar_url": reverse(
+                    "editar_contas_a_receber_modulo",
+                    kwargs={"empresa_id": empresa_id, "conta_id": conta.get("id")},
                 ),
             }
         )

@@ -1,16 +1,173 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Contas a Receber{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/contas-a-receber.css' %}">
+{% endblock %}
+
 {% block content %}
+{% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
     <a href="{% url 'financeiro' %}">Voltar</a>
     <h1>Contas a Receber</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes de Contas a Receber">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importacao</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Contas a Receber</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Novo Registro (Cadastro Manual)</h2>
+    <form action="{% url 'contas_a_receber' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_conta">
+        <div class="form-grid">
+            <div><label>Data negociacao</label><input type="date" name="data_negociacao" value="{{ hoje_iso }}" required></div>
+            <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ hoje_iso }}" required></div>
+            <div><label>Data arquivo</label><input type="date" name="data_arquivo"></div>
+            <div><label>Nome fantasia empresa</label><input type="text" name="nome_fantasia_empresa"></div>
+            <div>
+                <label>Parceiro</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for item in parceiros %}<option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo }})</option>{% endfor %}
+                </select>
+            </div>
+            <div><label>Numero nota</label><input type="text" name="numero_nota"></div>
+            <div><label>Vendedor</label><input type="text" name="vendedor"></div>
+            <div><label>Valor desdobramento</label><input type="text" name="valor_desdobramento" placeholder="0,00"></div>
+            <div><label>Valor liquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
+            <div>
+                <label>Titulo</label>
+                <select name="titulo_id">
+                    <option value="">-</option>
+                    {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Natureza</label>
+                <select name="natureza_id">
+                    <option value="">-</option>
+                    {% for item in naturezas %}<option value="{{ item.id }}">{{ item.codigo }} - {{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Centro resultado</label>
+                <select name="centro_resultado_id">
+                    <option value="">-</option>
+                    {% for item in centros_resultado %}<option value="{{ item.id }}">{{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Operacao</label>
+                <select name="operacao_id">
+                    <option value="">-</option>
+                    {% for item in operacoes %}<option value="{{ item.id }}">{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+    </form>
 </section>
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importacao de Contas a Receber</h2>
+    <p>Arraste uma pasta com arquivos <code>.xls</code> ou clique para selecionar a pasta. Titulo, Natureza, Operacao, Parceiro e Centro Resultado serao criados automaticamente quando nao existirem.</p>
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form id="upload-contas-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+        {% csrf_token %}
+        <input
+            type="file"
+            id="arquivo-contas-input"
+            name="arquivos_contas_a_receber"
+            accept=".xls"
+            multiple
+            webkitdirectory
+            directory
+            hidden
+        >
+        <div id="dropzone-contas" class="dropzone">
+            <strong>Arraste e solte a pasta aqui</strong>
+            <span>ou clique para selecionar uma pasta com arquivos <code>.xls</code>.</span>
+        </div>
+        <div class="upload-actions">
+            <button type="submit" class="btn-primary">Enviar e importar</button>
+            <span id="nome-arquivo-contas-selecionado" class="file-status"></span>
+        </div>
+    </form>
+</section>
+
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Dashboard Contas a Receber</h2>
+    <div class="dashboard-kpi-grid">
+        <article class="dashboard-kpi-card">
+            <h3>Quantidade de Instancias</h3>
+            <p id="contas-kpi-quantidade">0</p>
+        </article>
+        <article class="dashboard-kpi-card">
+            <h3>Valor Faturado</h3>
+            <p id="contas-kpi-faturado">R$ 0,00</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados Contas a Receber</h2>
+    <div class="filter-grid contas-filtros-grid">
+        <div class="contas-filtro-card">
+            <label>Data vencimento inicial</label>
+            <input type="date" id="filtro-contas-vencimento-inicial">
+        </div>
+        <div class="contas-filtro-card">
+            <label>Data vencimento final</label>
+            <input type="date" id="filtro-contas-vencimento-final">
+        </div>
+        <div class="contas-filtro-card">
+            <label>Status</label>
+            <div id="filtro-contas-status" class="contas-filtro-options contas-filtro-options--chips"></div>
+        </div>
+        <div class="contas-filtro-card">
+            <label>Intervalo</label>
+            <div id="filtro-contas-intervalo" class="contas-filtro-options contas-filtro-options--chips"></div>
+        </div>
+        <div class="contas-filtro-card">
+            <label>Data Arquivo</label>
+            <div id="filtro-contas-data-arquivo" class="contas-filtro-options contas-filtro-options--list"></div>
+        </div>
+        <div class="contas-filtro-card">
+            <label>Descricao (Tipo de Titulo)</label>
+            <div id="filtro-contas-titulo-descricao" class="contas-filtro-options contas-filtro-options--list"></div>
+        </div>
+        <div class="contas-filtro-card">
+            <label>Nome Fantasia (Empresa)</label>
+            <div id="filtro-contas-nome-fantasia" class="contas-filtro-options contas-filtro-options--list"></div>
+        </div>
+        <div class="contas-filtro-card">
+            <label>Descricao (Natureza)</label>
+            <div id="filtro-contas-natureza-descricao" class="contas-filtro-options contas-filtro-options--list"></div>
+        </div>
+    </div>
+    <button type="button" class="btn-light" id="limpar-filtros-contas">Limpar filtros</button>
+    <div class="table-wrapper"><div id="contas-tabulator"></div></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ contas_tabulator|json_script:"contas-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/contas-a-receber-page.js' %}"></script>
 {% endblock %}

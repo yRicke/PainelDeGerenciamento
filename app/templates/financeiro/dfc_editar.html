@@ -4,7 +4,7 @@
 {% block title %}Editar DFC{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/financeiro/dfc.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/dfc-page.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -32,7 +32,15 @@
                     {% endfor %}
                 </select>
             </div>
-            <div><label>Descricao centro resultado</label><input type="text" name="descricao_centro_resultado" value="{{ dfc_item.descricao_centro_resultado }}"></div>
+            <div>
+                <label>Centro resultado</label>
+                <select name="centro_resultado_id">
+                    <option value="">-</option>
+                    {% for item in centros_resultado %}
+                    <option value="{{ item.id }}" {% if dfc_item.centro_resultado_id == item.id %}selected{% endif %}>{{ item.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div><label>Descricao tipo operacao</label><input type="text" name="descricao_tipo_operacao" value="{{ dfc_item.descricao_tipo_operacao }}"></div>
             <div>
                 <label>Natureza</label>

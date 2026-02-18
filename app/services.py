@@ -12,10 +12,12 @@ from django.utils import timezone
 
 from .models import (
     Atividade,
+    CentroResultado,
     Cargas,
     Carteira,
     Cidade,
     Colaborador,
+    ContasAReceber,
     Empresa,
     FluxoDeCaixaDFC,
     Natureza,
@@ -34,7 +36,7 @@ from .utils.administrativo_utils import (
     _transformar_iso_week_parts_ou_none,
 )
 from .utils.comercial_importacao import importar_carteira_do_diretorio, importar_vendas_do_diretorio
-from .utils.financeiro_importacao import importar_dfc_do_diretorio
+from .utils.financeiro_importacao import importar_contas_a_receber_do_diretorio, importar_dfc_do_diretorio
 from .utils.operacional_importacao import importar_cargas_do_diretorio
 
 
@@ -387,6 +389,29 @@ def atualizar_operacao_por_dados(operacao, tipo_operacao_codigo, descricao_recei
     )
     return ""
 
+def criar_centro_resultado_por_dados(empresa, descricao):
+    descricao = (descricao or "").strip()
+    if not descricao:
+        return "Descricao do centro resultado e obrigatoria."
+    if CentroResultado.objects.filter(descricao=descricao).exclude(empresa=empresa).exists():
+        return "Ja existe centro resultado com esta descricao em outra empresa."
+    if CentroResultado.objects.filter(empresa=empresa, descricao=descricao).exists():
+        return "Ja existe centro resultado com esta descricao nesta empresa."
+    CentroResultado.criar_centro_resultado(empresa=empresa, descricao=descricao)
+    return ""
+
+
+def atualizar_centro_resultado_por_dados(centro_resultado, descricao, empresa):
+    descricao = (descricao or "").strip()
+    if not descricao:
+        return "Descricao do centro resultado e obrigatoria."
+    if CentroResultado.objects.filter(descricao=descricao).exclude(id=centro_resultado.id).exclude(empresa=empresa).exists():
+        return "Ja existe centro resultado com esta descricao em outra empresa."
+    if CentroResultado.objects.filter(empresa=empresa, descricao=descricao).exclude(id=centro_resultado.id).exists():
+        return "Ja existe centro resultado com esta descricao nesta empresa."
+    centro_resultado.atualizar_centro_resultado(descricao=descricao)
+    return ""
+
 
 def _parse_decimal_ou_zero(valor):
     texto = (valor or "").strip()
@@ -533,6 +558,7 @@ def _dados_dfc_from_post(post_data, empresa):
     natureza = Natureza.objects.filter(id=post_data.get("natureza_id"), empresa=empresa).first()
     parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
     operacao = Operacao.objects.filter(id=post_data.get("operacao_id"), empresa=empresa).first()
+    centro_resultado = CentroResultado.objects.filter(id=post_data.get("centro_resultado_id"), empresa=empresa).first()
     data_negociacao_raw = post_data.get("data_negociacao")
     data_vencimento_raw = post_data.get("data_vencimento")
 
@@ -544,7 +570,7 @@ def _dados_dfc_from_post(post_data, empresa):
         "valor_liquido": _parse_decimal_ou_zero(post_data.get("valor_liquido")),
         "numero_nota": (post_data.get("numero_nota") or "").strip(),
         "titulo": titulo,
-        "descricao_centro_resultado": (post_data.get("descricao_centro_resultado") or "").strip(),
+        "centro_resultado": centro_resultado,
         "descricao_tipo_operacao": (post_data.get("descricao_tipo_operacao") or "").strip(),
         "natureza": natureza,
         "historico": (post_data.get("historico") or "").strip(),
@@ -583,6 +609,74 @@ def atualizar_dfc_por_post(dfc_item, empresa, post_data):
     dados.pop("data_negociacao_raw", None)
     dados.pop("data_vencimento_raw", None)
     dfc_item.atualizar_fluxo_de_caixa_dfc(**dados)
+    return ""
+
+
+def _dados_contas_a_receber_from_post(post_data, empresa):
+    titulo = Titulo.objects.filter(id=post_data.get("titulo_id"), empresa=empresa).first()
+    natureza = Natureza.objects.filter(id=post_data.get("natureza_id"), empresa=empresa).first()
+    parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
+    operacao = Operacao.objects.filter(id=post_data.get("operacao_id"), empresa=empresa).first()
+    centro_resultado = CentroResultado.objects.filter(id=post_data.get("centro_resultado_id"), empresa=empresa).first()
+    data_negociacao_raw = post_data.get("data_negociacao")
+    data_vencimento_raw = post_data.get("data_vencimento")
+    data_arquivo_raw = post_data.get("data_arquivo")
+
+    return {
+        "data_negociacao_raw": data_negociacao_raw,
+        "data_vencimento_raw": data_vencimento_raw,
+        "data_arquivo_raw": data_arquivo_raw,
+        "data_negociacao": _parse_date_ou_none(data_negociacao_raw),
+        "data_vencimento": _parse_date_ou_none(data_vencimento_raw),
+        "data_arquivo": _parse_date_ou_none(data_arquivo_raw),
+        "nome_fantasia_empresa": (post_data.get("nome_fantasia_empresa") or "").strip(),
+        "parceiro": parceiro,
+        "numero_nota": (post_data.get("numero_nota") or "").strip(),
+        "vendedor": (post_data.get("vendedor") or "").strip(),
+        "valor_desdobramento": _parse_decimal_ou_zero(post_data.get("valor_desdobramento")),
+        "valor_liquido": _parse_decimal_ou_zero(post_data.get("valor_liquido")),
+        "titulo": titulo,
+        "natureza": natureza,
+        "centro_resultado": centro_resultado,
+        "operacao": operacao,
+    }
+
+
+def criar_contas_a_receber_por_post(empresa, post_data):
+    dados = _dados_contas_a_receber_from_post(post_data, empresa)
+    if not dados["data_negociacao_raw"]:
+        return "Data de negociacao e obrigatoria."
+    if not dados["data_negociacao"]:
+        return "Data de negociacao invalida."
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    if dados["data_arquivo_raw"] and not dados["data_arquivo"]:
+        return "Data arquivo invalida."
+    dados.pop("data_negociacao_raw", None)
+    dados.pop("data_vencimento_raw", None)
+    dados.pop("data_arquivo_raw", None)
+    ContasAReceber.criar_conta_a_receber(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_contas_a_receber_por_post(conta_item, empresa, post_data):
+    dados = _dados_contas_a_receber_from_post(post_data, empresa)
+    if not dados["data_negociacao_raw"]:
+        return "Data de negociacao e obrigatoria."
+    if not dados["data_negociacao"]:
+        return "Data de negociacao invalida."
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    if dados["data_arquivo_raw"] and not dados["data_arquivo"]:
+        return "Data arquivo invalida."
+    dados.pop("data_negociacao_raw", None)
+    dados.pop("data_vencimento_raw", None)
+    dados.pop("data_arquivo_raw", None)
+    conta_item.atualizar_conta_a_receber(**dados)
     return ""
 
 
@@ -796,6 +890,14 @@ def preparar_diretorios_dfc():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_contas_a_receber():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "contas_a_receber"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
     arquivos_xls = []
     for arquivo in arquivos or []:
@@ -875,6 +977,47 @@ def importar_upload_dfc(*, empresa, arquivo, confirmar_substituicao, diretorio_i
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, dfc: {resultado['dfc']}."
+        ),
+    )
+
+
+def importar_upload_contas_a_receber(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+    arquivos_xls = []
+    for arquivo in arquivos or []:
+        nome_arquivo = Path(arquivo.name).name
+        if nome_arquivo.lower().endswith(".xls"):
+            arquivos_xls.append((arquivo, nome_arquivo))
+
+    if not arquivos_xls:
+        return False, "Selecione ao menos um arquivo .xls para importar."
+
+    for arquivo_antigo in [f for f in diretorio_importacao.iterdir() if f.is_file()]:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        shutil.move(str(arquivo_antigo), str(destino_subscrito))
+
+    for arquivo_upload, nome_arquivo in arquivos_xls:
+        destino = diretorio_importacao / nome_arquivo
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+
+    try:
+        resultado = importar_contas_a_receber_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Contas a Receber: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, contas: {resultado['contas_a_receber']}."
         ),
     )
 

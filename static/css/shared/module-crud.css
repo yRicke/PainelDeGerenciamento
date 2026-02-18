@@ -1,0 +1,21 @@
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.btn-primary {
+    background: #175cd3;
+    color: #fff;
+    border: 0;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}

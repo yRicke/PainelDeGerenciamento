@@ -868,6 +868,47 @@ class Operacao(models.Model):
     def excluir_operacao(self):
         self.delete()
 
+class CentroResultado(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="centros_resultado")
+    descricao = models.CharField(max_length=200)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "descricao"], name="uq_centro_resultado_empresa_descricao"),
+        ]
+
+    def __str__(self):
+        return self.descricao
+
+    @classmethod
+    def criar_centro_resultado(cls, empresa, descricao):
+        centro_resultado = cls(empresa=empresa, descricao=descricao)
+        centro_resultado.save()
+        return centro_resultado
+
+    @classmethod
+    def listar_centros_resultado_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def obter_ou_criar_por_descricao(cls, empresa, descricao):
+        descricao = (descricao or "").strip()
+        if not descricao:
+            return None
+        centro_resultado, _ = cls.objects.get_or_create(
+            empresa=empresa,
+            descricao=descricao,
+        )
+        return centro_resultado
+
+    def atualizar_centro_resultado(self, descricao=UNSET):
+        if descricao is not UNSET:
+            self.descricao = descricao
+        self.save()
+
+    def excluir_centro_resultado(self):
+        self.delete()
+
 class FluxoDeCaixaDFC(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="fluxos_de_caixa_dfc")
     data_negociacao = models.DateField()
@@ -875,7 +916,7 @@ class FluxoDeCaixaDFC(models.Model):
     valor_liquido = models.DecimalField(max_digits=10, decimal_places=2)
     numero_nota = models.CharField(max_length=50, blank=True, default="")
     titulo = models.ForeignKey(Titulo, on_delete=models.SET_NULL, null=True, blank=True)
-    descricao_centro_resultado = models.CharField(max_length=200, blank=True, default="")
+    centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.SET_NULL, null=True, blank=True)
     descricao_tipo_operacao = models.CharField(max_length=100, blank=True, default="")
     natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
     historico = models.TextField(blank=True, default="")
@@ -895,7 +936,7 @@ class FluxoDeCaixaDFC(models.Model):
         valor_liquido=0,
         numero_nota="",
         titulo=None,
-        descricao_centro_resultado="",
+        centro_resultado=None,
         descricao_tipo_operacao="",
         natureza=None,
         historico="",
@@ -910,7 +951,7 @@ class FluxoDeCaixaDFC(models.Model):
             valor_liquido=valor_liquido,
             numero_nota=numero_nota,
             titulo=titulo,
-            descricao_centro_resultado=descricao_centro_resultado,
+            centro_resultado=centro_resultado,
             descricao_tipo_operacao=descricao_tipo_operacao,
             natureza=natureza,
             historico=historico,
@@ -932,7 +973,7 @@ class FluxoDeCaixaDFC(models.Model):
         valor_liquido=UNSET,
         numero_nota=UNSET,
         titulo=UNSET,
-        descricao_centro_resultado=UNSET,
+        centro_resultado=UNSET,
         descricao_tipo_operacao=UNSET,
         natureza=UNSET,
         historico=UNSET,
@@ -950,8 +991,8 @@ class FluxoDeCaixaDFC(models.Model):
             self.numero_nota = numero_nota
         if titulo is not UNSET:
             self.titulo = titulo
-        if descricao_centro_resultado is not UNSET:
-            self.descricao_centro_resultado = descricao_centro_resultado
+        if centro_resultado is not UNSET:
+            self.centro_resultado = centro_resultado
         if descricao_tipo_operacao is not UNSET:
             self.descricao_tipo_operacao = descricao_tipo_operacao
         if natureza is not UNSET:
@@ -967,4 +1008,152 @@ class FluxoDeCaixaDFC(models.Model):
         self.save()
 
     def excluir_fluxo_de_caixa_dfc(self):
+        self.delete()
+
+class ContasAReceber(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="contas_a_receber")
+    data_negociacao = models.DateField()
+    data_vencimento = models.DateField()
+    data_arquivo = models.DateField(null=True, blank=True)
+    nome_fantasia_empresa = models.CharField(max_length=200, blank=True, default="")
+    parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True)
+    numero_nota = models.CharField(max_length=50, blank=True, default="")
+    vendedor = models.CharField(max_length=150, blank=True, default="")
+    valor_desdobramento = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    valor_liquido = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    titulo = models.ForeignKey(Titulo, on_delete=models.SET_NULL, null=True, blank=True)
+    natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
+    centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.SET_NULL, null=True, blank=True)
+    operacao = models.ForeignKey(Operacao, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"ContasAReceber #{self.id} - {self.empresa.nome}"
+
+    def _calcular_dias_diferenca(self):
+        hoje = timezone.localdate()
+        if not self.data_vencimento:
+            return None
+        return (hoje - self.data_vencimento).days
+
+    @property
+    def dias_diferenca(self):
+        return self._calcular_dias_diferenca()
+
+    @property
+    def status(self):
+        if not self.data_vencimento:
+            return ""
+        hoje = timezone.localdate()
+        if self.data_vencimento < hoje:
+            return "Vencido"
+        return "A Vencer"
+
+    @property
+    def intervalo(self):
+        dias = self.dias_diferenca
+        if dias is None:
+            return ""
+        dias = abs(dias)
+        if dias <= 5:
+            return "0-5 (CML)"
+        if dias <= 20:
+            return "6-20 (FIN)"
+        if dias <= 30:
+            return "21-30 (POL)"
+        if dias <= 60:
+            return "31-60 (POL)"
+        if dias <= 90:
+            return "61-90 (POL)"
+        if dias <= 120:
+            return "91-120 (JUR1)"
+        if dias <= 180:
+            return "121-180 (JUR1)"
+        return "+180 (JUR2)"
+
+    @classmethod
+    def criar_conta_a_receber(
+        cls,
+        empresa,
+        data_negociacao,
+        data_vencimento,
+        data_arquivo=None,
+        nome_fantasia_empresa="",
+        parceiro=None,
+        numero_nota="",
+        vendedor="",
+        valor_desdobramento=0,
+        valor_liquido=0,
+        titulo=None,
+        natureza=None,
+        centro_resultado=None,
+        operacao=None,
+    ):
+        conta = cls(
+            empresa=empresa,
+            data_negociacao=data_negociacao,
+            data_vencimento=data_vencimento,
+            data_arquivo=data_arquivo,
+            nome_fantasia_empresa=nome_fantasia_empresa,
+            parceiro=parceiro,
+            numero_nota=numero_nota,
+            vendedor=vendedor,
+            valor_desdobramento=valor_desdobramento,
+            valor_liquido=valor_liquido,
+            titulo=titulo,
+            natureza=natureza,
+            centro_resultado=centro_resultado,
+            operacao=operacao,
+        )
+        conta.save()
+        return conta
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_conta_a_receber(
+        self,
+        data_negociacao=UNSET,
+        data_vencimento=UNSET,
+        data_arquivo=UNSET,
+        nome_fantasia_empresa=UNSET,
+        parceiro=UNSET,
+        numero_nota=UNSET,
+        vendedor=UNSET,
+        valor_desdobramento=UNSET,
+        valor_liquido=UNSET,
+        titulo=UNSET,
+        natureza=UNSET,
+        centro_resultado=UNSET,
+        operacao=UNSET,
+    ):
+        if data_negociacao is not UNSET:
+            self.data_negociacao = data_negociacao
+        if data_vencimento is not UNSET:
+            self.data_vencimento = data_vencimento
+        if data_arquivo is not UNSET:
+            self.data_arquivo = data_arquivo
+        if nome_fantasia_empresa is not UNSET:
+            self.nome_fantasia_empresa = nome_fantasia_empresa
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if numero_nota is not UNSET:
+            self.numero_nota = numero_nota
+        if vendedor is not UNSET:
+            self.vendedor = vendedor
+        if valor_desdobramento is not UNSET:
+            self.valor_desdobramento = valor_desdobramento
+        if valor_liquido is not UNSET:
+            self.valor_liquido = valor_liquido
+        if titulo is not UNSET:
+            self.titulo = titulo
+        if natureza is not UNSET:
+            self.natureza = natureza
+        if centro_resultado is not UNSET:
+            self.centro_resultado = centro_resultado
+        if operacao is not UNSET:
+            self.operacao = operacao
+        self.save()
+
+    def excluir_conta_a_receber(self):
         self.delete()

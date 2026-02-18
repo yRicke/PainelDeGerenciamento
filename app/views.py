@@ -8,10 +8,12 @@ from django.db.models.functions import Cast
 
 from .models import (
     Atividade,
+    CentroResultado,
     Cargas,
     Carteira,
     Cidade,
     Colaborador,
+    ContasAReceber,
     Empresa,
     FluxoDeCaixaDFC,
     Natureza,
@@ -41,10 +43,12 @@ from .services import (
     preparar_diretorios_carteira,
     preparar_diretorios_vendas,
     preparar_diretorios_dfc,
+    preparar_diretorios_contas_a_receber,
     preparar_diretorios_cargas,
     importar_upload_carteira,
     importar_upload_vendas,
     importar_upload_dfc,
+    importar_upload_contas_a_receber,
     importar_upload_cargas,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
@@ -63,8 +67,12 @@ from .services import (
     atualizar_natureza_por_dados,
     criar_operacao_por_dados,
     atualizar_operacao_por_dados,
+    criar_centro_resultado_por_dados,
+    atualizar_centro_resultado_por_dados,
     criar_dfc_por_post,
     atualizar_dfc_por_post,
+    criar_contas_a_receber_por_post,
+    atualizar_contas_a_receber_por_post,
     criar_carteira_por_post,
     atualizar_carteira_por_post,
     criar_venda_por_post,
@@ -87,7 +95,9 @@ from .tabulator import (
     build_titulos_tabulator,
     build_naturezas_tabulator,
     build_operacoes_tabulator,
+    build_centros_resultado_tabulator,
     build_dfc_tabulator,
+    build_contas_a_receber_tabulator,
     build_cargas_tabulator,
 )
 
@@ -501,7 +511,77 @@ def dre(request, empresa_id):
 @login_required(login_url="entrar")
 def contas_a_receber(request, empresa_id):
     modulo = MODULOS_POR_AREA["Financeiro"][3]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_contas_a_receber()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_conta":
+            erro = criar_contas_a_receber_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de Contas a Receber criado com sucesso.")
+        else:
+            arquivos = request.FILES.getlist("arquivos_contas_a_receber")
+            ok, mensagem = importar_upload_contas_a_receber(
+                empresa=empresa,
+                arquivos=arquivos,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("contas_a_receber", empresa_id=empresa.id)
+
+    contas_qs = (
+        ContasAReceber.objects.filter(empresa=empresa)
+        .annotate(
+            valor_desdobramento_num=Cast("valor_desdobramento", FloatField()),
+            valor_liquido_num=Cast("valor_liquido", FloatField()),
+        )
+        .values(
+            "id",
+            "data_negociacao",
+            "data_vencimento",
+            "data_arquivo",
+            "nome_fantasia_empresa",
+            "numero_nota",
+            "vendedor",
+            "valor_desdobramento_num",
+            "valor_liquido_num",
+            "titulo__tipo_titulo_codigo",
+            "titulo__descricao",
+            "natureza__codigo",
+            "natureza__descricao",
+            "centro_resultado__descricao",
+            "parceiro__codigo",
+            "parceiro__nome",
+            "operacao__tipo_operacao_codigo",
+            "operacao__descricao_receita_despesa",
+        )
+        .order_by("-id")
+    )
+
+    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": ", ".join(arquivos_existentes),
+        "tem_arquivo_existente": bool(arquivos_existentes),
+        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+        "contas_tabulator": build_contas_a_receber_tabulator(contas_qs, empresa.id),
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
@@ -548,7 +628,7 @@ def dfc(request, empresa_id):
             "numero_nota",
             "titulo__tipo_titulo_codigo",
             "titulo__descricao",
-            "descricao_centro_resultado",
+            "centro_resultado__descricao",
             "descricao_tipo_operacao",
             "natureza__codigo",
             "natureza__descricao",
@@ -572,6 +652,7 @@ def dfc(request, empresa_id):
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
         "dfc_tabulator": build_dfc_tabulator(dfc_qs, empresa.id),
     }
     return render(request, modulo["template"], contexto)
@@ -929,6 +1010,76 @@ def excluir_operacao_modulo(request, empresa_id, operacao_id):
 
 
 @login_required(login_url="entrar")
+def centros_resultado(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Centro Resultado")
+    if not autorizado:
+        return redirect("index")
+
+    centros_qs = CentroResultado.objects.filter(empresa=empresa).order_by("descricao")
+    centros_tabulator = build_centros_resultado_tabulator(centros_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "centros_resultado": centros_qs,
+        "centros_resultado_tabulator": centros_tabulator,
+    }
+    return render(request, "financeiro/centros_resultado.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_centro_resultado_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Centro Resultado")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("centros_resultado", empresa_id=empresa.id)
+
+    erro = criar_centro_resultado_por_dados(empresa, request.POST.get("descricao"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("centros_resultado", empresa_id=empresa.id)
+    messages.success(request, "Centro resultado criado com sucesso.")
+    return redirect("centros_resultado", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_centro_resultado_modulo(request, empresa_id, centro_resultado_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Centro Resultado")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("centros_resultado", empresa_id=empresa.id)
+
+    centro_resultado = CentroResultado.objects.filter(id=centro_resultado_id, empresa=empresa).first()
+    if not centro_resultado:
+        messages.error(request, "Centro resultado nao encontrado.")
+        return redirect("centros_resultado", empresa_id=empresa.id)
+
+    erro = atualizar_centro_resultado_por_dados(centro_resultado, request.POST.get("descricao"), empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("centros_resultado", empresa_id=empresa.id)
+    messages.success(request, "Centro resultado atualizado com sucesso.")
+    return redirect("centros_resultado", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_centro_resultado_modulo(request, empresa_id, centro_resultado_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Centro Resultado")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("centros_resultado", empresa_id=empresa.id)
+
+    centro_resultado = CentroResultado.objects.filter(id=centro_resultado_id, empresa=empresa).first()
+    if not centro_resultado:
+        messages.error(request, "Centro resultado nao encontrado.")
+        return redirect("centros_resultado", empresa_id=empresa.id)
+    centro_resultado.excluir_centro_resultado()
+    messages.success(request, "Centro resultado excluido com sucesso.")
+    return redirect("centros_resultado", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def editar_dfc_modulo(request, empresa_id, dfc_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "DFC")
     if not autorizado:
@@ -954,6 +1105,7 @@ def editar_dfc_modulo(request, empresa_id, dfc_id):
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
     }
     return render(request, "financeiro/dfc_editar.html", contexto)
 
@@ -974,6 +1126,55 @@ def excluir_dfc_modulo(request, empresa_id, dfc_id):
     dfc_item.excluir_fluxo_de_caixa_dfc()
     messages.success(request, "Registro DFC excluido com sucesso.")
     return redirect("dfc", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_contas_a_receber_modulo(request, empresa_id, conta_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas a Receber")
+    if not autorizado:
+        return redirect("index")
+
+    conta_item = ContasAReceber.objects.filter(id=conta_id, empresa=empresa).first()
+    if not conta_item:
+        messages.error(request, "Registro de Contas a Receber nao encontrado.")
+        return redirect("contas_a_receber", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_contas_a_receber_por_post(conta_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_contas_a_receber_modulo", empresa_id=empresa.id, conta_id=conta_item.id)
+        messages.success(request, "Registro de Contas a Receber atualizado com sucesso.")
+        return redirect("contas_a_receber", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "conta_item": conta_item,
+        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+    }
+    return render(request, "financeiro/contas_a_receber_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_contas_a_receber_modulo(request, empresa_id, conta_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas a Receber")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("contas_a_receber", empresa_id=empresa.id)
+
+    conta_item = ContasAReceber.objects.filter(id=conta_id, empresa=empresa).first()
+    if not conta_item:
+        messages.error(request, "Registro de Contas a Receber nao encontrado.")
+        return redirect("contas_a_receber", empresa_id=empresa.id)
+    conta_item.excluir_conta_a_receber()
+    messages.success(request, "Registro de Contas a Receber excluido com sucesso.")
+    return redirect("contas_a_receber", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
