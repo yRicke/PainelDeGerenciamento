@@ -508,7 +508,7 @@
 
     var tabela = new Tabulator("#vendas-tabulator", {
         data: data,
-        layout: "fitDataStretch",
+        layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
         columns: [

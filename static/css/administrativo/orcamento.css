@@ -1,0 +1,128 @@
+@import url("../financeiro/lancamentos-shared.css");
+
+#orcamento-realizado-tabulator,
+#orcamentos-tabulator,
+#orcamento-comparativo-tabulator {
+    min-width: 1550px;
+}
+
+.module-shortcuts {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.orcamento-comparativo-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.desvio-legenda {
+    min-width: 360px;
+    max-width: 420px;
+    border: 1px solid #cfd6de;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 12px;
+}
+
+.desvio-legenda h3 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
+}
+
+.desvio-legenda ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.desvio-legenda li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.35;
+}
+
+.legenda-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #2d2d2d;
+    flex: 0 0 16px;
+}
+
+.desvio-chip {
+    display: inline-block;
+    min-width: 72px;
+    text-align: right;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+.desvio-verde,
+.legenda-verde {
+    background: #23bd31;
+    color: #06210a;
+}
+
+.desvio-amarelo,
+.legenda-amarelo {
+    background: #ffea00;
+    color: #4d4300;
+}
+
+.desvio-laranja,
+.legenda-laranja {
+    background: #ff7b00;
+    color: #4d2400;
+}
+
+.desvio-vermelho,
+.legenda-vermelho {
+    background: #ff2b2b;
+    color: #4c0303;
+}
+
+.desvio-roxo,
+.legenda-roxo {
+    background: #7f59d9;
+    color: #1d103f;
+}
+
+.desvio-vermelho-escuro,
+.legenda-vermelho-escuro {
+    background: #9b0000;
+    color: #ffffff;
+}
+
+.orcamento-grand-total-row {
+    font-weight: 700;
+}
+
+.tabulator-action-link {
+    display: inline-block;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid #d8dee4;
+    border-radius: 4px;
+    background: #f3f5f7;
+    color: #111;
+    text-decoration: none;
+}
+
+@media (max-width: 1300px) {
+    .orcamento-comparativo-layout {
+        flex-direction: column;
+    }
+
+    .desvio-legenda {
+        min-width: 0;
+        max-width: none;
+        width: 100%;
+    }
+}

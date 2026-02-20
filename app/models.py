@@ -917,7 +917,6 @@ class FluxoDeCaixaDFC(models.Model):
     numero_nota = models.CharField(max_length=50, blank=True, default="")
     titulo = models.ForeignKey(Titulo, on_delete=models.SET_NULL, null=True, blank=True)
     centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.SET_NULL, null=True, blank=True)
-    descricao_tipo_operacao = models.CharField(max_length=100, blank=True, default="")
     natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
     historico = models.TextField(blank=True, default="")
     parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True)
@@ -937,7 +936,6 @@ class FluxoDeCaixaDFC(models.Model):
         numero_nota="",
         titulo=None,
         centro_resultado=None,
-        descricao_tipo_operacao="",
         natureza=None,
         historico="",
         parceiro=None,
@@ -952,7 +950,6 @@ class FluxoDeCaixaDFC(models.Model):
             numero_nota=numero_nota,
             titulo=titulo,
             centro_resultado=centro_resultado,
-            descricao_tipo_operacao=descricao_tipo_operacao,
             natureza=natureza,
             historico=historico,
             parceiro=parceiro,
@@ -974,7 +971,6 @@ class FluxoDeCaixaDFC(models.Model):
         numero_nota=UNSET,
         titulo=UNSET,
         centro_resultado=UNSET,
-        descricao_tipo_operacao=UNSET,
         natureza=UNSET,
         historico=UNSET,
         parceiro=UNSET,
@@ -993,8 +989,6 @@ class FluxoDeCaixaDFC(models.Model):
             self.titulo = titulo
         if centro_resultado is not UNSET:
             self.centro_resultado = centro_resultado
-        if descricao_tipo_operacao is not UNSET:
-            self.descricao_tipo_operacao = descricao_tipo_operacao
         if natureza is not UNSET:
             self.natureza = natureza
         if historico is not UNSET:
@@ -1156,4 +1150,212 @@ class ContasAReceber(models.Model):
         self.save()
 
     def excluir_conta_a_receber(self):
+        self.delete()
+
+#importacao por pasta (semelhante de vendas)
+class Orcamento(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="orcamentos")
+    nome_empresa = models.CharField(max_length=200, blank=True, default="")
+    data_vencimento = models.DateField()
+    data_baixa = models.DateField()
+    valor_baixa = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_liquido = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_desdobramento = models.DecimalField(max_digits=10, decimal_places=2)
+    natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True) #descricao no front
+    titulo = models.ForeignKey(Titulo, on_delete=models.SET_NULL, null=True, blank=True) #descricao no front
+    centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.PROTECT) #descricao no front
+    operacao = models.ForeignKey(Operacao, on_delete=models.SET_NULL, null=True, blank=True) #receita ou despesa aparece na tabela do front
+    parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True) #cod e nome
+
+    @classmethod
+    def criar_orcamento(
+        cls,
+        empresa,
+        data_vencimento,
+        data_baixa,
+        valor_baixa,
+        valor_liquido,
+        valor_desdobramento,
+        natureza=None,
+        titulo=None,
+        centro_resultado=None,
+        operacao=None,
+        parceiro=None,
+        nome_empresa="",
+    ):
+        item = cls(
+            empresa=empresa,
+            nome_empresa=nome_empresa,
+            data_vencimento=data_vencimento,
+            data_baixa=data_baixa,
+            valor_baixa=valor_baixa,
+            valor_liquido=valor_liquido,
+            valor_desdobramento=valor_desdobramento,
+            natureza=natureza,
+            titulo=titulo,
+            centro_resultado=centro_resultado,
+            operacao=operacao,
+            parceiro=parceiro,
+        )
+        item.save()
+        return item
+
+    def atualizar_orcamento(
+        self,
+        data_vencimento=UNSET,
+        data_baixa=UNSET,
+        valor_baixa=UNSET,
+        valor_liquido=UNSET,
+        valor_desdobramento=UNSET,
+        natureza=UNSET,
+        titulo=UNSET,
+        centro_resultado=UNSET,
+        operacao=UNSET,
+        parceiro=UNSET,
+        nome_empresa=UNSET,
+    ):
+        if nome_empresa is not UNSET:
+            self.nome_empresa = nome_empresa
+        if data_vencimento is not UNSET:
+            self.data_vencimento = data_vencimento
+        if data_baixa is not UNSET:
+            self.data_baixa = data_baixa
+        if valor_baixa is not UNSET:
+            self.valor_baixa = valor_baixa
+        if valor_liquido is not UNSET:
+            self.valor_liquido = valor_liquido
+        if valor_desdobramento is not UNSET:
+            self.valor_desdobramento = valor_desdobramento
+        if natureza is not UNSET:
+            self.natureza = natureza
+        if titulo is not UNSET:
+            self.titulo = titulo
+        if centro_resultado is not UNSET:
+            self.centro_resultado = centro_resultado
+        if operacao is not UNSET:
+            self.operacao = operacao
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        self.save()
+
+    def excluir_orcamento(self):
+        self.delete()
+
+
+class OrcamentoPlanejado(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="orcamentos_planejados")
+    nome_empresa = models.CharField(max_length=200, blank=True, default="")
+    ano = models.PositiveSmallIntegerField()
+    natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
+    centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.SET_NULL, null=True, blank=True)
+    janeiro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    fevereiro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    marco = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    abril = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    maio = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    junho = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    julho = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    agosto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    setembro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    outubro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    novembro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    dezembro = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    @classmethod
+    def criar_orcamento_planejado(
+        cls,
+        empresa,
+        ano,
+        nome_empresa="",
+        natureza=None,
+        centro_resultado=None,
+        janeiro=0,
+        fevereiro=0,
+        marco=0,
+        abril=0,
+        maio=0,
+        junho=0,
+        julho=0,
+        agosto=0,
+        setembro=0,
+        outubro=0,
+        novembro=0,
+        dezembro=0,
+    ):
+        item = cls(
+            empresa=empresa,
+            ano=ano,
+            nome_empresa=nome_empresa,
+            natureza=natureza,
+            centro_resultado=centro_resultado,
+            janeiro=janeiro,
+            fevereiro=fevereiro,
+            marco=marco,
+            abril=abril,
+            maio=maio,
+            junho=junho,
+            julho=julho,
+            agosto=agosto,
+            setembro=setembro,
+            outubro=outubro,
+            novembro=novembro,
+            dezembro=dezembro,
+        )
+        item.save()
+        return item
+
+    def atualizar_orcamento_planejado(
+        self,
+        ano=UNSET,
+        nome_empresa=UNSET,
+        natureza=UNSET,
+        centro_resultado=UNSET,
+        janeiro=UNSET,
+        fevereiro=UNSET,
+        marco=UNSET,
+        abril=UNSET,
+        maio=UNSET,
+        junho=UNSET,
+        julho=UNSET,
+        agosto=UNSET,
+        setembro=UNSET,
+        outubro=UNSET,
+        novembro=UNSET,
+        dezembro=UNSET,
+    ):
+        if ano is not UNSET:
+            self.ano = ano
+        if nome_empresa is not UNSET:
+            self.nome_empresa = nome_empresa
+        if natureza is not UNSET:
+            self.natureza = natureza
+        if centro_resultado is not UNSET:
+            self.centro_resultado = centro_resultado
+        if janeiro is not UNSET:
+            self.janeiro = janeiro
+        if fevereiro is not UNSET:
+            self.fevereiro = fevereiro
+        if marco is not UNSET:
+            self.marco = marco
+        if abril is not UNSET:
+            self.abril = abril
+        if maio is not UNSET:
+            self.maio = maio
+        if junho is not UNSET:
+            self.junho = junho
+        if julho is not UNSET:
+            self.julho = julho
+        if agosto is not UNSET:
+            self.agosto = agosto
+        if setembro is not UNSET:
+            self.setembro = setembro
+        if outubro is not UNSET:
+            self.outubro = outubro
+        if novembro is not UNSET:
+            self.novembro = novembro
+        if dezembro is not UNSET:
+            self.dezembro = dezembro
+        self.save()
+
+    def excluir_orcamento_planejado(self):
         self.delete()

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Orcamento x Realizado{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/orcamento.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'administrativo' %}">Voltar</a>
+    <h1>Orcamento x Realizado</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+    <div class="module-shortcuts">
+        <a class="btn-primary" href="{% url 'orcamentos' empresa.id %}">Ver Orcamentos</a>
+        <a class="btn-primary" href="{% url 'orcamentos_realizados' empresa.id %}">Ver Orcamentos Realizados</a>
+    </div>
+</section>
+
+<section class="panel module-section">
+    <h2>Importacao (Pasta Unica)</h2>
+    <p>A importacao alimenta apenas Orcamentos Realizados. Orcamentos planejados sao mantidos somente por CRUD interno.</p>
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form id="upload-orcamento-form" class="upload-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="importar_orcamento">
+        <input
+            type="file"
+            id="arquivo-orcamento-input"
+            name="arquivos_orcamento"
+            accept=".xls"
+            multiple
+            webkitdirectory
+            directory
+            hidden
+        >
+        <div id="dropzone-orcamento" class="dropzone">
+            <strong>Arraste e solte a pasta aqui</strong>
+            <span>ou clique para selecionar arquivos <code>.xls</code>.</span>
+        </div>
+        <div class="upload-actions">
+            <button type="submit" class="btn-primary">Importar Pasta</button>
+            <span id="nome-arquivos-orcamento-selecionados" class="file-status"></span>
+        </div>
+    </form>
+</section>
+
+<section class="panel module-section">
+    <h2>Tabela Orcamento x Realizado</h2>
+    <div class="orcamento-comparativo-layout">
+        <div class="table-wrapper"><div id="orcamento-comparativo-tabulator"></div></div>
+        <aside class="desvio-legenda" aria-label="Legenda de indicadores de desvio do orcamento">
+            <h3>Indicadores de Desvio do Orcamento (%)</h3>
+            <ul>
+                <li><span class="legenda-dot legenda-verde"></span><strong>Verde</strong> - Valor dentro do orcamento</li>
+                <li><span class="legenda-dot legenda-amarelo"></span><strong>Amarelo</strong> - Pequeno desvio (ate -5%)</li>
+                <li><span class="legenda-dot legenda-laranja"></span><strong>Laranja</strong> - Desvio negativo relevante (abaixo de -5%)</li>
+                <li><span class="legenda-dot legenda-vermelho"></span><strong>Vermelho</strong> - Gasto acima do orcamento</li>
+                <li><span class="legenda-dot legenda-roxo"></span><strong>Roxo</strong> - Gasto muito acima do orcamento (acima de 5%)</li>
+                <li><span class="legenda-dot legenda-vermelho-escuro"></span><strong>Vermelho Escuro</strong> - Valores invalidos ou inconsistentes (exige correcao)</li>
+            </ul>
+        </aside>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ orcamento_x_realizado_tabulator|json_script:"orcamento-x-realizado-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/administrativo/orcamento-page.js' %}"></script>
+{% endblock %}

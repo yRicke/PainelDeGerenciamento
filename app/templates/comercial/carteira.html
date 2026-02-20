@@ -79,10 +79,6 @@
                 <input type="number" name="qtd_dias_sem_venda" min="0" value="0">
             </div>
             <div>
-                <label>Intervalo</label>
-                <input type="text" name="intervalo">
-            </div>
-            <div>
                 <label>Gerente</label>
                 <input type="text" name="gerente">
             </div>
@@ -193,61 +189,33 @@
     <h2>Dados da Carteira</h2>
 
     <div class="filter-grid">
-        <div>
+        <div class="carteira-filtro-card">
             <label>Gerente</label>
-            <select id="filtro-gerente">
-                <option value="">Todos</option>
-            </select>
+            <div id="filtro-gerente" class="carteira-filtro-options carteira-filtro-options--list"></div>
         </div>
-        <div>
+        <div class="carteira-filtro-card">
             <label>Ativo</label>
-            <select id="filtro-ativo">
-                <option value="">Todos</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-            </select>
+            <div id="filtro-ativo" class="carteira-filtro-options carteira-filtro-options--chips"></div>
         </div>
-        <div>
+        <div class="carteira-filtro-card">
             <label>Cliente</label>
-            <select id="filtro-cliente">
-                <option value="">Todos</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-            </select>
+            <div id="filtro-cliente" class="carteira-filtro-options carteira-filtro-options--chips"></div>
         </div>
-        <div>
+        <div class="carteira-filtro-card">
             <label>Fornecedor</label>
-            <select id="filtro-fornecedor">
-                <option value="">Todos</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-            </select>
+            <div id="filtro-fornecedor" class="carteira-filtro-options carteira-filtro-options--chips"></div>
         </div>
-        <div>
+        <div class="carteira-filtro-card">
             <label>Transportadora</label>
-            <select id="filtro-transportadora">
-                <option value="">Todos</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-            </select>
+            <div id="filtro-transportadora" class="carteira-filtro-options carteira-filtro-options--chips"></div>
         </div>
-        <div>
-            <label>Intervalo</label>
-            <select id="filtro-intervalo">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div>
+        <div class="carteira-filtro-card">
             <label>Descricao perfil</label>
-            <select id="filtro-descricao-perfil">
-                <option value="">Todos</option>
-            </select>
+            <div id="filtro-descricao-perfil" class="carteira-filtro-options carteira-filtro-options--list"></div>
         </div>
-        <div>
+        <div class="carteira-filtro-card">
             <label>Ano de cadastro</label>
-            <select id="filtro-ano-cadastro">
-                <option value="">Todos</option>
-            </select>
+            <div id="filtro-ano-cadastro" class="carteira-filtro-options carteira-filtro-options--chips"></div>
         </div>
     </div>
 

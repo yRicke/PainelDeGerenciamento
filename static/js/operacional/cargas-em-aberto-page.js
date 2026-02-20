@@ -146,7 +146,7 @@
 
     var table = new Tabulator("#cargas-tabulator", {
         data: dadosOriginais,
-        layout: "fitDataStretch",
+        layout: "fitDataTable",
         movableColumns: true,
         pagination: "local",
         paginationSize: 100,

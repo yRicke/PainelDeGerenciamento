@@ -129,16 +129,24 @@
     <h2>Dados Contas a Receber</h2>
     <div class="filter-grid contas-filtros-grid">
         <div class="contas-filtro-card">
-            <label>Data vencimento inicial</label>
-            <input type="date" id="filtro-contas-vencimento-inicial">
+            <label>Data Arquivo (inicio)</label>
+            <input type="date" id="filtro-contas-data-arquivo-inicial">
         </div>
         <div class="contas-filtro-card">
-            <label>Data vencimento final</label>
-            <input type="date" id="filtro-contas-vencimento-final">
+            <label>Data Arquivo (fim)</label>
+            <input type="date" id="filtro-contas-data-arquivo-final">
+        </div>
+        <div class="contas-filtro-card">
+            <label>Acoes de Data Arquivo</label>
+            <button type="button" class="btn-light" id="filtro-contas-data-arquivo-mais-recente">Selecionar arquivo mais recente</button>
         </div>
         <div class="contas-filtro-card">
             <label>Status</label>
             <div id="filtro-contas-status" class="contas-filtro-options contas-filtro-options--chips"></div>
+        </div>
+        <div class="contas-filtro-card">
+            <label>Data Vencimento</label>
+            <div id="filtro-contas-data-vencimento" class="contas-filtro-options contas-filtro-options--list"></div>
         </div>
         <div class="contas-filtro-card">
             <label>Intervalo</label>

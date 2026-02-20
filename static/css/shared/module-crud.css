@@ -3,6 +3,10 @@
     overflow-x: auto;
 }
 
+.table-wrapper > div[id$="-tabulator"] {
+    min-width: 1800px;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(170px, 1fr));

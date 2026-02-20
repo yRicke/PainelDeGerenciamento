@@ -9,15 +9,37 @@ import shutil
 from uuid import uuid4
 from pathlib import Path
 from unittest.mock import patch
-from .models import Atividade, Cargas, Carteira, Cidade, Colaborador, Empresa, Parceiro, Permissao, Projeto, Regiao, Usuario, Venda
+from .models import (
+    Atividade,
+    Cargas,
+    Carteira,
+    CentroResultado,
+    Cidade,
+    Colaborador,
+    Empresa,
+    Natureza,
+    Operacao,
+    Orcamento,
+    OrcamentoPlanejado,
+    Parceiro,
+    Permissao,
+    Projeto,
+    Regiao,
+    Titulo,
+    Usuario,
+    Venda,
+)
 from .services import (
     atualizar_carga_por_post,
     criar_carga_por_post,
+    preparar_diretorios_orcamento,
     preparar_diretorios_cargas,
     preparar_diretorios_vendas,
+    importar_upload_orcamento,
     importar_upload_cargas,
     importar_upload_vendas,
 )
+from .utils.financeiro_importacao import importar_orcamento_do_diretorio, importar_orcamento_planejado_do_diretorio
 
 # Create your tests here.
 
@@ -570,6 +592,208 @@ class CargasImportacaoServiceTest(TestCase):
 
             self.assertFalse(ok)
             self.assertIn("Confirme a substituicao", mensagem)
+
+
+class OrcamentoImportacaoServiceTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Teste Importacao Orcamento")
+        self.base_dir = str((Path(settings.BASE_DIR) / f".tmp_test_orcamento_{uuid4().hex}"))
+        Path(self.base_dir).mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(self.base_dir, ignore_errors=True))
+
+    def test_preparar_diretorios_orcamento_cria_estrutura(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+            self.assertTrue(diretorio_importacao.exists())
+            self.assertTrue(diretorio_subscritos.exists())
+            self.assertEqual(diretorio_subscritos.parent, diretorio_importacao)
+
+    def test_importar_upload_orcamento_mantem_apenas_novos_e_move_antigos(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+            antigo = diretorio_importacao / "orcamento_antigo.xls"
+            antigo.write_bytes(b"arquivo-antigo")
+
+            arquivo_a = SimpleUploadedFile("orcamento_1.xls", b"novo-a", content_type="application/vnd.ms-excel")
+            arquivo_b = SimpleUploadedFile("orcamento_2.xls", b"novo-b", content_type="application/vnd.ms-excel")
+            arquivo_invalido = SimpleUploadedFile("nao_importar.txt", b"xx", content_type="text/plain")
+
+            with patch("app.services.importar_orcamento_do_diretorio") as importar_real_mock:
+                importar_real_mock.return_value = {"arquivos": 2, "linhas": 2, "orcamentos": 2}
+                ok, mensagem = importar_upload_orcamento(
+                    empresa=self.empresa,
+                    arquivos=[arquivo_a, arquivo_b, arquivo_invalido],
+                    diretorio_importacao=diretorio_importacao,
+                    diretorio_subscritos=diretorio_subscritos,
+                )
+
+            self.assertTrue(ok)
+            self.assertIn("Importacao concluida", mensagem)
+            self.assertTrue((diretorio_importacao / "orcamento_1.xls").exists())
+            self.assertTrue((diretorio_importacao / "orcamento_2.xls").exists())
+            self.assertFalse((diretorio_importacao / "nao_importar.txt").exists())
+            self.assertTrue((diretorio_subscritos / "orcamento_antigo.xls").exists())
+            importar_real_mock.assert_called_once()
+
+    def test_importar_upload_orcamento_sem_xls_retorna_erro(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+            arquivo_invalido = SimpleUploadedFile("arquivo.csv", b"1,2,3", content_type="text/csv")
+
+            ok, mensagem = importar_upload_orcamento(
+                empresa=self.empresa,
+                arquivos=[arquivo_invalido],
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+
+            self.assertFalse(ok)
+            self.assertIn("arquivo .xls", mensagem)
+
+
+class OrcamentoImportadorFkTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Orcamento FK")
+        self.base_dir = Path(settings.BASE_DIR) / f".tmp_importador_orcamento_{uuid4().hex}"
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(self.base_dir, ignore_errors=True))
+
+    def test_importacao_cria_fks_quando_nao_existem(self):
+        caminho_arquivo = self.base_dir / "ORCAMENTO 03-02-2026.xls"
+        caminho_arquivo.write_bytes(b"placeholder")
+
+        linhas = [
+            [
+                "Dt. Vencimento",
+                "Data Baixa",
+                "Vlr Baixa",
+                "Valor Liquido",
+                "Vlr do Desdobramento",
+                "Descricao (Tipo de Titulo)",
+                "Natureza",
+                "Descricao (Natureza)",
+                "Descricao (Centro de Resultado)",
+                "Parceiro",
+                "Nome Parceiro (Parceiro)",
+                "Tipo Operacao",
+                "Receita/Despesa",
+            ],
+            [46055, 46055, 100.50, -100.50, 100.50, "DEBITO AUTOMATICO", "5010202", "Tarifas", "FINANCEIRO", "2414", "BANCO BRADESCO S.A.", "4100", "Despesa"],
+        ]
+
+        with patch("app.utils.financeiro_importacao._iterar_linhas_xls", return_value=linhas):
+            resultado = importar_orcamento_do_diretorio(
+                empresa=self.empresa,
+                diretorio=str(self.base_dir),
+                limpar_antes=True,
+            )
+
+        self.assertEqual(resultado["orcamentos"], 1)
+        self.assertEqual(Titulo.objects.filter(empresa=self.empresa).count(), 1)
+        self.assertEqual(Natureza.objects.filter(empresa=self.empresa).count(), 1)
+        self.assertEqual(Operacao.objects.filter(empresa=self.empresa).count(), 1)
+        self.assertEqual(Parceiro.objects.filter(empresa=self.empresa).count(), 1)
+        self.assertEqual(CentroResultado.objects.filter(empresa=self.empresa).count(), 1)
+
+        orcamento = Orcamento.objects.get(empresa=self.empresa)
+        self.assertIsNotNone(orcamento.titulo)
+        self.assertIsNotNone(orcamento.natureza)
+        self.assertIsNotNone(orcamento.operacao)
+        self.assertIsNotNone(orcamento.parceiro)
+        self.assertIsNotNone(orcamento.centro_resultado)
+
+    def test_importacao_garante_centro_resultado_quando_coluna_vem_vazia(self):
+        caminho_arquivo = self.base_dir / "ORCAMENTO 03-02-2026.xls"
+        caminho_arquivo.write_bytes(b"placeholder")
+
+        linhas = [
+            [
+                "Dt. Vencimento",
+                "Data Baixa",
+                "Vlr Baixa",
+                "Valor Liquido",
+                "Vlr do Desdobramento",
+                "Descricao (Tipo de Titulo)",
+                "Natureza",
+                "Descricao (Natureza)",
+                "Descricao (Centro de Resultado)",
+                "Parceiro",
+                "Nome Parceiro (Parceiro)",
+                "Tipo Operacao",
+                "Receita/Despesa",
+            ],
+            [46055, 46055, 200, -200, 200, "DEBITO", "5010202", "Tarifas", "", "2414", "BANCO BRADESCO S.A.", "4100", "Despesa"],
+        ]
+
+        with patch("app.utils.financeiro_importacao._iterar_linhas_xls", return_value=linhas):
+            resultado = importar_orcamento_do_diretorio(
+                empresa=self.empresa,
+                diretorio=str(self.base_dir),
+                limpar_antes=True,
+            )
+
+        self.assertEqual(resultado["orcamentos"], 1)
+        orcamento = Orcamento.objects.get(empresa=self.empresa)
+        self.assertIsNotNone(orcamento.centro_resultado)
+        self.assertEqual(orcamento.centro_resultado.descricao, "<SEM CENTRO DE RESULTADO>")
+
+    def test_importacao_orcamento_planejado_sem_layout_mensal_gera_fallback(self):
+        caminho_arquivo = self.base_dir / "ORCAMENTO 31.01.2026.xls"
+        caminho_arquivo.write_bytes(b"placeholder")
+
+        centro = CentroResultado.obter_ou_criar_por_descricao(self.empresa, "ADMINISTRAÇÃO")
+        natureza = Natureza.obter_ou_criar_por_codigo_descricao(self.empresa, "DESC_FISCAL", "Fiscal")
+        Orcamento.criar_orcamento(
+            empresa=self.empresa,
+            nome_empresa="1 - SAFIA DISTRIBUIDORA",
+            data_vencimento=timezone.localdate(),
+            data_baixa=timezone.datetime(2026, 1, 31).date(),
+            valor_baixa=1000,
+            valor_liquido=1000,
+            valor_desdobramento=600,
+            natureza=natureza,
+            centro_resultado=centro,
+        )
+        Orcamento.criar_orcamento(
+            empresa=self.empresa,
+            nome_empresa="1 - SAFIA DISTRIBUIDORA",
+            data_vencimento=timezone.localdate(),
+            data_baixa=timezone.datetime(2026, 1, 15).date(),
+            valor_baixa=500,
+            valor_liquido=500,
+            valor_desdobramento=400,
+            natureza=natureza,
+            centro_resultado=centro,
+        )
+
+        linhas = [
+            [
+                "Descrição (Tipo de Título)",
+                "Dt. Vencimento",
+                "Empresa",
+                "Nome Fantasia (Empresa)",
+                "Descrição (Natureza)",
+                "Descrição (Centro de Resultado)",
+                "Receita/Despesa",
+                "Data Baixa",
+                "Vlr Baixa",
+            ],
+            ["BOLETO", 46055, 1, "SAFIA DISTRIBUIDORA", "Fiscal", "ADMINISTRAÇÃO", "Despesa", 46051, 1518],
+            ["BOLETO", 46055, 1, "SAFIA DISTRIBUIDORA", "Fiscal", "ADMINISTRAÇÃO", "Despesa", "15/02/2026", 2000],
+        ]
+
+        with patch("app.utils.financeiro_importacao._iterar_linhas_xls", return_value=linhas):
+            resultado = importar_orcamento_planejado_do_diretorio(
+                empresa=self.empresa,
+                diretorio=str(self.base_dir),
+                limpar_antes=True,
+            )
+
+        self.assertEqual(resultado["orcamentos_planejados"], 1)
+        self.assertFalse(resultado["layout_mensal_detectado"])
+        self.assertTrue(resultado["fallback_gerado"])
+        item = OrcamentoPlanejado.objects.get(empresa=self.empresa)
+        self.assertEqual(float(item.janeiro), 600.0)
 
 
 class CargasCrudServiceTest(TestCase):

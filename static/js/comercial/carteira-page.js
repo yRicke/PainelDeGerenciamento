@@ -82,7 +82,7 @@
         },
         dataLabels: {
             enabled: true,
-            enabledOnSeries: [1],
+            enabledOnSeries: [0, 1],
             formatter: function (value, opts) {
                 if (opts.seriesIndex === 1) {
                     return formatadorMoeda.format(Number(value || 0));
@@ -103,7 +103,7 @@
                 forceNiceScale: true,
                 labels: {
                     formatter: function (value) {
-                        return formatadorMoeda.format(Number(value || 0));
+                        return Math.round(Number(value || 0));
                     },
                 },
                 title: {
@@ -119,7 +119,7 @@
                 forceNiceScale: true,
                 labels: {
                     formatter: function (value) {
-                        return Math.round(value);
+                        return formatadorMoeda.format(Number(value || 0));
                     },
                 },
                 title: {
@@ -159,7 +159,7 @@
                         forceNiceScale: true,
                         labels: {
                             formatter: function (value) {
-                                return formatadorMoeda.format(Number(value || 0));
+                                return Math.round(Number(value || 0));
                             },
                         },
                         title: {
@@ -175,7 +175,7 @@
                         forceNiceScale: true,
                         labels: {
                             formatter: function (value) {
-                                return Math.round(value);
+                                return formatadorMoeda.format(Number(value || 0));
                             },
                         },
                         title: {
@@ -320,14 +320,13 @@
     if (!dataElement || !window.Tabulator) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var gerenteSelect = document.getElementById("filtro-gerente");
-    var ativoSelect = document.getElementById("filtro-ativo");
-    var clienteSelect = document.getElementById("filtro-cliente");
-    var fornecedorSelect = document.getElementById("filtro-fornecedor");
-    var transportadoraSelect = document.getElementById("filtro-transportadora");
-    var intervaloSelect = document.getElementById("filtro-intervalo");
-    var descricaoPerfilSelect = document.getElementById("filtro-descricao-perfil");
-    var anoCadastroSelect = document.getElementById("filtro-ano-cadastro");
+    var gerenteContainer = document.getElementById("filtro-gerente");
+    var ativoContainer = document.getElementById("filtro-ativo");
+    var clienteContainer = document.getElementById("filtro-cliente");
+    var fornecedorContainer = document.getElementById("filtro-fornecedor");
+    var transportadoraContainer = document.getElementById("filtro-transportadora");
+    var descricaoPerfilContainer = document.getElementById("filtro-descricao-perfil");
+    var anoCadastroContainer = document.getElementById("filtro-ano-cadastro");
     var limparBtn = document.getElementById("limpar-filtros-carteira");
     var kpiEls = {
         totalCarteira: {
@@ -424,28 +423,69 @@
         kpiEls.totalReal.pulga.textContent = formatPercentual(pulgaReal);
     }
 
-    function preencherSelect(select, valores) {
-        valores.forEach(function (valor) {
-            var option = document.createElement("option");
-            option.value = String(valor);
-            option.textContent = String(valor);
-            select.appendChild(option);
+    function normalizarTexto(valor, vazioLabel) {
+        var texto = (valor || "").toString().trim();
+        return texto || vazioLabel;
+    }
+
+    function valoresUnicosOrdenados(campo, vazioLabel, sorter) {
+        var setValores = new Set();
+        data.forEach(function (item) {
+            setValores.add(normalizarTexto(item[campo], vazioLabel));
+        });
+        var valores = Array.from(setValores);
+        if (sorter) return valores.sort(sorter);
+        return valores.sort(function (a, b) {
+            return a.localeCompare(b, "pt-BR");
         });
     }
 
-    var gerentes = [...new Set(data.map(function (item) { return item.gerente; }).filter(Boolean))].sort();
-    var intervalos = [...new Set(data.map(function (item) { return item.intervalo; }).filter(Boolean))].sort();
-    var descricoesPerfil = [...new Set(data.map(function (item) { return item.descricao_perfil; }).filter(Boolean))].sort();
-    var anosCadastro = [...new Set(data.map(function (item) { return item.ano_cadastro; }).filter(Boolean))].sort(function (a, b) { return b - a; });
+    function criarEstadoSelecao() {
+        return {
+            gerente: new Set(),
+            ativo: new Set(),
+            cliente: new Set(),
+            fornecedor: new Set(),
+            transportadora: new Set(),
+            descricao_perfil: new Set(),
+            ano_cadastro: new Set(),
+        };
+    }
 
-    preencherSelect(gerenteSelect, gerentes);
-    preencherSelect(intervaloSelect, intervalos);
-    preencherSelect(descricaoPerfilSelect, descricoesPerfil);
-    preencherSelect(anoCadastroSelect, anosCadastro);
+    var filtrosSelecionados = criarEstadoSelecao();
+
+    function criarBotaoFiltro(valor, onToggle) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "carteira-filtro-btn";
+        btn.textContent = valor;
+        btn.addEventListener("click", function () {
+            btn.classList.toggle("is-active");
+            onToggle(btn.classList.contains("is-active"), valor);
+            aplicarFiltros();
+        });
+        return btn;
+    }
+
+    function montarGrupoFiltros(container, valores, chaveEstado) {
+        if (!container) return;
+        container.innerHTML = "";
+        valores.forEach(function (valor) {
+            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
+                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
+                else filtrosSelecionados[chaveEstado].delete(valorToggle);
+            });
+            container.appendChild(btn);
+        });
+    }
+
+    function boolToLabel(valor, trueLabel, falseLabel) {
+        return valor ? trueLabel : falseLabel;
+    }
 
     var tabela = new Tabulator("#carteira-tabulator", {
         data: data,
-        layout: "fitDataStretch",
+        layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
         columns: [
@@ -472,7 +512,7 @@
             },
             {title: "Ultima venda", field: "ultima_venda", headerFilter: "input"},
             {title: "Dias sem venda", field: "qtd_dias_sem_venda", hozAlign: "center", headerFilter: "input"},
-            {title: "Intervalo", field: "intervalo", headerFilter: "input"},
+            {title: "Intervalo", field: "intervalo"},
             {title: "Descricao perfil", field: "descricao_perfil", headerFilter: "input"},
             {title: "Ativo", field: "ativo_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
             {title: "Cliente", field: "cliente_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
@@ -496,58 +536,48 @@
         ],
     });
 
-    function parseBool(value) {
-        if (value === "true") return true;
-        if (value === "false") return false;
-        return null;
-    }
-
     function aplicarFiltros() {
-        var gerente = gerenteSelect.value || "";
-        var ativo = parseBool(ativoSelect.value);
-        var cliente = parseBool(clienteSelect.value);
-        var fornecedor = parseBool(fornecedorSelect.value);
-        var transportadora = parseBool(transportadoraSelect.value);
-        var intervalo = intervaloSelect.value || "";
-        var descricaoPerfil = descricaoPerfilSelect.value || "";
-        var anoCadastro = anoCadastroSelect.value || "";
-
         tabela.setFilter(function (dataRow) {
-            if (gerente && dataRow.gerente !== gerente) return false;
-            if (ativo !== null && dataRow.ativo_indicador !== ativo) return false;
-            if (cliente !== null && dataRow.cliente_indicador !== cliente) return false;
-            if (fornecedor !== null && dataRow.fornecedor_indicador !== fornecedor) return false;
-            if (transportadora !== null && dataRow.transporte_indicador !== transportadora) return false;
-            if (intervalo && dataRow.intervalo !== intervalo) return false;
-            if (descricaoPerfil && dataRow.descricao_perfil !== descricaoPerfil) return false;
-            if (anoCadastro && String(dataRow.ano_cadastro) !== String(anoCadastro)) return false;
+            var gerenteValor = normalizarTexto(dataRow.gerente, "<SEM GERENTE>");
+            var ativoValor = boolToLabel(Boolean(dataRow.ativo_indicador), "Ativo", "Desativado");
+            var clienteValor = boolToLabel(Boolean(dataRow.cliente_indicador), "Cliente", "Nao Cliente");
+            var fornecedorValor = boolToLabel(Boolean(dataRow.fornecedor_indicador), "Fornecedor", "Nao Fornecedor");
+            var transportadoraValor = boolToLabel(Boolean(dataRow.transporte_indicador), "Transportadora", "Nao Transportadora");
+            var descricaoPerfilValor = normalizarTexto(dataRow.descricao_perfil, "<SEM DESCRICAO>");
+            var anoCadastroValor = normalizarTexto(dataRow.ano_cadastro, "<SEM ANO>");
+
+            if (filtrosSelecionados.gerente.size && !filtrosSelecionados.gerente.has(gerenteValor)) return false;
+            if (filtrosSelecionados.ativo.size && !filtrosSelecionados.ativo.has(ativoValor)) return false;
+            if (filtrosSelecionados.cliente.size && !filtrosSelecionados.cliente.has(clienteValor)) return false;
+            if (filtrosSelecionados.fornecedor.size && !filtrosSelecionados.fornecedor.has(fornecedorValor)) return false;
+            if (filtrosSelecionados.transportadora.size && !filtrosSelecionados.transportadora.has(transportadoraValor)) return false;
+            if (filtrosSelecionados.descricao_perfil.size && !filtrosSelecionados.descricao_perfil.has(descricaoPerfilValor)) return false;
+            if (filtrosSelecionados.ano_cadastro.size && !filtrosSelecionados.ano_cadastro.has(anoCadastroValor)) return false;
             return true;
         });
     }
 
-    [
-        gerenteSelect,
-        ativoSelect,
-        clienteSelect,
-        fornecedorSelect,
-        transportadoraSelect,
-        intervaloSelect,
-        descricaoPerfilSelect,
-        anoCadastroSelect,
-    ].forEach(function (element) {
-        element.addEventListener("change", aplicarFiltros);
-        element.addEventListener("input", aplicarFiltros);
-    });
+    montarGrupoFiltros(gerenteContainer, valoresUnicosOrdenados("gerente", "<SEM GERENTE>"), "gerente");
+    montarGrupoFiltros(ativoContainer, ["Ativo", "Desativado"], "ativo");
+    montarGrupoFiltros(clienteContainer, ["Cliente", "Nao Cliente"], "cliente");
+    montarGrupoFiltros(fornecedorContainer, ["Fornecedor", "Nao Fornecedor"], "fornecedor");
+    montarGrupoFiltros(transportadoraContainer, ["Transportadora", "Nao Transportadora"], "transportadora");
+    montarGrupoFiltros(descricaoPerfilContainer, valoresUnicosOrdenados("descricao_perfil", "<SEM DESCRICAO>"), "descricao_perfil");
+    montarGrupoFiltros(
+        anoCadastroContainer,
+        valoresUnicosOrdenados("ano_cadastro", "<SEM ANO>", function (a, b) {
+            if (a === "<SEM ANO>") return 1;
+            if (b === "<SEM ANO>") return -1;
+            return Number(b) - Number(a);
+        }),
+        "ano_cadastro"
+    );
 
     limparBtn.addEventListener("click", function () {
-        gerenteSelect.value = "";
-        ativoSelect.value = "";
-        clienteSelect.value = "";
-        fornecedorSelect.value = "";
-        transportadoraSelect.value = "";
-        intervaloSelect.value = "";
-        descricaoPerfilSelect.value = "";
-        anoCadastroSelect.value = "";
+        filtrosSelecionados = criarEstadoSelecao();
+        document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
+            btn.classList.remove("is-active");
+        });
         tabela.clearFilter(true);
         tabela.clearHeaderFilter();
     });

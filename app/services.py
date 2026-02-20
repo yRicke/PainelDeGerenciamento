@@ -22,6 +22,8 @@ from .models import (
     FluxoDeCaixaDFC,
     Natureza,
     Operacao,
+    Orcamento,
+    OrcamentoPlanejado,
     Parceiro,
     Projeto,
     Regiao,
@@ -36,7 +38,11 @@ from .utils.administrativo_utils import (
     _transformar_iso_week_parts_ou_none,
 )
 from .utils.comercial_importacao import importar_carteira_do_diretorio, importar_vendas_do_diretorio
-from .utils.financeiro_importacao import importar_contas_a_receber_do_diretorio, importar_dfc_do_diretorio
+from .utils.financeiro_importacao import (
+    importar_contas_a_receber_do_diretorio,
+    importar_dfc_do_diretorio,
+    importar_orcamento_do_diretorio,
+)
 from .utils.operacional_importacao import importar_cargas_do_diretorio
 
 
@@ -393,6 +399,8 @@ def criar_centro_resultado_por_dados(empresa, descricao):
     descricao = (descricao or "").strip()
     if not descricao:
         return "Descricao do centro resultado e obrigatoria."
+    if not any(ch.isalpha() for ch in descricao):
+        return "Descricao do centro resultado deve conter texto (nao apenas numeros)."
     if CentroResultado.objects.filter(descricao=descricao).exclude(empresa=empresa).exists():
         return "Ja existe centro resultado com esta descricao em outra empresa."
     if CentroResultado.objects.filter(empresa=empresa, descricao=descricao).exists():
@@ -405,6 +413,8 @@ def atualizar_centro_resultado_por_dados(centro_resultado, descricao, empresa):
     descricao = (descricao or "").strip()
     if not descricao:
         return "Descricao do centro resultado e obrigatoria."
+    if not any(ch.isalpha() for ch in descricao):
+        return "Descricao do centro resultado deve conter texto (nao apenas numeros)."
     if CentroResultado.objects.filter(descricao=descricao).exclude(id=centro_resultado.id).exclude(empresa=empresa).exists():
         return "Ja existe centro resultado com esta descricao em outra empresa."
     if CentroResultado.objects.filter(empresa=empresa, descricao=descricao).exclude(id=centro_resultado.id).exists():
@@ -571,7 +581,6 @@ def _dados_dfc_from_post(post_data, empresa):
         "numero_nota": (post_data.get("numero_nota") or "").strip(),
         "titulo": titulo,
         "centro_resultado": centro_resultado,
-        "descricao_tipo_operacao": (post_data.get("descricao_tipo_operacao") or "").strip(),
         "natureza": natureza,
         "historico": (post_data.get("historico") or "").strip(),
         "parceiro": parceiro,
@@ -677,6 +686,123 @@ def atualizar_contas_a_receber_por_post(conta_item, empresa, post_data):
     dados.pop("data_vencimento_raw", None)
     dados.pop("data_arquivo_raw", None)
     conta_item.atualizar_conta_a_receber(**dados)
+    return ""
+
+
+def _dados_orcamento_from_post(post_data, empresa):
+    titulo = Titulo.objects.filter(id=post_data.get("titulo_id"), empresa=empresa).first()
+    natureza = Natureza.objects.filter(id=post_data.get("natureza_id"), empresa=empresa).first()
+    parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
+    operacao = Operacao.objects.filter(id=post_data.get("operacao_id"), empresa=empresa).first()
+    centro_resultado = CentroResultado.objects.filter(id=post_data.get("centro_resultado_id"), empresa=empresa).first()
+    centro_resultado_id_raw = (post_data.get("centro_resultado_id") or "").strip()
+    data_vencimento_raw = post_data.get("data_vencimento")
+    data_baixa_raw = post_data.get("data_baixa")
+
+    return {
+        "nome_empresa": (post_data.get("nome_empresa") or "").strip(),
+        "data_vencimento_raw": data_vencimento_raw,
+        "data_baixa_raw": data_baixa_raw,
+        "data_vencimento": _parse_date_ou_none(data_vencimento_raw),
+        "data_baixa": _parse_date_ou_none(data_baixa_raw),
+        "valor_baixa": _parse_decimal_ou_zero(post_data.get("valor_baixa")),
+        "valor_liquido": _parse_decimal_ou_zero(post_data.get("valor_liquido")),
+        "valor_desdobramento": _parse_decimal_ou_zero(post_data.get("valor_desdobramento")),
+        "titulo": titulo,
+        "natureza": natureza,
+        "centro_resultado": centro_resultado,
+        "centro_resultado_id_raw": centro_resultado_id_raw,
+        "operacao": operacao,
+        "parceiro": parceiro,
+    }
+
+
+def criar_orcamento_por_post(empresa, post_data):
+    dados = _dados_orcamento_from_post(post_data, empresa)
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    if not dados["data_baixa_raw"]:
+        return "Data de baixa e obrigatoria."
+    if not dados["data_baixa"]:
+        return "Data de baixa invalida."
+    if not dados["centro_resultado_id_raw"]:
+        return "Centro de resultado e obrigatorio."
+    if not dados["centro_resultado"]:
+        return "Centro de resultado invalido."
+    dados.pop("data_vencimento_raw", None)
+    dados.pop("data_baixa_raw", None)
+    dados.pop("centro_resultado_id_raw", None)
+    Orcamento.criar_orcamento(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_orcamento_por_post(orcamento_item, empresa, post_data):
+    dados = _dados_orcamento_from_post(post_data, empresa)
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    if not dados["data_baixa_raw"]:
+        return "Data de baixa e obrigatoria."
+    if not dados["data_baixa"]:
+        return "Data de baixa invalida."
+    if not dados["centro_resultado_id_raw"]:
+        return "Centro de resultado e obrigatorio."
+    if not dados["centro_resultado"]:
+        return "Centro de resultado invalido."
+    dados.pop("data_vencimento_raw", None)
+    dados.pop("data_baixa_raw", None)
+    dados.pop("centro_resultado_id_raw", None)
+    orcamento_item.atualizar_orcamento(**dados)
+    return ""
+
+
+def _dados_orcamento_planejado_from_post(post_data, empresa):
+    natureza = Natureza.objects.filter(id=post_data.get("natureza_id"), empresa=empresa).first()
+    centro_resultado = CentroResultado.objects.filter(id=post_data.get("centro_resultado_id"), empresa=empresa).first()
+    ano_raw = (post_data.get("ano") or "").strip()
+    return {
+        "nome_empresa": (post_data.get("nome_empresa") or "").strip(),
+        "ano_raw": ano_raw,
+        "ano": _parse_int_ou_zero(ano_raw),
+        "natureza": natureza,
+        "centro_resultado": centro_resultado,
+        "janeiro": _parse_decimal_ou_zero(post_data.get("janeiro")),
+        "fevereiro": _parse_decimal_ou_zero(post_data.get("fevereiro")),
+        "marco": _parse_decimal_ou_zero(post_data.get("marco")),
+        "abril": _parse_decimal_ou_zero(post_data.get("abril")),
+        "maio": _parse_decimal_ou_zero(post_data.get("maio")),
+        "junho": _parse_decimal_ou_zero(post_data.get("junho")),
+        "julho": _parse_decimal_ou_zero(post_data.get("julho")),
+        "agosto": _parse_decimal_ou_zero(post_data.get("agosto")),
+        "setembro": _parse_decimal_ou_zero(post_data.get("setembro")),
+        "outubro": _parse_decimal_ou_zero(post_data.get("outubro")),
+        "novembro": _parse_decimal_ou_zero(post_data.get("novembro")),
+        "dezembro": _parse_decimal_ou_zero(post_data.get("dezembro")),
+    }
+
+
+def criar_orcamento_planejado_por_post(empresa, post_data):
+    dados = _dados_orcamento_planejado_from_post(post_data, empresa)
+    if not dados["ano_raw"]:
+        return "Ano e obrigatorio."
+    if dados["ano"] <= 0:
+        return "Ano invalido."
+    dados.pop("ano_raw", None)
+    OrcamentoPlanejado.criar_orcamento_planejado(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_orcamento_planejado_por_post(orcamento_planejado_item, empresa, post_data):
+    dados = _dados_orcamento_planejado_from_post(post_data, empresa)
+    if not dados["ano_raw"]:
+        return "Ano e obrigatorio."
+    if dados["ano"] <= 0:
+        return "Ano invalido."
+    dados.pop("ano_raw", None)
+    orcamento_planejado_item.atualizar_orcamento_planejado(**dados)
     return ""
 
 
@@ -898,6 +1024,14 @@ def preparar_diretorios_contas_a_receber():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_orcamento():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "orcamento"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
     arquivos_xls = []
     for arquivo in arquivos or []:
@@ -1018,6 +1152,48 @@ def importar_upload_contas_a_receber(*, empresa, arquivos, diretorio_importacao,
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, contas: {resultado['contas_a_receber']}."
+        ),
+    )
+
+
+def importar_upload_orcamento(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+    arquivos_xls = []
+    for arquivo in arquivos or []:
+        nome_arquivo = Path(arquivo.name).name
+        if nome_arquivo.lower().endswith(".xls"):
+            arquivos_xls.append((arquivo, nome_arquivo))
+
+    if not arquivos_xls:
+        return False, "Selecione ao menos um arquivo .xls para importar."
+
+    for arquivo_antigo in [f for f in diretorio_importacao.iterdir() if f.is_file()]:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        shutil.move(str(arquivo_antigo), str(destino_subscrito))
+
+    for arquivo_upload, nome_arquivo in arquivos_xls:
+        destino = diretorio_importacao / nome_arquivo
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+
+    try:
+        resultado_realizados = importar_orcamento_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Orcamento: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado_realizados['arquivos']}, "
+            f"linhas realizados: {resultado_realizados['linhas']}, "
+            f"orcamentos realizados: {resultado_realizados['orcamentos']}."
         ),
     )
 

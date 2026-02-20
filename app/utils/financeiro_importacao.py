@@ -8,6 +8,8 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.db import transaction
+from django.db.models import Max
+from django.db.models.functions import ExtractMonth, ExtractYear
 
 from ..models import (
     CentroResultado,
@@ -15,6 +17,8 @@ from ..models import (
     FluxoDeCaixaDFC,
     Natureza,
     Operacao,
+    Orcamento,
+    OrcamentoPlanejado,
     Parceiro,
     Titulo,
 )
@@ -29,6 +33,16 @@ def _normalizar_texto(valor) -> str:
     if valor is None:
         return ""
     return str(valor).strip()
+
+
+def _descricao_textual_ou_vazio(valor) -> str:
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return ""
+    # Centro de resultado deve ser descritivo; ignora valores apenas numericos/simbolos.
+    if not any(ch.isalpha() for ch in texto):
+        return ""
+    return texto
 
 
 def _normalizar_codigo(valor) -> str:
@@ -91,6 +105,26 @@ def _normalizar_nome_coluna(valor: str) -> str:
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     return "".join(ch for ch in texto if ch.isalnum())
+
+
+MESES_PT_TO_FIELD = {
+    "janeiro": "janeiro",
+    "fevereiro": "fevereiro",
+    "marco": "marco",
+    "abril": "abril",
+    "maio": "maio",
+    "junho": "junho",
+    "julho": "julho",
+    "agosto": "agosto",
+    "setembro": "setembro",
+    "outubro": "outubro",
+    "novembro": "novembro",
+    "dezembro": "dezembro",
+}
+
+CENTRO_RESULTADO_PADRAO = "<SEM CENTRO DE RESULTADO>"
+MES_NUMERO_TO_FIELD = {indice + 1: campo for indice, campo in enumerate(MESES_PT_TO_FIELD.values())}
+
 
 def _codigo_a_partir_descricao(prefixo: str, descricao: str, tamanho_max: int = 50) -> str:
     texto = _normalizar_texto(descricao)
@@ -194,7 +228,6 @@ def importar_dfc_do_diretorio(
         "titulo_codigo": ["tipodetitulo", "tipotitulo"],
         "titulo_descricao": ["descricaotipodetitulo"],
         "centro_resultado_descricao": ["descricaocentroderesultado", "centroresultado"],
-        "descricao_tipo_operacao": ["descricaotipooperacao"],
         "natureza_codigo": ["natureza"],
         "natureza_descricao": ["descricaonatureza"],
         "historico": ["historico"],
@@ -246,7 +279,7 @@ def importar_dfc_do_diretorio(
             operacao_descricao = _normalizar_texto(_valor_por_indice("operacao_descricao"))
             parceiro_codigo = _normalizar_codigo(_valor_por_indice("parceiro_codigo"))
             parceiro_nome = _normalizar_texto(_valor_por_indice("parceiro_nome"))
-            centro_descricao = _normalizar_texto(_valor_por_indice("centro_resultado_descricao"))
+            centro_descricao = _descricao_textual_ou_vazio(_valor_por_indice("centro_resultado_descricao"))
 
             titulo = None
             if not titulo_codigo and titulo_descricao:
@@ -314,7 +347,6 @@ def importar_dfc_do_diretorio(
                     numero_nota=_normalizar_codigo(_valor_por_indice("numero_nota")),
                     titulo=titulo,
                     centro_resultado=centro_resultado,
-                    descricao_tipo_operacao=_normalizar_texto(_valor_por_indice("descricao_tipo_operacao")),
                     natureza=natureza,
                     historico=_normalizar_texto(_valor_por_indice("historico")),
                     parceiro=parceiro,
@@ -440,7 +472,7 @@ def importar_contas_a_receber_do_diretorio(
             operacao_descricao = _normalizar_texto(_valor_por_indice("operacao_descricao"))
             parceiro_codigo = _normalizar_codigo(_valor_por_indice("parceiro_codigo"))
             parceiro_nome = _normalizar_texto(_valor_por_indice("parceiro_nome"))
-            centro_descricao = _normalizar_texto(_valor_por_indice("centro_resultado_descricao"))
+            centro_descricao = _descricao_textual_ou_vazio(_valor_por_indice("centro_resultado_descricao"))
 
             titulo = None
             if not titulo_codigo and titulo_descricao:
@@ -542,4 +574,441 @@ def importar_contas_a_receber_do_diretorio(
         "operacoes": len(cache_operacoes),
         "parceiros": len(cache_parceiros),
         "centros_resultado": len(cache_centros),
+    }
+
+
+@transaction.atomic
+def importar_orcamento_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/financeiro/orcamento",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "orcamentos": 0,
+            "titulos": 0,
+            "naturezas": 0,
+            "operacoes": 0,
+            "parceiros": 0,
+            "centros_resultado": 0,
+        }
+
+    if limpar_antes:
+        Orcamento.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_orcamentos = 0
+    objetos: list[Orcamento] = []
+
+    cache_titulos: dict[str, Titulo] = {}
+    cache_naturezas: dict[str, Natureza] = {}
+    cache_operacoes: dict[str, Operacao] = {}
+    cache_parceiros: dict[str, Parceiro] = {}
+    cache_centros: dict[str, CentroResultado] = {}
+
+    mapeamento_colunas = {
+        "empresa_codigo": ["empresa"],
+        "empresa_nome_fantasia": ["nomefantasiaempresa"],
+        "data_vencimento": ["dtvencimento"],
+        "data_baixa": ["databaixa", "dtbaixa"],
+        "valor_baixa": ["vlrbaixa", "valorbaixa"],
+        "valor_liquido": ["valorliquido"],
+        "valor_desdobramento": ["valordesdobramento", "vlrdodesdobramento", "valordesd"],
+        "titulo_descricao": ["descricaotipodetitulo"],
+        "natureza_codigo": ["natureza"],
+        "natureza_descricao": ["descricaonatureza"],
+        "centro_resultado_descricao": ["descricaocentroderesultado", "centroresultado"],
+        "parceiro_codigo": ["parceiro"],
+        "parceiro_nome": ["nomeparceiroparceiro", "nomeparceiro"],
+        "operacao_codigo": ["tipooperacao"],
+        "operacao_descricao": ["receitadespesa", "descricaotipooperacao"],
+        "receita_despesa": ["receitadespesa"],
+    }
+
+    for arquivo in arquivos:
+        indices = None
+        for linha in _iterar_linhas_xls(arquivo):
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            if indices is None:
+                normalizadas = [_normalizar_nome_coluna(valor) for valor in linha]
+                idx_map = {}
+                for chave, aliases in mapeamento_colunas.items():
+                    idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                if (
+                    idx_map["data_vencimento"] is not None
+                    and idx_map["data_baixa"] is not None
+                    and idx_map["valor_baixa"] is not None
+                ):
+                    indices = idx_map
+                continue
+
+            if indices is None:
+                continue
+
+            def _valor_por_indice(chave):
+                idx = indices.get(chave)
+                if idx is None or idx >= len(linha):
+                    return ""
+                return linha[idx]
+
+            data_vencimento = _excel_date(_valor_por_indice("data_vencimento"))
+            data_baixa = _excel_date(_valor_por_indice("data_baixa"))
+            if not data_vencimento or not data_baixa:
+                continue
+
+            titulo_descricao = _normalizar_texto(_valor_por_indice("titulo_descricao"))
+            natureza_codigo = _normalizar_codigo(_valor_por_indice("natureza_codigo"))
+            natureza_descricao = _normalizar_texto(_valor_por_indice("natureza_descricao"))
+            operacao_codigo = _normalizar_codigo(_valor_por_indice("operacao_codigo"))
+            operacao_descricao = _normalizar_texto(_valor_por_indice("operacao_descricao"))
+            receita_despesa = _normalizar_texto(_valor_por_indice("receita_despesa")).lower()
+            parceiro_codigo = _normalizar_codigo(_valor_por_indice("parceiro_codigo"))
+            parceiro_nome = _normalizar_texto(_valor_por_indice("parceiro_nome"))
+            centro_descricao = _descricao_textual_ou_vazio(_valor_por_indice("centro_resultado_descricao"))
+            if not centro_descricao:
+                centro_descricao = CENTRO_RESULTADO_PADRAO
+            empresa_codigo = _normalizar_codigo(_valor_por_indice("empresa_codigo"))
+            empresa_nome_fantasia = _normalizar_texto(_valor_por_indice("empresa_nome_fantasia"))
+
+            if receita_despesa and receita_despesa != "despesa":
+                continue
+
+            titulo = None
+            titulo_codigo = _codigo_a_partir_descricao("DESC_", titulo_descricao, 50) if titulo_descricao else ""
+            if titulo_codigo:
+                titulo = cache_titulos.get(titulo_codigo)
+                if titulo is None:
+                    titulo = Titulo.obter_ou_criar_por_codigo_descricao(
+                        empresa=empresa,
+                        tipo_titulo_codigo=titulo_codigo,
+                        descricao=titulo_descricao,
+                    )
+                    cache_titulos[titulo_codigo] = titulo
+
+            natureza = None
+            if not natureza_codigo and natureza_descricao:
+                natureza_codigo = _codigo_a_partir_descricao("DESC_", natureza_descricao, 50)
+            if natureza_codigo:
+                natureza = cache_naturezas.get(natureza_codigo)
+                if natureza is None:
+                    natureza = Natureza.obter_ou_criar_por_codigo_descricao(
+                        empresa=empresa,
+                        codigo=natureza_codigo,
+                        descricao=natureza_descricao,
+                    )
+                    cache_naturezas[natureza_codigo] = natureza
+
+            operacao = None
+            if not operacao_codigo and operacao_descricao:
+                operacao_codigo = _codigo_a_partir_descricao("DESC_", operacao_descricao, 50)
+            if operacao_codigo:
+                operacao = cache_operacoes.get(operacao_codigo)
+                if operacao is None:
+                    operacao = Operacao.obter_ou_criar_por_codigo_descricao(
+                        empresa=empresa,
+                        tipo_operacao_codigo=operacao_codigo,
+                        descricao_receita_despesa=operacao_descricao,
+                    )
+                    cache_operacoes[operacao_codigo] = operacao
+
+            parceiro = None
+            if parceiro_codigo:
+                parceiro = cache_parceiros.get(parceiro_codigo)
+                if parceiro is None:
+                    parceiro = Parceiro.obter_ou_criar_por_codigo_nome(
+                        empresa=empresa,
+                        codigo=parceiro_codigo,
+                        nome=parceiro_nome,
+                    )
+                    cache_parceiros[parceiro_codigo] = parceiro
+
+            centro_resultado = cache_centros.get(centro_descricao)
+            if centro_resultado is None:
+                centro_resultado = CentroResultado.obter_ou_criar_por_descricao(
+                    empresa=empresa,
+                    descricao=centro_descricao,
+                )
+                cache_centros[centro_descricao] = centro_resultado
+
+            valor_desdobramento = abs(_to_decimal(_valor_por_indice("valor_desdobramento")))
+            valor_liquido = abs(_to_decimal(_valor_por_indice("valor_liquido")))
+            if indices.get("valor_liquido") is None:
+                valor_liquido = valor_desdobramento
+            valor_baixa = abs(_to_decimal(_valor_por_indice("valor_baixa")))
+
+            if empresa_codigo and empresa_nome_fantasia:
+                nome_empresa = f"{empresa_codigo} - {empresa_nome_fantasia}"
+            elif empresa_nome_fantasia:
+                nome_empresa = empresa_nome_fantasia
+            elif empresa_codigo:
+                nome_empresa = empresa_codigo
+            else:
+                nome_empresa = empresa.nome
+
+            objetos.append(
+                Orcamento(
+                    empresa=empresa,
+                    nome_empresa=nome_empresa,
+                    data_vencimento=data_vencimento,
+                    data_baixa=data_baixa,
+                    valor_baixa=valor_baixa,
+                    valor_liquido=valor_liquido,
+                    valor_desdobramento=valor_desdobramento,
+                    natureza=natureza,
+                    titulo=titulo,
+                    centro_resultado=centro_resultado,
+                    operacao=operacao,
+                    parceiro=parceiro,
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                Orcamento.objects.bulk_create(objetos, batch_size=1000)
+                total_orcamentos += len(objetos)
+                objetos = []
+
+    if objetos:
+        Orcamento.objects.bulk_create(objetos, batch_size=1000)
+        total_orcamentos += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "orcamentos": total_orcamentos,
+        "titulos": len(cache_titulos),
+        "naturezas": len(cache_naturezas),
+        "operacoes": len(cache_operacoes),
+        "parceiros": len(cache_parceiros),
+        "centros_resultado": len(cache_centros),
+    }
+
+
+@transaction.atomic
+def importar_orcamento_planejado_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/financeiro/orcamentos",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "orcamentos_planejados": 0,
+            "naturezas": 0,
+            "centros_resultado": 0,
+        }
+
+    total_linhas = 0
+    total_orcamentos = 0
+    objetos: list[OrcamentoPlanejado] = []
+    cache_naturezas: dict[str, Natureza] = {}
+    cache_centros: dict[str, CentroResultado] = {}
+    layout_mensal_detectado = False
+    base_limpa = False
+    fallback_gerado = False
+
+    mapeamento_colunas = {
+        "centro_resultado_descricao": ["descricaocentroderesultado", "centroresultado"],
+        "natureza_descricao": ["descricaonatureza", "natureza"],
+        "nome_empresa": ["nomeempresa"],
+        "ano": ["ano"],
+        "janeiro": ["janeiro"],
+        "fevereiro": ["fevereiro"],
+        "marco": ["marco", "marcoo"],
+        "abril": ["abril"],
+        "maio": ["maio"],
+        "junho": ["junho"],
+        "julho": ["julho"],
+        "agosto": ["agosto"],
+        "setembro": ["setembro"],
+        "outubro": ["outubro"],
+        "novembro": ["novembro"],
+        "dezembro": ["dezembro"],
+    }
+
+    for arquivo in arquivos:
+        indices = None
+        for linha in _iterar_linhas_xls(arquivo):
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            if indices is None:
+                normalizadas = [_normalizar_nome_coluna(valor) for valor in linha]
+                idx_map = {}
+                for chave, aliases in mapeamento_colunas.items():
+                    idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                if (
+                    idx_map["centro_resultado_descricao"] is not None
+                    and idx_map["natureza_descricao"] is not None
+                    and idx_map["ano"] is not None
+                ):
+                    indices = idx_map
+                    layout_mensal_detectado = True
+                    if limpar_antes and not base_limpa:
+                        OrcamentoPlanejado.objects.filter(empresa=empresa).delete()
+                        base_limpa = True
+                continue
+
+            if indices is None:
+                continue
+
+            def _valor_por_indice(chave):
+                idx = indices.get(chave)
+                if idx is None or idx >= len(linha):
+                    return ""
+                return linha[idx]
+
+            centro_descricao = _descricao_textual_ou_vazio(_valor_por_indice("centro_resultado_descricao"))
+            if not centro_descricao or centro_descricao.lower() == "total":
+                continue
+
+            natureza_descricao = _normalizar_texto(_valor_por_indice("natureza_descricao"))
+            nome_empresa = _normalizar_texto(_valor_por_indice("nome_empresa")) or empresa.nome
+            ano_texto = _normalizar_texto(_valor_por_indice("ano"))
+            try:
+                ano = int(float(ano_texto))
+            except (TypeError, ValueError):
+                continue
+
+            centro_resultado = cache_centros.get(centro_descricao)
+            if centro_resultado is None:
+                centro_resultado = CentroResultado.obter_ou_criar_por_descricao(empresa=empresa, descricao=centro_descricao)
+                cache_centros[centro_descricao] = centro_resultado
+
+            natureza = None
+            if natureza_descricao:
+                natureza_codigo = _codigo_a_partir_descricao("DESC_", natureza_descricao, 50)
+                natureza = cache_naturezas.get(natureza_codigo)
+                if natureza is None:
+                    natureza = Natureza.obter_ou_criar_por_codigo_descricao(
+                        empresa=empresa,
+                        codigo=natureza_codigo,
+                        descricao=natureza_descricao,
+                    )
+                    cache_naturezas[natureza_codigo] = natureza
+
+            valores_meses = {
+                campo: abs(_to_decimal(_valor_por_indice(chave)))
+                for chave, campo in MESES_PT_TO_FIELD.items()
+            }
+
+            objetos.append(
+                OrcamentoPlanejado(
+                    empresa=empresa,
+                    nome_empresa=nome_empresa,
+                    ano=ano,
+                    natureza=natureza,
+                    centro_resultado=centro_resultado,
+                    **valores_meses,
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                OrcamentoPlanejado.objects.bulk_create(objetos, batch_size=1000)
+                total_orcamentos += len(objetos)
+                objetos = []
+
+    if objetos:
+        OrcamentoPlanejado.objects.bulk_create(objetos, batch_size=1000)
+        total_orcamentos += len(objetos)
+
+    if not layout_mensal_detectado:
+        if limpar_antes:
+            OrcamentoPlanejado.objects.filter(empresa=empresa).delete()
+
+        # Fallback para manter a tabela de Orcamentos preenchida quando so houver
+        # arquivos de realizados: usa o maior valor_desdobramento por chave/mês.
+        linhas_fallback = (
+            Orcamento.objects.filter(empresa=empresa, data_baixa__isnull=False)
+            .annotate(ano=ExtractYear("data_baixa"), mes=ExtractMonth("data_baixa"))
+            .values(
+                "nome_empresa",
+                "ano",
+                "mes",
+                "centro_resultado__descricao",
+                "natureza__descricao",
+            )
+            .annotate(valor_orcamento=Max("valor_desdobramento"))
+            .order_by()
+        )
+
+        agregados = {}
+        for linha in linhas_fallback:
+            ano = int(linha.get("ano") or 0)
+            mes = int(linha.get("mes") or 0)
+            if not ano or not mes:
+                continue
+
+            nome_empresa = _normalizar_texto(linha.get("nome_empresa")) or empresa.nome
+            centro_descricao = _descricao_textual_ou_vazio(linha.get("centro_resultado__descricao"))
+            if not centro_descricao:
+                centro_descricao = CENTRO_RESULTADO_PADRAO
+            natureza_descricao = _normalizar_texto(linha.get("natureza__descricao")) or "<SEM NATUREZA>"
+            campo_mes = MES_NUMERO_TO_FIELD.get(mes)
+            if not campo_mes:
+                continue
+
+            chave = (nome_empresa, ano, centro_descricao, natureza_descricao)
+            if chave not in agregados:
+                agregados[chave] = {campo: Decimal("0") for campo in MESES_PT_TO_FIELD.values()}
+            agregados[chave][campo_mes] = max(
+                agregados[chave][campo_mes],
+                _to_decimal(linha.get("valor_orcamento") or 0),
+            )
+
+        fallback_objetos = []
+        for (nome_empresa, ano, centro_descricao, natureza_descricao), valores_meses in agregados.items():
+            centro_resultado = cache_centros.get(centro_descricao)
+            if centro_resultado is None:
+                centro_resultado = CentroResultado.obter_ou_criar_por_descricao(
+                    empresa=empresa,
+                    descricao=centro_descricao,
+                )
+                cache_centros[centro_descricao] = centro_resultado
+
+            natureza_codigo = _codigo_a_partir_descricao("DESC_", natureza_descricao, 50)
+            natureza = cache_naturezas.get(natureza_codigo)
+            if natureza is None:
+                natureza = Natureza.obter_ou_criar_por_codigo_descricao(
+                    empresa=empresa,
+                    codigo=natureza_codigo,
+                    descricao=natureza_descricao,
+                )
+                cache_naturezas[natureza_codigo] = natureza
+
+            fallback_objetos.append(
+                OrcamentoPlanejado(
+                    empresa=empresa,
+                    nome_empresa=nome_empresa,
+                    ano=ano,
+                    natureza=natureza,
+                    centro_resultado=centro_resultado,
+                    **valores_meses,
+                )
+            )
+
+        if fallback_objetos:
+            OrcamentoPlanejado.objects.bulk_create(fallback_objetos, batch_size=1000)
+            total_orcamentos = len(fallback_objetos)
+            total_linhas = len(linhas_fallback)
+            fallback_gerado = True
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "orcamentos_planejados": total_orcamentos,
+        "naturezas": len(cache_naturezas),
+        "centros_resultado": len(cache_centros),
+        "layout_mensal_detectado": layout_mensal_detectado,
+        "fallback_gerado": fallback_gerado,
     }

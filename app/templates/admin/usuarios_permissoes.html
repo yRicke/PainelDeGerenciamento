@@ -1,70 +1,107 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Usuarios e Permissoes{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin/admin.css' %}">
+{% endblock %}
 
 {% block content %}
 <section class="page-hero">
     <a href="{% url 'painel_admin' %}">Voltar</a>
     <h1>Usuarios e Permissoes</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
 </section>
 
-<section class="panel">
-    <h2>Usuarios e Permissoes: {{ empresa.nome }}</h2>
-
-    <section class="panel">
-        <h3>Cadastrar Usuario</h3>
-        <form action="{% url 'cadastrar_usuario' empresa.id %}" method="POST">
+<section class="panel admin-panel">
+    <section class="panel admin-subpanel">
+        <h2>Cadastrar Usuario</h2>
+        <form
+            action="{% url 'cadastrar_usuario' empresa.id %}"
+            method="POST"
+            data-confirm-submit
+            data-confirm-message="Confirma o cadastro deste usuario?"
+        >
             {% csrf_token %}
-            <input type="text" name="nome" placeholder="Nome de Usuario" required>
-            <input type="password" name="senha" placeholder="Senha" required>
 
-            {% for modulo, permissoes in permissoes_por_modulo %}
-            <fieldset>
-                <legend>{{ modulo }}</legend>
-                {% for permissao in permissoes %}
-                <label>
-                    <input type="checkbox" name="permissoes" value="{{ permissao.id }}">
-                    {{ permissao.nome }}
-                </label>
-                <br>
+            <div class="admin-input-grid">
+                <input type="text" name="nome" placeholder="Nome de Usuario" required>
+                <input type="password" name="senha" placeholder="Senha" required>
+            </div>
+
+            <div class="permissions-grid">
+                {% for modulo, permissoes in permissoes_por_modulo %}
+                <fieldset class="permissions-card">
+                    <legend>{{ modulo }}</legend>
+                    <div class="permissions-items">
+                        {% for permissao in permissoes %}
+                        <label class="permission-item">
+                            <input type="checkbox" name="permissoes" value="{{ permissao.id }}">
+                            <span>{{ permissao.nome }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
                 {% endfor %}
-            </fieldset>
-            {% endfor %}
+            </div>
 
-            <button type="submit">Cadastrar</button>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Cadastrar</button>
+            </div>
         </form>
     </section>
 
-    <section class="panel">
-        <h3>Usuarios Cadastrados</h3>
-        <ul>
+    <section class="panel admin-subpanel">
+        <h2>Usuarios Cadastrados</h2>
+        <ul class="admin-list">
             {% for usuario in usuarios %}
-            <li>
-                <form action="{% url 'editar_usuario' usuario.id %}" method="POST">
+            <li class="admin-list-item">
+                <form
+                    action="{% url 'editar_usuario' usuario.id %}"
+                    method="POST"
+                    class="user-card"
+                    data-confirm-submit
+                    data-confirm-message="Confirma salvar as alteracoes deste usuario?"
+                >
                     {% csrf_token %}
-                    <input type="text" name="nome" value="{{ usuario.username }}" required>
-                    <input type="password" name="senha" placeholder="Nova senha (opcional)">
 
-                    {% for modulo, permissoes in permissoes_por_modulo %}
-                    <fieldset>
-                        <legend>{{ modulo }}</legend>
-                        {% for permissao in permissoes %}
-                        <label>
-                            <input
-                                type="checkbox"
-                                name="permissoes"
-                                value="{{ permissao.id }}"
-                                {% if permissao.id in usuario.permissoes_ids %}checked{% endif %}
-                            >
-                            {{ permissao.nome }}
-                        </label>
-                        <br>
+                    <div class="admin-input-grid">
+                        <input type="text" name="nome" value="{{ usuario.username }}" required>
+                        <input type="password" name="senha" placeholder="Nova senha (opcional)">
+                    </div>
+
+                    <div class="permissions-grid">
+                        {% for modulo, permissoes in permissoes_por_modulo %}
+                        <fieldset class="permissions-card">
+                            <legend>{{ modulo }}</legend>
+                            <div class="permissions-items">
+                                {% for permissao in permissoes %}
+                                <label class="permission-item">
+                                    <input
+                                        type="checkbox"
+                                        name="permissoes"
+                                        value="{{ permissao.id }}"
+                                        {% if permissao.id in usuario.permissoes_ids %}checked{% endif %}
+                                    >
+                                    <span>{{ permissao.nome }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </fieldset>
                         {% endfor %}
-                    </fieldset>
-                    {% endfor %}
+                    </div>
 
-                    <button type="submit">Salvar Alteracoes</button>
-                    <a href="{% url 'excluir_usuario' usuario.id %}">Excluir</a>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Salvar Alteracoes</button>
+                        <a
+                            href="{% url 'excluir_usuario' usuario.id %}"
+                            class="btn-danger js-confirm-link"
+                            data-confirm-message="Tem certeza que deseja excluir este usuario?"
+                        >
+                            Excluir
+                        </a>
+                    </div>
                 </form>
             </li>
             {% empty %}
@@ -73,4 +110,8 @@
         </ul>
     </section>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/admin/admin-confirmacoes.js' %}"></script>
 {% endblock %}

@@ -3,7 +3,7 @@
 
 .filter-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
     gap: 0.6rem;
     margin-bottom: 0.8rem;
     align-items: end;
@@ -21,6 +21,56 @@
     text-decoration: none;
     display: inline-block;
     cursor: pointer;
+}
+
+.carteira-filtro-card {
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+    min-width: 0;
+}
+
+.carteira-filtro-card label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.carteira-filtro-options {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.carteira-filtro-options--chips {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.carteira-filtro-options--list {
+    max-height: 154px;
+    overflow-y: auto;
+    align-content: flex-start;
+}
+
+.carteira-filtro-btn {
+    border: 1px solid #d8dee4;
+    background: #ffffff;
+    color: #1f2937;
+    border-radius: 6px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.carteira-filtro-btn.is-active {
+    border-color: #175cd3;
+    background: #175cd3;
+    color: #ffffff;
 }
 
 .indicadores-grid {
@@ -86,6 +136,10 @@
 
 @media (max-width: 900px) {
     .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-grid {
         grid-template-columns: 1fr;
     }
 }

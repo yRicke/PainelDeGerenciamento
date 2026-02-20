@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.db.models import FloatField
+from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast
 
 from .models import (
@@ -18,6 +19,8 @@ from .models import (
     FluxoDeCaixaDFC,
     Natureza,
     Operacao,
+    Orcamento,
+    OrcamentoPlanejado,
     Parceiro,
     Projeto,
     Regiao,
@@ -44,11 +47,13 @@ from .services import (
     preparar_diretorios_vendas,
     preparar_diretorios_dfc,
     preparar_diretorios_contas_a_receber,
+    preparar_diretorios_orcamento,
     preparar_diretorios_cargas,
     importar_upload_carteira,
     importar_upload_vendas,
     importar_upload_dfc,
     importar_upload_contas_a_receber,
+    importar_upload_orcamento,
     importar_upload_cargas,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
@@ -73,6 +78,10 @@ from .services import (
     atualizar_dfc_por_post,
     criar_contas_a_receber_por_post,
     atualizar_contas_a_receber_por_post,
+    criar_orcamento_por_post,
+    criar_orcamento_planejado_por_post,
+    atualizar_orcamento_por_post,
+    atualizar_orcamento_planejado_por_post,
     criar_carteira_por_post,
     atualizar_carteira_por_post,
     criar_venda_por_post,
@@ -98,8 +107,16 @@ from .tabulator import (
     build_centros_resultado_tabulator,
     build_dfc_tabulator,
     build_contas_a_receber_tabulator,
+    build_orcamento_tabulator,
+    build_orcamento_x_realizado_tabulator,
+    build_orcamentos_planejados_tabulator,
     build_cargas_tabulator,
 )
+
+
+def _obter_modulo(area, nome):
+    return next(m for m in MODULOS_POR_AREA[area] if m["nome"] == nome)
+
 
 @login_required(login_url="entrar")
 def index(request):
@@ -127,6 +144,14 @@ def comercial(request):
         "modulos": _modulos_com_acesso(request.user, "Comercial"),
     }
     return render(request, "comercial/comercial.html", contexto)
+
+
+@login_required(login_url="entrar")
+def parametros(request):
+    contexto = {
+        "modulos": _modulos_com_acesso(request.user, "Parametros"),
+    }
+    return render(request, "parametros/parametros.html", contexto)
 
 
 @login_required(login_url="entrar")
@@ -492,25 +517,25 @@ def excluir_projeto_modulo(request, empresa_id, projeto_id):
 
 @login_required(login_url="entrar")
 def comite_diario(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][0]
+    modulo = _obter_modulo("Financeiro", "Comite Diario")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def balanco_patrimonial(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][1]
+    modulo = _obter_modulo("Financeiro", "Balanco Patrimonial")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def dre(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][2]
+    modulo = _obter_modulo("Financeiro", "DRE")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def contas_a_receber(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][3]
+    modulo = _obter_modulo("Financeiro", "Contas a Receber")
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
     if not permitido:
         return redirect("index")
@@ -586,7 +611,7 @@ def contas_a_receber(request, empresa_id):
 
 @login_required(login_url="entrar")
 def dfc(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Financeiro"][4]
+    modulo = _obter_modulo("Financeiro", "DFC")
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
     if not permitido:
         return redirect("index")
@@ -629,7 +654,6 @@ def dfc(request, empresa_id):
             "titulo__tipo_titulo_codigo",
             "titulo__descricao",
             "centro_resultado__descricao",
-            "descricao_tipo_operacao",
             "natureza__codigo",
             "natureza__descricao",
             "historico",
@@ -658,52 +682,324 @@ def dfc(request, empresa_id):
     return render(request, modulo["template"], contexto)
 
 
+def _orcamentos_realizados_qs_para_tabulator(empresa):
+    return (
+        Orcamento.objects.filter(empresa=empresa)
+        .annotate(
+            valor_baixa_num=Cast("valor_baixa", FloatField()),
+            valor_liquido_num=Cast("valor_liquido", FloatField()),
+            valor_desdobramento_num=Cast("valor_desdobramento", FloatField()),
+        )
+        .values(
+            "id",
+            "nome_empresa",
+            "data_vencimento",
+            "data_baixa",
+            "valor_baixa_num",
+            "valor_liquido_num",
+            "valor_desdobramento_num",
+            "titulo__descricao",
+            "natureza__descricao",
+            "centro_resultado__descricao",
+            "operacao__descricao_receita_despesa",
+            "parceiro__codigo",
+            "parceiro__nome",
+        )
+        .order_by("-data_vencimento", "-id")
+    )
+
+
+def _orcamentos_planejados_qs_para_tabulator(empresa):
+    return (
+        OrcamentoPlanejado.objects.filter(empresa=empresa)
+        .annotate(
+            janeiro_num=Cast("janeiro", FloatField()),
+            fevereiro_num=Cast("fevereiro", FloatField()),
+            marco_num=Cast("marco", FloatField()),
+            abril_num=Cast("abril", FloatField()),
+            maio_num=Cast("maio", FloatField()),
+            junho_num=Cast("junho", FloatField()),
+            julho_num=Cast("julho", FloatField()),
+            agosto_num=Cast("agosto", FloatField()),
+            setembro_num=Cast("setembro", FloatField()),
+            outubro_num=Cast("outubro", FloatField()),
+            novembro_num=Cast("novembro", FloatField()),
+            dezembro_num=Cast("dezembro", FloatField()),
+        )
+        .values(
+            "id",
+            "nome_empresa",
+            "ano",
+            "janeiro_num",
+            "fevereiro_num",
+            "marco_num",
+            "abril_num",
+            "maio_num",
+            "junho_num",
+            "julho_num",
+            "agosto_num",
+            "setembro_num",
+            "outubro_num",
+            "novembro_num",
+            "dezembro_num",
+            "natureza__descricao",
+            "centro_resultado__descricao",
+        )
+        .order_by("ano", "centro_resultado__descricao", "natureza__descricao")
+    )
+
+
+@login_required(login_url="entrar")
+def orcamento(request, empresa_id):
+    modulo = {"nome": "Orcamento x Realizado", "template": "administrativo/orcamento.html"}
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "importar_orcamento":
+            arquivos = request.FILES.getlist("arquivos_orcamento")
+            ok, mensagem = importar_upload_orcamento(
+                empresa=empresa,
+                arquivos=arquivos,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        else:
+            messages.error(request, "Acao de importacao invalida.")
+        return redirect("orcamento", empresa_id=empresa.id)
+
+    orcamentos_realizados_qs = _orcamentos_realizados_qs_para_tabulator(empresa)
+    orcamentos_qs = _orcamentos_planejados_qs_para_tabulator(empresa)
+
+    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": ", ".join(arquivos_existentes),
+        "tem_arquivo_existente": bool(arquivos_existentes),
+        "orcamento_x_realizado_tabulator": build_orcamento_x_realizado_tabulator(
+            orcamentos_realizados_qs,
+            orcamentos_qs,
+        ),
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def orcamentos_realizados(request, empresa_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not permitido:
+        return redirect("index")
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_orcamento":
+            erro = criar_orcamento_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de Orcamento criado com sucesso.")
+        else:
+            messages.error(request, "Acao de Orcamento invalida.")
+        return redirect("orcamentos_realizados", empresa_id=empresa.id)
+
+    orcamentos_realizados_qs = _orcamentos_realizados_qs_para_tabulator(empresa)
+
+    contexto = {
+        "empresa": empresa,
+        "orcamento_tabulator": build_orcamento_tabulator(orcamentos_realizados_qs, empresa.id),
+        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+    }
+    return render(request, "administrativo/orcamentos_realizados.html", contexto)
+
+
+@login_required(login_url="entrar")
+def orcamentos(request, empresa_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not permitido:
+        return redirect("index")
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_orcamento_planejado":
+            erro = criar_orcamento_planejado_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Orcamento planejado criado com sucesso.")
+        else:
+            messages.error(request, "Acao de Orcamento invalida.")
+        return redirect("orcamentos", empresa_id=empresa.id)
+
+    orcamentos_qs = _orcamentos_planejados_qs_para_tabulator(empresa)
+
+    contexto = {
+        "empresa": empresa,
+        "orcamentos_tabulator": build_orcamentos_planejados_tabulator(orcamentos_qs, empresa.id),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+    }
+    return render(request, "administrativo/orcamentos.html", contexto)
+
+
+@login_required(login_url="entrar")
+def editar_orcamento_modulo(request, empresa_id, orcamento_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not autorizado:
+        return redirect("index")
+
+    orcamento_item = Orcamento.objects.filter(id=orcamento_id, empresa=empresa).first()
+    if not orcamento_item:
+        messages.error(request, "Registro de Orcamento nao encontrado.")
+        return redirect("orcamentos_realizados", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_orcamento_por_post(orcamento_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_orcamento_modulo", empresa_id=empresa.id, orcamento_id=orcamento_item.id)
+        messages.success(request, "Registro de Orcamento atualizado com sucesso.")
+        return redirect("orcamentos_realizados", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "orcamento_item": orcamento_item,
+        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+    }
+    return render(request, "administrativo/orcamento_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_orcamento_modulo(request, empresa_id, orcamento_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("orcamentos_realizados", empresa_id=empresa.id)
+
+    orcamento_item = Orcamento.objects.filter(id=orcamento_id, empresa=empresa).first()
+    if not orcamento_item:
+        messages.error(request, "Registro de Orcamento nao encontrado.")
+        return redirect("orcamentos_realizados", empresa_id=empresa.id)
+
+    orcamento_item.excluir_orcamento()
+    messages.success(request, "Registro de Orcamento excluido com sucesso.")
+    return redirect("orcamentos_realizados", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_orcamento_planejado_modulo(request, empresa_id, orcamento_planejado_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not autorizado:
+        return redirect("index")
+
+    orcamento_planejado_item = OrcamentoPlanejado.objects.filter(id=orcamento_planejado_id, empresa=empresa).first()
+    if not orcamento_planejado_item:
+        messages.error(request, "Orcamento planejado nao encontrado.")
+        return redirect("orcamentos", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_orcamento_planejado_por_post(orcamento_planejado_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect(
+                "editar_orcamento_planejado_modulo",
+                empresa_id=empresa.id,
+                orcamento_planejado_id=orcamento_planejado_item.id,
+            )
+        messages.success(request, "Orcamento planejado atualizado com sucesso.")
+        return redirect("orcamentos", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "orcamento_planejado_item": orcamento_planejado_item,
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+    }
+    return render(request, "administrativo/orcamento_planejado_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_orcamento_planejado_modulo(request, empresa_id, orcamento_planejado_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Orcamento x Realizado")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("orcamentos", empresa_id=empresa.id)
+
+    orcamento_planejado_item = OrcamentoPlanejado.objects.filter(id=orcamento_planejado_id, empresa=empresa).first()
+    if not orcamento_planejado_item:
+        messages.error(request, "Orcamento planejado nao encontrado.")
+        return redirect("orcamentos", empresa_id=empresa.id)
+
+    orcamento_planejado_item.excluir_orcamento_planejado()
+    messages.success(request, "Orcamento planejado excluido com sucesso.")
+    return redirect("orcamentos", empresa_id=empresa.id)
+
+
 @login_required(login_url="entrar")
 def adiantamentos(request, empresa_id):
-    modulo = next(m for m in MODULOS_POR_AREA["Financeiro"] if m["nome"] == "Adiantamentos")
+    modulo = _obter_modulo("Financeiro", "Adiantamentos")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def contratos_redes(request, empresa_id):
-    modulo = next(m for m in MODULOS_POR_AREA["Financeiro"] if m["nome"] == "Contratos Redes")
+    modulo = _obter_modulo("Financeiro", "Contratos Redes")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def plano_de_cargos_e_salarios(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Administrativo"][0]
+    modulo = _obter_modulo("Administrativo", "Plano de Cargos e Salarios")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def descritivos(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Administrativo"][1]
+    modulo = _obter_modulo("Administrativo", "Descritivos")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def fiscal_e_contabil(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Administrativo"][3]
+    modulo = _obter_modulo("Administrativo", "Fiscal e Contabil")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def faturamento(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Administrativo"][4]
+    modulo = _obter_modulo("Administrativo", "Faturamento")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def apuracao_de_resultados(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Administrativo"][5]
+    modulo = _obter_modulo("Administrativo", "Apuracao de Resultados")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def orcamento_x_realizado(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Administrativo"][6]
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    return redirect("orcamento", empresa_id=empresa_id)
 
 
 @login_required(login_url="entrar")
@@ -1074,7 +1370,14 @@ def excluir_centro_resultado_modulo(request, empresa_id, centro_resultado_id):
     if not centro_resultado:
         messages.error(request, "Centro resultado nao encontrado.")
         return redirect("centros_resultado", empresa_id=empresa.id)
-    centro_resultado.excluir_centro_resultado()
+    try:
+        centro_resultado.excluir_centro_resultado()
+    except ProtectedError:
+        messages.error(
+            request,
+            "Nao e possivel excluir este centro de resultado porque ele esta vinculado a Orcamentos Realizados.",
+        )
+        return redirect("centros_resultado", empresa_id=empresa.id)
     messages.success(request, "Centro resultado excluido com sucesso.")
     return redirect("centros_resultado", empresa_id=empresa.id)
 
@@ -1180,7 +1483,7 @@ def excluir_contas_a_receber_modulo(request, empresa_id, conta_id):
 @login_required(login_url="entrar")
 def carteira(request, empresa_id):
     # 1) Autorizacao
-    modulo = MODULOS_POR_AREA["Comercial"][0]
+    modulo = _obter_modulo("Comercial", "Carteira")
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
     if not permitido:
         return redirect("index")
@@ -1470,13 +1773,13 @@ def excluir_regiao_modulo(request, empresa_id, regiao_id):
 
 @login_required(login_url="entrar")
 def pedidos_pendentes(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Comercial"][3]
+    modulo = _obter_modulo("Comercial", "Pedidos Pendentes")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def vendas_por_categoria(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Comercial"][4]
+    modulo = _obter_modulo("Comercial", "Vendas por Categoria")
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
     if not permitido:
         return redirect("index")
@@ -1594,19 +1897,19 @@ def excluir_venda_modulo(request, empresa_id, venda_id):
 
 @login_required(login_url="entrar")
 def precificacao(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Comercial"][5]
+    modulo = _obter_modulo("Comercial", "Precificacao")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def controle_de_margem(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Comercial"][6]
+    modulo = _obter_modulo("Comercial", "Controle de Margem")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def cargas_em_aberto(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Operacional"][0]
+    modulo = _obter_modulo("Operacional", "Cargas em Aberto")
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
     if not permitido:
         return redirect("index")
@@ -1710,23 +2013,23 @@ def excluir_carga_modulo(request, empresa_id, carga_id):
 
 @login_required(login_url="entrar")
 def operador_logistico(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Operacional"][1]
+    modulo = _obter_modulo("Operacional", "Operador Logistico")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def tabela_de_fretes(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Operacional"][2]
+    modulo = _obter_modulo("Operacional", "Tabela de Fretes")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def estoque_pcp(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Operacional"][3]
+    modulo = _obter_modulo("Operacional", "Estoque - PCP")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
 
 
 @login_required(login_url="entrar")
 def producao(request, empresa_id):
-    modulo = MODULOS_POR_AREA["Operacional"][4]
+    modulo = _obter_modulo("Operacional", "Producao")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])

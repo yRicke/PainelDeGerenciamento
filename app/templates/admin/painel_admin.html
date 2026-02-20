@@ -1,33 +1,58 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Painel Admin{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin/admin.css' %}">
+{% endblock %}
 
 {% block content %}
 <section class="page-hero">
     <h1>Painel Admin</h1>
 </section>
 
-<section class="panel">
+<section class="panel admin-panel">
     <h2>Empresas</h2>
-    <section class="panel">
+
+    <section class="panel admin-subpanel">
         <h3>Cadastrar Empresa</h3>
-        <form action="{% url 'criar_empresa' %}" method="POST">
+        <form
+            action="{% url 'criar_empresa' %}"
+            method="POST"
+            class="admin-inline-form"
+            data-confirm-submit
+            data-confirm-message="Confirma o cadastro desta empresa?"
+        >
             {% csrf_token %}
             <input type="text" name="nome" placeholder="Nome da Empresa" required>
-            <button type="submit">Cadastrar</button>
+            <button type="submit" class="btn-primary">Cadastrar</button>
         </form>
     </section>
-    <br>
-    <section class="panel">
-        <ul>
+
+    <section class="panel admin-subpanel">
+        <h3>Empresas Cadastradas</h3>
+        <ul class="admin-list">
             {% for empresa in empresas %}
-            <li>
-                <form action="{% url 'editar_empresa' empresa.id %}" method="POST">
+            <li class="admin-list-item">
+                <form
+                    action="{% url 'editar_empresa' empresa.id %}"
+                    method="POST"
+                    class="admin-inline-form admin-inline-form--empresa"
+                    data-confirm-submit
+                    data-confirm-message="Confirma salvar as alteracoes desta empresa?"
+                >
                     {% csrf_token %}
                     <input type="text" name="nome" value="{{ empresa.nome }}" required>
-                    <button type="submit">Editar</button>
-                    <a href="{% url 'excluir_empresa' empresa.id %}">Excluir</a>
-                    <a href="{% url 'usuarios_permissoes' empresa.id %}">Ver Usuários com Acesso</a>
+                    <button type="submit" class="btn-primary">Salvar</button>
+                    <a
+                        href="{% url 'excluir_empresa' empresa.id %}"
+                        class="btn-danger js-confirm-link"
+                        data-confirm-message="Tem certeza que deseja excluir esta empresa?"
+                    >
+                        Excluir
+                    </a>
+                    <a href="{% url 'usuarios_permissoes' empresa.id %}" class="btn-light">Ver Usuarios com Acesso</a>
                 </form>
             </li>
             {% empty %}
@@ -36,4 +61,8 @@
         </ul>
     </section>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/admin/admin-confirmacoes.js' %}"></script>
 {% endblock %}

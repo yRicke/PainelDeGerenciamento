@@ -22,7 +22,7 @@
 
 .filter-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(170px, 1fr)) 120px;
+    grid-template-columns: repeat(4, minmax(220px, 1fr)) 120px;
     gap: 0.6rem;
     margin-bottom: 0.8rem;
     align-items: end;
@@ -53,9 +53,67 @@
 .dashboard-card h3 {
     margin: 0 0 0.45rem;
     font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .dashboard-card p {
     margin: 0.2rem 0;
     font-size: 0.9rem;
+}
+
+.dashboard-card-icon {
+    color: #175cd3;
+    font-size: 1rem;
+}
+
+.tofu-filtro-card {
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+    min-width: 0;
+}
+
+.tofu-filtro-card label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.tofu-filtro-options {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.tofu-filtro-options--chips {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tofu-filtro-options--list {
+    max-height: 154px;
+    overflow-y: auto;
+    align-content: flex-start;
+}
+
+.tofu-filtro-btn {
+    border: 1px solid #d8dee4;
+    background: #ffffff;
+    color: #1f2937;
+    border-radius: 6px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tofu-filtro-btn.is-active {
+    border-color: #175cd3;
+    background: #175cd3;
+    color: #ffffff;
 }

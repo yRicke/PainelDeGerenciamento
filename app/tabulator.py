@@ -349,7 +349,6 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int):
                 "titulo_codigo": dfc_item.get("titulo__tipo_titulo_codigo") or "",
                 "titulo_descricao": dfc_item.get("titulo__descricao") or "",
                 "centro_resultado_descricao": dfc_item.get("centro_resultado__descricao") or "",
-                "descricao_tipo_operacao": dfc_item.get("descricao_tipo_operacao") or "",
                 "natureza_codigo": dfc_item.get("natureza__codigo") or "",
                 "natureza_descricao": dfc_item.get("natureza__descricao") or "",
                 "historico": dfc_item.get("historico") or "",
@@ -459,3 +458,193 @@ def build_contas_a_receber_tabulator(contas_qs, empresa_id: int):
             }
         )
     return resultado
+
+
+def build_orcamento_tabulator(orcamentos_qs, empresa_id: int):
+    resultado = []
+    for item in orcamentos_qs:
+        data_vencimento = item.get("data_vencimento")
+        data_baixa = item.get("data_baixa")
+        centro_resultado_descricao = (item.get("centro_resultado__descricao") or "").strip()
+        if centro_resultado_descricao and not any(ch.isalpha() for ch in centro_resultado_descricao):
+            centro_resultado_descricao = ""
+        resultado.append(
+            {
+                "id": item.get("id"),
+                "nome_empresa": item.get("nome_empresa") or "",
+                "data_vencimento": _fmt_date_br(data_vencimento),
+                "data_vencimento_iso": data_vencimento.strftime("%Y-%m-%d") if data_vencimento else "",
+                "data_baixa": _fmt_date_br(data_baixa),
+                "data_baixa_iso": data_baixa.strftime("%Y-%m-%d") if data_baixa else "",
+                "valor_baixa": float(item.get("valor_baixa_num") or 0),
+                "valor_liquido": float(item.get("valor_liquido_num") or 0),
+                "valor_desdobramento": float(item.get("valor_desdobramento_num") or 0),
+                "titulo_descricao": item.get("titulo__descricao") or "",
+                "natureza_descricao": item.get("natureza__descricao") or "",
+                "centro_resultado_descricao": centro_resultado_descricao,
+                "operacao_descricao": item.get("operacao__descricao_receita_despesa") or "",
+                "parceiro_codigo": item.get("parceiro__codigo") or "",
+                "parceiro_nome": item.get("parceiro__nome") or "",
+                "editar_url": reverse(
+                    "editar_orcamento_modulo",
+                    kwargs={"empresa_id": empresa_id, "orcamento_id": item.get("id")},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_orcamentos_planejados_tabulator(orcamentos_qs, empresa_id: int):
+    resultado = []
+    for item in orcamentos_qs:
+        valores = {
+            "janeiro": float(item.get("janeiro_num") or 0),
+            "fevereiro": float(item.get("fevereiro_num") or 0),
+            "marco": float(item.get("marco_num") or 0),
+            "abril": float(item.get("abril_num") or 0),
+            "maio": float(item.get("maio_num") or 0),
+            "junho": float(item.get("junho_num") or 0),
+            "julho": float(item.get("julho_num") or 0),
+            "agosto": float(item.get("agosto_num") or 0),
+            "setembro": float(item.get("setembro_num") or 0),
+            "outubro": float(item.get("outubro_num") or 0),
+            "novembro": float(item.get("novembro_num") or 0),
+            "dezembro": float(item.get("dezembro_num") or 0),
+        }
+        resultado.append(
+            {
+                "id": item.get("id"),
+                "centro_resultado_descricao": item.get("centro_resultado__descricao") or "",
+                "natureza_descricao": item.get("natureza__descricao") or "",
+                "nome_empresa": item.get("nome_empresa") or "",
+                "ano": item.get("ano") or "",
+                **valores,
+                "total": sum(valores.values()),
+                "editar_url": reverse(
+                    "editar_orcamento_planejado_modulo",
+                    kwargs={"empresa_id": empresa_id, "orcamento_planejado_id": item.get("id")},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_orcamento_x_realizado_tabulator(orcamentos_realizados_qs, orcamentos_planejados_qs):
+    meses = [
+        ("janeiro", 1),
+        ("fevereiro", 2),
+        ("marco", 3),
+        ("abril", 4),
+        ("maio", 5),
+        ("junho", 6),
+        ("julho", 7),
+        ("agosto", 8),
+        ("setembro", 9),
+        ("outubro", 10),
+        ("novembro", 11),
+        ("dezembro", 12),
+    ]
+    mes_por_numero = {numero: campo for campo, numero in meses}
+
+    def _chave_texto(valor, padrao):
+        texto = (valor or "").strip()
+        return texto if texto else padrao
+
+    def _novo_bucket():
+        return {
+            "meses": {campo: {"real": 0.0, "orcamento": 0.0} for campo, _numero in meses},
+            "naturezas": {},
+        }
+
+    centros = {}
+
+    for item in orcamentos_planejados_qs:
+        centro = _chave_texto(item.get("centro_resultado__descricao"), "<SEM CENTRO DE RESULTADO>")
+        natureza = _chave_texto(item.get("natureza__descricao"), "<SEM NATUREZA>")
+
+        centro_bucket = centros.setdefault(centro, _novo_bucket())
+        natureza_bucket = centro_bucket["naturezas"].setdefault(
+            natureza,
+            {"meses": {campo: {"real": 0.0, "orcamento": 0.0} for campo, _numero in meses}},
+        )
+
+        for campo_mes, _numero in meses:
+            valor_orcamento = float(item.get(f"{campo_mes}_num") or 0)
+            centro_bucket["meses"][campo_mes]["orcamento"] += valor_orcamento
+            natureza_bucket["meses"][campo_mes]["orcamento"] += valor_orcamento
+
+    for item in orcamentos_realizados_qs:
+        data_baixa = item.get("data_baixa")
+        if not data_baixa:
+            continue
+        campo_mes = mes_por_numero.get(data_baixa.month)
+        if not campo_mes:
+            continue
+
+        centro = _chave_texto(item.get("centro_resultado__descricao"), "<SEM CENTRO DE RESULTADO>")
+        natureza = _chave_texto(item.get("natureza__descricao"), "<SEM NATUREZA>")
+        valor_real = float(item.get("valor_baixa_num") or 0)
+
+        centro_bucket = centros.setdefault(centro, _novo_bucket())
+        natureza_bucket = centro_bucket["naturezas"].setdefault(
+            natureza,
+            {"meses": {campo: {"real": 0.0, "orcamento": 0.0} for campo, _numero in meses}},
+        )
+
+        centro_bucket["meses"][campo_mes]["real"] += valor_real
+        natureza_bucket["meses"][campo_mes]["real"] += valor_real
+
+    def _calc_desvio(real, orcamento):
+        if orcamento == 0:
+            return 0.0, "0,00%"
+        valor = ((real - orcamento) / orcamento) * 100
+        return valor, f"{valor:.2f}%".replace(".", ",")
+
+    def _serializar_linha(descricao, meses_bucket, tipo_linha):
+        linha = {
+            "descricao": descricao,
+            "tipo_linha": tipo_linha,
+        }
+        total_real = 0.0
+        total_orcamento = 0.0
+        for campo_mes, _numero in meses:
+            real = float(meses_bucket[campo_mes]["real"])
+            orcamento = float(meses_bucket[campo_mes]["orcamento"])
+            desvio_num, desvio_label = _calc_desvio(real, orcamento)
+            linha[f"{campo_mes}_real"] = real
+            linha[f"{campo_mes}_orcamento"] = orcamento
+            linha[f"{campo_mes}_desvio"] = desvio_num
+            linha[f"{campo_mes}_desvio_label"] = desvio_label
+            total_real += real
+            total_orcamento += orcamento
+
+        total_desvio_num, total_desvio_label = _calc_desvio(total_real, total_orcamento)
+        linha["total_real"] = total_real
+        linha["total_orcamento"] = total_orcamento
+        linha["total_desvio"] = total_desvio_num
+        linha["total_desvio_label"] = total_desvio_label
+        return linha
+
+    linhas = []
+    grand_total_bucket = {campo: {"real": 0.0, "orcamento": 0.0} for campo, _numero in meses}
+
+    for centro_nome in sorted(centros.keys()):
+        centro_bucket = centros[centro_nome]
+        linha_centro = _serializar_linha(centro_nome, centro_bucket["meses"], "centro")
+        filhos = []
+        for natureza_nome in sorted(centro_bucket["naturezas"].keys()):
+            natureza_bucket = centro_bucket["naturezas"][natureza_nome]
+            filhos.append(_serializar_linha(natureza_nome, natureza_bucket["meses"], "natureza"))
+
+        linha_centro["_children"] = filhos
+        linhas.append(linha_centro)
+
+        for campo_mes, _numero in meses:
+            grand_total_bucket[campo_mes]["real"] += centro_bucket["meses"][campo_mes]["real"]
+            grand_total_bucket[campo_mes]["orcamento"] += centro_bucket["meses"][campo_mes]["orcamento"]
+
+    linha_grand_total = _serializar_linha("Grand Total", grand_total_bucket, "grand_total")
+    linha_grand_total["is_grand_total"] = True
+    linhas.append(linha_grand_total)
+
+    return linhas

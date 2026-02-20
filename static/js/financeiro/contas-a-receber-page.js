@@ -79,12 +79,14 @@
     var limparFiltrosBtn = document.getElementById("limpar-filtros-contas");
     var statusContainer = document.getElementById("filtro-contas-status");
     var intervaloContainer = document.getElementById("filtro-contas-intervalo");
+    var dataVencimentoContainer = document.getElementById("filtro-contas-data-vencimento");
     var dataArquivoContainer = document.getElementById("filtro-contas-data-arquivo");
+    var dataArquivoInicialInput = document.getElementById("filtro-contas-data-arquivo-inicial");
+    var dataArquivoFinalInput = document.getElementById("filtro-contas-data-arquivo-final");
+    var selecionarMaisRecenteBtn = document.getElementById("filtro-contas-data-arquivo-mais-recente");
     var tituloDescricaoContainer = document.getElementById("filtro-contas-titulo-descricao");
     var nomeFantasiaContainer = document.getElementById("filtro-contas-nome-fantasia");
     var naturezaDescricaoContainer = document.getElementById("filtro-contas-natureza-descricao");
-    var vencimentoInicialInput = document.getElementById("filtro-contas-vencimento-inicial");
-    var vencimentoFinalInput = document.getElementById("filtro-contas-vencimento-final");
     var kpiQuantidadeEl = document.getElementById("contas-kpi-quantidade");
     var kpiFaturadoEl = document.getElementById("contas-kpi-faturado");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
@@ -177,10 +179,32 @@
         });
     }
 
+    function parseDataBrParaOrdenacao(valor) {
+        if (!valor || !valor.includes("/")) return "";
+        var partes = valor.split("/");
+        if (partes.length !== 3) return "";
+        return [partes[2], partes[1], partes[0]].join("-");
+    }
+
+    function valoresUnicosDataOrdenados(campo, vazioLabel) {
+        var setValores = new Set();
+        data.forEach(function (item) {
+            setValores.add(normalizarTexto(item[campo], vazioLabel));
+        });
+        return Array.from(setValores).sort(function (a, b) {
+            if (a === vazioLabel) return 1;
+            if (b === vazioLabel) return -1;
+            var isoA = parseDataBrParaOrdenacao(a);
+            var isoB = parseDataBrParaOrdenacao(b);
+            return isoB.localeCompare(isoA);
+        });
+    }
+
     function criarEstadoSelecao() {
         return {
             status: new Set(),
             intervalo: new Set(),
+            data_vencimento: new Set(),
             data_arquivo: new Set(),
             titulo_descricao: new Set(),
             nome_fantasia_empresa: new Set(),
@@ -245,23 +269,25 @@
     }
 
     function aplicarFiltros() {
-        var vencimentoInicial = vencimentoInicialInput ? vencimentoInicialInput.value : "";
-        var vencimentoFinal = vencimentoFinalInput ? vencimentoFinalInput.value : "";
+        var dataArquivoInicial = dataArquivoInicialInput ? dataArquivoInicialInput.value : "";
+        var dataArquivoFinal = dataArquivoFinalInput ? dataArquivoFinalInput.value : "";
 
         tabela.setFilter(function (item) {
             var statusValor = normalizarTexto(item.status, "<SEM STATUS>");
             var intervaloValor = normalizarTexto(item.intervalo, "<SEM INTERVALO>");
+            var vencimentoValor = normalizarTexto(item.data_vencimento, "<SEM DATA VENCIMENTO>");
             var dataArquivoValor = normalizarTexto(item.data_arquivo, "<SEM DATA ARQUIVO>");
             var tituloValor = normalizarTexto(item.titulo_descricao, "<SEM TIPO DE TITULO>");
             var nomeFantasiaValor = normalizarTexto(item.nome_fantasia_empresa, "<SEM NOME FANTASIA>");
             var naturezaValor = normalizarTexto(item.natureza_descricao, "<SEM NATUREZA>");
-            var vencimentoIso = item.data_vencimento_iso || "";
+            var dataArquivoIso = item.data_arquivo_iso || "";
 
-            if (vencimentoInicial && (!vencimentoIso || vencimentoIso < vencimentoInicial)) return false;
-            if (vencimentoFinal && (!vencimentoIso || vencimentoIso > vencimentoFinal)) return false;
+            if (dataArquivoInicial && (!dataArquivoIso || dataArquivoIso < dataArquivoInicial)) return false;
+            if (dataArquivoFinal && (!dataArquivoIso || dataArquivoIso > dataArquivoFinal)) return false;
 
             if (filtrosSelecionados.status.size && !filtrosSelecionados.status.has(statusValor)) return false;
             if (filtrosSelecionados.intervalo.size && !filtrosSelecionados.intervalo.has(intervaloValor)) return false;
+            if (filtrosSelecionados.data_vencimento.size && !filtrosSelecionados.data_vencimento.has(vencimentoValor)) return false;
             if (filtrosSelecionados.data_arquivo.size && !filtrosSelecionados.data_arquivo.has(dataArquivoValor)) return false;
             if (filtrosSelecionados.titulo_descricao.size && !filtrosSelecionados.titulo_descricao.has(tituloValor)) return false;
             if (filtrosSelecionados.nome_fantasia_empresa.size && !filtrosSelecionados.nome_fantasia_empresa.has(nomeFantasiaValor)) return false;
@@ -274,8 +300,8 @@
 
     function limparFiltrosExternos() {
         filtrosSelecionados = criarEstadoSelecao();
-        if (vencimentoInicialInput) vencimentoInicialInput.value = "";
-        if (vencimentoFinalInput) vencimentoFinalInput.value = "";
+        if (dataArquivoInicialInput) dataArquivoInicialInput.value = "";
+        if (dataArquivoFinalInput) dataArquivoFinalInput.value = "";
         document.querySelectorAll(".contas-filtro-btn.is-active").forEach(function (btn) {
             btn.classList.remove("is-active");
         });
@@ -286,15 +312,34 @@
 
     montarGrupoFiltros(statusContainer, valoresUnicosOrdenados("status", "<SEM STATUS>"), "status");
     montarGrupoFiltros(intervaloContainer, valoresUnicosOrdenados("intervalo", "<SEM INTERVALO>"), "intervalo");
-    montarGrupoFiltros(dataArquivoContainer, valoresUnicosOrdenados("data_arquivo", "<SEM DATA ARQUIVO>"), "data_arquivo");
+    montarGrupoFiltros(dataVencimentoContainer, valoresUnicosDataOrdenados("data_vencimento", "<SEM DATA VENCIMENTO>"), "data_vencimento");
+    montarGrupoFiltros(dataArquivoContainer, valoresUnicosDataOrdenados("data_arquivo", "<SEM DATA ARQUIVO>"), "data_arquivo");
     montarGrupoFiltros(tituloDescricaoContainer, valoresUnicosOrdenados("titulo_descricao", "<SEM TIPO DE TITULO>"), "titulo_descricao");
     montarGrupoFiltros(nomeFantasiaContainer, valoresUnicosOrdenados("nome_fantasia_empresa", "<SEM NOME FANTASIA>"), "nome_fantasia_empresa");
     montarGrupoFiltros(naturezaDescricaoContainer, valoresUnicosOrdenados("natureza_descricao", "<SEM NATUREZA>"), "natureza_descricao");
 
-    [vencimentoInicialInput, vencimentoFinalInput].forEach(function (input) {
+    [dataArquivoInicialInput, dataArquivoFinalInput].forEach(function (input) {
         if (!input) return;
         input.addEventListener("change", aplicarFiltros);
     });
+
+    if (selecionarMaisRecenteBtn) {
+        selecionarMaisRecenteBtn.addEventListener("click", function () {
+            var linhasComData = data.filter(function (item) { return Boolean(item.data_arquivo_iso); });
+            if (!linhasComData.length) return;
+            var maisRecenteIso = linhasComData
+                .map(function (item) { return item.data_arquivo_iso; })
+                .sort(function (a, b) { return b.localeCompare(a); })[0];
+            var labelMaisRecente = linhasComData.find(function (item) {
+                return item.data_arquivo_iso === maisRecenteIso;
+            }).data_arquivo;
+            filtrosSelecionados.data_arquivo = new Set([labelMaisRecente]);
+            document.querySelectorAll("#filtro-contas-data-arquivo .contas-filtro-btn").forEach(function (btn) {
+                btn.classList.toggle("is-active", btn.textContent === labelMaisRecente);
+            });
+            aplicarFiltros();
+        });
+    }
 
     if (limparFiltrosBtn) {
         limparFiltrosBtn.addEventListener("click", limparFiltrosExternos);

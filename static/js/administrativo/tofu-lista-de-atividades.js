@@ -1,34 +1,68 @@
-﻿(function () {
+(function () {
     var dataElement = document.getElementById("atividades-tabulator-data");
     if (!dataElement || !window.Tabulator) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var codigoInput = document.getElementById("filtro-codigo");
-    var gestorSelect = document.getElementById("filtro-gestor");
-    var responsavelSelect = document.getElementById("filtro-responsavel");
-    var indicadorSelect = document.getElementById("filtro-indicador");
+    var codigoContainer = document.getElementById("filtro-codigo");
+    var gestorContainer = document.getElementById("filtro-gestor");
+    var responsavelContainer = document.getElementById("filtro-responsavel");
+    var indicadorContainer = document.getElementById("filtro-indicador");
     var limparBtn = document.getElementById("limpar-filtros-tabulator");
 
-    function preencherSelect(select, valores) {
-        valores.forEach(function (valor) {
-            var option = document.createElement("option");
-            option.value = valor;
-            option.textContent = valor;
-            select.appendChild(option);
+    function normalizarTexto(valor, vazioLabel) {
+        var texto = (valor || "").toString().trim();
+        return texto || vazioLabel;
+    }
+
+    function valoresUnicosOrdenados(campo, vazioLabel) {
+        var setValores = new Set();
+        data.forEach(function (item) {
+            setValores.add(normalizarTexto(item[campo], vazioLabel));
+        });
+        return Array.from(setValores).sort(function (a, b) {
+            return a.localeCompare(b, "pt-BR");
         });
     }
 
-    var gestores = [...new Set(data.map(function (item) { return item.gestor; }).filter(Boolean))].sort();
-    var responsaveis = [...new Set(data.map(function (item) { return item.responsavel; }).filter(Boolean))].sort();
-    var indicadores = [...new Set(data.map(function (item) { return item.indicador; }).filter(Boolean))].sort();
+    function criarEstadoSelecao() {
+        return {
+            codigo_projeto: new Set(),
+            gestor: new Set(),
+            responsavel: new Set(),
+            indicador: new Set(),
+        };
+    }
 
-    preencherSelect(gestorSelect, gestores);
-    preencherSelect(responsavelSelect, responsaveis);
-    preencherSelect(indicadorSelect, indicadores);
+    var filtrosSelecionados = criarEstadoSelecao();
+
+    function criarBotaoFiltro(valor, onToggle) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tofu-filtro-btn";
+        btn.textContent = valor;
+        btn.addEventListener("click", function () {
+            btn.classList.toggle("is-active");
+            onToggle(btn.classList.contains("is-active"), valor);
+            aplicarFiltros();
+        });
+        return btn;
+    }
+
+    function montarGrupoFiltros(container, valores, chaveEstado) {
+        if (!container) return;
+        container.innerHTML = "";
+        valores.forEach(function (valor) {
+            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
+                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
+                else filtrosSelecionados[chaveEstado].delete(valorToggle);
+            });
+            container.appendChild(btn);
+        });
+    }
 
     var tabela = new Tabulator("#atividades-tabulator", {
         data: data,
-        layout: "fitDataStretch",
+        layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
         columns: [
@@ -59,31 +93,30 @@
     });
 
     function aplicarFiltros() {
-        var codigo = (codigoInput.value || "").toLowerCase().trim();
-        var gestor = gestorSelect.value || "";
-        var responsavel = responsavelSelect.value || "";
-        var indicador = indicadorSelect.value || "";
-
         tabela.setFilter(function (dataRow) {
-            if (codigo && !(dataRow.codigo_projeto || "").toLowerCase().includes(codigo)) return false;
-            if (gestor && dataRow.gestor !== gestor) return false;
-            if (responsavel && dataRow.responsavel !== responsavel) return false;
-            if (indicador && dataRow.indicador !== indicador) return false;
+            var codigoValor = normalizarTexto(dataRow.codigo_projeto, "<SEM CODIGO>");
+            var gestorValor = normalizarTexto(dataRow.gestor, "<SEM GESTOR>");
+            var responsavelValor = normalizarTexto(dataRow.responsavel, "<SEM RESPONSAVEL>");
+            var indicadorValor = normalizarTexto(dataRow.indicador, "<SEM INDICADOR>");
+
+            if (filtrosSelecionados.codigo_projeto.size && !filtrosSelecionados.codigo_projeto.has(codigoValor)) return false;
+            if (filtrosSelecionados.gestor.size && !filtrosSelecionados.gestor.has(gestorValor)) return false;
+            if (filtrosSelecionados.responsavel.size && !filtrosSelecionados.responsavel.has(responsavelValor)) return false;
+            if (filtrosSelecionados.indicador.size && !filtrosSelecionados.indicador.has(indicadorValor)) return false;
             return true;
         });
     }
 
-    [codigoInput, gestorSelect, responsavelSelect, indicadorSelect].forEach(function (el) {
-        el.addEventListener("input", aplicarFiltros);
-        el.addEventListener("change", aplicarFiltros);
-    });
+    montarGrupoFiltros(codigoContainer, valoresUnicosOrdenados("codigo_projeto", "<SEM CODIGO>"), "codigo_projeto");
+    montarGrupoFiltros(gestorContainer, valoresUnicosOrdenados("gestor", "<SEM GESTOR>"), "gestor");
+    montarGrupoFiltros(responsavelContainer, valoresUnicosOrdenados("responsavel", "<SEM RESPONSAVEL>"), "responsavel");
+    montarGrupoFiltros(indicadorContainer, valoresUnicosOrdenados("indicador", "<SEM INDICADOR>"), "indicador");
 
     limparBtn.addEventListener("click", function () {
-        codigoInput.value = "";
-        gestorSelect.value = "";
-        responsavelSelect.value = "";
-        indicadorSelect.value = "";
+        filtrosSelecionados = criarEstadoSelecao();
+        document.querySelectorAll(".tofu-filtro-btn.is-active").forEach(function (btn) {
+            btn.classList.remove("is-active");
+        });
         tabela.clearFilter(true);
     });
 })();
-

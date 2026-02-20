@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Parametros{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/shared/module-links.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <h1>Parametros</h1>
+    <p>Modulos de cadastro e configuracao base para toda a plataforma.</p>
+</section>
+
+<section class="panel">
+    <h2>Modulos</h2>
+    <ul class="module-list">
+        {% for modulo in modulos %}
+        <li>
+            <a
+                href="{% if user.empresa_id %}{% url modulo.url user.empresa_id %}{% else %}#{% endif %}"
+                class="{% if not modulo.permitido %}module-link--blocked{% endif %}"
+                {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
+            >
+                {{ modulo.nome }}
+                {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

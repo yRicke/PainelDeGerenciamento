@@ -25,6 +25,7 @@ urlpatterns = [
     path('financeiro/', views.financeiro, name='financeiro'),
     path('administrativo/', views.administrativo, name='administrativo'),
     path('comercial/', views.comercial, name='comercial'),
+    path('parametros/', views.parametros, name='parametros'),
     path('operacional/', views.operacional, name='operacional'),
 
     path('entrar/', views.entrar, name='entrar'),
@@ -73,6 +74,13 @@ urlpatterns = [
     path('centros_resultado/<int:empresa_id>/criar/', views.criar_centro_resultado_modulo, name='criar_centro_resultado_modulo'),
     path('centros_resultado/<int:empresa_id>/editar/<int:centro_resultado_id>/', views.editar_centro_resultado_modulo, name='editar_centro_resultado_modulo'),
     path('centros_resultado/<int:empresa_id>/excluir/<int:centro_resultado_id>/', views.excluir_centro_resultado_modulo, name='excluir_centro_resultado_modulo'),
+    path('orcamento/<int:empresa_id>/', views.orcamento, name='orcamento'),
+    path('orcamentos_realizados/<int:empresa_id>/', views.orcamentos_realizados, name='orcamentos_realizados'),
+    path('orcamentos/<int:empresa_id>/', views.orcamentos, name='orcamentos'),
+    path('orcamento/<int:empresa_id>/editar/<int:orcamento_id>/', views.editar_orcamento_modulo, name='editar_orcamento_modulo'),
+    path('orcamento/<int:empresa_id>/excluir/<int:orcamento_id>/', views.excluir_orcamento_modulo, name='excluir_orcamento_modulo'),
+    path('orcamentos/<int:empresa_id>/editar/<int:orcamento_planejado_id>/', views.editar_orcamento_planejado_modulo, name='editar_orcamento_planejado_modulo'),
+    path('orcamentos/<int:empresa_id>/excluir/<int:orcamento_planejado_id>/', views.excluir_orcamento_planejado_modulo, name='excluir_orcamento_planejado_modulo'),
     path('adiantamentos/<int:empresa_id>/', views.adiantamentos, name='adiantamentos'),
     path('contratos_redes/<int:empresa_id>/', views.contratos_redes, name='contratos_redes'),
 

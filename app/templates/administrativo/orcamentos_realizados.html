@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Orcamentos Realizados{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/orcamento.css' %}">
+{% endblock %}
+
+{% block content %}
+{% now "Y-m-d" as hoje_iso %}
+<section class="page-hero">
+    <a href="{% url 'orcamento' empresa.id %}">Voltar para Orcamento x Realizado</a>
+    <h1>Orcamentos Realizados</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+    <div class="module-shortcuts">
+        <a class="btn-primary" href="{% url 'orcamentos' empresa.id %}">Ver Orcamentos</a>
+    </div>
+</section>
+
+<section class="panel module-section">
+    <h2>Novo Registro (Cadastro Manual)</h2>
+    <form action="{% url 'orcamentos_realizados' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_orcamento">
+        <div class="form-grid">
+            <div><label>Nome empresa</label><input type="text" name="nome_empresa"></div>
+            <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ hoje_iso }}" required></div>
+            <div><label>Data baixa</label><input type="date" name="data_baixa" value="{{ hoje_iso }}" required></div>
+            <div><label>Valor baixa</label><input type="text" name="valor_baixa" placeholder="0,00"></div>
+            <div><label>Valor liquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
+            <div><label>Valor desdobramento</label><input type="text" name="valor_desdobramento" placeholder="0,00"></div>
+            <div>
+                <label>Titulo</label>
+                <select name="titulo_id">
+                    <option value="">-</option>
+                    {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Natureza</label>
+                <select name="natureza_id">
+                    <option value="">-</option>
+                    {% for item in naturezas %}<option value="{{ item.id }}">{{ item.codigo }} - {{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Centro resultado</label>
+                <select name="centro_resultado_id" required>
+                    {% for item in centros_resultado %}<option value="{{ item.id }}">{{ item.descricao }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Operacao</label>
+                <select name="operacao_id">
+                    <option value="">-</option>
+                    {% for item in operacoes %}<option value="{{ item.id }}">{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Parceiro</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for item in parceiros %}<option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo }})</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+    </form>
+</section>
+
+<section class="panel module-section">
+    <h2>Dados Importados</h2>
+    <div class="table-wrapper"><div id="orcamento-realizado-tabulator"></div></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ orcamento_tabulator|json_script:"orcamento-realizado-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/administrativo/orcamento-page.js' %}"></script>
+{% endblock %}

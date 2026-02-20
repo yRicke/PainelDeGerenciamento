@@ -1,0 +1,115 @@
+.admin-panel {
+    display: grid;
+    gap: 1rem;
+}
+
+.admin-subpanel {
+    background: #fbfdff;
+}
+
+.admin-input-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+}
+
+.admin-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.admin-list-item {
+    border: 1px solid #d8dee8;
+    border-radius: 12px;
+    background: #fff;
+    padding: 0.85rem;
+}
+
+.admin-inline-form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.admin-inline-form--empresa {
+    grid-template-columns: minmax(220px, 1fr) auto auto auto;
+}
+
+.user-card {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.7rem;
+}
+
+.permissions-card {
+    border: 1px solid #d8dee8;
+    border-radius: 10px;
+    padding: 0.7rem;
+    margin: 0;
+    min-width: 0;
+}
+
+.permissions-card legend {
+    padding: 0 0.2rem;
+    font-weight: 700;
+    color: #1d2a3a;
+}
+
+.permissions-items {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.permission-item {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 500;
+    color: #344054;
+}
+
+.btn-primary,
+.btn-danger,
+.btn-light {
+    padding: 0.45rem 0.65rem;
+    cursor: pointer;
+    border-radius: 8px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    font: inherit;
+}
+
+.btn-primary {
+    background: #175cd3;
+    color: #fff;
+}
+
+.btn-danger {
+    background: #b42318;
+    color: #fff;
+}
+
+.btn-light {
+    background: #f3f5f7;
+    color: #111;
+    border-color: #d8dee4;
+}
+
+@media (max-width: 900px) {
+    .admin-input-grid,
+    .admin-inline-form,
+    .admin-inline-form--empresa {
+        grid-template-columns: 1fr;
+    }
+}
