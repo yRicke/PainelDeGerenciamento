@@ -1,16 +1,158 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
+{% load static %}
 
 {% block title %}Producao{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/operacional/producao.css' %}">
+{% endblock %}
+
 {% block content %}
+{% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
     <a href="{% url 'operacional' %}">Voltar</a>
     <h1>Producao</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes de producao">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importacao</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Producao</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Novo Registro de Producao (Cadastro Manual)</h2>
+    <p class="form-note">O produto e obrigatorio. Codigo e descricao sao exibidos pela FK de produto.</p>
+    <form id="criar-producao-form" action="{% url 'producao' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_producao">
+
+        <div class="form-grid">
+            <div>
+                <label>Data origem (nome arquivo)</label>
+                <input type="text" name="data_origem" required>
+            </div>
+            <div>
+                <label>Numero operacao</label>
+                <input type="number" name="numero_operacao" min="1" required>
+            </div>
+            <div>
+                <label>Situacao</label>
+                <input type="text" name="situacao" required>
+            </div>
+            <div>
+                <label>Produto</label>
+                <select name="produto_id" required>
+                    <option value="">Selecione</option>
+                    {% for item in produtos %}
+                    <option value="{{ item.id }}">{{ item.codigo_produto }} - {{ item.descricao_produto }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Tamanho lote</label>
+                <input type="text" name="tamanho_lote">
+            </div>
+            <div>
+                <label>Numero lote</label>
+                <input type="text" name="numero_lote">
+            </div>
+            <div>
+                <label>Data entrada atividade</label>
+                <input type="date" name="data_hora_entrada_atividade" value="{{ hoje_iso }}">
+            </div>
+            <div>
+                <label>Data aceite atividade</label>
+                <input type="date" name="data_hora_aceite_atividade" value="{{ hoje_iso }}">
+            </div>
+            <div>
+                <label>Data inicio atividade</label>
+                <input type="date" name="data_hora_inicio_atividade" value="{{ hoje_iso }}">
+            </div>
+            <div>
+                <label>Data fim atividade</label>
+                <input type="date" name="data_hora_fim_atividade" value="{{ hoje_iso }}">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+        {% if not produtos %}
+        <p class="form-note">Nao ha produtos cadastrados. Cadastre em <a href="{% url 'produtos' empresa.id %}">Parametros > Produtos</a>.</p>
+        {% endif %}
+    </form>
 </section>
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importacao de Producao por Pasta</h2>
+    <p>Arraste uma pasta com arquivos <code>.xls</code> ou clique para selecionar a pasta. O conteudo atual da pasta sera movido para <code>subscritos</code>.</p>
+
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form id="upload-producao-form" class="upload-form" action="{% url 'producao' empresa.id %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="importar_producao">
+        <input
+            type="file"
+            id="arquivos-producao-input"
+            name="arquivos_producao"
+            accept=".xls"
+            multiple
+            webkitdirectory
+            directory
+            hidden
+        >
+
+        <div id="dropzone-producao" class="dropzone">
+            <strong>Arraste e solte a pasta aqui</strong>
+            <span>ou clique para selecionar uma pasta com arquivos <code>.xls</code>.</span>
+        </div>
+
+        <div class="upload-actions">
+            <button type="submit" class="upload-button">Enviar e importar</button>
+            <span id="nome-arquivos-producao-selecionado" class="file-status"></span>
+        </div>
+
+        <div id="producao-loading-status" class="loading-status">
+            Carregamento em andamento. Os arquivos estao sendo enviados e a importacao foi iniciada.
+        </div>
+    </form>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados da Producao</h2>
+    <div class="filter-grid">
+        <div>
+            <label for="filtro-origem">Data origem</label>
+            <input type="text" id="filtro-origem" placeholder="Nome do arquivo">
+        </div>
+        <div>
+            <label for="filtro-operacao">Numero operacao</label>
+            <input type="text" id="filtro-operacao" placeholder="Ex.: 12345">
+        </div>
+        <div>
+            <label for="filtro-situacao-producao">Situacao</label>
+            <input type="text" id="filtro-situacao-producao" placeholder="Situacao">
+        </div>
+        <div>
+            <label for="filtro-produto">Produto (codigo/descricao)</label>
+            <input type="text" id="filtro-produto" placeholder="Codigo ou descricao">
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <div id="producao-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ producao_tabulator|json_script:"producao-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/operacional/producao-page.js' %}"></script>
 {% endblock %}

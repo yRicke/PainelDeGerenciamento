@@ -10,6 +10,12 @@ def _fmt_date_br(data):
     return data.strftime("%d/%m/%Y")
 
 
+def _fmt_datetime_br(data):
+    if not data:
+        return ""
+    return data.strftime("%d/%m/%Y %H:%M")
+
+
 def _situacao_margem(margem):
     try:
         valor = float(margem)
@@ -147,6 +153,35 @@ def build_cargas_tabulator(cargas_qs, empresa_id: int):
     return resultado
 
 
+def build_producao_tabulator(producoes_qs, empresa_id: int):
+    resultado = []
+    for item in producoes_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "data_origem": item.data_origem or "",
+                "numero_operacao": item.numero_operacao or 0,
+                "situacao": item.situacao or "",
+                "produto_codigo": item.produto.codigo_produto if item.produto else "",
+                "produto_descricao": item.produto.descricao_produto if item.produto else "",
+                "tamanho_lote": item.tamanho_lote or "",
+                "numero_lote": item.numero_lote or "",
+                "data_hora_entrada_atividade": _fmt_datetime_br(item.data_hora_entrada_atividade),
+                "data_hora_aceite_atividade": _fmt_datetime_br(item.data_hora_aceite_atividade),
+                "data_hora_inicio_atividade": _fmt_datetime_br(item.data_hora_inicio_atividade),
+                "data_hora_fim_atividade": _fmt_datetime_br(item.data_hora_fim_atividade),
+                "kg": float(item.kg or 0),
+                "producao_por_dia": float(item.producao_por_dia or 0),
+                "kg_por_lote": float(item.kg_por_lote or 0),
+                "editar_url": reverse(
+                    "editar_producao_modulo",
+                    kwargs={"empresa_id": empresa_id, "producao_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
 def build_colaboradores_tabulator(colaboradores_qs, empresa_id: int):
     return [
         {
@@ -238,6 +273,25 @@ def build_parceiros_tabulator(parceiros_qs, empresa_id: int):
             ),
         }
         for parceiro in parceiros_qs
+    ]
+
+
+def build_produtos_tabulator(produtos_qs, empresa_id: int):
+    return [
+        {
+            "id": produto.id,
+            "codigo_produto": produto.codigo_produto,
+            "descricao_produto": produto.descricao_produto or "",
+            "editar_url": reverse(
+                "editar_produto_modulo",
+                kwargs={"empresa_id": empresa_id, "produto_id": produto.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_produto_modulo",
+                kwargs={"empresa_id": empresa_id, "produto_id": produto.id},
+            ),
+        }
+        for produto in produtos_qs
     ]
 
 

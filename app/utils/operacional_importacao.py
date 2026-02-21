@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
+import re
 import unicodedata
 
 from django.db import transaction
+from django.utils import timezone
 
-from ..models import Cargas, Regiao
+from ..models import Cargas, Producao, Produto, Regiao
 
 try:
     import xlrd
@@ -65,6 +68,84 @@ def _excel_date(valor):
     return (datetime(1899, 12, 30) + timedelta(days=serial)).date()
 
 
+def _excel_datetime(valor):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return None
+
+    for formato in (
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%d/%m/%Y",
+        "%d-%m-%Y",
+        "%Y-%m-%d",
+    ):
+        try:
+            parsed = datetime.strptime(texto, formato)
+            if "H" not in formato:
+                return datetime.combine(parsed.date(), datetime.min.time())
+            return parsed
+        except ValueError:
+            pass
+
+    try:
+        serial = float(texto.replace(",", "."))
+    except ValueError:
+        return None
+
+    if serial <= 0:
+        return None
+    return datetime(1899, 12, 30) + timedelta(days=serial)
+
+
+def _to_decimal(valor) -> Decimal:
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return Decimal("0")
+
+    texto = texto.replace("R$", "").replace(" ", "")
+    texto_lower = texto.lower()
+    if "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    elif texto.count(".") > 1 and "e" not in texto_lower:
+        texto = texto.replace(".", "")
+
+    try:
+        return Decimal(texto)
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def _extrair_kg_da_descricao_produto(descricao: str) -> Decimal:
+    texto = _normalizar_texto(descricao).upper()
+    if not texto:
+        return Decimal("0")
+
+    match_multiplicado = re.search(r"(\d+)\s*[Xx]\s*(\d+)\s*KG", texto)
+    if match_multiplicado:
+        a = Decimal(match_multiplicado.group(1))
+        b = Decimal(match_multiplicado.group(2))
+        return a * b
+
+    match_simples = re.search(r"(\d+)\s*KG", texto)
+    if match_simples:
+        return Decimal(match_simples.group(1))
+
+    return Decimal("0")
+
+
+def _as_aware_datetime(valor):
+    if not valor:
+        return None
+    if timezone.is_aware(valor):
+        return valor
+    return timezone.make_aware(valor, timezone.get_current_timezone())
+
+
 def _iterar_linhas_xls(caminho: Path):
     if xlrd is None:
         raise RuntimeError(
@@ -86,7 +167,7 @@ def _iterar_linhas_xls(caminho: Path):
         yield linha
 
 
-def _detectar_indices_colunas(linhas, mapeamento_colunas):
+def _detectar_indices_colunas(linhas, mapeamento_colunas, obrigatorias=None):
     melhor_score = -1
     melhor_indices = None
 
@@ -111,8 +192,10 @@ def _detectar_indices_colunas(linhas, mapeamento_colunas):
 
     if melhor_score < 3:
         return None
-    if melhor_indices and melhor_indices.get("ordem_de_carga_codigo") is None:
-        return None
+    if obrigatorias:
+        for coluna in obrigatorias:
+            if melhor_indices is None or melhor_indices.get(coluna) is None:
+                return None
     return melhor_indices
 
 
@@ -185,7 +268,11 @@ def importar_cargas_do_diretorio(
             "prazo_maximo_dias": ["prazomaximodias", "prazomaximo", "prazodias"],
         }
 
-        indices = _detectar_indices_colunas(linhas[:25], mapeamento_colunas)
+        indices = _detectar_indices_colunas(
+            linhas[:25],
+            mapeamento_colunas,
+            obrigatorias=["ordem_de_carga_codigo"],
+        )
         if indices is None:
             continue
 
@@ -264,4 +351,162 @@ def importar_cargas_do_diretorio(
         "arquivos": len(arquivos),
         "linhas": total_linhas,
         "cargas": total_cargas,
+    }
+
+
+@transaction.atomic
+def importar_producao_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/operacional/producao",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {"arquivos": 0, "linhas": 0, "producoes": 0, "produtos": 0}
+
+    if limpar_antes:
+        Producao.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_producoes = 0
+    produtos_codigos = set()
+    objetos: list[Producao] = []
+
+    mapeamento_colunas = {
+        "numero_operacao": ["numerooperacao", "noperacao", "numoperacao", "operacao", "nroop", "nop"],
+        "situacao": ["situacao", "status"],
+        "codigo_produto": ["codproduto", "codigoproduto", "codigo", "codigodoproduto"],
+        "descricao_produto": ["descricaoproduto", "descricaodoproduto", "descricao", "produto", "descproduto"],
+        "tamanho_lote": ["tamanholote", "tamanhoproduto", "tamanho", "tamlote"],
+        "numero_lote": ["numerolote", "lote", "numerodolote", "nrolote"],
+        "data_hora_entrada_atividade": [
+            "dataehoraentradaatividade",
+            "datahoraentradaatividade",
+            "dtentradaatividade",
+            "entradaatividade",
+            "dhentradaatividade",
+        ],
+        "data_hora_aceite_atividade": [
+            "dataehoraaceiteatividade",
+            "datahoraaceiteatividade",
+            "dtaceiteatividade",
+            "aceiteatividade",
+            "dhaceiteatividade",
+        ],
+        "data_hora_inicio_atividade": [
+            "dataehorainicioatividade",
+            "datahorainicioatividade",
+            "dtinicioatividade",
+            "inicioatividade",
+            "dhinicioatividade",
+        ],
+        "data_hora_fim_atividade": [
+            "dataehorafimatividade",
+            "datahorafimatividade",
+            "dtfimatividade",
+            "fimatividade",
+            "dhfimatividade",
+        ],
+        "kg": ["kg", "peso", "pesoemkg"],
+        "producao_por_dia": ["producaopordiafd", "producaopordia", "fd", "producaopordiafd"],
+        "kg_por_lote": ["kgporlote", "kglote", "kgdolote"],
+    }
+
+    for arquivo in arquivos:
+        linhas = list(_iterar_linhas_xls(arquivo))
+        if not linhas:
+            continue
+
+        indices = _detectar_indices_colunas(
+            linhas[:25],
+            mapeamento_colunas,
+            obrigatorias=["numero_operacao", "codigo_produto"],
+        )
+        if indices is None:
+            continue
+
+        for linha in linhas:
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            def _valor_por_indice(chave):
+                idx = indices.get(chave)
+                if idx is None or idx >= len(linha):
+                    return ""
+                return linha[idx]
+
+            numero_operacao = _to_int(_valor_por_indice("numero_operacao"))
+            if numero_operacao <= 0:
+                continue
+
+            codigo_produto = _normalizar_codigo(_valor_por_indice("codigo_produto"))
+            descricao_produto = _normalizar_texto(_valor_por_indice("descricao_produto"))
+            if not codigo_produto:
+                continue
+
+            produto = Produto.obter_ou_criar_por_codigo_descricao(
+                empresa=empresa,
+                codigo_produto=codigo_produto,
+                descricao_produto=descricao_produto,
+            )
+            if not produto:
+                continue
+            produtos_codigos.add(produto.codigo_produto)
+
+            tamanho_lote_decimal = _to_decimal(_valor_por_indice("tamanho_lote"))
+            kg_valor = _to_decimal(_valor_por_indice("kg"))
+            if kg_valor <= 0:
+                kg_valor = _extrair_kg_da_descricao_produto(descricao_produto)
+
+            producao_por_dia_valor = _to_decimal(_valor_por_indice("producao_por_dia"))
+            if producao_por_dia_valor <= 0 and kg_valor > 0:
+                producao_por_dia_valor = kg_valor
+
+            kg_por_lote_valor = _to_decimal(_valor_por_indice("kg_por_lote"))
+            if kg_por_lote_valor <= 0 and kg_valor > 0 and tamanho_lote_decimal > 0:
+                kg_por_lote_valor = tamanho_lote_decimal / kg_valor
+
+            objetos.append(
+                Producao(
+                    empresa=empresa,
+                    data_origem=arquivo.name,
+                    numero_operacao=numero_operacao,
+                    situacao=_normalizar_texto(_valor_por_indice("situacao")),
+                    produto=produto,
+                    tamanho_lote=_normalizar_texto(_valor_por_indice("tamanho_lote")),
+                    numero_lote=_normalizar_texto(_valor_por_indice("numero_lote")),
+                    data_hora_entrada_atividade=_as_aware_datetime(
+                        _excel_datetime(_valor_por_indice("data_hora_entrada_atividade"))
+                    ),
+                    data_hora_aceite_atividade=_as_aware_datetime(
+                        _excel_datetime(_valor_por_indice("data_hora_aceite_atividade"))
+                    ),
+                    data_hora_inicio_atividade=_as_aware_datetime(
+                        _excel_datetime(_valor_por_indice("data_hora_inicio_atividade"))
+                    ),
+                    data_hora_fim_atividade=_as_aware_datetime(
+                        _excel_datetime(_valor_por_indice("data_hora_fim_atividade"))
+                    ),
+                    kg=kg_valor,
+                    producao_por_dia=producao_por_dia_valor,
+                    kg_por_lote=kg_por_lote_valor,
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                Producao.objects.bulk_create(objetos, batch_size=1000)
+                total_producoes += len(objetos)
+                objetos = []
+
+    if objetos:
+        Producao.objects.bulk_create(objetos, batch_size=1000)
+        total_producoes += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "producoes": total_producoes,
+        "produtos": len(produtos_codigos),
     }

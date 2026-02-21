@@ -70,6 +70,10 @@ urlpatterns = [
     path('parceiros/<int:empresa_id>/criar/', views.criar_parceiro_modulo, name='criar_parceiro_modulo'),
     path('parceiros/<int:empresa_id>/editar/<int:parceiro_id>/', views.editar_parceiro_modulo, name='editar_parceiro_modulo'),
     path('parceiros/<int:empresa_id>/excluir/<int:parceiro_id>/', views.excluir_parceiro_modulo, name='excluir_parceiro_modulo'),
+    path('produtos/<int:empresa_id>/', views.produtos, name='produtos'),
+    path('produtos/<int:empresa_id>/criar/', views.criar_produto_modulo, name='criar_produto_modulo'),
+    path('produtos/<int:empresa_id>/editar/<int:produto_id>/', views.editar_produto_modulo, name='editar_produto_modulo'),
+    path('produtos/<int:empresa_id>/excluir/<int:produto_id>/', views.excluir_produto_modulo, name='excluir_produto_modulo'),
     path('centros_resultado/<int:empresa_id>/', views.centros_resultado, name='centros_resultado'),
     path('centros_resultado/<int:empresa_id>/criar/', views.criar_centro_resultado_modulo, name='criar_centro_resultado_modulo'),
     path('centros_resultado/<int:empresa_id>/editar/<int:centro_resultado_id>/', views.editar_centro_resultado_modulo, name='editar_centro_resultado_modulo'),
@@ -136,4 +140,6 @@ urlpatterns = [
     path('tabela_de_fretes/<int:empresa_id>/', views.tabela_de_fretes, name='tabela_de_fretes'),
     path('estoque_pcp/<int:empresa_id>/', views.estoque_pcp, name='estoque_pcp'),
     path('producao/<int:empresa_id>/', views.producao, name='producao'),
+    path('producao/<int:empresa_id>/editar/<int:producao_id>/', views.editar_producao_modulo, name='editar_producao_modulo'),
+    path('producao/<int:empresa_id>/excluir/<int:producao_id>/', views.excluir_producao_modulo, name='excluir_producao_modulo'),
 ]

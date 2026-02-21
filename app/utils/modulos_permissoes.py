@@ -30,6 +30,7 @@ MODULOS_POR_AREA = {
         {"nome": "Controle de Margem", "url": "controle_de_margem", "template": "comercial/controle_de_margem.html"},
     ],
     "Parametros": [
+        {"nome": "Produtos", "url": "produtos", "template": "parametros/produtos.html"},
         {"nome": "Titulos", "url": "titulos", "template": "financeiro/titulos.html"},
         {"nome": "Naturezas", "url": "naturezas", "template": "financeiro/naturezas.html"},
         {"nome": "Operacoes", "url": "operacoes", "template": "financeiro/operacoes.html"},

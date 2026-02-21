@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import shutil
+import re
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -25,6 +26,8 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    Producao,
+    Produto,
     Projeto,
     Regiao,
     Titulo,
@@ -43,7 +46,7 @@ from .utils.financeiro_importacao import (
     importar_dfc_do_diretorio,
     importar_orcamento_do_diretorio,
 )
-from .utils.operacional_importacao import importar_cargas_do_diretorio
+from .utils.operacional_importacao import importar_cargas_do_diretorio, importar_producao_do_diretorio
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -311,6 +314,38 @@ def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa):
     parceiro.atualizar_parceiro(novo_nome=nome, novo_codigo=codigo)
     return ""
 
+def criar_produto_por_dados(empresa, codigo_produto, descricao_produto):
+    codigo_produto = (codigo_produto or "").strip()
+    descricao_produto = (descricao_produto or "").strip()
+    if not codigo_produto:
+        return "Codigo do produto e obrigatorio."
+    if Produto.objects.filter(codigo_produto=codigo_produto).exclude(empresa=empresa).exists():
+        return "Ja existe produto com este codigo em outra empresa."
+    if Produto.objects.filter(empresa=empresa, codigo_produto=codigo_produto).exists():
+        return "Ja existe produto com este codigo nesta empresa."
+    Produto.criar_produto(
+        empresa=empresa,
+        codigo_produto=codigo_produto,
+        descricao_produto=descricao_produto,
+    )
+    return ""
+
+
+def atualizar_produto_por_dados(produto, codigo_produto, descricao_produto, empresa):
+    codigo_produto = (codigo_produto or "").strip()
+    descricao_produto = (descricao_produto or "").strip()
+    if not codigo_produto:
+        return "Codigo do produto e obrigatorio."
+    if Produto.objects.filter(codigo_produto=codigo_produto).exclude(id=produto.id).exclude(empresa=empresa).exists():
+        return "Ja existe produto com este codigo em outra empresa."
+    if Produto.objects.filter(empresa=empresa, codigo_produto=codigo_produto).exclude(id=produto.id).exists():
+        return "Ja existe produto com este codigo nesta empresa."
+    produto.atualizar_produto(
+        codigo_produto=codigo_produto,
+        descricao_produto=descricao_produto,
+    )
+    return ""
+
 def criar_titulo_por_dados(empresa, tipo_titulo_codigo, descricao):
     tipo_titulo_codigo = (tipo_titulo_codigo or "").strip()
     descricao = (descricao or "").strip()
@@ -450,6 +485,30 @@ def _parse_date_ou_none(valor):
         return None
 
 
+def _parse_datetime_ou_none(valor):
+    if not valor:
+        return None
+    texto = (valor or "").strip()
+    formatos = (
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+        "%d/%m/%Y %H:%M",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y",
+        "%d-%m-%Y %H:%M",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y",
+    )
+    for formato in formatos:
+        try:
+            return datetime.strptime(texto, formato)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _parse_int_ou_zero(valor):
     if valor in (None, ""):
         return 0
@@ -461,6 +520,30 @@ def _parse_int_ou_zero(valor):
 
 def _parse_bool_checkbox(post_data, campo):
     return post_data.get(campo) == "on"
+
+
+def _extrair_kg_da_descricao_produto(descricao: str) -> Decimal:
+    texto = (descricao or "").strip().upper()
+    if not texto:
+        return Decimal("0")
+
+    match_multiplicado = re.search(r"(\d+)\s*[Xx]\s*(\d+)\s*KG", texto)
+    if match_multiplicado:
+        return Decimal(match_multiplicado.group(1)) * Decimal(match_multiplicado.group(2))
+
+    match_simples = re.search(r"(\d+)\s*KG", texto)
+    if match_simples:
+        return Decimal(match_simples.group(1))
+
+    return Decimal("0")
+
+
+def _calcular_metricas_producao_auto(produto, tamanho_lote_texto):
+    kg = _extrair_kg_da_descricao_produto(produto.descricao_produto if produto else "")
+    producao_por_dia = kg if kg > 0 else Decimal("0")
+    tamanho_lote = _parse_decimal_ou_zero(tamanho_lote_texto)
+    kg_por_lote = (tamanho_lote / kg) if (kg > 0 and tamanho_lote > 0) else Decimal("0")
+    return kg, producao_por_dia, kg_por_lote
 
 
 def _dados_carteira_from_post(post_data, empresa):
@@ -881,6 +964,64 @@ def atualizar_carga_por_post(carga, empresa, post_data):
     return ""
 
 
+def _dados_producao_from_post(post_data, empresa):
+    produto = Produto.objects.filter(id=post_data.get("produto_id"), empresa=empresa).first()
+    numero_operacao_raw = (post_data.get("numero_operacao") or "").strip()
+    tamanho_lote_texto = (post_data.get("tamanho_lote") or "").strip()
+    kg_auto, producao_por_dia_auto, kg_por_lote_auto = _calcular_metricas_producao_auto(produto, tamanho_lote_texto)
+
+    return {
+        "data_origem": (post_data.get("data_origem") or "").strip(),
+        "numero_operacao_raw": numero_operacao_raw,
+        "numero_operacao": max(0, _parse_int_ou_zero(numero_operacao_raw)),
+        "situacao": (post_data.get("situacao") or "").strip(),
+        "produto": produto,
+        "tamanho_lote": tamanho_lote_texto,
+        "numero_lote": (post_data.get("numero_lote") or "").strip(),
+        "data_hora_entrada_atividade": _parse_datetime_ou_none(post_data.get("data_hora_entrada_atividade")),
+        "data_hora_aceite_atividade": _parse_datetime_ou_none(post_data.get("data_hora_aceite_atividade")),
+        "data_hora_inicio_atividade": _parse_datetime_ou_none(post_data.get("data_hora_inicio_atividade")),
+        "data_hora_fim_atividade": _parse_datetime_ou_none(post_data.get("data_hora_fim_atividade")),
+        "kg": kg_auto,
+        "producao_por_dia": producao_por_dia_auto,
+        "kg_por_lote": kg_por_lote_auto,
+    }
+
+
+def criar_producao_por_post(empresa, post_data):
+    dados = _dados_producao_from_post(post_data, empresa)
+    if not dados["data_origem"]:
+        return "Data origem e obrigatoria."
+    if not dados["numero_operacao_raw"]:
+        return "Numero da operacao e obrigatorio."
+    if dados["numero_operacao"] <= 0:
+        return "Numero da operacao invalido."
+    if not dados["situacao"]:
+        return "Situacao e obrigatoria."
+    if not dados["produto"]:
+        return "Produto e obrigatorio."
+    dados.pop("numero_operacao_raw", None)
+    Producao.criar_producao(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_producao_por_post(producao_item, empresa, post_data):
+    dados = _dados_producao_from_post(post_data, empresa)
+    if not dados["data_origem"]:
+        return "Data origem e obrigatoria."
+    if not dados["numero_operacao_raw"]:
+        return "Numero da operacao e obrigatorio."
+    if dados["numero_operacao"] <= 0:
+        return "Numero da operacao invalido."
+    if not dados["situacao"]:
+        return "Situacao e obrigatoria."
+    if not dados["produto"]:
+        return "Produto e obrigatorio."
+    dados.pop("numero_operacao_raw", None)
+    producao_item.atualizar_producao(**dados)
+    return ""
+
+
 def _dados_atividade_from_post(post_data, empresa):
     projeto = Projeto.objects.filter(id=post_data.get("projeto_id"), empresa=empresa).first()
     if not projeto:
@@ -1206,6 +1347,14 @@ def preparar_diretorios_cargas():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_producao():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "producao"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
     if not arquivo:
         return False, "Selecione um arquivo .xls para importar."
@@ -1244,5 +1393,47 @@ def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretori
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, cargas: {resultado['cargas']}."
+        ),
+    )
+
+
+def importar_upload_producao(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+    arquivos_xls = []
+    for arquivo in arquivos or []:
+        nome_arquivo = Path(arquivo.name).name
+        if nome_arquivo.lower().endswith(".xls"):
+            arquivos_xls.append((arquivo, nome_arquivo))
+
+    if not arquivos_xls:
+        return False, "Selecione ao menos um arquivo .xls para importar."
+
+    for arquivo_antigo in [f for f in diretorio_importacao.iterdir() if f.is_file()]:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        shutil.move(str(arquivo_antigo), str(destino_subscrito))
+
+    for arquivo_upload, nome_arquivo in arquivos_xls:
+        destino = diretorio_importacao / nome_arquivo
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+
+    try:
+        resultado = importar_producao_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar producao: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, producoes: {resultado['producoes']}, "
+            f"produtos vinculados/criados: {resultado['produtos']}."
         ),
     )

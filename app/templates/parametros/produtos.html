@@ -1,0 +1,53 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Produtos{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/parametros/produtos.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}">Voltar</a>
+    <h1>Produtos</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Novo Produto</h2>
+    <p class="form-note">Cadastre codigo e descricao para vinculacao automatica na importacao de producao.</p>
+    <form action="{% url 'criar_produto_modulo' empresa.id %}" method="POST" class="inline-form inline-form--parceiros">
+        {% csrf_token %}
+        <input type="text" name="codigo_produto" placeholder="Codigo do produto" required>
+        <input type="text" name="descricao_produto" placeholder="Descricao do produto">
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Lista de Produtos</h2>
+    <div class="filter-grid">
+        <div>
+            <label>Buscar por codigo</label>
+            <input type="text" id="filtro-produto-codigo" placeholder="Digite o codigo">
+        </div>
+        <div>
+            <label>Buscar por descricao</label>
+            <input type="text" id="filtro-produto-descricao" placeholder="Digite a descricao">
+        </div>
+        <div>
+            <button type="button" class="btn-light" id="limpar-filtros-produtos">Limpar</button>
+        </div>
+    </div>
+    <div class="table-wrapper"><div id="produtos-tabulator" class="cadastro-tabulator"></div></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ produtos_tabulator|json_script:"produtos-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/produtos-page.js' %}"></script>
+{% endblock %}

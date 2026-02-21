@@ -22,6 +22,8 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    Producao,
+    Produto,
     Projeto,
     Regiao,
     Titulo,
@@ -49,12 +51,14 @@ from .services import (
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_orcamento,
     preparar_diretorios_cargas,
+    preparar_diretorios_producao,
     importar_upload_carteira,
     importar_upload_vendas,
     importar_upload_dfc,
     importar_upload_contas_a_receber,
     importar_upload_orcamento,
     importar_upload_cargas,
+    importar_upload_producao,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
     atualizar_empresa_por_nome,
@@ -66,6 +70,8 @@ from .services import (
     atualizar_colaborador_por_nome,
     criar_parceiro_por_dados,
     atualizar_parceiro_por_dados,
+    criar_produto_por_dados,
+    atualizar_produto_por_dados,
     criar_titulo_por_dados,
     atualizar_titulo_por_dados,
     criar_natureza_por_dados,
@@ -88,6 +94,8 @@ from .services import (
     atualizar_venda_por_post,
     criar_carga_por_post,
     atualizar_carga_por_post,
+    criar_producao_por_post,
+    atualizar_producao_por_post,
     criar_cidade_por_dados,
     atualizar_cidade_por_dados,
     criar_projeto_por_dados,
@@ -101,6 +109,7 @@ from .tabulator import (
     build_projetos_tabulator,
     build_regioes_tabulator,
     build_parceiros_tabulator,
+    build_produtos_tabulator,
     build_titulos_tabulator,
     build_naturezas_tabulator,
     build_operacoes_tabulator,
@@ -111,6 +120,7 @@ from .tabulator import (
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
     build_cargas_tabulator,
+    build_producao_tabulator,
 )
 
 
@@ -1087,6 +1097,85 @@ def excluir_parceiro_modulo(request, empresa_id, parceiro_id):
 
 
 @login_required(login_url="entrar")
+def produtos(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Produtos")
+    if not autorizado:
+        return redirect("index")
+
+    produtos_qs = Produto.objects.filter(empresa=empresa).order_by("codigo_produto")
+    produtos_tabulator = build_produtos_tabulator(produtos_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "produtos": produtos_qs,
+        "produtos_tabulator": produtos_tabulator,
+    }
+    return render(request, "parametros/produtos.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_produto_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Produtos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("produtos", empresa_id=empresa.id)
+
+    erro = criar_produto_por_dados(
+        empresa,
+        request.POST.get("codigo_produto"),
+        request.POST.get("descricao_produto"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("produtos", empresa_id=empresa.id)
+    messages.success(request, "Produto criado com sucesso.")
+    return redirect("produtos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_produto_modulo(request, empresa_id, produto_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Produtos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("produtos", empresa_id=empresa.id)
+
+    produto = Produto.objects.filter(id=produto_id, empresa=empresa).first()
+    if not produto:
+        messages.error(request, "Produto nao encontrado.")
+        return redirect("produtos", empresa_id=empresa.id)
+
+    erro = atualizar_produto_por_dados(
+        produto,
+        request.POST.get("codigo_produto"),
+        request.POST.get("descricao_produto"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("produtos", empresa_id=empresa.id)
+    messages.success(request, "Produto atualizado com sucesso.")
+    return redirect("produtos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_produto_modulo(request, empresa_id, produto_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Produtos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("produtos", empresa_id=empresa.id)
+
+    produto = Produto.objects.filter(id=produto_id, empresa=empresa).first()
+    if not produto:
+        messages.error(request, "Produto nao encontrado.")
+        return redirect("produtos", empresa_id=empresa.id)
+    produto.excluir_produto()
+    messages.success(request, "Produto excluido com sucesso.")
+    return redirect("produtos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def titulos(request, empresa_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Titulos")
     if not autorizado:
@@ -2012,6 +2101,103 @@ def excluir_carga_modulo(request, empresa_id, carga_id):
 
 
 @login_required(login_url="entrar")
+def producao(request, empresa_id):
+    modulo = _obter_modulo("Operacional", "Producao")
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_producao()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_producao":
+            erro = criar_producao_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de producao criado com sucesso.")
+        elif acao == "importar_producao":
+            arquivos = request.FILES.getlist("arquivos_producao")
+            ok, mensagem = importar_upload_producao(
+                empresa=empresa,
+                arquivos=arquivos,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        else:
+            messages.error(request, "Acao de producao invalida.")
+        return redirect("producao", empresa_id=empresa_id)
+
+    producoes_qs = (
+        Producao.objects.filter(empresa=empresa)
+        .select_related("produto")
+        .order_by("-id")
+    )
+
+    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": ", ".join(arquivos_existentes),
+        "tem_arquivo_existente": bool(arquivos_existentes),
+        "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
+        "producao_tabulator": build_producao_tabulator(producoes_qs, empresa.id),
+    }
+    return render(request, "operacional/producao.html", contexto)
+
+
+@login_required(login_url="entrar")
+def editar_producao_modulo(request, empresa_id, producao_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Producao")
+    if not autorizado:
+        return redirect("index")
+
+    producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).select_related("produto").first()
+    if not producao_item:
+        messages.error(request, "Registro de producao nao encontrado.")
+        return redirect("producao", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_producao_por_post(producao_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_producao_modulo", empresa_id=empresa.id, producao_id=producao_item.id)
+        messages.success(request, "Registro de producao atualizado com sucesso.")
+        return redirect("producao", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "producao_item": producao_item,
+        "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
+    }
+    return render(request, "operacional/producao_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_producao_modulo(request, empresa_id, producao_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Producao")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("producao", empresa_id=empresa.id)
+
+    producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).first()
+    if not producao_item:
+        messages.error(request, "Registro de producao nao encontrado.")
+        return redirect("producao", empresa_id=empresa.id)
+
+    producao_item.excluir_producao()
+    messages.success(request, "Registro de producao excluido com sucesso.")
+    return redirect("producao", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def operador_logistico(request, empresa_id):
     modulo = _obter_modulo("Operacional", "Operador Logistico")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
@@ -2026,10 +2212,4 @@ def tabela_de_fretes(request, empresa_id):
 @login_required(login_url="entrar")
 def estoque_pcp(request, empresa_id):
     modulo = _obter_modulo("Operacional", "Estoque - PCP")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
-
-
-@login_required(login_url="entrar")
-def producao(request, empresa_id):
-    modulo = _obter_modulo("Operacional", "Producao")
     return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])

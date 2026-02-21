@@ -718,6 +718,168 @@ class Cargas(models.Model):
     def excluir_carga(self):
         self.delete()
 
+class Produto(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="produtos")
+    codigo_produto = models.CharField(max_length=80)
+    descricao_produto = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo_produto"], name="uq_produto_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.codigo_produto} - {self.descricao_produto}"
+
+    @classmethod
+    def criar_produto(cls, empresa, codigo_produto, descricao_produto=""):
+        item = cls(
+            empresa=empresa,
+            codigo_produto=codigo_produto,
+            descricao_produto=descricao_produto,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_produtos_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def obter_ou_criar_por_codigo_descricao(cls, empresa, codigo_produto, descricao_produto):
+        codigo_produto = (codigo_produto or "").strip()
+        descricao_produto = (descricao_produto or "").strip()
+        if not codigo_produto:
+            return None
+
+        defaults = {"descricao_produto": descricao_produto}
+        produto, created = cls.objects.get_or_create(
+            empresa=empresa,
+            codigo_produto=codigo_produto,
+            defaults=defaults,
+        )
+        if not created and descricao_produto and produto.descricao_produto != descricao_produto:
+            produto.descricao_produto = descricao_produto
+            produto.save(update_fields=["descricao_produto"])
+        return produto
+
+    def atualizar_produto(self, codigo_produto=UNSET, descricao_produto=UNSET):
+        if codigo_produto is not UNSET:
+            self.codigo_produto = codigo_produto
+        if descricao_produto is not UNSET:
+            self.descricao_produto = descricao_produto
+        self.save()
+
+    def excluir_produto(self):
+        self.delete()
+
+class Producao(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="producoes")
+    data_origem = models.CharField(max_length=255, blank=True, default="")
+    numero_operacao = models.PositiveIntegerField()
+    situacao = models.CharField(max_length=100, blank=True, default="")
+    produto = models.ForeignKey(Produto, on_delete=models.SET_NULL, null=True, blank=True, related_name="producoes")
+    tamanho_lote = models.CharField(max_length=80, blank=True, default="")
+    numero_lote = models.CharField(max_length=80, blank=True, default="")
+    data_hora_entrada_atividade = models.DateTimeField(null=True, blank=True)
+    data_hora_aceite_atividade = models.DateTimeField(null=True, blank=True)
+    data_hora_inicio_atividade = models.DateTimeField(null=True, blank=True)
+    data_hora_fim_atividade = models.DateTimeField(null=True, blank=True)
+    kg = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    producao_por_dia = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    kg_por_lote = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+
+    def __str__(self):
+        return f"Producao #{self.id} - Operacao {self.numero_operacao}"
+
+    @classmethod
+    def criar_producao(
+        cls,
+        empresa,
+        data_origem="",
+        numero_operacao=0,
+        situacao="",
+        produto=None,
+        tamanho_lote="",
+        numero_lote="",
+        data_hora_entrada_atividade=None,
+        data_hora_aceite_atividade=None,
+        data_hora_inicio_atividade=None,
+        data_hora_fim_atividade=None,
+        kg=0,
+        producao_por_dia=0,
+        kg_por_lote=0,
+    ):
+        item = cls(
+            empresa=empresa,
+            data_origem=data_origem,
+            numero_operacao=numero_operacao,
+            situacao=situacao,
+            produto=produto,
+            tamanho_lote=tamanho_lote,
+            numero_lote=numero_lote,
+            data_hora_entrada_atividade=data_hora_entrada_atividade,
+            data_hora_aceite_atividade=data_hora_aceite_atividade,
+            data_hora_inicio_atividade=data_hora_inicio_atividade,
+            data_hora_fim_atividade=data_hora_fim_atividade,
+            kg=kg,
+            producao_por_dia=producao_por_dia,
+            kg_por_lote=kg_por_lote,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_producao(
+        self,
+        data_origem=UNSET,
+        numero_operacao=UNSET,
+        situacao=UNSET,
+        produto=UNSET,
+        tamanho_lote=UNSET,
+        numero_lote=UNSET,
+        data_hora_entrada_atividade=UNSET,
+        data_hora_aceite_atividade=UNSET,
+        data_hora_inicio_atividade=UNSET,
+        data_hora_fim_atividade=UNSET,
+        kg=UNSET,
+        producao_por_dia=UNSET,
+        kg_por_lote=UNSET,
+    ):
+        if data_origem is not UNSET:
+            self.data_origem = data_origem
+        if numero_operacao is not UNSET:
+            self.numero_operacao = numero_operacao
+        if situacao is not UNSET:
+            self.situacao = situacao
+        if produto is not UNSET:
+            self.produto = produto
+        if tamanho_lote is not UNSET:
+            self.tamanho_lote = tamanho_lote
+        if numero_lote is not UNSET:
+            self.numero_lote = numero_lote
+        if data_hora_entrada_atividade is not UNSET:
+            self.data_hora_entrada_atividade = data_hora_entrada_atividade
+        if data_hora_aceite_atividade is not UNSET:
+            self.data_hora_aceite_atividade = data_hora_aceite_atividade
+        if data_hora_inicio_atividade is not UNSET:
+            self.data_hora_inicio_atividade = data_hora_inicio_atividade
+        if data_hora_fim_atividade is not UNSET:
+            self.data_hora_fim_atividade = data_hora_fim_atividade
+        if kg is not UNSET:
+            self.kg = kg
+        if producao_por_dia is not UNSET:
+            self.producao_por_dia = producao_por_dia
+        if kg_por_lote is not UNSET:
+            self.kg_por_lote = kg_por_lote
+        self.save()
+
+    def excluir_producao(self):
+        self.delete()
+
 class Titulo(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="titulos")
     tipo_titulo_codigo = models.CharField(max_length=50)
