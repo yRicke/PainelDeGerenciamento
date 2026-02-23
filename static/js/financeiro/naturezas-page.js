@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var dataElement = document.getElementById("naturezas-tabulator-data");
     if (!dataElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
@@ -8,7 +8,7 @@
     var filtroDescricao = document.getElementById("filtro-natureza-descricao");
     var limparFiltrosBtn = document.getElementById("limpar-filtros-naturezas");
 
-    var tabela = new Tabulator("#naturezas-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#naturezas-tabulator", {
         data: data,
         layout: "fitDataStretch",
         pagination: true,
@@ -56,4 +56,5 @@
         tabela.clearFilter(true);
     });
 })();
+
 

@@ -97,7 +97,7 @@
         return aIso.localeCompare(bIso);
     }
 
-    var tabela = new Tabulator("#contas-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#contas-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
@@ -350,3 +350,4 @@
     tabela.on("renderComplete", atualizarDashboard);
     setTimeout(atualizarDashboard, 0);
 })();
+

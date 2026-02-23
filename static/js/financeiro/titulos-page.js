@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var dataElement = document.getElementById("titulos-tabulator-data");
     if (!dataElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
@@ -8,7 +8,7 @@
     var filtroDescricao = document.getElementById("filtro-titulo-descricao");
     var limparFiltrosBtn = document.getElementById("limpar-filtros-titulos");
 
-    var tabela = new Tabulator("#titulos-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#titulos-tabulator", {
         data: data,
         layout: "fitDataStretch",
         pagination: true,
@@ -56,4 +56,5 @@
         tabela.clearFilter(true);
     });
 })();
+
 

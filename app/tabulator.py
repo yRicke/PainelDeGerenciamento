@@ -156,6 +156,7 @@ def build_cargas_tabulator(cargas_qs, empresa_id: int):
 def build_producao_tabulator(producoes_qs, empresa_id: int):
     resultado = []
     for item in producoes_qs:
+        entrada_atividade = item.data_hora_entrada_atividade
         resultado.append(
             {
                 "id": item.id,
@@ -166,13 +167,19 @@ def build_producao_tabulator(producoes_qs, empresa_id: int):
                 "produto_descricao": item.produto.descricao_produto if item.produto else "",
                 "tamanho_lote": item.tamanho_lote or "",
                 "numero_lote": item.numero_lote or "",
-                "data_hora_entrada_atividade": _fmt_datetime_br(item.data_hora_entrada_atividade),
+                "data_hora_entrada_atividade": _fmt_datetime_br(entrada_atividade),
+                "data_hora_entrada_atividade_iso": (
+                    entrada_atividade.strftime("%Y-%m-%d")
+                    if entrada_atividade
+                    else ""
+                ),
                 "data_hora_aceite_atividade": _fmt_datetime_br(item.data_hora_aceite_atividade),
                 "data_hora_inicio_atividade": _fmt_datetime_br(item.data_hora_inicio_atividade),
                 "data_hora_fim_atividade": _fmt_datetime_br(item.data_hora_fim_atividade),
                 "kg": float(item.kg or 0),
                 "producao_por_dia": float(item.producao_por_dia or 0),
                 "kg_por_lote": float(item.kg_por_lote or 0),
+                "pacote_por_fardo_parametro": float(item.produto.pacote_por_fardo or 0) if item.produto else 0,
                 "editar_url": reverse(
                     "editar_producao_modulo",
                     kwargs={"empresa_id": empresa_id, "producao_id": item.id},
@@ -257,6 +264,25 @@ def build_regioes_tabulator(regioes_qs, empresa_id: int):
     ]
 
 
+def build_unidades_federativas_tabulator(unidades_qs, empresa_id: int):
+    return [
+        {
+            "id": unidade.id,
+            "codigo": unidade.codigo,
+            "sigla": unidade.sigla,
+            "editar_url": reverse(
+                "editar_unidade_federativa_modulo",
+                kwargs={"empresa_id": empresa_id, "unidade_federativa_id": unidade.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_unidade_federativa_modulo",
+                kwargs={"empresa_id": empresa_id, "unidade_federativa_id": unidade.id},
+            ),
+        }
+        for unidade in unidades_qs
+    ]
+
+
 def build_parceiros_tabulator(parceiros_qs, empresa_id: int):
     return [
         {
@@ -281,7 +307,20 @@ def build_produtos_tabulator(produtos_qs, empresa_id: int):
         {
             "id": produto.id,
             "codigo_produto": produto.codigo_produto,
+            "status": produto.status or "Ativo",
             "descricao_produto": produto.descricao_produto or "",
+            "kg": float(produto.kg or 0),
+            "remuneracao_por_fardo": float(produto.remuneracao_por_fardo or 0),
+            "ppm": float(produto.ppm or 0),
+            "peso_kg": float(produto.peso_kg or 0),
+            "pacote_por_fardo": float(produto.pacote_por_fardo or 0),
+            "turno": float(produto.turno or 0),
+            "horas": float(produto.horas or 0),
+            "setup": float(produto.setup or 0),
+            "horas_uteis": float(produto.horas_uteis or 0),
+            "empacotadeiras": float(produto.empacotadeiras or 0),
+            "producao_por_dia_fd": float(produto.producao_por_dia_fd or 0),
+            "estoque_minimo_pacote": float(produto.estoque_minimo_pacote or 0),
             "editar_url": reverse(
                 "editar_produto_modulo",
                 kwargs={"empresa_id": empresa_id, "produto_id": produto.id},
@@ -293,6 +332,79 @@ def build_produtos_tabulator(produtos_qs, empresa_id: int):
         }
         for produto in produtos_qs
     ]
+
+
+def build_fretes_tabulator(fretes_qs, empresa_id: int):
+    resultado = []
+    for item in fretes_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "cidade_codigo": item.cidade.codigo if item.cidade else "",
+                "cidade_nome": item.cidade.nome if item.cidade else "",
+                "unidade_federativa_codigo": item.unidade_federativa.codigo if item.unidade_federativa else "",
+                "unidade_federativa_sigla": item.unidade_federativa.sigla if item.unidade_federativa else "",
+                "regiao_codigo": item.regiao.codigo if item.regiao else "",
+                "regiao_nome": item.regiao.nome if item.regiao else "",
+                "valor_frete_comercial": float(item.valor_frete_comercial or 0),
+                "data_hora_alteracao": _fmt_datetime_br(item.data_hora_alteracao),
+                "data_hora_alteracao_iso": (
+                    item.data_hora_alteracao.strftime("%Y-%m-%dT%H:%M")
+                    if item.data_hora_alteracao
+                    else ""
+                ),
+                "valor_frete_minimo": float(item.valor_frete_minimo or 0),
+                "valor_frete_tonelada": float(item.valor_frete_tonelada or 0),
+                "tipo_frete": item.tipo_frete or "",
+                "valor_frete_por_km": float(item.valor_frete_por_km or 0),
+                "valor_taxa_entrada": float(item.valor_taxa_entrada or 0),
+                "venda_minima": float(item.venda_minima or 0),
+                "editar_url": reverse(
+                    "editar_frete_modulo",
+                    kwargs={"empresa_id": empresa_id, "frete_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_estoque_tabulator(estoques_qs, empresa_id: int):
+    resultado = []
+    for item in estoques_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "nome_origem": _fmt_date_br(item.nome_origem),
+                "nome_origem_iso": item.nome_origem.strftime("%Y-%m-%d") if item.nome_origem else "",
+                "data_contagem": _fmt_date_br(item.data_contagem),
+                "data_contagem_iso": item.data_contagem.strftime("%Y-%m-%d") if item.data_contagem else "",
+                "status": item.status or "",
+                "codigo_empresa": item.codigo_empresa or "",
+                "produto_codigo": item.produto.codigo_produto if item.produto else "",
+                "produto_descricao": item.produto.descricao_produto if item.produto else "",
+                "qtd_estoque": float(item.qtd_estoque or 0),
+                "giro_mensal": float(item.giro_mensal or 0),
+                "lead_time_fornecimento": float(item.lead_time_fornecimento or 0),
+                "codigo_voume": item.codigo_voume or "",
+                "custo_total": float(item.custo_total or 0),
+                "reservado": float(item.reservado or 0),
+                "pacote_por_fardo": float(item.pacote_por_fardo or 0),
+                "sub_total_est_pen": float(item.sub_total_est_pen or 0),
+                "estoque_minimo": float(item.estoque_minimo or 0),
+                "producao_por_dia_fd": float(item.producao_por_dia_fd or 0),
+                "total_pcp_pacote": float(item.total_pcp_pacote or 0),
+                "total_pcp_fardo": float(item.total_pcp_fardo or 0),
+                "dia_de_producao": float(item.dia_de_producao or 0),
+                "codigo_local": item.codigo_local or "",
+                "ano_contagem": item.data_contagem.year if item.data_contagem else "",
+                "mes_contagem": item.data_contagem.month if item.data_contagem else "",
+                "editar_url": reverse(
+                    "editar_estoque_modulo",
+                    kwargs={"empresa_id": empresa_id, "estoque_id": item.id},
+                ),
+            }
+        )
+    return resultado
 
 
 def build_titulos_tabulator(titulos_qs, empresa_id: int):

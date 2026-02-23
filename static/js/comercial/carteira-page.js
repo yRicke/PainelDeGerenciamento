@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var chartContainer = document.getElementById("carteira-dashboard-chart");
     if (!chartContainer || !window.ApexCharts) return;
 
@@ -483,7 +483,7 @@
         return valor ? trueLabel : falseLabel;
     }
 
-    var tabela = new Tabulator("#carteira-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#carteira-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
@@ -588,4 +588,5 @@
     tabela.on("dataFiltered", atualizarDashboardComDadosVisiveis);
     setTimeout(atualizarDashboardComDadosVisiveis, 0);
 })();
+
 

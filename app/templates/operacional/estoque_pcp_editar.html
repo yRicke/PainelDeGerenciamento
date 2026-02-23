@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Estoque{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/operacional/estoque-pcp-editar.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'estoque_pcp' empresa.id %}">Voltar para estoque</a>
+    <h1>Editar Estoque #{{ estoque_item.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <p class="form-note">Revise os campos obrigatórios antes de salvar.</p>
+    <form action="{% url 'editar_estoque_modulo' empresa.id estoque_item.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Nome origem</label>
+                <input type="date" name="nome_origem" value="{{ estoque_item.nome_origem|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+                <label>Data contagem</label>
+                <input type="date" name="data_contagem" value="{{ estoque_item.data_contagem|date:'Y-m-d' }}" required>
+            </div>
+            <div>
+                <label>Status</label>
+                <select name="status" required>
+                    {% for status_opcao in status_opcoes_estoque %}
+                    <option value="{{ status_opcao }}" {% if estoque_item.status == status_opcao %}selected{% endif %}>{{ status_opcao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Código empresa</label>
+                <input type="text" name="codigo_empresa" value="{{ estoque_item.codigo_empresa }}" required>
+            </div>
+            <div>
+                <label>Produto</label>
+                <select name="produto_id" required>
+                    <option value="">Selecione</option>
+                    {% for item in produtos %}
+                    <option
+                        value="{{ item.id }}"
+                        data-pacote-por-fardo="{{ item.pacote_por_fardo|default_if_none:0 }}"
+                        data-estoque-minimo="{{ item.estoque_minimo_pacote|default_if_none:0 }}"
+                        data-producao-por-dia-fd="{{ item.producao_por_dia_fd|default_if_none:0 }}"
+                        data-produto-parametrizado="{% if item.pacote_por_fardo or item.producao_por_dia_fd or item.estoque_minimo_pacote %}1{% else %}0{% endif %}"
+                        {% if estoque_item.produto_id == item.id %}selected{% endif %}
+                    >
+                        {{ item.codigo_produto }} - {{ item.descricao_produto }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Código local</label>
+                <select name="codigo_local" required>
+                    <option value="">Selecione</option>
+                    {% for codigo_local in codigos_local_estoque %}
+                    <option value="{{ codigo_local }}" {% if estoque_item.codigo_local == codigo_local %}selected{% endif %}>{{ codigo_local }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Qtd. estoque</label>
+                <input type="text" name="qtd_estoque" value="{{ estoque_item.qtd_estoque }}">
+            </div>
+            <div>
+                <label>Reservado</label>
+                <input type="text" name="reservado" value="{{ estoque_item.reservado }}">
+            </div>
+            <div>
+                <label>Custo total</label>
+                <input type="text" name="custo_total" value="{{ estoque_item.custo_total }}">
+            </div>
+            <div>
+                <label>Código volume</label>
+                <select name="codigo_voume">
+                    <option value="">Selecione</option>
+                    {% for codigo_voume in codigos_voume_estoque %}
+                    <option value="{{ codigo_voume }}" {% if estoque_item.codigo_voume == codigo_voume %}selected{% endif %}>{{ codigo_voume }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Pacote por fardo</label>
+                <input type="text" name="pacote_por_fardo" value="{{ estoque_item.pacote_por_fardo }}" readonly>
+            </div>
+            <div>
+                <label>Estoque mínimo</label>
+                <input type="text" name="estoque_minimo" value="{{ estoque_item.estoque_minimo }}" readonly>
+            </div>
+            <div>
+                <label>Produção por dia (FD)</label>
+                <input type="text" name="producao_por_dia_fd" value="{{ estoque_item.producao_por_dia_fd }}" readonly>
+            </div>
+            <div>
+                <label>Giro mensal</label>
+                <input type="text" name="giro_mensal" value="{{ estoque_item.giro_mensal }}">
+            </div>
+            <div>
+                <label>Lead time fornecimento</label>
+                <input type="text" name="lead_time_fornecimento" value="{{ estoque_item.lead_time_fornecimento }}">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alterações</button>
+        </div>
+        <p class="form-note">Pacote por fardo, estoque mínimo e produção por dia (FD) seguem automaticamente os parâmetros do produto selecionado.</p>
+    </form>
+
+    <div class="danger-zone">
+        <p>Ação irreversível: exclui este registro de estoque.</p>
+        <form action="{% url 'excluir_estoque_modulo' empresa.id estoque_item.id %}" method="POST" onsubmit="return confirm('Excluir estoque {{ estoque_item.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir estoque</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var form = document.querySelector('form[action*="editar_estoque_modulo"]');
+        if (!form) return;
+
+        var selectProduto = form.querySelector('select[name="produto_id"]');
+        var inputPacote = form.querySelector('input[name="pacote_por_fardo"]');
+        var inputMinimo = form.querySelector('input[name="estoque_minimo"]');
+        var inputFd = form.querySelector('input[name="producao_por_dia_fd"]');
+        if (!selectProduto || !inputPacote || !inputMinimo || !inputFd) return;
+
+        function aplicarParametrosDaOpcaoSelecionada() {
+            var opcao = selectProduto.options[selectProduto.selectedIndex];
+            if (!opcao || !opcao.value) {
+                inputPacote.value = "0";
+                inputMinimo.value = "0";
+                inputFd.value = "0";
+                return;
+            }
+            inputPacote.value = opcao.dataset.pacotePorFardo || "0";
+            inputFd.value = opcao.dataset.producaoPorDiaFd || "0";
+            var parametrizado = (opcao.dataset.produtoParametrizado || "0") === "1";
+            inputMinimo.value = parametrizado ? (opcao.dataset.estoqueMinimo || "0") : "12000";
+        }
+
+        selectProduto.addEventListener("change", aplicarParametrosDaOpcaoSelecionada);
+        aplicarParametrosDaOpcaoSelecionada();
+    })();
+</script>
+{% endblock %}

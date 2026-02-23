@@ -10,7 +10,7 @@
 }
 
 #carteira-tabulator {
-    min-width: 1500px;
+    min-width: 1300px;
 }
 
 .btn-light {
@@ -143,3 +143,4 @@
         grid-template-columns: 1fr;
     }
 }
+

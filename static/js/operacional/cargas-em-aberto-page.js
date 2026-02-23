@@ -1,23 +1,56 @@
-﻿(function () {
+(function () {
     var formCriacao = document.getElementById("criar-carga-form");
     if (!formCriacao) return;
 
+    var dataInicio = formCriacao.querySelector('input[name="data_inicio"]');
+    var dataPrevistaSaida = document.getElementById("data-prevista-saida-criar");
     var dataChegada = document.getElementById("data-chegada-criar");
     var dataFinalizacao = document.getElementById("data-finalizacao-criar");
-    if (!dataChegada || !dataFinalizacao) return;
+    if (!dataInicio || !dataPrevistaSaida || !dataChegada || !dataFinalizacao) return;
 
-    function atualizarBloqueioFinalizacao() {
-        var temChegada = Boolean(dataChegada.value);
-        dataFinalizacao.disabled = !temChegada;
-        dataFinalizacao.min = dataChegada.value || "";
-        if (!temChegada) {
+    function atualizarEncadeamentoDatas() {
+        var valorInicio = dataInicio.value || "";
+        dataPrevistaSaida.disabled = !valorInicio;
+        dataPrevistaSaida.min = valorInicio || "";
+        if (!valorInicio) {
+            dataPrevistaSaida.value = "";
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+        if (valorInicio && dataPrevistaSaida.value && dataPrevistaSaida.value < valorInicio) {
+            dataPrevistaSaida.value = "";
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+
+        var valorSaida = dataPrevistaSaida.value || "";
+        dataChegada.disabled = !valorSaida;
+        dataChegada.min = valorSaida || "";
+        if (!valorSaida) {
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+        if (valorSaida && dataChegada.value && dataChegada.value < valorSaida) {
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+
+        var valorChegada = dataChegada.value || "";
+        dataFinalizacao.disabled = !valorChegada;
+        dataFinalizacao.min = valorChegada || "";
+        if (!valorChegada) {
+            dataFinalizacao.value = "";
+        }
+        if (valorChegada && dataFinalizacao.value && dataFinalizacao.value < valorChegada) {
             dataFinalizacao.value = "";
         }
     }
 
-    dataChegada.addEventListener("change", atualizarBloqueioFinalizacao);
-    dataChegada.addEventListener("input", atualizarBloqueioFinalizacao);
-    atualizarBloqueioFinalizacao();
+    [dataInicio, dataPrevistaSaida, dataChegada, dataFinalizacao].forEach(function (input) {
+        input.addEventListener("change", atualizarEncadeamentoDatas);
+        input.addEventListener("input", atualizarEncadeamentoDatas);
+    });
+    atualizarEncadeamentoDatas();
 })();
 
 (function () {
@@ -56,7 +89,7 @@
     function selecionarArquivo(files) {
         var arquivo = obterArquivoXls(files);
         if (!arquivo) {
-            window.alert("Selecione um arquivo .xls valido.");
+            window.alert("Selecione um arquivo .xls válido.");
             input.value = "";
             atualizarStatus(null);
             return;
@@ -98,7 +131,7 @@
 
         if (temArquivoExistente) {
             var confirmou = window.confirm(
-                "Ja existe arquivo na pasta. Deseja substituir e mover o arquivo antigo para subscritos?"
+                "Já existe arquivo na pasta. Deseja substituir e mover o arquivo antigo para subscritos?"
             );
             if (!confirmou) {
                 event.preventDefault();
@@ -119,6 +152,7 @@
     var filtroVerificacao = document.getElementById("filtro-verificacao");
     var filtroCritica = document.getElementById("filtro-critica");
     var filtroEmpresa = document.getElementById("filtro-empresa");
+    var limparFiltrosBtn = document.getElementById("limpar-filtros-cargas");
 
     var kpiTotal = document.getElementById("kpi-cargas-em-aberto");
     var kpiNoPrazo = document.getElementById("kpi-cargas-no-prazo");
@@ -144,7 +178,7 @@
         kpiNoPrazo.textContent = String(total - foraPrazo);
     }
 
-    var table = new Tabulator("#cargas-tabulator", {
+    var table = window.TabulatorDefaults.create("#cargas-tabulator", {
         data: dadosOriginais,
         layout: "fitDataTable",
         movableColumns: true,
@@ -155,30 +189,30 @@
             "pt-br": {
                 pagination: {
                     first: "Primeira",
-                    first_title: "Primeira pagina",
-                    last: "Ultima",
-                    last_title: "Ultima pagina",
+                    first_title: "Primeira página",
+                    last: "Última",
+                    last_title: "Última página",
                     prev: "Anterior",
-                    prev_title: "Pagina anterior",
-                    next: "Proxima",
-                    next_title: "Proxima pagina"
+                    prev_title: "Página anterior",
+                    next: "Próxima",
+                    next_title: "Próxima página"
                 }
             }
         },
         columns: [
             { title: "Ordem Carga", field: "ordem_de_carga_codigo", headerFilter: "input" },
-            { title: "Situacao", field: "situacao", headerFilter: "input" },
+            { title: "Situação", field: "situacao", headerFilter: "input" },
             { title: "Empresa", field: "nome_fantasia_empresa", headerFilter: "input" },
             { title: "Motorista", field: "nome_motorista", headerFilter: "input" },
-            { title: "Regiao", field: "regiao_nome", headerFilter: "input" },
-            { title: "Inicio", field: "data_inicio", hozAlign: "center" },
-            { title: "Prev. Saida", field: "data_prevista_saida", hozAlign: "center" },
+            { title: "Região", field: "regiao_nome", headerFilter: "input" },
+            { title: "Início", field: "data_inicio", hozAlign: "center" },
+            { title: "Prev. Saída", field: "data_prevista_saida", hozAlign: "center" },
             { title: "Chegada", field: "data_chegada", hozAlign: "center" },
-            { title: "Finalizacao", field: "data_finalizacao", hozAlign: "center" },
+            { title: "Finalização", field: "data_finalizacao", hozAlign: "center" },
             { title: "Prazo Max. (dias)", field: "prazo_maximo_dias", hozAlign: "right" },
             { title: "Idade (dias)", field: "idade_dias", hozAlign: "right" },
             {
-                title: "Verificacao",
+                title: "Verificação",
                 field: "verificacao",
                 hozAlign: "center",
                 formatter: function (cell) {
@@ -235,6 +269,18 @@
     registrarFiltro(filtroCritica);
     registrarFiltro(filtroEmpresa);
 
+    if (limparFiltrosBtn) {
+        limparFiltrosBtn.addEventListener("click", function () {
+            if (filtroSituacao) filtroSituacao.value = "";
+            if (filtroVerificacao) filtroVerificacao.value = "";
+            if (filtroCritica) filtroCritica.value = "";
+            if (filtroEmpresa) filtroEmpresa.value = "";
+            table.clearFilter(true);
+            table.clearHeaderFilter();
+            atualizarDashboard(dadosOriginais);
+        });
+    }
+
     table.on("dataFiltered", function (_filters, rows) {
         var dadosFiltrados = rows.map(function (row) {
             return row.getData();
@@ -245,4 +291,5 @@
     table.setLocale("pt-br");
     atualizarDashboard(dadosOriginais);
 })();
+
 

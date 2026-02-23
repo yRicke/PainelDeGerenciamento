@@ -9,7 +9,7 @@ import unicodedata
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import Cargas, Producao, Produto, Regiao
+from ..models import Cargas, Cidade, Estoque, Frete, Producao, Produto, Regiao, UnidadeFederativa
 
 try:
     import xlrd
@@ -209,16 +209,623 @@ def _primeiro_valor_do_registro(registro: dict, aliases: list[str]):
 def _resolver_regiao(empresa, codigo_regiao: str, nome_regiao: str):
     codigo = _normalizar_codigo(codigo_regiao)
     nome = _normalizar_texto(nome_regiao)
-    if codigo:
-        defaults = {"empresa": empresa, "nome": nome or codigo}
-        regiao, created = Regiao.objects.get_or_create(codigo=codigo, defaults=defaults)
-        if not created and nome and regiao.nome != nome:
-            regiao.nome = nome
-            regiao.save(update_fields=["nome"])
-        return regiao
-    if nome:
+    if not codigo and not nome:
+        return None
+    if not codigo:
         return Regiao.objects.filter(empresa=empresa, nome=nome).first()
-    return None
+
+    defaults = {"empresa": empresa, "nome": nome or codigo}
+    regiao, created = Regiao.objects.get_or_create(codigo=codigo, defaults=defaults)
+    if created or not nome or regiao.nome == nome:
+        return regiao
+
+    regiao.nome = nome
+    regiao.save(update_fields=["nome"])
+    return regiao
+
+
+def _resolver_cidade(empresa, codigo_cidade: str, nome_cidade: str):
+    codigo = _normalizar_codigo(codigo_cidade)
+    nome = _normalizar_texto(nome_cidade)
+    if not codigo and not nome:
+        return None
+    if not codigo:
+        return Cidade.objects.filter(empresa=empresa, nome=nome).first()
+
+    defaults = {"empresa": empresa, "nome": nome or codigo}
+    cidade, created = Cidade.objects.get_or_create(codigo=codigo, defaults=defaults)
+    if created or not nome or cidade.nome == nome:
+        return cidade
+
+    cidade.nome = nome
+    cidade.save(update_fields=["nome"])
+    return cidade
+
+
+def _resolver_unidade_federativa(empresa, codigo_uf: str, sigla_uf: str):
+    codigo = _normalizar_codigo(codigo_uf)
+    sigla = _normalizar_texto(sigla_uf).upper()
+    if not codigo:
+        return None
+
+    defaults = {"empresa": empresa, "sigla": sigla or codigo}
+    unidade, created = UnidadeFederativa.objects.get_or_create(codigo=codigo, defaults=defaults)
+    if created or not sigla or unidade.sigla == sigla:
+        return unidade
+
+    unidade.sigla = sigla
+    unidade.save(update_fields=["sigla"])
+    return unidade
+
+
+def _to_decimal_frete_comercial(valor) -> Decimal:
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return Decimal("0")
+
+    match = re.search(r"R\$\s*([0-9\.\,]+)", texto, flags=re.IGNORECASE)
+    if match:
+        return _to_decimal(match.group(1))
+    return _to_decimal(texto)
+
+
+def _detectar_indices_colunas_frete(linhas):
+    melhor = None
+    melhor_score = -1
+
+    for linha in linhas:
+        if not any(_normalizar_texto(v) for v in linha):
+            continue
+        tokens = [_normalizar_nome_coluna(v) for v in linha]
+
+        idx_cidade_codigo = next((i for i, t in enumerate(tokens) if t == "codcidade"), None)
+        idx_uf_codigo = next((i for i, t in enumerate(tokens) if t == "coduf"), None)
+        idx_regiao_codigo = next((i for i, t in enumerate(tokens) if t == "regiao"), None)
+
+        idx_cidade_nome = None
+        idx_regiao_nome = None
+        if idx_cidade_codigo is not None:
+            idx_cidade_nome = next(
+                (
+                    i
+                    for i, t in enumerate(tokens)
+                    if t == "nome" and i > idx_cidade_codigo
+                ),
+                None,
+            )
+        if idx_regiao_codigo is not None:
+            idx_regiao_nome = next(
+                (
+                    i
+                    for i, t in enumerate(tokens)
+                    if t == "nome" and i > idx_regiao_codigo
+                ),
+                None,
+            )
+
+        mapa = {
+            "cidade_codigo": idx_cidade_codigo,
+            "cidade_nome": idx_cidade_nome,
+            "sigla_uf": next((i for i, t in enumerate(tokens) if t == "sigla"), None),
+            "codigo_uf": idx_uf_codigo,
+            "valor_frete_comercial": next((i for i, t in enumerate(tokens) if t == "vlrfretecomercial"), None),
+            "regiao_codigo": idx_regiao_codigo,
+            "regiao_nome": idx_regiao_nome,
+            "data_hora_alteracao": next((i for i, t in enumerate(tokens) if t == "datadealteracao"), None),
+            "valor_frete_minimo": next((i for i, t in enumerate(tokens) if t == "valordefreteminimo"), None),
+            "valor_frete_tonelada": next((i for i, t in enumerate(tokens) if t == "valordefreteportonelada"), None),
+            "tipo_frete": next((i for i, t in enumerate(tokens) if t == "tipodefrete"), None),
+            "valor_frete_por_km": next((i for i, t in enumerate(tokens) if t == "valordefreteporkm"), None),
+            "valor_taxa_entrada": next((i for i, t in enumerate(tokens) if t == "valortaxadeentrada"), None),
+            "venda_minima": next((i for i, t in enumerate(tokens) if t == "vendaminima"), None),
+        }
+        score = sum(1 for value in mapa.values() if value is not None)
+        if score > melhor_score:
+            melhor_score = score
+            melhor = mapa
+
+    if not melhor:
+        return None
+    if melhor.get("cidade_codigo") is None or melhor.get("codigo_uf") is None or melhor.get("regiao_codigo") is None:
+        return None
+    return melhor
+
+
+def _detectar_tipo_layout_estoque(linhas):
+    for linha in linhas:
+        tokens = {_normalizar_nome_coluna(valor) for valor in linha if _normalizar_texto(valor)}
+        # Layout "posicao" varia entre arquivos: alguns nao trazem DESCRPROD.
+        # Mantemos a deteccao por colunas estruturais obrigatorias.
+        if {"qtdestoque", "dtcontagem", "codempresa", "codlocal", "codproduto"}.issubset(tokens):
+            return "posicao"
+        if {"empresa", "local", "descricaolocal", "codproduto", "reservado", "estoque"}.issubset(tokens):
+            return "reservado"
+    return ""
+
+
+def _extrair_data_do_nome_arquivo(nome_arquivo: str):
+    texto = _normalizar_texto(nome_arquivo)
+    match = re.search(r"(\d{2})[.\-_/](\d{2})[.\-_/](\d{2,4})", texto)
+    if not match:
+        return None
+    dia, mes, ano = match.groups()
+    if len(ano) == 2:
+        ano = f"20{ano}"
+    try:
+        return datetime.strptime(f"{dia}/{mes}/{ano}", "%d/%m/%Y").date()
+    except ValueError:
+        return None
+
+
+def _detectar_indices_colunas_exatas(linhas, mapeamento_colunas, obrigatorias=None):
+    melhor = None
+    melhor_score = -1
+
+    for linha in linhas:
+        if not any(_normalizar_texto(v) for v in linha):
+            continue
+        normalizadas = [_normalizar_nome_coluna(v) for v in linha]
+        idx_map = {}
+        for chave, alias in mapeamento_colunas.items():
+            idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token == alias), None)
+        score = sum(1 for v in idx_map.values() if v is not None)
+        if score > melhor_score:
+            melhor_score = score
+            melhor = idx_map
+
+    if not melhor:
+        return None
+    if obrigatorias:
+        for campo in obrigatorias:
+            if melhor.get(campo) is None:
+                return None
+    return melhor
+
+
+def _pacote_por_fardo_por_descricao(descricao: str) -> Decimal:
+    texto = _normalizar_texto(descricao).upper()
+    match = re.search(r"(\d+)\s*[Xx]", texto)
+    if match:
+        return Decimal(match.group(1))
+    return Decimal("1")
+
+
+def _decimal_zero():
+    return Decimal("0")
+
+
+def _valor_por_indice(linha, indices, chave):
+    idx = indices.get(chave)
+    if idx is None or idx >= len(linha):
+        return ""
+    return linha[idx]
+
+
+@transaction.atomic
+def importar_estoque_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/operacional/estoque_pcp",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    pasta_subscritos = base / "subscritos"
+    arquivos = sorted(
+        [
+            arquivo
+            for arquivo in base.rglob("*.xls")
+            if arquivo.is_file() and pasta_subscritos not in arquivo.parents
+        ]
+    )
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "arquivos_posicao": 0,
+            "arquivos_reservado": 0,
+            "linhas": 0,
+            "estoques": 0,
+        }
+
+    posicoes = {}
+    reservados = {}
+    total_linhas = 0
+    total_arquivos_posicao = 0
+    total_arquivos_reservado = 0
+
+    for arquivo in arquivos:
+        linhas = list(_iterar_linhas_xls(arquivo))
+        if not linhas:
+            continue
+
+        tipo_layout = _detectar_tipo_layout_estoque(linhas[:10])
+        data_nome_arquivo = _extrair_data_do_nome_arquivo(arquivo.name) or timezone.localdate()
+
+        if tipo_layout == "posicao":
+            total_arquivos_posicao += 1
+            indices = _detectar_indices_colunas_exatas(
+                linhas[:20],
+                {
+                    "descricao_produto": "descrprod",
+                    "qtd_estoque": "qtdestoque",
+                    "data_contagem": "dtcontagem",
+                    "codigo_empresa": "codempresa",
+                    "codigo_produto": "codproduto",
+                    "codigo_voume": "codvoume",
+                    "codigo_local": "codlocal",
+                    "custo_total": "custototal",
+                },
+                obrigatorias=["codigo_produto", "codigo_empresa", "codigo_local", "qtd_estoque"],
+            )
+            if not indices:
+                continue
+
+            for linha in linhas:
+                codigo_produto = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_produto"))
+                if not codigo_produto or not codigo_produto.isdigit():
+                    continue
+
+                codigo_empresa = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_empresa"))
+                codigo_local = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_local"))
+                if not codigo_empresa or not codigo_local:
+                    continue
+
+                descricao_produto = _normalizar_texto(_valor_por_indice(linha, indices, "descricao_produto"))
+                qtd_estoque = _to_decimal(_valor_por_indice(linha, indices, "qtd_estoque"))
+                custo_total = _to_decimal(_valor_por_indice(linha, indices, "custo_total"))
+                data_contagem = _excel_date(_valor_por_indice(linha, indices, "data_contagem")) or data_nome_arquivo
+                codigo_voume = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_voume"))
+                chave = (data_contagem, codigo_empresa, codigo_local, codigo_produto)
+
+                atual = posicoes.get(chave)
+                if not atual:
+                    posicoes[chave] = {
+                        "descricao_produto": descricao_produto,
+                        "qtd_estoque": qtd_estoque,
+                        "custo_total": custo_total,
+                        "data_contagem": data_contagem,
+                        "codigo_voume": codigo_voume,
+                        "nome_origem": data_nome_arquivo,
+                    }
+                else:
+                    atual["qtd_estoque"] += qtd_estoque
+                    atual["custo_total"] += custo_total
+                    if not atual["descricao_produto"] and descricao_produto:
+                        atual["descricao_produto"] = descricao_produto
+                    if not atual["codigo_voume"] and codigo_voume:
+                        atual["codigo_voume"] = codigo_voume
+                total_linhas += 1
+
+        elif tipo_layout == "reservado":
+            total_arquivos_reservado += 1
+            indices = _detectar_indices_colunas_exatas(
+                linhas[:20],
+                {
+                    "codigo_empresa": "empresa",
+                    "codigo_local": "local",
+                    "codigo_produto": "codproduto",
+                    "descricao_produto": "descricaoproduto",
+                    "reservado": "reservado",
+                    "estoque": "estoque",
+                },
+                obrigatorias=["codigo_produto", "codigo_empresa", "reservado"],
+            )
+            if not indices:
+                continue
+
+            for linha in linhas:
+                codigo_produto = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_produto"))
+                if not codigo_produto or not codigo_produto.isdigit():
+                    continue
+
+                codigo_empresa = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_empresa"))
+                if not codigo_empresa:
+                    continue
+
+                # No legado, reservado e agregado por data/empresa/produto (sem local).
+                chave = (data_nome_arquivo, codigo_empresa, codigo_produto)
+                descricao_produto = _normalizar_texto(_valor_por_indice(linha, indices, "descricao_produto"))
+                reservado = _to_decimal(_valor_por_indice(linha, indices, "reservado"))
+                estoque = _to_decimal(_valor_por_indice(linha, indices, "estoque"))
+
+                atual = reservados.get(chave)
+                if not atual:
+                    reservados[chave] = {
+                        "descricao_produto": descricao_produto,
+                        "reservado": reservado,
+                        "estoque": estoque,
+                        "nome_origem": data_nome_arquivo,
+                    }
+                else:
+                    atual["reservado"] += reservado
+                    atual["estoque"] += estoque
+                    if not atual["descricao_produto"] and descricao_produto:
+                        atual["descricao_produto"] = descricao_produto
+                total_linhas += 1
+
+    if total_arquivos_posicao == 0 or total_arquivos_reservado == 0:
+        return {
+            "arquivos": len(arquivos),
+            "arquivos_posicao": total_arquivos_posicao,
+            "arquivos_reservado": total_arquivos_reservado,
+            "linhas": total_linhas,
+            "estoques": 0,
+        }
+
+    if limpar_antes:
+        Estoque.objects.filter(empresa=empresa).delete()
+
+    objetos = []
+    for data_contagem, codigo_empresa, codigo_local, codigo_produto in posicoes.keys():
+        posicao = posicoes.get((data_contagem, codigo_empresa, codigo_local, codigo_produto), {})
+        reservado_item = reservados.get((data_contagem, codigo_empresa, codigo_produto), {})
+
+        descricao_produto = (
+            posicao.get("descricao_produto")
+            or reservado_item.get("descricao_produto")
+            or ""
+        )
+        produto = Produto.obter_ou_criar_por_codigo_descricao(
+            empresa=empresa,
+            codigo_produto=codigo_produto,
+            descricao_produto=descricao_produto,
+        )
+
+        qtd_estoque = posicao.get("qtd_estoque", _decimal_zero())
+        reservado = reservado_item.get("reservado", _decimal_zero())
+        custo_total = posicao.get("custo_total", _decimal_zero())
+        nome_origem = posicao.get("nome_origem") or reservado_item.get("nome_origem") or timezone.localdate()
+        data_contagem = posicao.get("data_contagem") or nome_origem
+        codigo_voume = posicao.get("codigo_voume", "")
+
+        pacote_por_fardo = _to_decimal(produto.pacote_por_fardo if produto else 0)
+        if pacote_por_fardo < 0:
+            pacote_por_fardo = _decimal_zero()
+        giro_mensal = _decimal_zero()
+        lead_time_fornecimento = _decimal_zero()
+
+        estoque_minimo_parametro = _to_decimal(produto.estoque_minimo_pacote if produto else 0)
+        if estoque_minimo_parametro < 0:
+            estoque_minimo_parametro = _decimal_zero()
+        producao_por_dia_fd = _to_decimal(produto.producao_por_dia_fd if produto else 0)
+        if producao_por_dia_fd < 0:
+            producao_por_dia_fd = _decimal_zero()
+
+        produto_tem_parametro = bool(
+            produto
+            and (
+                pacote_por_fardo > 0
+                or producao_por_dia_fd > 0
+                or estoque_minimo_parametro > 0
+            )
+        )
+        status = _normalizar_texto(produto.status) if produto_tem_parametro else ""
+
+        # Legado: quando nao encontra parametro de produto, usa 12000.
+        estoque_minimo = (
+            estoque_minimo_parametro
+            if produto_tem_parametro
+            else Decimal("12000")
+        )
+        if estoque_minimo < 0:
+            estoque_minimo = _decimal_zero()
+
+        sub_total_est_pen = qtd_estoque - reservado
+        total_pcp_pacote = sub_total_est_pen - estoque_minimo
+        total_pcp_fardo = (
+            (total_pcp_pacote / pacote_por_fardo)
+            if pacote_por_fardo > 0
+            else _decimal_zero()
+        )
+        dia_de_producao = (
+            (total_pcp_fardo / producao_por_dia_fd)
+            if producao_por_dia_fd > 0
+            else _decimal_zero()
+        )
+
+        objetos.append(
+            Estoque(
+                empresa=empresa,
+                nome_origem=nome_origem,
+                data_contagem=data_contagem,
+                status=status or "Pendente",
+                codigo_empresa=codigo_empresa,
+                produto=produto,
+                qtd_estoque=qtd_estoque,
+                giro_mensal=giro_mensal,
+                lead_time_fornecimento=lead_time_fornecimento,
+                codigo_voume=codigo_voume,
+                custo_total=custo_total,
+                reservado=reservado,
+                pacote_por_fardo=pacote_por_fardo,
+                sub_total_est_pen=sub_total_est_pen,
+                estoque_minimo=estoque_minimo,
+                producao_por_dia_fd=producao_por_dia_fd,
+                total_pcp_pacote=total_pcp_pacote,
+                total_pcp_fardo=total_pcp_fardo,
+                dia_de_producao=dia_de_producao,
+                codigo_local=codigo_local,
+            )
+        )
+
+    total_estoques = 0
+    for i in range(0, len(objetos), 1000):
+        lote = objetos[i : i + 1000]
+        Estoque.objects.bulk_create(
+            lote,
+            batch_size=1000,
+            update_conflicts=True,
+            update_fields=[
+                "status",
+                "qtd_estoque",
+                "giro_mensal",
+                "lead_time_fornecimento",
+                "codigo_voume",
+                "custo_total",
+                "reservado",
+                "pacote_por_fardo",
+                "sub_total_est_pen",
+                "estoque_minimo",
+                "producao_por_dia_fd",
+                "total_pcp_pacote",
+                "total_pcp_fardo",
+                "dia_de_producao",
+            ],
+            unique_fields=["empresa", "nome_origem", "data_contagem", "codigo_empresa", "codigo_local", "produto"],
+        )
+        total_estoques += len(lote)
+
+    return {
+        "arquivos": len(arquivos),
+        "arquivos_posicao": total_arquivos_posicao,
+        "arquivos_reservado": total_arquivos_reservado,
+        "linhas": total_linhas,
+        "estoques": total_estoques,
+    }
+
+
+@transaction.atomic
+def importar_fretes_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/operacional/tabela_de_fretes",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "fretes": 0,
+            "cidades": 0,
+            "regioes": 0,
+            "unidades_federativas": 0,
+        }
+
+    if limpar_antes:
+        Frete.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_fretes = 0
+    cidades_codigos = set()
+    regioes_codigos = set()
+    ufs_codigos = set()
+    objetos: list[Frete] = []
+
+    for arquivo in arquivos:
+        linhas = list(_iterar_linhas_xls(arquivo))
+        if not linhas:
+            continue
+
+        indices = _detectar_indices_colunas_frete(linhas[:30])
+        if indices is None:
+            continue
+
+        for linha in linhas:
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            def _valor(chave):
+                idx = indices.get(chave)
+                if idx is None or idx >= len(linha):
+                    return ""
+                return linha[idx]
+
+            primeira_celula_texto = _normalizar_texto(linha[0]) if linha else ""
+            primeira_celula_token = _normalizar_nome_coluna(primeira_celula_texto)
+            if (
+                primeira_celula_token in {"cidade", "codcidade", "nomedacidade"}
+                or primeira_celula_token.startswith("emissao")
+                or primeira_celula_token.startswith("totalderegistros")
+                or primeira_celula_token.startswith("usuario")
+            ):
+                continue
+
+            cidade_codigo = _normalizar_codigo(_valor("cidade_codigo"))
+            if not cidade_codigo or cidade_codigo.lower() in {"codcidade", "codigocidade"}:
+                continue
+            if not cidade_codigo.isdigit():
+                continue
+
+            cidade = _resolver_cidade(empresa, cidade_codigo, _valor("cidade_nome"))
+            unidade_federativa = _resolver_unidade_federativa(empresa, _valor("codigo_uf"), _valor("sigla_uf"))
+            regiao = _resolver_regiao(empresa, _valor("regiao_codigo"), _valor("regiao_nome"))
+            if not cidade:
+                continue
+
+            cidades_codigos.add(cidade.codigo)
+            if unidade_federativa:
+                ufs_codigos.add(unidade_federativa.codigo)
+            if regiao:
+                regioes_codigos.add(regiao.codigo)
+
+            objetos.append(
+                Frete(
+                    empresa=empresa,
+                    cidade=cidade,
+                    unidade_federativa=unidade_federativa,
+                    regiao=regiao,
+                    valor_frete_comercial=_to_decimal_frete_comercial(_valor("valor_frete_comercial")),
+                    data_hora_alteracao=_as_aware_datetime(_excel_datetime(_valor("data_hora_alteracao"))),
+                    valor_frete_minimo=_to_decimal(_valor("valor_frete_minimo")),
+                    valor_frete_tonelada=_to_decimal(_valor("valor_frete_tonelada")),
+                    tipo_frete=_normalizar_texto(_valor("tipo_frete")),
+                    valor_frete_por_km=_to_decimal(_valor("valor_frete_por_km")),
+                    valor_taxa_entrada=_to_decimal(_valor("valor_taxa_entrada")),
+                    venda_minima=_to_decimal(_valor("venda_minima")),
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                Frete.objects.bulk_create(
+                    objetos,
+                    batch_size=1000,
+                    update_conflicts=True,
+                    update_fields=[
+                        "unidade_federativa",
+                        "regiao",
+                        "valor_frete_comercial",
+                        "data_hora_alteracao",
+                        "valor_frete_minimo",
+                        "valor_frete_tonelada",
+                        "tipo_frete",
+                        "valor_frete_por_km",
+                        "valor_taxa_entrada",
+                        "venda_minima",
+                    ],
+                    unique_fields=["empresa", "cidade"],
+                )
+                total_fretes += len(objetos)
+                objetos = []
+
+    if objetos:
+        Frete.objects.bulk_create(
+            objetos,
+            batch_size=1000,
+            update_conflicts=True,
+            update_fields=[
+                "unidade_federativa",
+                "regiao",
+                "valor_frete_comercial",
+                "data_hora_alteracao",
+                "valor_frete_minimo",
+                "valor_frete_tonelada",
+                "tipo_frete",
+                "valor_frete_por_km",
+                "valor_taxa_entrada",
+                "venda_minima",
+            ],
+            unique_fields=["empresa", "cidade"],
+        )
+        total_fretes += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "fretes": total_fretes,
+        "cidades": len(cidades_codigos),
+        "regioes": len(regioes_codigos),
+        "unidades_federativas": len(ufs_codigos),
+    }
 
 
 @transaction.atomic
@@ -411,6 +1018,12 @@ def importar_producao_do_diretorio(
         "kg": ["kg", "peso", "pesoemkg"],
         "producao_por_dia": ["producaopordiafd", "producaopordia", "fd", "producaopordiafd"],
         "kg_por_lote": ["kgporlote", "kglote", "kgdolote"],
+        "estoque_minimo_pacote": [
+            "estoqueminimopacote",
+            "estoqueminimo",
+            "estminpacote",
+            "estoqueminpacote",
+        ],
     }
 
     for arquivo in arquivos:
@@ -455,17 +1068,25 @@ def importar_producao_do_diretorio(
             produtos_codigos.add(produto.codigo_produto)
 
             tamanho_lote_decimal = _to_decimal(_valor_por_indice("tamanho_lote"))
-            kg_valor = _to_decimal(_valor_por_indice("kg"))
-            if kg_valor <= 0:
-                kg_valor = _extrair_kg_da_descricao_produto(descricao_produto)
+            # Producao sempre deve refletir os parametros do cadastro de produtos,
+            # inclusive quando o parametro estiver zerado.
+            kg_valor = _to_decimal(produto.kg if produto else 0)
+            if kg_valor < 0:
+                kg_valor = _decimal_zero()
 
-            producao_por_dia_valor = _to_decimal(_valor_por_indice("producao_por_dia"))
-            if producao_por_dia_valor <= 0 and kg_valor > 0:
-                producao_por_dia_valor = kg_valor
+            producao_por_dia_valor = _to_decimal(produto.producao_por_dia_fd if produto else 0)
+            if producao_por_dia_valor < 0:
+                producao_por_dia_valor = _decimal_zero()
 
-            kg_por_lote_valor = _to_decimal(_valor_por_indice("kg_por_lote"))
-            if kg_por_lote_valor <= 0 and kg_valor > 0 and tamanho_lote_decimal > 0:
-                kg_por_lote_valor = tamanho_lote_decimal / kg_valor
+            kg_por_lote_valor = (
+                (tamanho_lote_decimal / kg_valor)
+                if (kg_valor > 0 and tamanho_lote_decimal > 0)
+                else _decimal_zero()
+            )
+
+            estoque_minimo_pacote_valor = _to_decimal(produto.estoque_minimo_pacote if produto else 0)
+            if estoque_minimo_pacote_valor < 0:
+                estoque_minimo_pacote_valor = _decimal_zero()
 
             objetos.append(
                 Producao(
@@ -491,6 +1112,7 @@ def importar_producao_do_diretorio(
                     kg=kg_valor,
                     producao_por_dia=producao_por_dia_valor,
                     kg_por_lote=kg_por_lote_valor,
+                    estoque_minimo_pacote=estoque_minimo_pacote_valor,
                 )
             )
             total_linhas += 1

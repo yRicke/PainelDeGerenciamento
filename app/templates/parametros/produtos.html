@@ -17,12 +17,77 @@
 
 <section class="panel">
     <h2>Novo Produto</h2>
-    <p class="form-note">Cadastre codigo e descricao para vinculacao automatica na importacao de producao.</p>
-    <form action="{% url 'criar_produto_modulo' empresa.id %}" method="POST" class="inline-form inline-form--parceiros">
+    <p class="form-note">Cadastre todos os parametros do produto para uso em producao e estoque.</p>
+    <form action="{% url 'criar_produto_modulo' empresa.id %}" method="POST">
         {% csrf_token %}
-        <input type="text" name="codigo_produto" placeholder="Codigo do produto" required>
-        <input type="text" name="descricao_produto" placeholder="Descricao do produto">
-        <button type="submit" class="btn-primary">Cadastrar</button>
+        <div class="form-grid">
+            <div>
+                <label>Codigo</label>
+                <input type="text" name="codigo_produto" required>
+            </div>
+            <div>
+                <label>Status</label>
+                <select name="status">
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                </select>
+            </div>
+            <div>
+                <label>Produto</label>
+                <input type="text" name="descricao_produto">
+            </div>
+            <div>
+                <label>KG</label>
+                <input type="text" name="kg" value="0">
+            </div>
+            <div>
+                <label>Remuneracao por fardo</label>
+                <input type="text" name="remuneracao_por_fardo" value="0">
+            </div>
+            <div>
+                <label>PPM</label>
+                <input type="text" name="ppm" value="0">
+            </div>
+            <div>
+                <label>Peso (KG)</label>
+                <input type="text" name="peso_kg" value="0">
+            </div>
+            <div>
+                <label>Pacote por Fardo</label>
+                <input type="text" name="pacote_por_fardo" value="0">
+            </div>
+            <div>
+                <label>Turno</label>
+                <input type="text" name="turno" value="0">
+            </div>
+            <div>
+                <label>Horas</label>
+                <input type="text" name="horas" value="0">
+            </div>
+            <div>
+                <label>Setup</label>
+                <input type="text" name="setup" value="0">
+            </div>
+            <div>
+                <label>Horas Uteis</label>
+                <input type="text" name="horas_uteis" value="0" readonly>
+            </div>
+            <div>
+                <label>Empacotadeiras</label>
+                <input type="text" name="empacotadeiras" value="0">
+            </div>
+            <div>
+                <label>Producao por Dia (FD)</label>
+                <input type="text" name="producao_por_dia_fd" value="0" readonly>
+            </div>
+            <div>
+                <label>Estoque Minimo (Pacote)</label>
+                <input type="text" name="estoque_minimo_pacote" value="0">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
     </form>
 </section>
 

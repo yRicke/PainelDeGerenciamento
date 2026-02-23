@@ -1,7 +1,7 @@
-﻿@import url("./cargas-em-aberto-shared.css");
+@import url("./cargas-em-aberto-shared.css");
 
 #producao-tabulator {
-    min-width: 2100px;
+    min-width: 1400px;
 }
 
 .producao-dashboard-layout {
@@ -74,36 +74,107 @@
     width: 100%;
 }
 
-.producao-gauges-grid {
+.producao-reloginhos-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(210px, 1fr));
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
     gap: 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
-.gauge-card {
-    border: 1px solid #d9dee3;
+.reloginho-card {
+    border: 1px solid #cfd8df;
     border-radius: 8px;
     background: #fff;
-    padding: 0.45rem;
+    padding: 0.55rem;
 }
 
-.gauge-card h3 {
-    margin: 0 0 0.25rem;
+.reloginho-card h3 {
+    margin: 0 0 0.35rem;
     text-align: center;
-    font-size: 1rem;
+    font-size: 1.08rem;
+    color: #152a36;
 }
 
-.gauge-meta-real {
-    margin-top: 0.25rem;
+.reloginho-dial-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.reloginho-dial {
+    position: relative;
+    width: 210px;
+    height: 122px;
+    overflow: hidden;
+}
+
+.reloginho-face {
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 270deg,
+        #d62828 0deg 36deg,
+        #ef7d25 36deg 72deg,
+        #f7d64b 72deg 108deg,
+        #6cad48 108deg 144deg,
+        #1e6f8c 144deg 180deg,
+        transparent 180deg 360deg
+    );
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.ponteiro {
+    position: absolute;
+    left: 103px;
+    top: 30px;
+    width: 4px;
+    height: 85px;
+    border-radius: 2px;
+    transform-origin: 50% 100%;
+    transform: rotate(-90deg);
+}
+
+.ponteiro-meta {
+    background: #111827;
+}
+
+.ponteiro-real {
+    background: #0ea5e9;
+    width: 3px;
+    left: 103.5px;
+}
+
+.reloginho-pivo {
+    position: absolute;
+    left: 98px;
+    top: 110px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #444;
+    background: #fff;
+}
+
+.reloginho-metricas {
+    margin-top: 0.3rem;
     border: 1px solid #d9dee3;
     border-radius: 6px;
     background: #f5f7fa;
     padding: 0.35rem 0.5rem;
 }
 
-.gauge-meta-real p {
-    margin: 0.1rem 0;
+.reloginho-metricas p {
+    margin: 0.11rem 0;
+    font-size: 0.92rem;
     font-weight: 700;
+}
+
+.reloginho-metricas span {
+    margin-left: 0.35rem;
+    color: #0f4c67;
 }
 
 .btn-light {
@@ -119,7 +190,8 @@
         grid-template-columns: 1fr;
     }
 
-    .producao-gauges-grid {
+    .producao-reloginhos-grid {
         grid-template-columns: 1fr;
     }
 }
+

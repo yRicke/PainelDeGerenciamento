@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Inicio{% endblock %}
+{% block title %}Início{% endblock %}
 
 {% block content %}
 <section class="page-hero">
-    <h1>Inicio</h1>
-    <p>Visao geral rapida dos principais indicadores da operacao.</p>
+    <h1>Início</h1>
+    <p>Visão geral rápida dos principais indicadores da operação.</p>
 </section>
 
 <section class="panel">
@@ -23,13 +23,13 @@
             <h3>Comercial</h3>
             <p>Visibilidade sobre vendas e carteira.</p>
         </a>
-        <a class="kpi-card" href="{% url 'parametros' %}">
-            <h3>Parametros</h3>
-            <p>Cadastros base para regras e integracoes.</p>
-        </a>
         <a class="kpi-card" href="{% url 'operacional' %}">
             <h3>Operacional</h3>
-            <p>Status de cargas, estoque e producao.</p>
+            <p>Status de cargas, estoque e produção.</p>
+        </a>
+        <a class="kpi-card" href="{% url 'parametros' %}">
+            <h3>Parâmetros</h3>
+            <p>Cadastros base para regras e integrações.</p>
         </a>
     </div>
 </section>

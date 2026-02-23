@@ -132,7 +132,7 @@
             form.submit();
         }
 
-        var tabela = new Tabulator("#colaboradores-tabulator", {
+        var tabela = window.TabulatorDefaults.create("#colaboradores-tabulator", {
             data: data,
             layout: "fitDataStretch",
             pagination: true,
@@ -176,4 +176,5 @@
     })();
 </script>
 {% endblock %}
+
 

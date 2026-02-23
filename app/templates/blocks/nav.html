@@ -2,13 +2,13 @@
     <a class="brand" href="{% url 'index' %}">Painel Gerenciamento</a>
 
     {% if user.is_authenticated %}
-    <nav class="nav-links" aria-label="Navegacao principal">
-        <a class="{% if request.path == '/' %}is-active{% endif %}" href="{% url 'index' %}">Inicio</a>
+    <nav class="nav-links" aria-label="Navegação principal">
+        <a class="{% if request.path == '/' %}is-active{% endif %}" href="{% url 'index' %}">Início</a>
         <a class="{% if request.path == '/financeiro/' %}is-active{% endif %}" href="{% url 'financeiro' %}">Financeiro</a>
         <a class="{% if request.path == '/administrativo/' %}is-active{% endif %}" href="{% url 'administrativo' %}">Administrativo</a>
         <a class="{% if request.path == '/comercial/' %}is-active{% endif %}" href="{% url 'comercial' %}">Comercial</a>
-        <a class="{% if request.path == '/parametros/' %}is-active{% endif %}" href="{% url 'parametros' %}">Parametros</a>
         <a class="{% if request.path == '/operacional/' %}is-active{% endif %}" href="{% url 'operacional' %}">Operacional</a>
+        <a class="{% if request.path == '/parametros/' %}is-active{% endif %}" href="{% url 'parametros' %}">Parâmetros</a>
         {% if user.is_staff %}
         <a href="{% url 'painel_admin' %}">Admin</a>
         {% endif %}

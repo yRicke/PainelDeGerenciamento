@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Produto{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/parametros/produtos.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'produtos' empresa.id %}">Voltar</a>
+    <h1>Editar Produto</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Parâmetros do Produto</h2>
+    <form method="post" action="{% url 'editar_produto_modulo' empresa.id produto.id %}">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Codigo</label>
+                <input type="text" name="codigo_produto" value="{{ produto.codigo_produto }}" required>
+            </div>
+            <div>
+                <label>Status</label>
+                <select name="status">
+                    <option value="Ativo" {% if produto.status == "Ativo" %}selected{% endif %}>Ativo</option>
+                    <option value="Inativo" {% if produto.status == "Inativo" %}selected{% endif %}>Inativo</option>
+                </select>
+            </div>
+            <div>
+                <label>Produto</label>
+                <input type="text" name="descricao_produto" value="{{ produto.descricao_produto }}">
+            </div>
+            <div>
+                <label>KG</label>
+                <input type="text" name="kg" value="{{ produto.kg }}">
+            </div>
+            <div>
+                <label>Remuneracao por fardo</label>
+                <input type="text" name="remuneracao_por_fardo" value="{{ produto.remuneracao_por_fardo }}">
+            </div>
+            <div>
+                <label>PPM</label>
+                <input type="text" name="ppm" value="{{ produto.ppm }}">
+            </div>
+            <div>
+                <label>Peso (KG)</label>
+                <input type="text" name="peso_kg" value="{{ produto.peso_kg }}">
+            </div>
+            <div>
+                <label>Pacote por Fardo</label>
+                <input type="text" name="pacote_por_fardo" value="{{ produto.pacote_por_fardo }}">
+            </div>
+            <div>
+                <label>Turno</label>
+                <input type="text" name="turno" value="{{ produto.turno }}">
+            </div>
+            <div>
+                <label>Horas</label>
+                <input type="text" name="horas" value="{{ produto.horas }}">
+            </div>
+            <div>
+                <label>Setup</label>
+                <input type="text" name="setup" value="{{ produto.setup }}">
+            </div>
+            <div>
+                <label>Horas Uteis</label>
+                <input type="text" name="horas_uteis" value="{{ produto.horas_uteis }}" readonly>
+            </div>
+            <div>
+                <label>Empacotadeiras</label>
+                <input type="text" name="empacotadeiras" value="{{ produto.empacotadeiras }}">
+            </div>
+            <div>
+                <label>Producao por Dia (FD)</label>
+                <input type="text" name="producao_por_dia_fd" value="{{ produto.producao_por_dia_fd }}" readonly>
+            </div>
+            <div>
+                <label>Estoque Minimo (Pacote)</label>
+                <input type="text" name="estoque_minimo_pacote" value="{{ produto.estoque_minimo_pacote }}">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar</button>
+        </div>
+    </form>
+
+    <form method="post" action="{% url 'excluir_produto_modulo' empresa.id produto.id %}" class="form-actions">
+        {% csrf_token %}
+        <button type="submit" class="btn-danger">Excluir produto</button>
+    </form>
+</section>
+{% endblock %}

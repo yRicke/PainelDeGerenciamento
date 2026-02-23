@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Frete{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/operacional/tabela-de-fretes-editar.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'tabela_de_fretes' empresa.id %}">Voltar para tabela de fretes</a>
+    <h1>Editar Frete #{{ frete_item.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <p class="form-note">Revise os campos obrigatórios antes de salvar.</p>
+    <form action="{% url 'editar_frete_modulo' empresa.id frete_item.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Cidade</label>
+                <select name="cidade_id" required>
+                    <option value="">Selecione</option>
+                    {% for cidade in cidades %}
+                    <option value="{{ cidade.id }}" {% if frete_item.cidade_id == cidade.id %}selected{% endif %}>
+                        {{ cidade.codigo }} - {{ cidade.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Unidade Federativa</label>
+                <select name="unidade_federativa_id" required>
+                    <option value="">Selecione</option>
+                    {% for unidade in unidades_federativas %}
+                    <option value="{{ unidade.id }}" {% if frete_item.unidade_federativa_id == unidade.id %}selected{% endif %}>
+                        {{ unidade.codigo }} - {{ unidade.sigla }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Região</label>
+                <select name="regiao_id" required>
+                    <option value="">Selecione</option>
+                    {% for regiao in regioes %}
+                    <option value="{{ regiao.id }}" {% if frete_item.regiao_id == regiao.id %}selected{% endif %}>
+                        {{ regiao.codigo }} - {{ regiao.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Tipo frete</label>
+                <select name="tipo_frete">
+                    {% for tipo_frete in tipos_frete_opcoes %}
+                    <option value="{{ tipo_frete }}" {% if frete_item.tipo_frete == tipo_frete %}selected{% endif %}>{{ tipo_frete }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Data/hora alteração</label>
+                <input
+                    type="date"
+                    name="data_hora_alteracao"
+                    value="{% if frete_item.data_hora_alteracao %}{{ frete_item.data_hora_alteracao|date:'Y-m-d' }}{% endif %}"
+                >
+            </div>
+            <div>
+                <label>Valor frete comercial</label>
+                <input type="text" name="valor_frete_comercial" value="{{ frete_item.valor_frete_comercial }}">
+            </div>
+            <div>
+                <label>Valor frete mínimo</label>
+                <input type="text" name="valor_frete_minimo" value="{{ frete_item.valor_frete_minimo }}">
+            </div>
+            <div>
+                <label>Valor frete tonelada</label>
+                <input type="text" name="valor_frete_tonelada" value="{{ frete_item.valor_frete_tonelada }}">
+            </div>
+            <div>
+                <label>Valor frete por KM</label>
+                <input type="text" name="valor_frete_por_km" value="{{ frete_item.valor_frete_por_km }}">
+            </div>
+            <div>
+                <label>Valor taxa entrada</label>
+                <input type="text" name="valor_taxa_entrada" value="{{ frete_item.valor_taxa_entrada }}">
+            </div>
+            <div>
+                <label>Venda mínima</label>
+                <input type="text" name="venda_minima" value="{{ frete_item.venda_minima }}">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alterações</button>
+        </div>
+    </form>
+
+    <div class="danger-zone">
+        <p>Ação irreversível: exclui este registro de frete.</p>
+        <form action="{% url 'excluir_frete_modulo' empresa.id frete_item.id %}" method="POST" onsubmit="return confirm('Excluir frete {{ frete_item.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir frete</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

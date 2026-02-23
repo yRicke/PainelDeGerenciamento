@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var form = document.getElementById("upload-dfc-form");
     if (!form) return;
 
@@ -123,7 +123,7 @@
     preencherSelect(tipoOperacaoSelect, valoresUnicos("operacao_codigo").sort());
     preencherSelect(tipoMovimentoSelect, valoresUnicos("tipo_movimento").sort());
 
-    var tabela = new Tabulator("#dfc-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#dfc-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
@@ -274,4 +274,5 @@
     tabela.on("renderComplete", atualizarDashboard);
     setTimeout(atualizarDashboard, 0);
 })();
+
 

@@ -1,10 +1,12 @@
 .table-wrapper {
     width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .table-wrapper > div[id$="-tabulator"] {
-    min-width: 1800px;
+    min-width: 100%;
 }
 
 .form-grid {
@@ -22,4 +24,48 @@
     cursor: pointer;
     text-decoration: none;
     display: inline-block;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+    align-items: end;
+}
+
+.filter-grid > div:not(.carteira-filtro-card):not(.contas-filtro-card):not(.tofu-filtro-card) {
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+    min-width: 0;
+}
+
+.filter-grid > div label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.filter-grid input,
+.filter-grid select {
+    width: 100%;
+}
+
+.tabulator .tabulator-header .tabulator-header-filter input,
+.tabulator .tabulator-header .tabulator-header-filter select {
+    min-height: 28px;
+    border: 1px solid #d8dee4;
+    border-radius: 6px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.78rem;
+}
+
+@media (max-width: 980px) {
+    .form-grid,
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
 }

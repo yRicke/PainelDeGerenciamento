@@ -7,7 +7,7 @@
     var filtroDescricao = document.getElementById("filtro-centro-resultado-descricao");
     var limparFiltrosBtn = document.getElementById("limpar-filtros-centros-resultado");
 
-    var tabela = new Tabulator("#centros-resultado-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#centros-resultado-tabulator", {
         data: data,
         layout: "fitDataStretch",
         pagination: true,
@@ -49,3 +49,4 @@
         tabela.clearFilter(true);
     });
 })();
+

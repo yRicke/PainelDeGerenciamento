@@ -16,12 +16,12 @@
 </section>
 
 <section class="panel">
-    <p class="form-note">Revise os campos obrigatorios antes de salvar.</p>
+    <p class="form-note">Revise os campos obrigatórios antes de salvar.</p>
     <form action="{% url 'editar_carga_modulo' empresa.id carga.id %}" method="POST">
         {% csrf_token %}
         <div class="form-grid">
             <div>
-                <label>Situacao</label>
+                <label>Situação</label>
                 <select name="situacao" required>
                     <option value="Aberta" {% if carga.situacao|lower == 'aberta' %}selected{% endif %}>Aberta</option>
                     <option value="Fechada" {% if carga.situacao|lower == 'fechada' %}selected{% endif %}>Fechada</option>
@@ -32,19 +32,19 @@
                 <input type="text" name="ordem_de_carga_codigo" value="{{ carga.ordem_de_carga_codigo }}" required>
             </div>
             <div>
-                <label>Data inicio</label>
+                <label>Data início</label>
                 <input type="date" id="data-inicio-editar" name="data_inicio" value="{{ carga.data_inicio|date:'Y-m-d' }}" required>
             </div>
             <div>
                 <label>Data prevista para saida</label>
-                <input type="date" name="data_prevista_saida" value="{{ carga.data_prevista_saida|date:'Y-m-d' }}" required>
+                <input type="date" id="data-prevista-saida-editar" name="data_prevista_saida" value="{{ carga.data_prevista_saida|date:'Y-m-d' }}" required>
             </div>
             <div>
                 <label>Data chegada</label>
                 <input type="date" id="data-chegada-editar" name="data_chegada" value="{% if carga.data_chegada %}{{ carga.data_chegada|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
-                <label>Data finalizacao</label>
+                <label>Data finalização</label>
                 <input type="date" id="data-finalizacao-editar" name="data_finalizacao" value="{% if carga.data_finalizacao %}{{ carga.data_finalizacao|date:'Y-m-d' }}{% endif %}" {% if not carga.data_chegada %}disabled{% endif %}>
             </div>
             <div>
@@ -56,7 +56,7 @@
                 <input type="text" name="nome_fantasia_empresa" value="{{ carga.nome_fantasia_empresa }}" required>
             </div>
             <div>
-                <label>Regiao</label>
+                <label>Região</label>
                 <select name="regiao_id">
                     <option value="">-</option>
                     {% for regiao in regioes %}
@@ -67,7 +67,7 @@
                 </select>
             </div>
             <div>
-                <label>Prazo maximo (dias)</label>
+                <label>Prazo máximo (dias)</label>
                 <input type="number" min="0" id="prazo-maximo-editar" name="prazo_maximo_dias" value="{{ carga.prazo_maximo_dias }}">
             </div>
             <div>
@@ -75,21 +75,21 @@
                 <input type="text" id="idade-dias-preview" value="{{ carga.idade_dias }}" disabled>
             </div>
             <div>
-                <label>Critica</label>
+                <label>Crítica</label>
                 <input type="text" id="critica-preview" value="{{ carga.critica }}" disabled>
             </div>
             <div>
-                <label>Verificacao</label>
+                <label>Verificação</label>
                 <input type="text" id="verificacao-preview" value="{% if carga.verificacao %}Verificar{% else %}Ok{% endif %}" disabled>
             </div>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+            <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
     </form>
 
     <div class="danger-zone">
-        <p>Acao irreversivel: exclui este registro de carga.</p>
+        <p>Ação irreversível: exclui este registro de carga.</p>
         <form action="{% url 'excluir_carga_modulo' empresa.id carga.id %}" method="POST" onsubmit="return confirm('Excluir carga {{ carga.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir carga</button>

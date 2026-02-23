@@ -16,7 +16,9 @@ from .models import (
     Colaborador,
     ContasAReceber,
     Empresa,
+    Estoque,
     FluxoDeCaixaDFC,
+    Frete,
     Natureza,
     Operacao,
     Orcamento,
@@ -27,6 +29,7 @@ from .models import (
     Projeto,
     Regiao,
     Titulo,
+    UnidadeFederativa,
     Usuario,
     Venda,
 )
@@ -51,6 +54,8 @@ from .services import (
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_orcamento,
     preparar_diretorios_cargas,
+    preparar_diretorios_estoque,
+    preparar_diretorios_fretes,
     preparar_diretorios_producao,
     importar_upload_carteira,
     importar_upload_vendas,
@@ -58,6 +63,8 @@ from .services import (
     importar_upload_contas_a_receber,
     importar_upload_orcamento,
     importar_upload_cargas,
+    importar_upload_estoque,
+    importar_upload_fretes,
     importar_upload_producao,
     usuarios_com_permissoes_ids,
     criar_empresa_por_nome,
@@ -71,7 +78,9 @@ from .services import (
     criar_parceiro_por_dados,
     atualizar_parceiro_por_dados,
     criar_produto_por_dados,
+    criar_unidade_federativa_por_dados,
     atualizar_produto_por_dados,
+    atualizar_unidade_federativa_por_dados,
     criar_titulo_por_dados,
     atualizar_titulo_por_dados,
     criar_natureza_por_dados,
@@ -93,7 +102,11 @@ from .services import (
     criar_venda_por_post,
     atualizar_venda_por_post,
     criar_carga_por_post,
+    criar_estoque_por_post,
+    criar_frete_por_post,
     atualizar_carga_por_post,
+    atualizar_estoque_por_post,
+    atualizar_frete_por_post,
     criar_producao_por_post,
     atualizar_producao_por_post,
     criar_cidade_por_dados,
@@ -108,6 +121,7 @@ from .tabulator import (
     build_colaboradores_tabulator,
     build_projetos_tabulator,
     build_regioes_tabulator,
+    build_unidades_federativas_tabulator,
     build_parceiros_tabulator,
     build_produtos_tabulator,
     build_titulos_tabulator,
@@ -120,12 +134,27 @@ from .tabulator import (
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
     build_cargas_tabulator,
+    build_estoque_tabulator,
+    build_fretes_tabulator,
     build_producao_tabulator,
 )
 
 
 def _obter_modulo(area, nome):
     return next(m for m in MODULOS_POR_AREA[area] if m["nome"] == nome)
+
+
+def _resumir_arquivos_existentes(arquivos, limite=8):
+    arquivos_ordenados = sorted([str(arquivo) for arquivo in arquivos if arquivo])
+    if not arquivos_ordenados:
+        return "", False
+    if len(arquivos_ordenados) > limite:
+        texto = (
+            ", ".join(arquivos_ordenados[:limite])
+            + f" ... (+{len(arquivos_ordenados) - limite})"
+        )
+        return texto, True
+    return ", ".join(arquivos_ordenados), True
 
 
 @login_required(login_url="entrar")
@@ -603,12 +632,19 @@ def contas_a_receber(request, empresa_id):
         .order_by("-id")
     )
 
-    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    arquivos_existentes = sorted(
+        [
+            str(f.relative_to(diretorio_importacao)).replace("\\", "/")
+            for f in diretorio_importacao.rglob("*.xls")
+            if diretorio_subscritos not in f.parents
+        ]
+    )
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
-        "arquivo_existente": ", ".join(arquivos_existentes),
-        "tem_arquivo_existente": bool(arquivos_existentes),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
         "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
@@ -677,11 +713,12 @@ def dfc(request, empresa_id):
     )
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
-        "arquivo_existente": ", ".join(arquivos_existentes),
-        "tem_arquivo_existente": bool(arquivos_existentes),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
         "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
@@ -790,11 +827,12 @@ def orcamento(request, empresa_id):
     orcamentos_qs = _orcamentos_planejados_qs_para_tabulator(empresa)
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
-        "arquivo_existente": ", ".join(arquivos_existentes),
-        "tem_arquivo_existente": bool(arquivos_existentes),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
         "orcamento_x_realizado_tabulator": build_orcamento_x_realizado_tabulator(
             orcamentos_realizados_qs,
             orcamentos_qs,
@@ -1120,11 +1158,7 @@ def criar_produto_modulo(request, empresa_id):
     if request.method != "POST":
         return redirect("produtos", empresa_id=empresa.id)
 
-    erro = criar_produto_por_dados(
-        empresa,
-        request.POST.get("codigo_produto"),
-        request.POST.get("descricao_produto"),
-    )
+    erro = criar_produto_por_dados(empresa, request.POST)
     if erro:
         messages.error(request, erro)
         return redirect("produtos", empresa_id=empresa.id)
@@ -1137,25 +1171,25 @@ def editar_produto_modulo(request, empresa_id, produto_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Produtos")
     if not autorizado:
         return redirect("index")
-    if request.method != "POST":
-        return redirect("produtos", empresa_id=empresa.id)
 
     produto = Produto.objects.filter(id=produto_id, empresa=empresa).first()
     if not produto:
         messages.error(request, "Produto nao encontrado.")
         return redirect("produtos", empresa_id=empresa.id)
 
-    erro = atualizar_produto_por_dados(
-        produto,
-        request.POST.get("codigo_produto"),
-        request.POST.get("descricao_produto"),
-        empresa,
-    )
-    if erro:
-        messages.error(request, erro)
+    if request.method == "POST":
+        erro = atualizar_produto_por_dados(produto, request.POST, empresa)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_produto_modulo", empresa_id=empresa.id, produto_id=produto.id)
+        messages.success(request, "Produto atualizado com sucesso.")
         return redirect("produtos", empresa_id=empresa.id)
-    messages.success(request, "Produto atualizado com sucesso.")
-    return redirect("produtos", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "produto": produto,
+    }
+    return render(request, "parametros/produto_editar.html", contexto)
 
 
 @login_required(login_url="entrar")
@@ -1173,6 +1207,86 @@ def excluir_produto_modulo(request, empresa_id, produto_id):
     produto.excluir_produto()
     messages.success(request, "Produto excluido com sucesso.")
     return redirect("produtos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def unidades_federativas(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Unidades Federativas")
+    if not autorizado:
+        return redirect("index")
+
+    unidades_qs = UnidadeFederativa.objects.filter(empresa=empresa).order_by("sigla", "codigo")
+    unidades_tabulator = build_unidades_federativas_tabulator(unidades_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "unidades_federativas": unidades_qs,
+        "unidades_federativas_tabulator": unidades_tabulator,
+    }
+    return render(request, "parametros/unidades_federativas.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_unidade_federativa_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Unidades Federativas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+
+    erro = criar_unidade_federativa_por_dados(
+        empresa,
+        request.POST.get("codigo"),
+        request.POST.get("sigla"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+    messages.success(request, "Unidade federativa criada com sucesso.")
+    return redirect("unidades_federativas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_unidade_federativa_modulo(request, empresa_id, unidade_federativa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Unidades Federativas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+
+    unidade_federativa = UnidadeFederativa.objects.filter(id=unidade_federativa_id, empresa=empresa).first()
+    if not unidade_federativa:
+        messages.error(request, "Unidade federativa nao encontrada.")
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+
+    erro = atualizar_unidade_federativa_por_dados(
+        unidade_federativa,
+        request.POST.get("codigo"),
+        request.POST.get("sigla"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+    messages.success(request, "Unidade federativa atualizada com sucesso.")
+    return redirect("unidades_federativas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_unidade_federativa_modulo(request, empresa_id, unidade_federativa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Unidades Federativas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+
+    unidade_federativa = UnidadeFederativa.objects.filter(id=unidade_federativa_id, empresa=empresa).first()
+    if not unidade_federativa:
+        messages.error(request, "Unidade federativa nao encontrada.")
+        return redirect("unidades_federativas", empresa_id=empresa.id)
+
+    unidade_federativa.excluir_unidade_federativa()
+    messages.success(request, "Unidade federativa excluida com sucesso.")
+    return redirect("unidades_federativas", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
@@ -1643,13 +1757,14 @@ def carteira(request, empresa_id):
     cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
     regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
     parceiros = Parceiro.objects.filter(empresa=empresa).order_by("nome")
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
 
     # 3) Transformacao
     contexto = montar_contexto_carteira(
         empresa=empresa,
         modulo_nome=modulo["nome"],
-        arquivo_existente=arquivos_existentes[0] if arquivos_existentes else "",
-        tem_arquivo_existente=bool(arquivos_existentes),
+        arquivo_existente=arquivo_existente_texto,
+        tem_arquivo_existente=tem_arquivo_existente,
         carteiras_qs=carteiras_qs,
         cidades=cidades,
         regioes=regioes,
@@ -1928,12 +2043,13 @@ def vendas_por_categoria(request, empresa_id):
     arquivos_existentes = sorted(
         [f.name for f in diretorio_importacao.iterdir() if f.is_file() and f.suffix.lower() == ".xls"]
     )
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
 
     contexto = montar_contexto_vendas(
         empresa=empresa,
         modulo_nome=modulo["nome"],
-        arquivo_existente=", ".join(arquivos_existentes),
-        tem_arquivo_existente=bool(arquivos_existentes),
+        arquivo_existente=arquivo_existente_texto,
+        tem_arquivo_existente=tem_arquivo_existente,
         vendas_qs=vendas_qs,
     )
     return render(request, modulo["template"], contexto)
@@ -2039,12 +2155,13 @@ def cargas_em_aberto(request, empresa_id):
     dashboard_fora_prazo = sum(1 for carga in cargas_lista if carga.verificacao)
     dashboard_no_prazo = dashboard_total_cargas - dashboard_fora_prazo
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
 
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
-        "arquivo_existente": arquivos_existentes[0] if arquivos_existentes else "",
-        "tem_arquivo_existente": bool(arquivos_existentes),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
         "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
         "dashboard_total_cargas": dashboard_total_cargas,
         "dashboard_no_prazo": dashboard_no_prazo,
@@ -2116,7 +2233,7 @@ def producao(request, empresa_id):
             if erro:
                 messages.error(request, erro)
             else:
-                messages.success(request, "Registro de producao criado com sucesso.")
+                messages.success(request, "Registro de produção criado com sucesso.")
         elif acao == "importar_producao":
             arquivos = request.FILES.getlist("arquivos_producao")
             ok, mensagem = importar_upload_producao(
@@ -2130,7 +2247,7 @@ def producao(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "Acao de producao invalida.")
+            messages.error(request, "Ação de produção inválida.")
         return redirect("producao", empresa_id=empresa_id)
 
     producoes_qs = (
@@ -2138,14 +2255,25 @@ def producao(request, empresa_id):
         .select_related("produto")
         .order_by("-id")
     )
+    situacoes_producao = sorted(
+        {
+            str(valor).strip()
+            for valor in Producao.objects.filter(empresa=empresa).values_list("situacao", flat=True)
+            if str(valor).strip()
+        }
+    )
+    if not situacoes_producao:
+        situacoes_producao = ["Pendente"]
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
-        "arquivo_existente": ", ".join(arquivos_existentes),
-        "tem_arquivo_existente": bool(arquivos_existentes),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
+        "situacoes_producao_opcoes": situacoes_producao,
         "producao_tabulator": build_producao_tabulator(producoes_qs, empresa.id),
     }
     return render(request, "operacional/producao.html", contexto)
@@ -2159,7 +2287,7 @@ def editar_producao_modulo(request, empresa_id, producao_id):
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).select_related("produto").first()
     if not producao_item:
-        messages.error(request, "Registro de producao nao encontrado.")
+        messages.error(request, "Registro de produção não encontrado.")
         return redirect("producao", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -2167,13 +2295,27 @@ def editar_producao_modulo(request, empresa_id, producao_id):
         if erro:
             messages.error(request, erro)
             return redirect("editar_producao_modulo", empresa_id=empresa.id, producao_id=producao_item.id)
-        messages.success(request, "Registro de producao atualizado com sucesso.")
+        messages.success(request, "Registro de produção atualizado com sucesso.")
         return redirect("producao", empresa_id=empresa.id)
+
+    situacoes_producao = sorted(
+        {
+            str(valor).strip()
+            for valor in Producao.objects.filter(empresa=empresa).values_list("situacao", flat=True)
+            if str(valor).strip()
+        }
+    )
+    if not situacoes_producao:
+        situacoes_producao = ["Pendente"]
+    if producao_item.situacao and producao_item.situacao not in situacoes_producao:
+        situacoes_producao.append(producao_item.situacao)
+        situacoes_producao.sort()
 
     contexto = {
         "empresa": empresa,
         "producao_item": producao_item,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
+        "situacoes_producao_opcoes": situacoes_producao,
     }
     return render(request, "operacional/producao_editar.html", contexto)
 
@@ -2189,11 +2331,11 @@ def excluir_producao_modulo(request, empresa_id, producao_id):
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).first()
     if not producao_item:
-        messages.error(request, "Registro de producao nao encontrado.")
+        messages.error(request, "Registro de produção não encontrado.")
         return redirect("producao", empresa_id=empresa.id)
 
     producao_item.excluir_producao()
-    messages.success(request, "Registro de producao excluido com sucesso.")
+    messages.success(request, "Registro de produção excluído com sucesso.")
     return redirect("producao", empresa_id=empresa.id)
 
 
@@ -2206,10 +2348,273 @@ def operador_logistico(request, empresa_id):
 @login_required(login_url="entrar")
 def tabela_de_fretes(request, empresa_id):
     modulo = _obter_modulo("Operacional", "Tabela de Fretes")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_fretes()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_frete":
+            erro = criar_frete_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Frete criado com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_fretes")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_fretes(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("tabela_de_fretes", empresa_id=empresa_id)
+
+    fretes_qs = (
+        Frete.objects.filter(empresa=empresa)
+        .select_related("cidade", "regiao", "unidade_federativa")
+        .order_by("cidade__nome", "id")
+    )
+    tipos_frete = sorted(
+        {
+            str(valor).strip()
+            for valor in Frete.objects.filter(empresa=empresa).values_list("tipo_frete", flat=True)
+            if str(valor).strip()
+        }
+    )
+    if "CTRC" not in tipos_frete:
+        tipos_frete.insert(0, "CTRC")
+    arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "cidades": Cidade.objects.filter(empresa=empresa).order_by("nome"),
+        "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
+        "unidades_federativas": UnidadeFederativa.objects.filter(empresa=empresa).order_by("sigla", "codigo"),
+        "tipos_frete_opcoes": tipos_frete,
+        "fretes_tabulator": build_fretes_tabulator(fretes_qs, empresa.id),
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def editar_frete_modulo(request, empresa_id, frete_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Tabela de Fretes")
+    if not autorizado:
+        return redirect("index")
+
+    frete_item = (
+        Frete.objects.filter(id=frete_id, empresa=empresa)
+        .select_related("cidade", "regiao", "unidade_federativa")
+        .first()
+    )
+    if not frete_item:
+        messages.error(request, "Frete não encontrado.")
+        return redirect("tabela_de_fretes", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_frete_por_post(frete_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_frete_modulo", empresa_id=empresa.id, frete_id=frete_item.id)
+        messages.success(request, "Frete atualizado com sucesso.")
+        return redirect("tabela_de_fretes", empresa_id=empresa.id)
+
+    tipos_frete = sorted(
+        {
+            str(valor).strip()
+            for valor in Frete.objects.filter(empresa=empresa).values_list("tipo_frete", flat=True)
+            if str(valor).strip()
+        }
+    )
+    if "CTRC" not in tipos_frete:
+        tipos_frete.insert(0, "CTRC")
+    if frete_item.tipo_frete and frete_item.tipo_frete not in tipos_frete:
+        tipos_frete.append(frete_item.tipo_frete)
+        tipos_frete.sort()
+
+    contexto = {
+        "empresa": empresa,
+        "frete_item": frete_item,
+        "cidades": Cidade.objects.filter(empresa=empresa).order_by("nome"),
+        "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
+        "unidades_federativas": UnidadeFederativa.objects.filter(empresa=empresa).order_by("sigla", "codigo"),
+        "tipos_frete_opcoes": tipos_frete,
+    }
+    return render(request, "operacional/tabela_de_fretes_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_frete_modulo(request, empresa_id, frete_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Tabela de Fretes")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("tabela_de_fretes", empresa_id=empresa.id)
+
+    frete_item = Frete.objects.filter(id=frete_id, empresa=empresa).first()
+    if not frete_item:
+        messages.error(request, "Frete não encontrado.")
+        return redirect("tabela_de_fretes", empresa_id=empresa.id)
+
+    frete_item.excluir_frete()
+    messages.success(request, "Frete excluído com sucesso.")
+    return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
 def estoque_pcp(request, empresa_id):
     modulo = _obter_modulo("Operacional", "Estoque - PCP")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_estoque()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "criar_estoque":
+            erro = criar_estoque_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de estoque criado com sucesso.")
+        elif acao == "importar_estoque":
+            arquivos = request.FILES.getlist("arquivos_estoque")
+            ok, mensagem = importar_upload_estoque(
+                empresa=empresa,
+                arquivos=arquivos,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        else:
+            messages.error(request, "Ação de estoque inválida.")
+        return redirect("estoque_pcp", empresa_id=empresa_id)
+
+    estoque_qs = (
+        Estoque.objects.filter(empresa=empresa)
+        .select_related("produto")
+        .order_by("-data_contagem", "-id")
+    )
+    codigos_voume = sorted(
+        {
+            str(valor).strip()
+            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_voume", flat=True)
+            if str(valor).strip()
+        }
+    )
+    codigos_local = sorted(
+        {
+            str(valor).strip()
+            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_local", flat=True)
+            if str(valor).strip()
+        }
+    )
+    arquivos_existentes = sorted(
+        [
+            str(f.relative_to(diretorio_importacao)).replace("\\", "/")
+            for f in diretorio_importacao.rglob("*.xls")
+            if f.is_file() and diretorio_subscritos not in f.parents
+        ]
+    )
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
+        "status_opcoes_estoque": ["Ativo", "Inativo", "Pendente"],
+        "codigos_voume_estoque": codigos_voume,
+        "codigos_local_estoque": codigos_local,
+        "estoque_tabulator": build_estoque_tabulator(estoque_qs, empresa.id),
+    }
+    return render(request, "operacional/estoque_pcp.html", contexto)
+
+
+@login_required(login_url="entrar")
+def editar_estoque_modulo(request, empresa_id, estoque_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Estoque - PCP")
+    if not autorizado:
+        return redirect("index")
+
+    estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).select_related("produto").first()
+    if not estoque_item:
+        messages.error(request, "Registro de estoque não encontrado.")
+        return redirect("estoque_pcp", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_estoque_por_post(estoque_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_estoque_modulo", empresa_id=empresa.id, estoque_id=estoque_item.id)
+        messages.success(request, "Registro de estoque atualizado com sucesso.")
+        return redirect("estoque_pcp", empresa_id=empresa.id)
+
+    codigos_voume = sorted(
+        {
+            str(valor).strip()
+            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_voume", flat=True)
+            if str(valor).strip()
+        }
+    )
+    codigos_local = sorted(
+        {
+            str(valor).strip()
+            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_local", flat=True)
+            if str(valor).strip()
+        }
+    )
+    if estoque_item.codigo_voume and estoque_item.codigo_voume not in codigos_voume:
+        codigos_voume.append(estoque_item.codigo_voume)
+        codigos_voume.sort()
+    if estoque_item.codigo_local and estoque_item.codigo_local not in codigos_local:
+        codigos_local.append(estoque_item.codigo_local)
+        codigos_local.sort()
+
+    contexto = {
+        "empresa": empresa,
+        "estoque_item": estoque_item,
+        "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
+        "status_opcoes_estoque": ["Ativo", "Inativo", "Pendente"],
+        "codigos_voume_estoque": codigos_voume,
+        "codigos_local_estoque": codigos_local,
+    }
+    return render(request, "operacional/estoque_pcp_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_estoque_modulo(request, empresa_id, estoque_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Estoque - PCP")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("estoque_pcp", empresa_id=empresa.id)
+
+    estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).first()
+    if not estoque_item:
+        messages.error(request, "Registro de estoque não encontrado.")
+        return redirect("estoque_pcp", empresa_id=empresa.id)
+
+    estoque_item.excluir_estoque()
+    messages.success(request, "Registro de estoque excluído com sucesso.")
+    return redirect("estoque_pcp", empresa_id=empresa.id)

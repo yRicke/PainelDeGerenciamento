@@ -4,6 +4,7 @@
     var idadePreview = document.getElementById("idade-dias-preview");
     var criticaPreview = document.getElementById("critica-preview");
     var verificacaoPreview = document.getElementById("verificacao-preview");
+    var dataPrevistaSaida = document.getElementById("data-prevista-saida-editar");
     var dataChegada = document.getElementById("data-chegada-editar");
     var dataFinalizacao = document.getElementById("data-finalizacao-editar");
 
@@ -13,6 +14,7 @@
         || !idadePreview
         || !criticaPreview
         || !verificacaoPreview
+        || !dataPrevistaSaida
         || !dataChegada
         || !dataFinalizacao
     ) {
@@ -54,11 +56,40 @@
         verificacaoPreview.value = verificar ? "Verificar" : "Ok";
     }
 
-    function atualizarBloqueioFinalizacao() {
-        var temChegada = Boolean(dataChegada.value);
-        dataFinalizacao.disabled = !temChegada;
-        dataFinalizacao.min = dataChegada.value || "";
-        if (!temChegada) {
+    function atualizarEncadeamentoDatas() {
+        var valorInicio = dataInicio.value || "";
+        dataPrevistaSaida.disabled = !valorInicio;
+        dataPrevistaSaida.min = valorInicio || "";
+        if (!valorInicio) {
+            dataPrevistaSaida.value = "";
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+        if (valorInicio && dataPrevistaSaida.value && dataPrevistaSaida.value < valorInicio) {
+            dataPrevistaSaida.value = "";
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+
+        var valorSaida = dataPrevistaSaida.value || "";
+        dataChegada.disabled = !valorSaida;
+        dataChegada.min = valorSaida || "";
+        if (!valorSaida) {
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+        if (valorSaida && dataChegada.value && dataChegada.value < valorSaida) {
+            dataChegada.value = "";
+            dataFinalizacao.value = "";
+        }
+
+        var valorChegada = dataChegada.value || "";
+        dataFinalizacao.disabled = !valorChegada;
+        dataFinalizacao.min = valorChegada || "";
+        if (!valorChegada) {
+            dataFinalizacao.value = "";
+        }
+        if (valorChegada && dataFinalizacao.value && dataFinalizacao.value < valorChegada) {
             dataFinalizacao.value = "";
         }
     }
@@ -67,9 +98,11 @@
     dataInicio.addEventListener("input", atualizarResumo);
     prazoMaximo.addEventListener("change", atualizarResumo);
     prazoMaximo.addEventListener("input", atualizarResumo);
-    dataChegada.addEventListener("change", atualizarBloqueioFinalizacao);
-    dataChegada.addEventListener("input", atualizarBloqueioFinalizacao);
+    [dataInicio, dataPrevistaSaida, dataChegada, dataFinalizacao].forEach(function (input) {
+        input.addEventListener("change", atualizarEncadeamentoDatas);
+        input.addEventListener("input", atualizarEncadeamentoDatas);
+    });
 
     atualizarResumo();
-    atualizarBloqueioFinalizacao();
+    atualizarEncadeamentoDatas();
 })();

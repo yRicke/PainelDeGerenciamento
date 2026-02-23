@@ -135,7 +135,7 @@
             form.submit();
         }
 
-        var tabela = new Tabulator("#regioes-tabulator", {
+        var tabela = window.TabulatorDefaults.create("#regioes-tabulator", {
             data: data,
             layout: "fitDataStretch",
             pagination: true,
@@ -189,4 +189,5 @@
     })();
 </script>
 {% endblock %}
+
 

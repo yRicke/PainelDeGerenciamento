@@ -3,7 +3,7 @@
 #orcamento-realizado-tabulator,
 #orcamentos-tabulator,
 #orcamento-comparativo-tabulator {
-    min-width: 1550px;
+    min-width: 1300px;
 }
 
 .module-shortcuts {
@@ -126,3 +126,4 @@
         width: 100%;
     }
 }
+

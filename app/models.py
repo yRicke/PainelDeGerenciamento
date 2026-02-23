@@ -350,6 +350,36 @@ class Regiao(models.Model):
     def excluir_regiao(self):
         self.delete()
 
+
+class UnidadeFederativa(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="unidades_federativas")
+    codigo = models.CharField(max_length=10, default="", unique=True)
+    sigla = models.CharField(max_length=5)
+
+    def __str__(self):
+        return f"{self.sigla} ({self.codigo})"
+
+    @classmethod
+    def criar_unidade_federativa(cls, empresa, codigo, sigla):
+        item = cls(empresa=empresa, codigo=codigo, sigla=sigla)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_unidade_federativa(self, codigo=UNSET, sigla=UNSET):
+        if codigo is not UNSET:
+            self.codigo = codigo
+        if sigla is not UNSET:
+            self.sigla = sigla
+        self.save()
+
+    def excluir_unidade_federativa(self):
+        self.delete()
+
+
 class Parceiro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parceiros")
     nome = models.CharField(max_length=150)
@@ -721,7 +751,20 @@ class Cargas(models.Model):
 class Produto(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="produtos")
     codigo_produto = models.CharField(max_length=80)
+    status = models.CharField(max_length=20, blank=True, default="Ativo")
     descricao_produto = models.CharField(max_length=255, blank=True, default="")
+    kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    remuneracao_por_fardo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    ppm = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    peso_kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    pacote_por_fardo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    turno = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    horas = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    setup = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    horas_uteis = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    empacotadeiras = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    producao_por_dia_fd = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    estoque_minimo_pacote = models.DecimalField(max_digits=18, decimal_places=3, default=0)
 
     class Meta:
         constraints = [
@@ -732,11 +775,42 @@ class Produto(models.Model):
         return f"{self.codigo_produto} - {self.descricao_produto}"
 
     @classmethod
-    def criar_produto(cls, empresa, codigo_produto, descricao_produto=""):
+    def criar_produto(
+        cls,
+        empresa,
+        codigo_produto,
+        descricao_produto="",
+        status="Ativo",
+        kg=0,
+        remuneracao_por_fardo=0,
+        ppm=0,
+        peso_kg=0,
+        pacote_por_fardo=0,
+        turno=0,
+        horas=0,
+        setup=0,
+        horas_uteis=0,
+        empacotadeiras=0,
+        producao_por_dia_fd=0,
+        estoque_minimo_pacote=0,
+    ):
         item = cls(
             empresa=empresa,
             codigo_produto=codigo_produto,
             descricao_produto=descricao_produto,
+            status=status,
+            kg=kg,
+            remuneracao_por_fardo=remuneracao_por_fardo,
+            ppm=ppm,
+            peso_kg=peso_kg,
+            pacote_por_fardo=pacote_por_fardo,
+            turno=turno,
+            horas=horas,
+            setup=setup,
+            horas_uteis=horas_uteis,
+            empacotadeiras=empacotadeiras,
+            producao_por_dia_fd=producao_por_dia_fd,
+            estoque_minimo_pacote=estoque_minimo_pacote,
         )
         item.save()
         return item
@@ -763,11 +837,54 @@ class Produto(models.Model):
             produto.save(update_fields=["descricao_produto"])
         return produto
 
-    def atualizar_produto(self, codigo_produto=UNSET, descricao_produto=UNSET):
+    def atualizar_produto(
+        self,
+        codigo_produto=UNSET,
+        descricao_produto=UNSET,
+        status=UNSET,
+        kg=UNSET,
+        remuneracao_por_fardo=UNSET,
+        ppm=UNSET,
+        peso_kg=UNSET,
+        pacote_por_fardo=UNSET,
+        turno=UNSET,
+        horas=UNSET,
+        setup=UNSET,
+        horas_uteis=UNSET,
+        empacotadeiras=UNSET,
+        producao_por_dia_fd=UNSET,
+        estoque_minimo_pacote=UNSET,
+    ):
         if codigo_produto is not UNSET:
             self.codigo_produto = codigo_produto
         if descricao_produto is not UNSET:
             self.descricao_produto = descricao_produto
+        if status is not UNSET:
+            self.status = status
+        if kg is not UNSET:
+            self.kg = kg
+        if remuneracao_por_fardo is not UNSET:
+            self.remuneracao_por_fardo = remuneracao_por_fardo
+        if ppm is not UNSET:
+            self.ppm = ppm
+        if peso_kg is not UNSET:
+            self.peso_kg = peso_kg
+        if pacote_por_fardo is not UNSET:
+            self.pacote_por_fardo = pacote_por_fardo
+        if turno is not UNSET:
+            self.turno = turno
+        if horas is not UNSET:
+            self.horas = horas
+        if setup is not UNSET:
+            self.setup = setup
+        if horas_uteis is not UNSET:
+            self.horas_uteis = horas_uteis
+        if empacotadeiras is not UNSET:
+            self.empacotadeiras = empacotadeiras
+        if producao_por_dia_fd is not UNSET:
+            self.producao_por_dia_fd = producao_por_dia_fd
+        if estoque_minimo_pacote is not UNSET:
+            self.estoque_minimo_pacote = estoque_minimo_pacote
         self.save()
 
     def excluir_produto(self):
@@ -788,6 +905,7 @@ class Producao(models.Model):
     kg = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     producao_por_dia = models.DecimalField(max_digits=14, decimal_places=3, default=0)
     kg_por_lote = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    estoque_minimo_pacote = models.DecimalField(max_digits=14, decimal_places=3, default=0)
 
     def __str__(self):
         return f"Producao #{self.id} - Operacao {self.numero_operacao}"
@@ -809,6 +927,7 @@ class Producao(models.Model):
         kg=0,
         producao_por_dia=0,
         kg_por_lote=0,
+        estoque_minimo_pacote=0,
     ):
         item = cls(
             empresa=empresa,
@@ -825,6 +944,7 @@ class Producao(models.Model):
             kg=kg,
             producao_por_dia=producao_por_dia,
             kg_por_lote=kg_por_lote,
+            estoque_minimo_pacote=estoque_minimo_pacote,
         )
         item.save()
         return item
@@ -848,6 +968,7 @@ class Producao(models.Model):
         kg=UNSET,
         producao_por_dia=UNSET,
         kg_por_lote=UNSET,
+        estoque_minimo_pacote=UNSET,
     ):
         if data_origem is not UNSET:
             self.data_origem = data_origem
@@ -875,10 +996,274 @@ class Producao(models.Model):
             self.producao_por_dia = producao_por_dia
         if kg_por_lote is not UNSET:
             self.kg_por_lote = kg_por_lote
+        if estoque_minimo_pacote is not UNSET:
+            self.estoque_minimo_pacote = estoque_minimo_pacote
         self.save()
 
     def excluir_producao(self):
         self.delete()
+
+
+class Frete(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="fretes")
+    cidade = models.ForeignKey(Cidade, on_delete=models.SET_NULL, null=True, blank=True, related_name="fretes")
+    unidade_federativa = models.ForeignKey(
+        UnidadeFederativa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="fretes",
+    )
+    regiao = models.ForeignKey(Regiao, on_delete=models.SET_NULL, null=True, blank=True, related_name="fretes")
+    valor_frete_comercial = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    data_hora_alteracao = models.DateTimeField(null=True, blank=True)
+    valor_frete_minimo = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    valor_frete_tonelada = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    tipo_frete = models.CharField(max_length=30, blank=True, default="")
+    valor_frete_por_km = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    valor_taxa_entrada = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    venda_minima = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "cidade"], name="uq_frete_empresa_cidade"),
+        ]
+
+    def __str__(self):
+        cidade_nome = self.cidade.nome if self.cidade else "-"
+        return f"Frete {cidade_nome} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_frete(
+        cls,
+        empresa,
+        cidade=None,
+        unidade_federativa=None,
+        regiao=None,
+        valor_frete_comercial=0,
+        data_hora_alteracao=None,
+        valor_frete_minimo=0,
+        valor_frete_tonelada=0,
+        tipo_frete="",
+        valor_frete_por_km=0,
+        valor_taxa_entrada=0,
+        venda_minima=0,
+    ):
+        item = cls(
+            empresa=empresa,
+            cidade=cidade,
+            unidade_federativa=unidade_federativa,
+            regiao=regiao,
+            valor_frete_comercial=valor_frete_comercial,
+            data_hora_alteracao=data_hora_alteracao,
+            valor_frete_minimo=valor_frete_minimo,
+            valor_frete_tonelada=valor_frete_tonelada,
+            tipo_frete=tipo_frete,
+            valor_frete_por_km=valor_frete_por_km,
+            valor_taxa_entrada=valor_taxa_entrada,
+            venda_minima=venda_minima,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_frete(
+        self,
+        cidade=UNSET,
+        unidade_federativa=UNSET,
+        regiao=UNSET,
+        valor_frete_comercial=UNSET,
+        data_hora_alteracao=UNSET,
+        valor_frete_minimo=UNSET,
+        valor_frete_tonelada=UNSET,
+        tipo_frete=UNSET,
+        valor_frete_por_km=UNSET,
+        valor_taxa_entrada=UNSET,
+        venda_minima=UNSET,
+    ):
+        if cidade is not UNSET:
+            self.cidade = cidade
+        if unidade_federativa is not UNSET:
+            self.unidade_federativa = unidade_federativa
+        if regiao is not UNSET:
+            self.regiao = regiao
+        if valor_frete_comercial is not UNSET:
+            self.valor_frete_comercial = valor_frete_comercial
+        if data_hora_alteracao is not UNSET:
+            self.data_hora_alteracao = data_hora_alteracao
+        if valor_frete_minimo is not UNSET:
+            self.valor_frete_minimo = valor_frete_minimo
+        if valor_frete_tonelada is not UNSET:
+            self.valor_frete_tonelada = valor_frete_tonelada
+        if tipo_frete is not UNSET:
+            self.tipo_frete = tipo_frete
+        if valor_frete_por_km is not UNSET:
+            self.valor_frete_por_km = valor_frete_por_km
+        if valor_taxa_entrada is not UNSET:
+            self.valor_taxa_entrada = valor_taxa_entrada
+        if venda_minima is not UNSET:
+            self.venda_minima = venda_minima
+        self.save()
+
+    def excluir_frete(self):
+        self.delete()
+
+
+class Estoque(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="estoques")
+    nome_origem = models.DateField()
+    data_contagem = models.DateField()
+    status = models.CharField(max_length=30, blank=True, default="Ativo")
+    codigo_empresa = models.CharField(max_length=20, blank=True, default="")
+    produto = models.ForeignKey(Produto, on_delete=models.SET_NULL, null=True, blank=True, related_name="estoques")
+    qtd_estoque = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    giro_mensal = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    lead_time_fornecimento = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    codigo_voume = models.CharField(max_length=20, blank=True, default="")
+    custo_total = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    reservado = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    pacote_por_fardo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    sub_total_est_pen = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    estoque_minimo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    producao_por_dia_fd = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    total_pcp_pacote = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    total_pcp_fardo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    dia_de_producao = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    codigo_local = models.CharField(max_length=20, blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "nome_origem", "data_contagem", "codigo_empresa", "codigo_local", "produto"],
+                name="uq_estoque_empresa_origem_contagem_local_produto",
+            ),
+        ]
+
+    def __str__(self):
+        produto_codigo = self.produto.codigo_produto if self.produto else "-"
+        return f"Estoque {produto_codigo} ({self.nome_origem})"
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    @classmethod
+    def criar_estoque(
+        cls,
+        empresa,
+        nome_origem,
+        data_contagem,
+        status="Ativo",
+        codigo_empresa="",
+        produto=None,
+        qtd_estoque=0,
+        giro_mensal=0,
+        lead_time_fornecimento=0,
+        codigo_voume="",
+        custo_total=0,
+        reservado=0,
+        pacote_por_fardo=0,
+        sub_total_est_pen=0,
+        estoque_minimo=0,
+        producao_por_dia_fd=0,
+        total_pcp_pacote=0,
+        total_pcp_fardo=0,
+        dia_de_producao=0,
+        codigo_local="",
+    ):
+        item = cls(
+            empresa=empresa,
+            nome_origem=nome_origem,
+            data_contagem=data_contagem,
+            status=status,
+            codigo_empresa=codigo_empresa,
+            produto=produto,
+            qtd_estoque=qtd_estoque,
+            giro_mensal=giro_mensal,
+            lead_time_fornecimento=lead_time_fornecimento,
+            codigo_voume=codigo_voume,
+            custo_total=custo_total,
+            reservado=reservado,
+            pacote_por_fardo=pacote_por_fardo,
+            sub_total_est_pen=sub_total_est_pen,
+            estoque_minimo=estoque_minimo,
+            producao_por_dia_fd=producao_por_dia_fd,
+            total_pcp_pacote=total_pcp_pacote,
+            total_pcp_fardo=total_pcp_fardo,
+            dia_de_producao=dia_de_producao,
+            codigo_local=codigo_local,
+        )
+        item.save()
+        return item
+
+    def atualizar_estoque(
+        self,
+        nome_origem=UNSET,
+        data_contagem=UNSET,
+        status=UNSET,
+        codigo_empresa=UNSET,
+        produto=UNSET,
+        qtd_estoque=UNSET,
+        giro_mensal=UNSET,
+        lead_time_fornecimento=UNSET,
+        codigo_voume=UNSET,
+        custo_total=UNSET,
+        reservado=UNSET,
+        pacote_por_fardo=UNSET,
+        sub_total_est_pen=UNSET,
+        estoque_minimo=UNSET,
+        producao_por_dia_fd=UNSET,
+        total_pcp_pacote=UNSET,
+        total_pcp_fardo=UNSET,
+        dia_de_producao=UNSET,
+        codigo_local=UNSET,
+    ):
+        if nome_origem is not UNSET:
+            self.nome_origem = nome_origem
+        if data_contagem is not UNSET:
+            self.data_contagem = data_contagem
+        if status is not UNSET:
+            self.status = status
+        if codigo_empresa is not UNSET:
+            self.codigo_empresa = codigo_empresa
+        if produto is not UNSET:
+            self.produto = produto
+        if qtd_estoque is not UNSET:
+            self.qtd_estoque = qtd_estoque
+        if giro_mensal is not UNSET:
+            self.giro_mensal = giro_mensal
+        if lead_time_fornecimento is not UNSET:
+            self.lead_time_fornecimento = lead_time_fornecimento
+        if codigo_voume is not UNSET:
+            self.codigo_voume = codigo_voume
+        if custo_total is not UNSET:
+            self.custo_total = custo_total
+        if reservado is not UNSET:
+            self.reservado = reservado
+        if pacote_por_fardo is not UNSET:
+            self.pacote_por_fardo = pacote_por_fardo
+        if sub_total_est_pen is not UNSET:
+            self.sub_total_est_pen = sub_total_est_pen
+        if estoque_minimo is not UNSET:
+            self.estoque_minimo = estoque_minimo
+        if producao_por_dia_fd is not UNSET:
+            self.producao_por_dia_fd = producao_por_dia_fd
+        if total_pcp_pacote is not UNSET:
+            self.total_pcp_pacote = total_pcp_pacote
+        if total_pcp_fardo is not UNSET:
+            self.total_pcp_fardo = total_pcp_fardo
+        if dia_de_producao is not UNSET:
+            self.dia_de_producao = dia_de_producao
+        if codigo_local is not UNSET:
+            self.codigo_local = codigo_local
+        self.save()
+
+    def excluir_estoque(self):
+        self.delete()
+
 
 class Titulo(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="titulos")

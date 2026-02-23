@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var dataElement = document.getElementById("produtos-tabulator-data");
     if (!dataElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
@@ -8,28 +8,39 @@
     var filtroDescricao = document.getElementById("filtro-produto-descricao");
     var limparFiltrosBtn = document.getElementById("limpar-filtros-produtos");
 
-    var tabela = new Tabulator("#produtos-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#produtos-tabulator", {
         data: data,
-        layout: "fitDataStretch",
+        layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
-            {title: "Codigo", field: "codigo_produto", editor: "input"},
-            {title: "Descricao", field: "descricao_produto", editor: "input"},
+            {title: "Codigo", field: "codigo_produto"},
+            {title: "Status", field: "status"},
+            {title: "Descricao", field: "descricao_produto"},
+            {title: "KG", field: "kg", hozAlign: "right"},
+            {title: "Rem. por Fardo", field: "remuneracao_por_fardo", hozAlign: "right"},
+            {title: "PPM", field: "ppm", hozAlign: "right"},
+            {title: "Peso (KG)", field: "peso_kg", hozAlign: "right"},
+            {title: "Pacote/Fardo", field: "pacote_por_fardo", hozAlign: "right"},
+            {title: "Turno", field: "turno", hozAlign: "right"},
+            {title: "Horas", field: "horas", hozAlign: "right"},
+            {title: "Setup", field: "setup", hozAlign: "right"},
+            {title: "Horas Uteis", field: "horas_uteis", hozAlign: "right"},
+            {title: "Empacotadeiras", field: "empacotadeiras", hozAlign: "right"},
+            {title: "Prod. Dia (FD)", field: "producao_por_dia_fd", hozAlign: "right"},
+            {title: "Est. Min. Pacote", field: "estoque_minimo_pacote", hozAlign: "right"},
             {
                 title: "Acoes",
                 hozAlign: "center",
                 formatter: function () {
-                    return '<button class="btn-primary" type="button">Salvar</button> <button class="btn-danger" type="button">Excluir</button>';
+                    return '<a class="btn-primary" href="#">Editar</a> <button class="btn-danger" type="button">Excluir</button>';
                 },
                 cellClick: function (e, cell) {
                     var row = cell.getRow().getData();
                     if (e.target && e.target.classList && e.target.classList.contains("btn-primary")) {
-                        submitPost(row.editar_url, {
-                            codigo_produto: row.codigo_produto || "",
-                            descricao_produto: row.descricao_produto || "",
-                        });
+                        e.preventDefault();
+                        window.location.href = row.editar_url;
                     }
                     if (e.target && e.target.classList && e.target.classList.contains("btn-danger")) {
                         submitPost(row.excluir_url, {}, "Excluir produto?");
@@ -59,3 +70,4 @@
         tabela.clearFilter(true);
     });
 })();
+

@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var form = document.getElementById("upload-vendas-form");
     if (!form) return;
 
@@ -506,7 +506,7 @@
         return (nomeMes[valor] || valor) + " (" + String(valor).padStart(2, "0") + ")";
     });
 
-    var tabela = new Tabulator("#vendas-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#vendas-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
@@ -620,4 +620,5 @@
         tabela.clearHeaderFilter();
     });
 })();
+
 

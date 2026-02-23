@@ -1,16 +1,211 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Estoque - PCP{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/operacional/estoque-pcp.css' %}">
+{% endblock %}
+
 {% block content %}
+{% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
     <a href="{% url 'operacional' %}">Voltar</a>
     <h1>Estoque - PCP</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegação de seções de estoque PCP">
+        <a href="#sec-cadastro">Cadastro</a>
+        <a href="#sec-importacao">Importação</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualização</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Estoque - PCP</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Novo Registro de Estoque (Cadastro Manual)</h2>
+    <p class="form-note">Os cálculos de subtotal, PCP e dia de produção são recalculados automaticamente ao salvar.</p>
+    <form id="criar-estoque-form" action="{% url 'estoque_pcp' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_estoque">
+
+        <div class="form-grid">
+            <div>
+                <label>Nome origem</label>
+                <input type="date" name="nome_origem" value="{{ hoje_iso }}" required>
+            </div>
+            <div>
+                <label>Data contagem</label>
+                <input type="date" name="data_contagem" value="{{ hoje_iso }}" required>
+            </div>
+            <div>
+                <label>Status</label>
+                <select name="status" required>
+                    {% for status_opcao in status_opcoes_estoque %}
+                    <option value="{{ status_opcao }}" {% if status_opcao == "Ativo" %}selected{% endif %}>{{ status_opcao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Código empresa</label>
+                <input type="text" name="codigo_empresa" required>
+            </div>
+            <div>
+                <label>Produto</label>
+                <select name="produto_id" required>
+                    <option value="">Selecione</option>
+                    {% for item in produtos %}
+                    <option
+                        value="{{ item.id }}"
+                        data-pacote-por-fardo="{{ item.pacote_por_fardo|default_if_none:0 }}"
+                        data-estoque-minimo="{{ item.estoque_minimo_pacote|default_if_none:0 }}"
+                        data-producao-por-dia-fd="{{ item.producao_por_dia_fd|default_if_none:0 }}"
+                        data-produto-parametrizado="{% if item.pacote_por_fardo or item.producao_por_dia_fd or item.estoque_minimo_pacote %}1{% else %}0{% endif %}"
+                    >
+                        {{ item.codigo_produto }} - {{ item.descricao_produto }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Código local</label>
+                <select name="codigo_local" required>
+                    <option value="">Selecione</option>
+                    {% for codigo_local in codigos_local_estoque %}
+                    <option value="{{ codigo_local }}">{{ codigo_local }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Qtd. estoque</label>
+                <input type="text" name="qtd_estoque" value="0">
+            </div>
+            <div>
+                <label>Reservado</label>
+                <input type="text" name="reservado" value="0">
+            </div>
+            <div>
+                <label>Custo total</label>
+                <input type="text" name="custo_total" value="0">
+            </div>
+            <div>
+                <label>Código volume</label>
+                <select name="codigo_voume">
+                    <option value="">Selecione</option>
+                    {% for codigo_voume in codigos_voume_estoque %}
+                    <option value="{{ codigo_voume }}">{{ codigo_voume }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Pacote por fardo</label>
+                <input type="text" name="pacote_por_fardo" value="0" readonly>
+            </div>
+            <div>
+                <label>Estoque mínimo</label>
+                <input type="text" name="estoque_minimo" value="0" readonly>
+            </div>
+            <div>
+                <label>Produção por dia (FD)</label>
+                <input type="text" name="producao_por_dia_fd" value="0" readonly>
+            </div>
+            <div>
+                <label>Giro mensal</label>
+                <input type="text" name="giro_mensal" value="0">
+            </div>
+            <div>
+                <label>Lead time de fornecimento</label>
+                <input type="text" name="lead_time_fornecimento" value="0">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+        <p class="form-note">Pacote por fardo, estoque mínimo e produção por dia (FD) são carregados automaticamente do cadastro de produtos.</p>
+        {% if not produtos %}
+        <p class="form-note">Não há produtos cadastrados. Cadastre em <a href="{% url 'produtos' empresa.id %}">Parâmetros > Produtos</a>.</p>
+        {% endif %}
+    </form>
 </section>
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importação de Estoque</h2>
+    <p>Selecione a pasta <code>ESTOQUE</code> completa, contendo as subpastas <code>1 - Posição Estoque</code> e <code>2 - Estoque Reservado</code>. O sistema vai ler todos os <code>.xls</code> das subpastas automaticamente. O nome de origem será extraído da data presente no nome do arquivo.</p>
+
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form id="upload-estoque-form" class="upload-form" action="{% url 'estoque_pcp' empresa.id %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="importar_estoque">
+        <input type="file" id="arquivos-estoque-input" name="arquivos_estoque" accept=".xls" multiple webkitdirectory directory hidden>
+
+        <div id="dropzone-estoque" class="dropzone">
+            <strong>Arraste e solte a pasta ESTOQUE aqui</strong>
+            <span>ou clique para selecionar a pasta <code>ESTOQUE</code> com as duas subpastas.</span>
+        </div>
+
+        <div class="upload-actions">
+            <button type="submit" class="upload-button">Enviar e importar</button>
+            <span id="nome-arquivos-estoque-selecionado" class="file-status"></span>
+        </div>
+
+        <div id="estoque-loading-status" class="loading-status">
+            Carregamento em andamento. Os arquivos estão sendo enviados e a importação foi iniciada.
+        </div>
+    </form>
+</section>
+
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Dashboard</h2>
+    <div class="cargas-dashboard-grid">
+        <article class="cargas-kpi-card cargas-kpi-card--neutro">
+            <h3>Valor (Custo Total)</h3>
+            <p id="kpi-estoque-valor">R$ 0,00</p>
+        </article>
+        <article class="cargas-kpi-card cargas-kpi-card--ok">
+            <h3>Data Contagem Mais Recente</h3>
+            <p id="kpi-estoque-data-recente">-</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados de Estoque</h2>
+
+    <div class="filter-grid">
+        <div class="carteira-filtro-card">
+            <label>Última posição</label>
+            <div id="filtro-ultima-posicao" class="carteira-filtro-options carteira-filtro-options--chips"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Status</label>
+            <div id="filtro-status-estoque" class="carteira-filtro-options carteira-filtro-options--chips"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Ano</label>
+            <div id="filtro-ano-estoque" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Mês</label>
+            <div id="filtro-mes-estoque" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+    </div>
+
+    <button type="button" class="btn-light" id="limpar-filtros-estoque">Limpar filtros</button>
+
+    <div class="table-wrapper">
+        <div id="estoque-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ estoque_tabulator|json_script:"estoque-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/operacional/estoque-pcp-page.js' %}"></script>
 {% endblock %}

@@ -1,7 +1,7 @@
 ﻿{% extends "base.html" %}
 {% load static %}
 
-{% block title %}Producao{% endblock %}
+{% block title %}Produção{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -13,18 +13,18 @@
 {% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
     <a href="{% url 'operacional' %}">Voltar</a>
-    <h1>Producao</h1>
+    <h1>Produção</h1>
     <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegacao de secoes de producao">
+    <nav class="module-sections-nav" aria-label="Navegação de seções de produção">
         <a href="#sec-cadastro">Cadastro</a>
-        <a href="#sec-importacao">Importacao</a>
-        <a href="#sec-visualizacao">Visualizacao</a>
+        <a href="#sec-importacao">Importação</a>
+        <a href="#sec-visualizacao">Visualização</a>
     </nav>
 </section>
 
 <section id="sec-cadastro" class="panel module-section">
-    <h2>Novo Registro de Producao (Cadastro Manual)</h2>
-    <p class="form-note">O produto e obrigatorio. Codigo e descricao sao exibidos pela FK de produto.</p>
+    <h2>Novo Registro de Produção (Cadastro Manual)</h2>
+    <p class="form-note">O produto é obrigatório. Código e descrição são exibidos pela FK de produto.</p>
     <form id="criar-producao-form" action="{% url 'producao' empresa.id %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="acao" value="criar_producao">
@@ -35,12 +35,17 @@
                 <input type="text" name="data_origem" required>
             </div>
             <div>
-                <label>Numero operacao</label>
+                <label>Número da operação</label>
                 <input type="number" name="numero_operacao" min="1" required>
             </div>
             <div>
-                <label>Situacao</label>
-                <input type="text" name="situacao" required>
+                <label>Situação</label>
+                <select name="situacao" required>
+                    <option value="">Selecione</option>
+                    {% for situacao in situacoes_producao_opcoes %}
+                    <option value="{{ situacao }}">{{ situacao }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label>Produto</label>
@@ -56,38 +61,38 @@
                 <input type="text" name="tamanho_lote">
             </div>
             <div>
-                <label>Numero lote</label>
+                <label>Número lote</label>
                 <input type="text" name="numero_lote">
             </div>
             <div>
                 <label>Data entrada atividade</label>
-                <input type="date" name="data_hora_entrada_atividade" value="{{ hoje_iso }}">
+                <input type="date" id="data-entrada-atividade-criar" name="data_hora_entrada_atividade" value="{{ hoje_iso }}">
             </div>
             <div>
                 <label>Data aceite atividade</label>
-                <input type="date" name="data_hora_aceite_atividade" value="{{ hoje_iso }}">
+                <input type="date" id="data-aceite-atividade-criar" name="data_hora_aceite_atividade" disabled>
             </div>
             <div>
-                <label>Data inicio atividade</label>
-                <input type="date" name="data_hora_inicio_atividade" value="{{ hoje_iso }}">
+                <label>Data início atividade</label>
+                <input type="date" id="data-inicio-atividade-criar" name="data_hora_inicio_atividade" disabled>
             </div>
             <div>
                 <label>Data fim atividade</label>
-                <input type="date" name="data_hora_fim_atividade" value="{{ hoje_iso }}">
+                <input type="date" id="data-fim-atividade-criar" name="data_hora_fim_atividade" disabled>
             </div>
         </div>
         <div class="form-actions">
             <button type="submit" class="btn-primary">Cadastrar</button>
         </div>
         {% if not produtos %}
-        <p class="form-note">Nao ha produtos cadastrados. Cadastre em <a href="{% url 'produtos' empresa.id %}">Parametros > Produtos</a>.</p>
+        <p class="form-note">Não há produtos cadastrados. Cadastre em <a href="{% url 'produtos' empresa.id %}">Parâmetros > Produtos</a>.</p>
         {% endif %}
     </form>
 </section>
 
 <section id="sec-importacao" class="panel module-section">
-    <h2>Importacao de Producao por Pasta</h2>
-    <p>Arraste uma pasta com arquivos <code>.xls</code> ou clique para selecionar a pasta. O conteudo atual da pasta sera movido para <code>subscritos</code>.</p>
+    <h2>Importação de Produção por Pasta</h2>
+    <p>Arraste uma pasta com arquivos <code>.xls</code> ou clique para selecionar a pasta. O conteúdo atual da pasta será movido para <code>subscritos</code>.</p>
 
     {% if arquivo_existente %}
     <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
@@ -120,30 +125,113 @@
         </div>
 
         <div id="producao-loading-status" class="loading-status">
-            Carregamento em andamento. Os arquivos estao sendo enviados e a importacao foi iniciada.
+            Carregamento em andamento. Os arquivos estão sendo enviados e a importação foi iniciada.
         </div>
     </form>
 </section>
 
 <section id="sec-visualizacao" class="panel module-section">
-    <h2>Dados da Producao</h2>
+    <h2>Dados da Produção</h2>
+    <div class="producao-reloginhos-grid">
+        <article class="reloginho-card" data-reloginho="30x1">
+            <h3>Produção 30x1</h3>
+            <div class="reloginho-dial-wrap">
+                <div class="reloginho-dial">
+                    <div class="reloginho-face"></div>
+                    <div id="ponteiro-meta-30x1" class="ponteiro ponteiro-meta"></div>
+                    <div id="ponteiro-real-30x1" class="ponteiro ponteiro-real"></div>
+                    <div class="reloginho-pivo"></div>
+                </div>
+            </div>
+            <div class="reloginho-metricas">
+                <p>META ACUM: <strong id="meta-acum-30x1">0</strong></p>
+                <p>REAL: <strong id="real-30x1">0</strong> <span id="pct-30x1">0,00%</span></p>
+            </div>
+        </article>
+
+        <article class="reloginho-card" data-reloginho="15x2">
+            <h3>Produção 15x2</h3>
+            <div class="reloginho-dial-wrap">
+                <div class="reloginho-dial">
+                    <div class="reloginho-face"></div>
+                    <div id="ponteiro-meta-15x2" class="ponteiro ponteiro-meta"></div>
+                    <div id="ponteiro-real-15x2" class="ponteiro ponteiro-real"></div>
+                    <div class="reloginho-pivo"></div>
+                </div>
+            </div>
+            <div class="reloginho-metricas">
+                <p>META ACUM: <strong id="meta-acum-15x2">0</strong></p>
+                <p>REAL: <strong id="real-15x2">0</strong> <span id="pct-15x2">0,00%</span></p>
+            </div>
+        </article>
+
+        <article class="reloginho-card" data-reloginho="6x5">
+            <h3>Produção 6x5</h3>
+            <div class="reloginho-dial-wrap">
+                <div class="reloginho-dial">
+                    <div class="reloginho-face"></div>
+                    <div id="ponteiro-meta-6x5" class="ponteiro ponteiro-meta"></div>
+                    <div id="ponteiro-real-6x5" class="ponteiro ponteiro-real"></div>
+                    <div class="reloginho-pivo"></div>
+                </div>
+            </div>
+            <div class="reloginho-metricas">
+                <p>META ACUM: <strong id="meta-acum-6x5">0</strong></p>
+                <p>REAL: <strong id="real-6x5">0</strong> <span id="pct-6x5">0,00%</span></p>
+            </div>
+        </article>
+
+        <article class="reloginho-card" data-reloginho="total">
+            <h3>Produção TOTAL</h3>
+            <div class="reloginho-dial-wrap">
+                <div class="reloginho-dial">
+                    <div class="reloginho-face"></div>
+                    <div id="ponteiro-meta-total" class="ponteiro ponteiro-meta"></div>
+                    <div id="ponteiro-real-total" class="ponteiro ponteiro-real"></div>
+                    <div class="reloginho-pivo"></div>
+                </div>
+            </div>
+            <div class="reloginho-metricas">
+                <p>META ACUM: <strong id="meta-acum-total">0</strong></p>
+                <p>REAL: <strong id="real-total">0</strong> <span id="pct-total">0,00%</span></p>
+            </div>
+        </article>
+    </div>
+
     <div class="filter-grid">
         <div>
-            <label for="filtro-origem">Data origem</label>
+            <label for="filtro-origem">Data Nome Arquivo</label>
             <input type="text" id="filtro-origem" placeholder="Nome do arquivo">
         </div>
         <div>
-            <label for="filtro-operacao">Numero operacao</label>
+            <label for="filtro-operacao">Número da operação</label>
             <input type="text" id="filtro-operacao" placeholder="Ex.: 12345">
         </div>
         <div>
-            <label for="filtro-situacao-producao">Situacao</label>
-            <input type="text" id="filtro-situacao-producao" placeholder="Situacao">
+            <label for="filtro-situacao-producao">Situação</label>
+            <select id="filtro-situacao-producao">
+                <option value="">Todas</option>
+            </select>
         </div>
         <div>
-            <label for="filtro-produto">Produto (codigo/descricao)</label>
-            <input type="text" id="filtro-produto" placeholder="Codigo ou descricao">
+            <label for="filtro-ano-producao">Ano</label>
+            <select id="filtro-ano-producao">
+                <option value="">Todos</option>
+            </select>
         </div>
+        <div>
+            <label for="filtro-mes-producao">Mês</label>
+            <select id="filtro-mes-producao">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div>
+            <label for="filtro-produto">Produto (código/descrição)</label>
+            <input type="text" id="filtro-produto" placeholder="Código ou descrição">
+        </div>
+    </div>
+    <div class="module-actions">
+        <button type="button" id="limpar-filtros-producao" class="btn-light">Limpar filtros</button>
     </div>
     <div class="table-wrapper">
         <div id="producao-tabulator"></div>

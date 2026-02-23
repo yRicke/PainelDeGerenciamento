@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     var dataElement = document.getElementById("parceiros-tabulator-data");
     if (!dataElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
@@ -8,7 +8,7 @@
     var filtroCodigo = document.getElementById("filtro-parceiro-codigo");
     var limparFiltrosBtn = document.getElementById("limpar-filtros-parceiros");
 
-    var tabela = new Tabulator("#parceiros-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#parceiros-tabulator", {
         data: data,
         layout: "fitDataStretch",
         pagination: true,
@@ -57,4 +57,5 @@
         tabela.clearFilter(true);
     });
 })();
+
 

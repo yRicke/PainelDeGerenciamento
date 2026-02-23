@@ -135,7 +135,7 @@
             form.submit();
         }
 
-        var tabela = new Tabulator("#projetos-tabulator", {
+        var tabela = window.TabulatorDefaults.create("#projetos-tabulator", {
             data: data,
             layout: "fitDataStretch",
             pagination: true,
@@ -189,4 +189,5 @@
     })();
 </script>
 {% endblock %}
+
 

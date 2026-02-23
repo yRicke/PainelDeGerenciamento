@@ -21,6 +21,8 @@ from .models import (
     ContasAReceber,
     Empresa,
     FluxoDeCaixaDFC,
+    Estoque,
+    Frete,
     Natureza,
     Operacao,
     Orcamento,
@@ -31,6 +33,7 @@ from .models import (
     Projeto,
     Regiao,
     Titulo,
+    UnidadeFederativa,
     Usuario,
     Venda,
 )
@@ -46,7 +49,12 @@ from .utils.financeiro_importacao import (
     importar_dfc_do_diretorio,
     importar_orcamento_do_diretorio,
 )
-from .utils.operacional_importacao import importar_cargas_do_diretorio, importar_producao_do_diretorio
+from .utils.operacional_importacao import (
+    importar_cargas_do_diretorio,
+    importar_estoque_do_diretorio,
+    importar_fretes_do_diretorio,
+    importar_producao_do_diretorio,
+)
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -285,6 +293,37 @@ def atualizar_regiao_por_dados(regiao, nome, codigo, empresa):
     regiao.atualizar_regiao(novo_nome=nome, novo_codigo=codigo)
     return ""
 
+
+def criar_unidade_federativa_por_dados(empresa, codigo, sigla):
+    codigo = (codigo or "").strip()
+    sigla = (sigla or "").strip().upper()
+    if not codigo:
+        return "Codigo da unidade federativa e obrigatorio."
+    if not sigla:
+        return "Sigla da unidade federativa e obrigatoria."
+    if UnidadeFederativa.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
+        return "Ja existe unidade federativa com este codigo em outra empresa."
+    if UnidadeFederativa.objects.filter(empresa=empresa, codigo=codigo).exists():
+        return "Ja existe unidade federativa com este codigo nesta empresa."
+    UnidadeFederativa.criar_unidade_federativa(empresa=empresa, codigo=codigo, sigla=sigla)
+    return ""
+
+
+def atualizar_unidade_federativa_por_dados(unidade_federativa, codigo, sigla, empresa):
+    codigo = (codigo or "").strip()
+    sigla = (sigla or "").strip().upper()
+    if not codigo:
+        return "Codigo da unidade federativa e obrigatorio."
+    if not sigla:
+        return "Sigla da unidade federativa e obrigatoria."
+    if UnidadeFederativa.objects.filter(codigo=codigo).exclude(id=unidade_federativa.id).exclude(empresa=empresa).exists():
+        return "Ja existe unidade federativa com este codigo em outra empresa."
+    if UnidadeFederativa.objects.filter(empresa=empresa, codigo=codigo).exclude(id=unidade_federativa.id).exists():
+        return "Ja existe unidade federativa com este codigo nesta empresa."
+    unidade_federativa.atualizar_unidade_federativa(codigo=codigo, sigla=sigla)
+    return ""
+
+
 def criar_parceiro_por_dados(empresa, nome, codigo):
     nome = (nome or "").strip()
     codigo = (codigo or "").strip()
@@ -314,36 +353,63 @@ def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa):
     parceiro.atualizar_parceiro(novo_nome=nome, novo_codigo=codigo)
     return ""
 
-def criar_produto_por_dados(empresa, codigo_produto, descricao_produto):
-    codigo_produto = (codigo_produto or "").strip()
-    descricao_produto = (descricao_produto or "").strip()
+def _dados_produto_from_post(post_data):
+    horas = _parse_decimal_ou_zero(post_data.get("horas"))
+    setup = _parse_decimal_ou_zero(post_data.get("setup"))
+    ppm = _parse_decimal_ou_zero(post_data.get("ppm"))
+    pacote_por_fardo = _parse_decimal_ou_zero(post_data.get("pacote_por_fardo"))
+    empacotadeiras = _parse_decimal_ou_zero(post_data.get("empacotadeiras"))
+
+    horas_uteis = horas - setup
+    if horas_uteis < 0:
+        horas_uteis = Decimal("0")
+
+    producao_por_dia_fd = Decimal("0")
+    if pacote_por_fardo > 0 and horas_uteis > 0 and empacotadeiras > 0 and ppm > 0:
+        producao_por_dia_fd = (ppm / pacote_por_fardo) * Decimal("60") * horas_uteis * empacotadeiras
+
+    return {
+        "codigo_produto": (post_data.get("codigo_produto") or "").strip(),
+        "descricao_produto": (post_data.get("descricao_produto") or "").strip(),
+        "status": (post_data.get("status") or "Ativo").strip() or "Ativo",
+        "kg": _parse_decimal_ou_zero(post_data.get("kg")),
+        "remuneracao_por_fardo": _parse_decimal_ou_zero(post_data.get("remuneracao_por_fardo")),
+        "ppm": ppm,
+        "peso_kg": _parse_decimal_ou_zero(post_data.get("peso_kg")),
+        "pacote_por_fardo": pacote_por_fardo,
+        "turno": _parse_decimal_ou_zero(post_data.get("turno")),
+        "horas": horas,
+        "setup": setup,
+        "horas_uteis": horas_uteis,
+        "empacotadeiras": empacotadeiras,
+        "producao_por_dia_fd": producao_por_dia_fd,
+        "estoque_minimo_pacote": _parse_decimal_ou_zero(post_data.get("estoque_minimo_pacote")),
+    }
+
+
+def criar_produto_por_dados(empresa, post_data):
+    dados = _dados_produto_from_post(post_data)
+    codigo_produto = dados["codigo_produto"]
     if not codigo_produto:
         return "Codigo do produto e obrigatorio."
     if Produto.objects.filter(codigo_produto=codigo_produto).exclude(empresa=empresa).exists():
         return "Ja existe produto com este codigo em outra empresa."
     if Produto.objects.filter(empresa=empresa, codigo_produto=codigo_produto).exists():
         return "Ja existe produto com este codigo nesta empresa."
-    Produto.criar_produto(
-        empresa=empresa,
-        codigo_produto=codigo_produto,
-        descricao_produto=descricao_produto,
-    )
+    Produto.criar_produto(empresa=empresa, **dados)
     return ""
 
 
-def atualizar_produto_por_dados(produto, codigo_produto, descricao_produto, empresa):
-    codigo_produto = (codigo_produto or "").strip()
-    descricao_produto = (descricao_produto or "").strip()
+def atualizar_produto_por_dados(produto, post_data, empresa):
+    dados = _dados_produto_from_post(post_data)
+    codigo_produto = dados["codigo_produto"]
     if not codigo_produto:
         return "Codigo do produto e obrigatorio."
     if Produto.objects.filter(codigo_produto=codigo_produto).exclude(id=produto.id).exclude(empresa=empresa).exists():
         return "Ja existe produto com este codigo em outra empresa."
     if Produto.objects.filter(empresa=empresa, codigo_produto=codigo_produto).exclude(id=produto.id).exists():
         return "Ja existe produto com este codigo nesta empresa."
-    produto.atualizar_produto(
-        codigo_produto=codigo_produto,
-        descricao_produto=descricao_produto,
-    )
+    produto.atualizar_produto(**dados)
     return ""
 
 def criar_titulo_por_dados(empresa, tipo_titulo_codigo, descricao):
@@ -539,8 +605,13 @@ def _extrair_kg_da_descricao_produto(descricao: str) -> Decimal:
 
 
 def _calcular_metricas_producao_auto(produto, tamanho_lote_texto):
-    kg = _extrair_kg_da_descricao_produto(produto.descricao_produto if produto else "")
-    producao_por_dia = kg if kg > 0 else Decimal("0")
+    kg = Decimal("0")
+    producao_por_dia = Decimal("0")
+    if produto:
+        if produto.kg and produto.kg > 0:
+            kg = produto.kg
+        if produto.producao_por_dia_fd and produto.producao_por_dia_fd > 0:
+            producao_por_dia = produto.producao_por_dia_fd
     tamanho_lote = _parse_decimal_ou_zero(tamanho_lote_texto)
     kg_por_lote = (tamanho_lote / kg) if (kg > 0 and tamanho_lote > 0) else Decimal("0")
     return kg, producao_por_dia, kg_por_lote
@@ -889,6 +960,192 @@ def atualizar_orcamento_planejado_por_post(orcamento_planejado_item, empresa, po
     return ""
 
 
+def _dados_frete_from_post(post_data, empresa):
+    cidade = Cidade.objects.filter(id=post_data.get("cidade_id"), empresa=empresa).first()
+    unidade_federativa = UnidadeFederativa.objects.filter(
+        id=post_data.get("unidade_federativa_id"),
+        empresa=empresa,
+    ).first()
+    regiao = Regiao.objects.filter(id=post_data.get("regiao_id"), empresa=empresa).first()
+    data_hora_alteracao_raw = (post_data.get("data_hora_alteracao") or "").strip()
+
+    return {
+        "cidade": cidade,
+        "unidade_federativa": unidade_federativa,
+        "regiao": regiao,
+        "valor_frete_comercial": _parse_decimal_ou_zero(post_data.get("valor_frete_comercial")),
+        "data_hora_alteracao_raw": data_hora_alteracao_raw,
+        "data_hora_alteracao": _parse_datetime_ou_none(data_hora_alteracao_raw),
+        "valor_frete_minimo": _parse_decimal_ou_zero(post_data.get("valor_frete_minimo")),
+        "valor_frete_tonelada": _parse_decimal_ou_zero(post_data.get("valor_frete_tonelada")),
+        "tipo_frete": (post_data.get("tipo_frete") or "").strip(),
+        "valor_frete_por_km": _parse_decimal_ou_zero(post_data.get("valor_frete_por_km")),
+        "valor_taxa_entrada": _parse_decimal_ou_zero(post_data.get("valor_taxa_entrada")),
+        "venda_minima": _parse_decimal_ou_zero(post_data.get("venda_minima")),
+    }
+
+
+def criar_frete_por_post(empresa, post_data):
+    dados = _dados_frete_from_post(post_data, empresa)
+    if not dados["cidade"]:
+        return "Cidade e obrigatoria."
+    if not dados["unidade_federativa"]:
+        return "Unidade federativa e obrigatoria."
+    if not dados["regiao"]:
+        return "Regiao e obrigatoria."
+    if dados["data_hora_alteracao_raw"] and not dados["data_hora_alteracao"]:
+        return "Data/hora de alteracao invalida."
+    if Frete.objects.filter(empresa=empresa, cidade=dados["cidade"]).exists():
+        return "Ja existe frete cadastrado para esta cidade."
+
+    dados.pop("data_hora_alteracao_raw", None)
+    Frete.criar_frete(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_frete_por_post(frete, empresa, post_data):
+    dados = _dados_frete_from_post(post_data, empresa)
+    if not dados["cidade"]:
+        return "Cidade e obrigatoria."
+    if not dados["unidade_federativa"]:
+        return "Unidade federativa e obrigatoria."
+    if not dados["regiao"]:
+        return "Regiao e obrigatoria."
+    if dados["data_hora_alteracao_raw"] and not dados["data_hora_alteracao"]:
+        return "Data/hora de alteracao invalida."
+    if Frete.objects.filter(empresa=empresa, cidade=dados["cidade"]).exclude(id=frete.id).exists():
+        return "Ja existe frete cadastrado para esta cidade."
+
+    dados.pop("data_hora_alteracao_raw", None)
+    frete.atualizar_frete(**dados)
+    return ""
+
+
+def _dados_estoque_from_post(post_data, empresa):
+    produto = Produto.objects.filter(id=post_data.get("produto_id"), empresa=empresa).first()
+    nome_origem_raw = (post_data.get("nome_origem") or "").strip()
+    data_contagem_raw = (post_data.get("data_contagem") or "").strip()
+
+    qtd_estoque = _parse_decimal_ou_zero(post_data.get("qtd_estoque"))
+    reservado = _parse_decimal_ou_zero(post_data.get("reservado"))
+
+    # Estoque deve refletir os parametros atuais do cadastro de produtos.
+    if produto:
+        pacote_por_fardo = _parse_decimal_ou_zero(produto.pacote_por_fardo)
+        producao_por_dia_fd = _parse_decimal_ou_zero(produto.producao_por_dia_fd)
+        estoque_minimo_parametro = _parse_decimal_ou_zero(produto.estoque_minimo_pacote)
+
+        produto_tem_parametro = bool(
+            pacote_por_fardo > 0
+            or producao_por_dia_fd > 0
+            or estoque_minimo_parametro > 0
+        )
+        estoque_minimo = (
+            estoque_minimo_parametro
+            if produto_tem_parametro
+            else Decimal("12000")
+        )
+    else:
+        pacote_por_fardo = _parse_decimal_ou_zero(post_data.get("pacote_por_fardo"))
+        estoque_minimo = _parse_decimal_ou_zero(post_data.get("estoque_minimo"))
+        producao_por_dia_fd = _parse_decimal_ou_zero(post_data.get("producao_por_dia_fd"))
+
+    sub_total_est_pen = qtd_estoque - reservado
+    total_pcp_pacote = sub_total_est_pen - estoque_minimo
+    total_pcp_fardo = (total_pcp_pacote / pacote_por_fardo) if pacote_por_fardo > 0 else Decimal("0")
+    dia_de_producao = (total_pcp_fardo / producao_por_dia_fd) if producao_por_dia_fd > 0 else Decimal("0")
+
+    return {
+        "nome_origem_raw": nome_origem_raw,
+        "data_contagem_raw": data_contagem_raw,
+        "nome_origem": _parse_date_ou_none(nome_origem_raw),
+        "data_contagem": _parse_date_ou_none(data_contagem_raw),
+        "status": (post_data.get("status") or "Ativo").strip() or "Ativo",
+        "codigo_empresa": (post_data.get("codigo_empresa") or "").strip(),
+        "produto": produto,
+        "qtd_estoque": qtd_estoque,
+        "giro_mensal": _parse_decimal_ou_zero(post_data.get("giro_mensal")),
+        "lead_time_fornecimento": _parse_decimal_ou_zero(post_data.get("lead_time_fornecimento")),
+        "codigo_voume": (post_data.get("codigo_voume") or "").strip(),
+        "custo_total": _parse_decimal_ou_zero(post_data.get("custo_total")),
+        "reservado": reservado,
+        "pacote_por_fardo": pacote_por_fardo,
+        "sub_total_est_pen": sub_total_est_pen,
+        "estoque_minimo": estoque_minimo,
+        "producao_por_dia_fd": producao_por_dia_fd,
+        "total_pcp_pacote": total_pcp_pacote,
+        "total_pcp_fardo": total_pcp_fardo,
+        "dia_de_producao": dia_de_producao,
+        "codigo_local": (post_data.get("codigo_local") or "").strip(),
+    }
+
+
+def criar_estoque_por_post(empresa, post_data):
+    dados = _dados_estoque_from_post(post_data, empresa)
+    if not dados["nome_origem_raw"]:
+        return "Nome origem e obrigatorio."
+    if not dados["nome_origem"]:
+        return "Nome origem invalido. Use uma data valida."
+    if not dados["data_contagem_raw"]:
+        return "Data contagem e obrigatoria."
+    if not dados["data_contagem"]:
+        return "Data contagem invalida."
+    if not dados["produto"]:
+        return "Produto e obrigatorio."
+    if not dados["codigo_empresa"]:
+        return "Codigo empresa e obrigatorio."
+    if not dados["codigo_local"]:
+        return "Codigo local e obrigatorio."
+
+    if Estoque.objects.filter(
+        empresa=empresa,
+        nome_origem=dados["nome_origem"],
+        data_contagem=dados["data_contagem"],
+        codigo_empresa=dados["codigo_empresa"],
+        codigo_local=dados["codigo_local"],
+        produto=dados["produto"],
+    ).exists():
+        return "Ja existe estoque para essa combinacao de origem, data, empresa, local e produto."
+
+    dados.pop("nome_origem_raw", None)
+    dados.pop("data_contagem_raw", None)
+    Estoque.criar_estoque(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_estoque_por_post(estoque, empresa, post_data):
+    dados = _dados_estoque_from_post(post_data, empresa)
+    if not dados["nome_origem_raw"]:
+        return "Nome origem e obrigatorio."
+    if not dados["nome_origem"]:
+        return "Nome origem invalido. Use uma data valida."
+    if not dados["data_contagem_raw"]:
+        return "Data contagem e obrigatoria."
+    if not dados["data_contagem"]:
+        return "Data contagem invalida."
+    if not dados["produto"]:
+        return "Produto e obrigatorio."
+    if not dados["codigo_empresa"]:
+        return "Codigo empresa e obrigatorio."
+    if not dados["codigo_local"]:
+        return "Codigo local e obrigatorio."
+
+    if Estoque.objects.filter(
+        empresa=empresa,
+        nome_origem=dados["nome_origem"],
+        data_contagem=dados["data_contagem"],
+        codigo_empresa=dados["codigo_empresa"],
+        codigo_local=dados["codigo_local"],
+        produto=dados["produto"],
+    ).exclude(id=estoque.id).exists():
+        return "Ja existe estoque para essa combinacao de origem, data, empresa, local e produto."
+
+    dados.pop("nome_origem_raw", None)
+    dados.pop("data_contagem_raw", None)
+    estoque.atualizar_estoque(**dados)
+    return ""
+
+
 def _dados_carga_from_post(post_data, empresa):
     regiao = Regiao.objects.filter(id=post_data.get("regiao_id"), empresa=empresa).first()
     data_inicio_raw = post_data.get("data_inicio")
@@ -985,6 +1242,7 @@ def _dados_producao_from_post(post_data, empresa):
         "kg": kg_auto,
         "producao_por_dia": producao_por_dia_auto,
         "kg_por_lote": kg_por_lote_auto,
+        "estoque_minimo_pacote": _parse_decimal_ou_zero(post_data.get("estoque_minimo_pacote")),
     }
 
 
@@ -1355,6 +1613,22 @@ def preparar_diretorios_producao():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_fretes():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "tabela_de_fretes"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
+def preparar_diretorios_estoque():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "estoque_pcp"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
     if not arquivo:
         return False, "Selecione um arquivo .xls para importar."
@@ -1393,6 +1667,173 @@ def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretori
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, cargas: {resultado['cargas']}."
+        ),
+    )
+
+
+def importar_upload_fretes(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+    if not arquivo:
+        return False, "Selecione um arquivo .xls para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xls"):
+        return False, "Formato invalido. Envie apenas arquivo .xls."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_fretes_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar fretes: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, fretes: {resultado['fretes']}, "
+            f"cidades: {resultado['cidades']}, regioes: {resultado['regioes']}, "
+            f"ufs: {resultado['unidades_federativas']}."
+        ),
+    )
+
+
+def _normalizar_relpath_upload_estoque(nome_arquivo: str):
+    caminho_bruto = str(nome_arquivo or "").replace("\\", "/")
+    partes = []
+    for parte in caminho_bruto.split("/"):
+        token = parte.strip()
+        if not token or token == ".":
+            continue
+        if token == "..":
+            return None
+        partes.append(token.replace(":", "_"))
+
+    if not partes:
+        return None
+
+    if len(partes) > 1 and partes[0].lower() == "estoque":
+        partes = partes[1:]
+
+    if not partes:
+        return None
+
+    if partes[0].lower() == "subscritos":
+        partes = ["upload"] + partes
+
+    caminho_relativo = Path(*partes)
+    if caminho_relativo.suffix.lower() != ".xls":
+        return None
+    return caminho_relativo
+
+
+def _listar_arquivos_xls_estoque(diretorio_importacao, diretorio_subscritos):
+    return sorted(
+        [
+            arquivo
+            for arquivo in diretorio_importacao.rglob("*.xls")
+            if arquivo.is_file() and diretorio_subscritos not in arquivo.parents
+        ]
+    )
+
+
+def _arquivar_arquivos_estoque(diretorio_importacao, diretorio_subscritos):
+    arquivos_atuais = _listar_arquivos_xls_estoque(diretorio_importacao, diretorio_subscritos)
+    if not arquivos_atuais:
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    destino_base = diretorio_subscritos / timestamp
+
+    for arquivo_antigo in arquivos_atuais:
+        rel_path = arquivo_antigo.relative_to(diretorio_importacao)
+        destino_subscrito = destino_base / rel_path
+        destino_subscrito.parent.mkdir(parents=True, exist_ok=True)
+        if destino_subscrito.exists():
+            destino_subscrito = destino_subscrito.with_name(
+                f"{destino_subscrito.stem}_{timestamp}{destino_subscrito.suffix}"
+            )
+        shutil.move(str(arquivo_antigo), str(destino_subscrito))
+
+    diretorios = sorted(
+        [
+            pasta
+            for pasta in diretorio_importacao.rglob("*")
+            if pasta.is_dir() and pasta != diretorio_subscritos and diretorio_subscritos not in pasta.parents
+        ],
+        key=lambda p: len(p.parts),
+        reverse=True,
+    )
+    for pasta in diretorios:
+        try:
+            next(pasta.iterdir())
+        except StopIteration:
+            pasta.rmdir()
+
+
+def importar_upload_estoque(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+    arquivos_xls = []
+    for arquivo in arquivos or []:
+        caminho_relativo = _normalizar_relpath_upload_estoque(arquivo.name)
+        if caminho_relativo is not None:
+            arquivos_xls.append((arquivo, caminho_relativo))
+
+    if not arquivos_xls:
+        return False, "Selecione a pasta ESTOQUE com arquivos .xls de posicao e reservado."
+
+    _arquivar_arquivos_estoque(diretorio_importacao, diretorio_subscritos)
+
+    for indice, (arquivo_upload, caminho_relativo) in enumerate(arquivos_xls, start=1):
+        destino = diretorio_importacao / caminho_relativo
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        if destino.exists():
+            destino = destino.with_name(f"{destino.stem}_{indice:04d}{destino.suffix}")
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+
+    try:
+        resultado = importar_estoque_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar estoque: {exc}"
+
+    if resultado["arquivos_posicao"] == 0 or resultado["arquivos_reservado"] == 0:
+        return (
+            False,
+            (
+                "Importacao incompleta. Envie a pasta ESTOQUE com as subpastas "
+                f"de posicao e reservado. Arquivos detectados - posicao: {resultado['arquivos_posicao']}, "
+                f"reservado: {resultado['arquivos_reservado']}."
+            ),
+        )
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']} "
+            f"(posicao: {resultado['arquivos_posicao']}, reservado: {resultado['arquivos_reservado']}), "
+            f"linhas: {resultado['linhas']}, estoques: {resultado['estoques']}."
         ),
     )
 
@@ -1437,3 +1878,4 @@ def importar_upload_producao(*, empresa, arquivos, diretorio_importacao, diretor
             f"produtos vinculados/criados: {resultado['produtos']}."
         ),
     )
+

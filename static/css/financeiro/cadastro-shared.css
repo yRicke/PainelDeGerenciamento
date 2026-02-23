@@ -56,6 +56,27 @@
     align-items: end;
 }
 
+
+.filter-grid > div {
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+    min-width: 0;
+}
+
+.filter-grid > div label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.filter-grid input,
+.filter-grid select {
+    width: 100%;
+}
+
 @media (max-width: 900px) {
     .inline-form,
     .inline-form--parceiros {
@@ -66,3 +87,4 @@
         grid-template-columns: 1fr;
     }
 }
+

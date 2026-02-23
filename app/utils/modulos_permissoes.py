@@ -1,6 +1,7 @@
 from ..models import Empresa, Permissao
 from django.contrib import messages
 from django.shortcuts import redirect, render
+import unicodedata
 
 
 MODULOS_POR_AREA = {
@@ -40,6 +41,7 @@ MODULOS_POR_AREA = {
         {"nome": "Projetos", "url": "projetos", "template": "administrativo/projetos.html"},
         {"nome": "Cidades", "url": "cidades", "template": "comercial/cidades.html"},
         {"nome": "Regioes", "url": "regioes", "template": "comercial/regioes.html"},
+        {"nome": "Unidades Federativas", "url": "unidades_federativas", "template": "parametros/unidades_federativas.html"},
     ],
     "Operacional": [
         {"nome": "Cargas em Aberto", "url": "cargas_em_aberto", "template": "operacional/cargas_em_aberto.html"},
@@ -50,10 +52,43 @@ MODULOS_POR_AREA = {
     ],
 }
 
+NOMES_EXIBICAO_MODULOS = {
+    "Comite Diario": "Comitê Diário",
+    "Balanco Patrimonial": "Balanço Patrimonial",
+    "Plano de Cargos e Salarios": "Plano de Cargos e Salários",
+    "Fiscal e Contabil": "Fiscal e Contábil",
+    "Apuracao de Resultados": "Apuração de Resultados",
+    "Orcamento x Realizado": "Orçamento x Realizado",
+    "Precificacao": "Precificação",
+    "Titulos": "Títulos",
+    "Operacoes": "Operações",
+    "Regioes": "Regiões",
+    "Operador Logistico": "Operador Logístico",
+    "Producao": "Produção",
+}
+
 PERMISSOES_POR_MODULO = {
     area: [modulo["nome"] for modulo in modulos]
     for area, modulos in MODULOS_POR_AREA.items()
 }
+
+
+def _normalizar_nome_permissao(valor):
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return " ".join(texto.strip().lower().split())
+
+
+def _nome_exibicao_modulo(nome):
+    return NOMES_EXIBICAO_MODULOS.get(nome, nome)
+
+
+def _usuario_tem_permissao_modulo(usuario, nome_permissao):
+    permissoes_usuario = {
+        _normalizar_nome_permissao(nome)
+        for nome in usuario.permissoes.values_list("nome", flat=True)
+    }
+    return _normalizar_nome_permissao(nome_permissao) in permissoes_usuario
 
 
 def _modulos_com_acesso(usuario, area):
@@ -62,19 +97,22 @@ def _modulos_com_acesso(usuario, area):
     if usuario.is_staff or usuario.is_superuser:
         return [
             {
-                "nome": modulo["nome"],
+                "nome": _nome_exibicao_modulo(modulo["nome"]),
                 "url": modulo["url"],
                 "permitido": True,
             }
             for modulo in modulos
         ]
 
-    permissoes_usuario = set(usuario.permissoes.values_list("nome", flat=True))
+    permissoes_usuario = {
+        _normalizar_nome_permissao(nome)
+        for nome in usuario.permissoes.values_list("nome", flat=True)
+    }
     return [
         {
-            "nome": modulo["nome"],
+            "nome": _nome_exibicao_modulo(modulo["nome"]),
             "url": modulo["url"],
-            "permitido": modulo["nome"] in permissoes_usuario,
+            "permitido": _normalizar_nome_permissao(modulo["nome"]) in permissoes_usuario,
         }
         for modulo in modulos
     ]
@@ -106,7 +144,7 @@ def _render_modulo_com_permissao(request, empresa_id, nome_permissao, template_p
         return redirect("index")
 
     mesma_empresa = request.user.empresa_id == empresa.id
-    tem_permissao = request.user.permissoes.filter(nome=nome_permissao).exists()
+    tem_permissao = _usuario_tem_permissao_modulo(request.user, nome_permissao)
     if not ((mesma_empresa and tem_permissao) or request.user.is_staff or request.user.is_superuser):
         messages.error(request, "Voce nao tem permissao para acessar esta pagina.")
         return redirect("index")
@@ -126,7 +164,7 @@ def _obter_empresa_e_validar_permissao_modulo(request, empresa_id, nome_permissa
         return None, False
 
     mesma_empresa = request.user.empresa_id == empresa.id
-    tem_permissao = request.user.permissoes.filter(nome=nome_permissao).exists()
+    tem_permissao = _usuario_tem_permissao_modulo(request.user, nome_permissao)
     if not ((mesma_empresa and tem_permissao) or request.user.is_staff or request.user.is_superuser):
         messages.error(request, "Voce nao tem permissao para acessar esta pagina.")
         return None, False

@@ -171,7 +171,7 @@
             ],
         });
 
-        new Tabulator(target, {
+        window.TabulatorDefaults.create(target, {
             data: data,
             layout: "fitDataTable",
             dataTree: true,
@@ -199,7 +199,7 @@
             return aIso.localeCompare(bIso);
         }
 
-        new Tabulator(target, {
+        window.TabulatorDefaults.create(target, {
             data: data,
             layout: "fitDataTable",
             pagination: true,
@@ -242,7 +242,7 @@
         if (!dataElement || !target || !window.Tabulator) return;
 
         var data = JSON.parse(dataElement.textContent || "[]");
-        new Tabulator(target, {
+        window.TabulatorDefaults.create(target, {
             data: data,
             layout: "fitDataTable",
             pagination: true,
@@ -281,3 +281,4 @@
     montarTabelaRealizados();
     montarTabelaOrcamentos();
 })();
+

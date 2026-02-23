@@ -60,7 +60,7 @@
         });
     }
 
-    var tabela = new Tabulator("#atividades-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#atividades-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
@@ -120,3 +120,4 @@
         tabela.clearFilter(true);
     });
 })();
+

@@ -1,7 +1,7 @@
 ﻿{% extends "base.html" %}
 {% load static %}
 
-{% block title %}Editar Producao{% endblock %}
+{% block title %}Editar Produção{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/operacional/producao-editar.css' %}">
@@ -9,13 +9,13 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'producao' empresa.id %}">Voltar para producao</a>
-    <h1>Editar Producao #{{ producao_item.id }}</h1>
+    <a href="{% url 'producao' empresa.id %}">Voltar para produção</a>
+    <h1>Editar Produção #{{ producao_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
 
 <section class="panel">
-    <p class="form-note">Revise os campos obrigatorios antes de salvar.</p>
+    <p class="form-note">Revise os campos obrigatórios antes de salvar.</p>
     <form action="{% url 'editar_producao_modulo' empresa.id producao_item.id %}" method="POST">
         {% csrf_token %}
         <div class="form-grid">
@@ -24,12 +24,17 @@
                 <input type="text" name="data_origem" value="{{ producao_item.data_origem }}" required>
             </div>
             <div>
-                <label>Numero operacao</label>
+                <label>Número da operação</label>
                 <input type="number" name="numero_operacao" min="1" value="{{ producao_item.numero_operacao }}" required>
             </div>
             <div>
-                <label>Situacao</label>
-                <input type="text" name="situacao" value="{{ producao_item.situacao }}" required>
+                <label>Situação</label>
+                <select name="situacao" required>
+                    <option value="">Selecione</option>
+                    {% for situacao in situacoes_producao_opcoes %}
+                    <option value="{{ situacao }}" {% if producao_item.situacao == situacao %}selected{% endif %}>{{ situacao }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label>Produto</label>
@@ -45,37 +50,93 @@
                 <input type="text" name="tamanho_lote" value="{{ producao_item.tamanho_lote }}">
             </div>
             <div>
-                <label>Numero lote</label>
+                <label>Número lote</label>
                 <input type="text" name="numero_lote" value="{{ producao_item.numero_lote }}">
             </div>
             <div>
                 <label>Data entrada atividade</label>
-                <input type="date" name="data_hora_entrada_atividade" value="{% if producao_item.data_hora_entrada_atividade %}{{ producao_item.data_hora_entrada_atividade|date:'Y-m-d' }}{% endif %}">
+                <input type="date" id="data-entrada-atividade-editar" name="data_hora_entrada_atividade" value="{% if producao_item.data_hora_entrada_atividade %}{{ producao_item.data_hora_entrada_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
                 <label>Data aceite atividade</label>
-                <input type="date" name="data_hora_aceite_atividade" value="{% if producao_item.data_hora_aceite_atividade %}{{ producao_item.data_hora_aceite_atividade|date:'Y-m-d' }}{% endif %}">
+                <input type="date" id="data-aceite-atividade-editar" name="data_hora_aceite_atividade" value="{% if producao_item.data_hora_aceite_atividade %}{{ producao_item.data_hora_aceite_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
-                <label>Data inicio atividade</label>
-                <input type="date" name="data_hora_inicio_atividade" value="{% if producao_item.data_hora_inicio_atividade %}{{ producao_item.data_hora_inicio_atividade|date:'Y-m-d' }}{% endif %}">
+                <label>Data início atividade</label>
+                <input type="date" id="data-inicio-atividade-editar" name="data_hora_inicio_atividade" value="{% if producao_item.data_hora_inicio_atividade %}{{ producao_item.data_hora_inicio_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
                 <label>Data fim atividade</label>
-                <input type="date" name="data_hora_fim_atividade" value="{% if producao_item.data_hora_fim_atividade %}{{ producao_item.data_hora_fim_atividade|date:'Y-m-d' }}{% endif %}">
+                <input type="date" id="data-fim-atividade-editar" name="data_hora_fim_atividade" value="{% if producao_item.data_hora_fim_atividade %}{{ producao_item.data_hora_fim_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+            <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
     </form>
 
     <div class="danger-zone">
-        <p>Acao irreversivel: exclui este registro de producao.</p>
-        <form action="{% url 'excluir_producao_modulo' empresa.id producao_item.id %}" method="POST" onsubmit="return confirm('Excluir producao {{ producao_item.id }}?');">
+        <p>Ação irreversível: exclui este registro de produção.</p>
+        <form action="{% url 'excluir_producao_modulo' empresa.id producao_item.id %}" method="POST" onsubmit="return confirm('Excluir produção {{ producao_item.id }}?');">
             {% csrf_token %}
-            <button type="submit" class="btn-danger">Excluir producao</button>
+            <button type="submit" class="btn-danger">Excluir produção</button>
         </form>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var entrada = document.getElementById("data-entrada-atividade-editar");
+        var aceite = document.getElementById("data-aceite-atividade-editar");
+        var inicio = document.getElementById("data-inicio-atividade-editar");
+        var fim = document.getElementById("data-fim-atividade-editar");
+        if (!entrada || !aceite || !inicio || !fim) return;
+
+        function atualizarEncadeamento() {
+            var valorEntrada = entrada.value || "";
+            aceite.disabled = !valorEntrada;
+            aceite.min = valorEntrada || "";
+            if (!valorEntrada) {
+                aceite.value = "";
+                inicio.value = "";
+                fim.value = "";
+            }
+            if (valorEntrada && aceite.value && aceite.value < valorEntrada) {
+                aceite.value = "";
+                inicio.value = "";
+                fim.value = "";
+            }
+
+            var valorAceite = aceite.value || "";
+            inicio.disabled = !valorAceite;
+            inicio.min = valorAceite || "";
+            if (!valorAceite) {
+                inicio.value = "";
+                fim.value = "";
+            }
+            if (valorAceite && inicio.value && inicio.value < valorAceite) {
+                inicio.value = "";
+                fim.value = "";
+            }
+
+            var valorInicio = inicio.value || "";
+            fim.disabled = !valorInicio;
+            fim.min = valorInicio || "";
+            if (!valorInicio) {
+                fim.value = "";
+            }
+            if (valorInicio && fim.value && fim.value < valorInicio) {
+                fim.value = "";
+            }
+        }
+
+        [entrada, aceite, inicio, fim].forEach(function (input) {
+            input.addEventListener("change", atualizarEncadeamento);
+            input.addEventListener("input", atualizarEncadeamento);
+        });
+        atualizarEncadeamento();
+    })();
+</script>
 {% endblock %}

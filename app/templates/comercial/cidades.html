@@ -135,7 +135,7 @@
             form.submit();
         }
 
-        var tabela = new Tabulator("#cidades-tabulator", {
+        var tabela = window.TabulatorDefaults.create("#cidades-tabulator", {
             data: data,
             layout: "fitDataStretch",
             pagination: true,
@@ -189,4 +189,5 @@
     })();
 </script>
 {% endblock %}
+
 

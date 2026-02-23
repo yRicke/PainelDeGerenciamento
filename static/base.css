@@ -27,7 +27,7 @@ body {
 }
 
 .container {
-    width: min(1080px, 92%);
+    width: min(1720px, 96vw);
     margin: 0 auto;
 }
 
@@ -130,6 +130,17 @@ body {
 
 .table-wrapper {
     max-width: 100%;
+}
+
+.tabulator-top-scrollbar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 12px;
+    margin-bottom: 0.35rem;
+}
+
+.tabulator-top-scrollbar-inner {
+    height: 1px;
 }
 
 .panel form:not(.upload-form):not(.auth-form) {
