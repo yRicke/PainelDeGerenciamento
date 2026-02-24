@@ -42,6 +42,9 @@ MODULOS_POR_AREA = {
         {"nome": "Cidades", "url": "cidades", "template": "comercial/cidades.html"},
         {"nome": "Regioes", "url": "regioes", "template": "comercial/regioes.html"},
         {"nome": "Unidades Federativas", "url": "unidades_federativas", "template": "parametros/unidades_federativas.html"},
+        {"nome": "Rotas", "url": "rotas", "template": "parametros/rotas.html"},
+        {"nome": "Motoristas", "url": "motoristas", "template": "parametros/motoristas.html"},
+        {"nome": "Transportadoras", "url": "transportadoras", "template": "parametros/transportadoras.html"},
     ],
     "Operacional": [
         {"nome": "Cargas em Aberto", "url": "cargas_em_aberto", "template": "operacional/cargas_em_aberto.html"},

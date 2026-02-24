@@ -26,6 +26,10 @@
         >
             {% csrf_token %}
             <input type="text" name="nome" placeholder="Nome da Empresa" required>
+            <label>
+                <input type="checkbox" name="possui_sistema">
+                Possui sistema
+            </label>
             <button type="submit" class="btn-primary">Cadastrar</button>
         </form>
     </section>
@@ -44,6 +48,10 @@
                 >
                     {% csrf_token %}
                     <input type="text" name="nome" value="{{ empresa.nome }}" required>
+                    <label>
+                        <input type="checkbox" name="possui_sistema" {% if empresa.possui_sistema %}checked{% endif %}>
+                        Possui sistema
+                    </label>
                     <button type="submit" class="btn-primary">Salvar</button>
                     <a
                         href="{% url 'excluir_empresa' empresa.id %}"

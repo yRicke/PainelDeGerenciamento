@@ -16,12 +16,15 @@
     <h1>Tabela de Fretes</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegação de seções de tabela de fretes">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importação</a>
         <a href="#sec-visualizacao">Visualização</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Novo Frete (Cadastro Manual)</h2>
     <p class="form-note">Cidade, UF e região são obrigatórias e exibidas no front por código e descrição.</p>
@@ -99,6 +102,7 @@
         </div>
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Fretes</h2>

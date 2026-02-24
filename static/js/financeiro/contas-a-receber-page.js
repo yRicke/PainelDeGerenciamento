@@ -97,71 +97,76 @@
         return aIso.localeCompare(bIso);
     }
 
+    var colunas = [
+        {
+            title: "Dt. Negociacao",
+            field: "data_negociacao",
+            headerFilter: "input",
+            sorter: function (_a, _b, aRow, bRow) {
+                return compararDataIso(aRow, bRow, "data_negociacao_iso");
+            },
+        },
+        {
+            title: "Dt. Vencimento",
+            field: "data_vencimento",
+            headerFilter: "input",
+            sorter: function (_a, _b, aRow, bRow) {
+                return compararDataIso(aRow, bRow, "data_vencimento_iso");
+            },
+        },
+        {
+            title: "Data Arquivo",
+            field: "data_arquivo",
+            headerFilter: "input",
+            sorter: function (_a, _b, aRow, bRow) {
+                return compararDataIso(aRow, bRow, "data_arquivo_iso");
+            },
+        },
+        {title: "Nome Fantasia (Empresa)", field: "nome_fantasia_empresa", headerFilter: "input"},
+        {title: "Nome Parceiro (Parceiro)", field: "parceiro_nome", headerFilter: "input"},
+        {title: "Nro Nota", field: "numero_nota", headerFilter: "input"},
+        {
+            title: "Vlr do Desdobramento",
+            field: "valor_desdobramento",
+            hozAlign: "right",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
+        },
+        {
+            title: "Valor Liquido",
+            field: "valor_liquido",
+            hozAlign: "right",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
+        },
+        {title: "Descricao (Tipo de Titulo)", field: "titulo_descricao", headerFilter: "input"},
+        {title: "Descricao (Natureza)", field: "natureza_descricao", headerFilter: "input"},
+        {title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao", headerFilter: "input"},
+        {title: "Vendedor", field: "vendedor", headerFilter: "input"},
+        {title: "Receita/Despesa", field: "operacao_descricao", headerFilter: "input"},
+        {title: "Status", field: "status", headerFilter: "input"},
+        {title: "Dias Diferenca", field: "dias_diferenca", hozAlign: "center", headerFilter: "input"},
+        {title: "Intervalo", field: "intervalo", headerFilter: "input"},
+    ];
+
+    if (data.some(function (item) { return Boolean(item.editar_url); })) {
+        colunas.push({
+            title: "Acoes",
+            field: "editar_url",
+            formatter: function (cell) {
+                var url = cell.getValue();
+                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
+            },
+            hozAlign: "center",
+        });
+    }
+
     var tabela = window.TabulatorDefaults.create("#contas-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
-        columns: [
-            {
-                title: "Dt. Negociacao",
-                field: "data_negociacao",
-                headerFilter: "input",
-                sorter: function (_a, _b, aRow, bRow) {
-                    return compararDataIso(aRow, bRow, "data_negociacao_iso");
-                },
-            },
-            {
-                title: "Dt. Vencimento",
-                field: "data_vencimento",
-                headerFilter: "input",
-                sorter: function (_a, _b, aRow, bRow) {
-                    return compararDataIso(aRow, bRow, "data_vencimento_iso");
-                },
-            },
-            {
-                title: "Data Arquivo",
-                field: "data_arquivo",
-                headerFilter: "input",
-                sorter: function (_a, _b, aRow, bRow) {
-                    return compararDataIso(aRow, bRow, "data_arquivo_iso");
-                },
-            },
-            {title: "Nome Fantasia (Empresa)", field: "nome_fantasia_empresa", headerFilter: "input"},
-            {title: "Nome Parceiro (Parceiro)", field: "parceiro_nome", headerFilter: "input"},
-            {title: "Nro Nota", field: "numero_nota", headerFilter: "input"},
-            {
-                title: "Vlr do Desdobramento",
-                field: "valor_desdobramento",
-                hozAlign: "right",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-            },
-            {
-                title: "Valor Liquido",
-                field: "valor_liquido",
-                hozAlign: "right",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-            },
-            {title: "Descricao (Tipo de Titulo)", field: "titulo_descricao", headerFilter: "input"},
-            {title: "Descricao (Natureza)", field: "natureza_descricao", headerFilter: "input"},
-            {title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao", headerFilter: "input"},
-            {title: "Vendedor", field: "vendedor", headerFilter: "input"},
-            {title: "Receita/Despesa", field: "operacao_descricao", headerFilter: "input"},
-            {title: "Status", field: "status", headerFilter: "input"},
-            {title: "Dias Diferenca", field: "dias_diferenca", hozAlign: "center", headerFilter: "input"},
-            {title: "Intervalo", field: "intervalo", headerFilter: "input"},
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return '<a class="btn-primary" href="' + url + '">Editar</a>';
-                },
-                hozAlign: "center",
-            },
-        ],
+        columns: colunas,
     });
 
     function normalizarTexto(valor, vazioLabel) {

@@ -12,6 +12,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from .models import (
+    Agenda,
     Atividade,
     CentroResultado,
     Cargas,
@@ -28,11 +29,15 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    PedidoPendente,
+    Motorista,
     Producao,
     Produto,
     Projeto,
+    Rota,
     Regiao,
     Titulo,
+    Transportadora,
     UnidadeFederativa,
     Usuario,
     Venda,
@@ -43,7 +48,11 @@ from .utils.administrativo_utils import (
     _transformar_int_ou_none,
     _transformar_iso_week_parts_ou_none,
 )
-from .utils.comercial_importacao import importar_carteira_do_diretorio, importar_vendas_do_diretorio
+from .utils.comercial_importacao import (
+    importar_carteira_do_diretorio,
+    importar_pedidos_pendentes_do_diretorio,
+    importar_vendas_do_diretorio,
+)
 from .utils.financeiro_importacao import (
     importar_contas_a_receber_do_diretorio,
     importar_dfc_do_diretorio,
@@ -146,19 +155,19 @@ def usuarios_com_permissoes_ids(usuarios_qs):
     return usuarios
 
 
-def criar_empresa_por_nome(nome):
+def criar_empresa_por_nome(nome, possui_sistema=False):
     nome = (nome or "").strip()
     if not nome:
         return "O nome da empresa e obrigatorio."
-    Empresa.criar_empresa(nome=nome)
+    Empresa.criar_empresa(nome=nome, possui_sistema=possui_sistema)
     return ""
 
 
-def atualizar_empresa_por_nome(empresa, novo_nome):
+def atualizar_empresa_por_nome(empresa, novo_nome, possui_sistema=False):
     novo_nome = (novo_nome or "").strip()
     if not novo_nome:
         return "O nome da empresa e obrigatorio."
-    empresa.atualizar_nome(novo_nome=novo_nome)
+    empresa.atualizar_nome(novo_nome=novo_nome, possui_sistema=possui_sistema)
     return ""
 
 
@@ -268,13 +277,13 @@ def criar_regiao_por_dados(empresa, nome, codigo):
     nome = (nome or "").strip()
     codigo = (codigo or "").strip()
     if not nome:
-        return "Nome da regiao e obrigatorio."
+        return "Nome da região é obrigatório."
     if not codigo:
-        return "Codigo da regiao e obrigatorio."
+        return "Código da região é obrigatório."
     if Regiao.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
-        return "Ja existe regiao com este codigo em outra empresa."
+        return "Já existe região com este código em outra empresa."
     if Regiao.objects.filter(empresa=empresa, codigo=codigo).exists():
-        return "Ja existe regiao com este codigo nesta empresa."
+        return "Já existe região com este código nesta empresa."
     Regiao.criar_regiao(nome=nome, empresa=empresa, codigo=codigo)
     return ""
 
@@ -283,14 +292,50 @@ def atualizar_regiao_por_dados(regiao, nome, codigo, empresa):
     nome = (nome or "").strip()
     codigo = (codigo or "").strip()
     if not nome:
-        return "Nome da regiao e obrigatorio."
+        return "Nome da região é obrigatório."
     if not codigo:
-        return "Codigo da regiao e obrigatorio."
+        return "Código da região é obrigatório."
     if Regiao.objects.filter(codigo=codigo).exclude(id=regiao.id).exclude(empresa=empresa).exists():
-        return "Ja existe regiao com este codigo em outra empresa."
+        return "Já existe região com este código em outra empresa."
     if Regiao.objects.filter(empresa=empresa, codigo=codigo).exclude(id=regiao.id).exists():
-        return "Ja existe regiao com este codigo nesta empresa."
+        return "Já existe região com este código nesta empresa."
     regiao.atualizar_regiao(novo_nome=nome, novo_codigo=codigo)
+    return ""
+
+
+def criar_rota_por_dados(empresa, codigo_rota, nome, uf_id=None):
+    codigo_rota = (codigo_rota or "").strip()
+    nome = (nome or "").strip()
+    uf = UnidadeFederativa.objects.filter(id=uf_id, empresa=empresa).first() if uf_id else None
+    if not codigo_rota:
+        return "Código da rota é obrigatório."
+    if not nome:
+        return "Nome da rota é obrigatório."
+    if uf_id and not uf:
+        return "UF inválida para a rota."
+    if Rota.objects.filter(codigo_rota=codigo_rota).exclude(empresa=empresa).exists():
+        return "Já existe rota com este código em outra empresa."
+    if Rota.objects.filter(empresa=empresa, codigo_rota=codigo_rota).exists():
+        return "Já existe rota com este código nesta empresa."
+    Rota.criar_rota(empresa=empresa, codigo_rota=codigo_rota, nome=nome, uf=uf)
+    return ""
+
+
+def atualizar_rota_por_dados(rota, codigo_rota, nome, empresa, uf_id=None):
+    codigo_rota = (codigo_rota or "").strip()
+    nome = (nome or "").strip()
+    uf = UnidadeFederativa.objects.filter(id=uf_id, empresa=empresa).first() if uf_id else None
+    if not codigo_rota:
+        return "Código da rota é obrigatório."
+    if not nome:
+        return "Nome da rota é obrigatório."
+    if uf_id and not uf:
+        return "UF inválida para a rota."
+    if Rota.objects.filter(codigo_rota=codigo_rota).exclude(id=rota.id).exclude(empresa=empresa).exists():
+        return "Já existe rota com este código em outra empresa."
+    if Rota.objects.filter(empresa=empresa, codigo_rota=codigo_rota).exclude(id=rota.id).exists():
+        return "Já existe rota com este código nesta empresa."
+    rota.atualizar_rota(codigo_rota=codigo_rota, nome=nome, uf=uf)
     return ""
 
 
@@ -324,33 +369,103 @@ def atualizar_unidade_federativa_por_dados(unidade_federativa, codigo, sigla, em
     return ""
 
 
-def criar_parceiro_por_dados(empresa, nome, codigo):
+def criar_parceiro_por_dados(empresa, nome, codigo, cidade_id=None):
     nome = (nome or "").strip()
     codigo = (codigo or "").strip()
+    cidade = Cidade.objects.filter(id=cidade_id, empresa=empresa).first() if cidade_id else None
     if not nome:
-        return "Nome do parceiro e obrigatorio."
+        return "Nome do parceiro é obrigatório."
     if not codigo:
-        return "Codigo do parceiro e obrigatorio."
+        return "Código do parceiro é obrigatório."
+    if cidade_id and not cidade:
+        return "Cidade inválida para o parceiro."
     if Parceiro.objects.filter(codigo=codigo).exclude(empresa=empresa).exists():
-        return "Ja existe parceiro com este codigo em outra empresa."
+        return "Já existe parceiro com este código em outra empresa."
     if Parceiro.objects.filter(empresa=empresa, codigo=codigo).exists():
-        return "Ja existe parceiro com este codigo nesta empresa."
-    Parceiro.criar_parceiro(nome=nome, codigo=codigo, empresa=empresa)
+        return "Já existe parceiro com este código nesta empresa."
+    Parceiro.criar_parceiro(nome=nome, codigo=codigo, empresa=empresa, cidade=cidade)
     return ""
 
 
-def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa):
+def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=None):
     nome = (nome or "").strip()
     codigo = (codigo or "").strip()
+    cidade = Cidade.objects.filter(id=cidade_id, empresa=empresa).first() if cidade_id else None
     if not nome:
-        return "Nome do parceiro e obrigatorio."
+        return "Nome do parceiro é obrigatório."
     if not codigo:
-        return "Codigo do parceiro e obrigatorio."
+        return "Código do parceiro é obrigatório."
+    if cidade_id and not cidade:
+        return "Cidade inválida para o parceiro."
     if Parceiro.objects.filter(codigo=codigo).exclude(id=parceiro.id).exclude(empresa=empresa).exists():
-        return "Ja existe parceiro com este codigo em outra empresa."
+        return "Já existe parceiro com este código em outra empresa."
     if Parceiro.objects.filter(empresa=empresa, codigo=codigo).exclude(id=parceiro.id).exists():
-        return "Ja existe parceiro com este codigo nesta empresa."
-    parceiro.atualizar_parceiro(novo_nome=nome, novo_codigo=codigo)
+        return "Já existe parceiro com este código nesta empresa."
+    parceiro.atualizar_parceiro(novo_nome=nome, novo_codigo=codigo, cidade=cidade)
+    return ""
+
+
+def criar_motorista_por_dados(empresa, codigo_motorista, nome):
+    codigo_motorista = (codigo_motorista or "").strip()
+    nome = (nome or "").strip()
+    if not codigo_motorista:
+        return "Código do motorista é obrigatório."
+    if not nome:
+        return "Nome do motorista é obrigatório."
+    if Motorista.objects.filter(codigo_motorista=codigo_motorista).exclude(empresa=empresa).exists():
+        return "Já existe motorista com este código em outra empresa."
+    if Motorista.objects.filter(empresa=empresa, codigo_motorista=codigo_motorista).exists():
+        return "Já existe motorista com este código nesta empresa."
+    Motorista.criar_motorista(empresa=empresa, codigo_motorista=codigo_motorista, nome=nome)
+    return ""
+
+
+def atualizar_motorista_por_dados(motorista, codigo_motorista, nome, empresa):
+    codigo_motorista = (codigo_motorista or "").strip()
+    nome = (nome or "").strip()
+    if not codigo_motorista:
+        return "Código do motorista é obrigatório."
+    if not nome:
+        return "Nome do motorista é obrigatório."
+    if Motorista.objects.filter(codigo_motorista=codigo_motorista).exclude(id=motorista.id).exclude(empresa=empresa).exists():
+        return "Já existe motorista com este código em outra empresa."
+    if Motorista.objects.filter(empresa=empresa, codigo_motorista=codigo_motorista).exclude(id=motorista.id).exists():
+        return "Já existe motorista com este código nesta empresa."
+    motorista.atualizar_motorista(codigo_motorista=codigo_motorista, nome=nome)
+    return ""
+
+
+def criar_transportadora_por_dados(empresa, codigo_transportadora, nome):
+    codigo_transportadora = (codigo_transportadora or "").strip()
+    nome = (nome or "").strip()
+    if not codigo_transportadora:
+        return "Código da transportadora é obrigatório."
+    if not nome:
+        return "Nome da transportadora é obrigatório."
+    if Transportadora.objects.filter(codigo_transportadora=codigo_transportadora).exclude(empresa=empresa).exists():
+        return "Já existe transportadora com este código em outra empresa."
+    if Transportadora.objects.filter(empresa=empresa, codigo_transportadora=codigo_transportadora).exists():
+        return "Já existe transportadora com este código nesta empresa."
+    Transportadora.criar_transportadora(
+        empresa=empresa,
+        codigo_transportadora=codigo_transportadora,
+        nome=nome,
+    )
+    return ""
+
+
+def atualizar_transportadora_por_dados(transportadora, codigo_transportadora, nome, empresa):
+    codigo_transportadora = (codigo_transportadora or "").strip()
+    nome = (nome or "").strip()
+    if not codigo_transportadora:
+        return "Código da transportadora é obrigatório."
+    if not nome:
+        return "Nome da transportadora é obrigatório."
+    if Transportadora.objects.filter(codigo_transportadora=codigo_transportadora).exclude(id=transportadora.id).exclude(empresa=empresa).exists():
+        return "Já existe transportadora com este código em outra empresa."
+    if Transportadora.objects.filter(empresa=empresa, codigo_transportadora=codigo_transportadora).exclude(id=transportadora.id).exists():
+        return "Já existe transportadora com este código nesta empresa."
+    transportadora.atualizar_transportadora(codigo_transportadora=codigo_transportadora, nome=nome)
     return ""
 
 def _dados_produto_from_post(post_data):
@@ -588,6 +703,18 @@ def _parse_bool_checkbox(post_data, campo):
     return post_data.get(campo) == "on"
 
 
+def _normalizar_numero_unico_texto(valor):
+    texto = (str(valor or "")).strip()
+    if not texto:
+        return ""
+    if texto.endswith(".0"):
+        texto = texto[:-2]
+    texto = texto.replace(" ", "")
+    if texto.isdigit():
+        return str(int(texto))
+    return texto
+
+
 def _extrair_kg_da_descricao_produto(descricao: str) -> Decimal:
     texto = (descricao or "").strip().upper()
     if not texto:
@@ -615,6 +742,181 @@ def _calcular_metricas_producao_auto(produto, tamanho_lote_texto):
     tamanho_lote = _parse_decimal_ou_zero(tamanho_lote_texto)
     kg_por_lote = (tamanho_lote / kg) if (kg > 0 and tamanho_lote > 0) else Decimal("0")
     return kg, producao_por_dia, kg_por_lote
+
+
+def _dados_agenda_from_post(post_data, empresa):
+    data_registro_raw = post_data.get("data_registro")
+    data_registro = _parse_date_ou_none(data_registro_raw)
+
+    previsao_carregamento_raw = post_data.get("previsao_carregamento")
+    previsao_carregamento = _parse_date_ou_none(previsao_carregamento_raw)
+
+    motorista = Motorista.objects.filter(id=post_data.get("motorista_id"), empresa=empresa).first()
+    transportadora = Transportadora.objects.filter(id=post_data.get("transportadora_id"), empresa=empresa).first()
+
+    return {
+        "data_registro_raw": data_registro_raw,
+        "data_registro": data_registro,
+        "numero_unico": (post_data.get("numero_unico") or "").strip(),
+        "previsao_carregamento_raw": previsao_carregamento_raw,
+        "previsao_carregamento": previsao_carregamento,
+        "motorista": motorista,
+        "transportadora": transportadora,
+    }
+
+
+def _dados_pedido_pendente_from_post(post_data, empresa):
+    rota = Rota.objects.filter(id=post_data.get("rota_id"), empresa=empresa).first()
+    regiao = Regiao.objects.filter(id=post_data.get("regiao_id"), empresa=empresa).first()
+    parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
+    data_para_calculo_raw = post_data.get("data_para_calculo")
+
+    def _normalizar_pendente(valor_raw):
+        texto = (valor_raw or "").strip().lower()
+        if texto in {"sim", "s", "yes", "y", "1", "true"}:
+            return "Sim"
+        if texto in {"nao", "não", "n", "no", "0", "false"}:
+            return "Não"
+        return "Sim"
+
+    dados = {
+        "numero_unico": _normalizar_numero_unico_texto(post_data.get("numero_unico")),
+        "rota": rota,
+        "regiao": regiao,
+        "parceiro": parceiro,
+        "rota_texto": (post_data.get("rota_texto") or "").strip(),
+        "regiao_texto": (post_data.get("regiao_texto") or "").strip(),
+        "valor_tonelada_frete_safia": (post_data.get("valor_tonelada_frete_safia") or "").strip(),
+        "pendente": _normalizar_pendente(post_data.get("pendente")),
+        "nome_cidade_parceiro_safia": (post_data.get("nome_cidade_parceiro_safia") or "").strip(),
+        "previsao_entrega": _parse_date_ou_none(post_data.get("previsao_entrega")),
+        "dt_neg": _parse_date_ou_none(post_data.get("dt_neg")),
+        "prazo_maximo": max(0, _parse_int_ou_zero(post_data.get("prazo_maximo"))),
+        "tipo_venda": (post_data.get("tipo_venda") or "").strip(),
+        "nome_empresa": (post_data.get("nome_empresa") or "").strip(),
+        "cod_nome_parceiro": (post_data.get("cod_nome_parceiro") or "").strip(),
+        "vlr_nota": _parse_decimal_ou_zero(post_data.get("vlr_nota")),
+        "peso_bruto": _parse_decimal_ou_zero(post_data.get("peso_bruto")),
+        "peso": _parse_decimal_ou_zero(post_data.get("peso")),
+        "peso_liq_itens": _parse_decimal_ou_zero(post_data.get("peso_liq_itens")),
+        "apelido_vendedor": (post_data.get("apelido_vendedor") or "").strip(),
+        "gerente": (post_data.get("gerente") or "").strip(),
+        "data_para_calculo_raw": data_para_calculo_raw,
+        "data_para_calculo": _parse_date_ou_none(data_para_calculo_raw),
+        "descricao_tipo_negociacao": (post_data.get("descricao_tipo_negociacao") or "").strip(),
+        "nro_nota": _parse_int_ou_zero(post_data.get("nro_nota")),
+    }
+
+    if not dados["rota_texto"] and rota:
+        dados["rota_texto"] = f"{rota.codigo_rota} - {rota.nome}"
+
+    if not dados["regiao_texto"] and regiao:
+        dados["regiao_texto"] = f"{regiao.codigo} - {regiao.nome}"
+
+    if not dados["cod_nome_parceiro"] and parceiro:
+        dados["cod_nome_parceiro"] = f"{parceiro.codigo} - {parceiro.nome}"
+
+    if not dados["nome_cidade_parceiro_safia"] and parceiro and parceiro.cidade:
+        dados["nome_cidade_parceiro_safia"] = parceiro.cidade.nome
+
+    if not dados["data_para_calculo"]:
+        dados["data_para_calculo"] = dados["previsao_entrega"] or dados["dt_neg"]
+
+    return dados
+
+
+def criar_agenda_por_post(empresa, post_data):
+    dados = _dados_agenda_from_post(post_data, empresa)
+    dados["numero_unico"] = _normalizar_numero_unico_texto(dados["numero_unico"])
+    if not dados["numero_unico"]:
+        return "Número único é obrigatório."
+    if not dados["previsao_carregamento_raw"]:
+        return "Previsão de carregamento é obrigatória."
+    if not dados["previsao_carregamento"]:
+        return "Previsão de carregamento inválida."
+    if not dados["motorista"]:
+        return "Motorista é obrigatório."
+    if not dados["transportadora"]:
+        return "Transportadora é obrigatória."
+    if Agenda.objects.filter(numero_unico=dados["numero_unico"]).exclude(empresa=empresa).exists():
+        return "Já existe agenda com este número único em outra empresa."
+    if Agenda.objects.filter(empresa=empresa, numero_unico=dados["numero_unico"]).exists():
+        return "Já existe agenda com este número único nesta empresa."
+    data_registro = dados["data_registro"] or timezone.localdate()
+    Agenda.criar_agenda(
+        empresa=empresa,
+        data_registro=data_registro,
+        numero_unico=dados["numero_unico"],
+        previsao_carregamento=dados["previsao_carregamento"],
+        motorista=dados["motorista"],
+        transportadora=dados["transportadora"],
+    )
+    return ""
+
+
+def atualizar_agenda_por_post(agenda, empresa, post_data):
+    dados = _dados_agenda_from_post(post_data, empresa)
+    dados["numero_unico"] = _normalizar_numero_unico_texto(dados["numero_unico"])
+    if not dados["numero_unico"]:
+        return "Número único é obrigatório."
+    if not dados["previsao_carregamento_raw"]:
+        return "Previsão de carregamento é obrigatória."
+    if not dados["previsao_carregamento"]:
+        return "Previsão de carregamento inválida."
+    if not dados["motorista"]:
+        return "Motorista é obrigatório."
+    if not dados["transportadora"]:
+        return "Transportadora é obrigatória."
+    if Agenda.objects.filter(numero_unico=dados["numero_unico"]).exclude(id=agenda.id).exclude(empresa=empresa).exists():
+        return "Já existe agenda com este número único em outra empresa."
+    if Agenda.objects.filter(empresa=empresa, numero_unico=dados["numero_unico"]).exclude(id=agenda.id).exists():
+        return "Já existe agenda com este número único nesta empresa."
+    data_registro = dados["data_registro"] or agenda.data_registro
+    agenda.atualizar_agenda(
+        data_registro=data_registro,
+        numero_unico=dados["numero_unico"],
+        previsao_carregamento=dados["previsao_carregamento"],
+        motorista=dados["motorista"],
+        transportadora=dados["transportadora"],
+    )
+    return ""
+
+
+def atualizar_pedido_pendente_por_post(pedido, empresa, post_data):
+    dados = _dados_pedido_pendente_from_post(post_data, empresa)
+    if not dados["numero_unico"]:
+        return "Número único é obrigatório."
+    if PedidoPendente.objects.filter(
+        empresa=empresa,
+        numero_unico=dados["numero_unico"],
+    ).exclude(id=pedido.id).exists():
+        return "Já existe pedido pendente com este número único nesta empresa."
+
+    data_para_calculo = dados["data_para_calculo"]
+    if dados["data_para_calculo_raw"] and not data_para_calculo:
+        return "Data para cálculo inválida."
+
+    dados.pop("data_para_calculo_raw", None)
+    dados["data_para_calculo"] = data_para_calculo
+    pedido.atualizar_pedido_pendente(**dados)
+    return ""
+
+
+def criar_pedido_pendente_por_post(empresa, post_data):
+    dados = _dados_pedido_pendente_from_post(post_data, empresa)
+    if not dados["numero_unico"]:
+        return "Numero unico e obrigatorio."
+    if PedidoPendente.objects.filter(empresa=empresa, numero_unico=dados["numero_unico"]).exists():
+        return "Ja existe pedido pendente com este numero unico nesta empresa."
+
+    data_para_calculo = dados["data_para_calculo"]
+    if dados["data_para_calculo_raw"] and not data_para_calculo:
+        return "Data para calculo invalida."
+
+    dados.pop("data_para_calculo_raw", None)
+    dados["data_para_calculo"] = data_para_calculo
+    PedidoPendente.criar_pedido_pendente(empresa=empresa, **dados)
+    return ""
 
 
 def _dados_carteira_from_post(post_data, empresa):
@@ -1407,6 +1709,14 @@ def preparar_diretorios_vendas():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_pedidos_pendentes():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "pedidos_pendentes"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def preparar_diretorios_dfc():
     diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "dfc"
     diretorio_subscritos = diretorio_importacao / "subscritos"
@@ -1468,6 +1778,57 @@ def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, vendas: {resultado['vendas']}."
+        ),
+    )
+
+
+def importar_upload_pedidos_pendentes(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+):
+    if not arquivo:
+        return False, "Selecione um arquivo .xlsx para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xlsx"):
+        return False, "Formato invalido. Envie apenas arquivo .xlsx."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_pedidos_pendentes_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Pedidos Pendentes: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, pedidos: {resultado['pedidos_pendentes']}, "
+            f"rotas criadas: {resultado['rotas']}, regioes criadas: {resultado['regioes']}, "
+            f"parceiros criados: {resultado['parceiros']}."
         ),
     )
 

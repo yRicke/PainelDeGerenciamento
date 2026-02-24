@@ -307,7 +307,7 @@
                 field: "editar_url",
                 formatter: function (cell) {
                     var url = cell.getValue();
-                    return '<a class="btn-primary" href="' + url + '">Editar</a>';
+                    return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
                 },
                 hozAlign: "center"
             }

@@ -1,0 +1,11 @@
+@import url("../financeiro/cadastro-shared.css");
+
+.rota-inline-form {
+    grid-template-columns: 180px 1fr 190px auto;
+}
+
+@media (max-width: 900px) {
+    .rota-inline-form {
+        grid-template-columns: 1fr;
+    }
+}

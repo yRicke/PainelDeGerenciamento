@@ -8,6 +8,7 @@ from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast
 
 from .models import (
+    Agenda,
     Atividade,
     CentroResultado,
     Cargas,
@@ -24,11 +25,15 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    PedidoPendente,
+    Motorista,
     Producao,
     Produto,
     Projeto,
+    Rota,
     Regiao,
     Titulo,
+    Transportadora,
     UnidadeFederativa,
     Usuario,
     Venda,
@@ -50,6 +55,7 @@ from .services import (
     semana_iso_input_atividade,
     preparar_diretorios_carteira,
     preparar_diretorios_vendas,
+    preparar_diretorios_pedidos_pendentes,
     preparar_diretorios_dfc,
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_orcamento,
@@ -59,6 +65,7 @@ from .services import (
     preparar_diretorios_producao,
     importar_upload_carteira,
     importar_upload_vendas,
+    importar_upload_pedidos_pendentes,
     importar_upload_dfc,
     importar_upload_contas_a_receber,
     importar_upload_orcamento,
@@ -74,13 +81,21 @@ from .services import (
     atualizar_usuario_por_post,
     excluir_usuario_por_id,
     criar_colaborador_por_nome,
+    criar_motorista_por_dados,
     atualizar_colaborador_por_nome,
     criar_parceiro_por_dados,
     atualizar_parceiro_por_dados,
     criar_produto_por_dados,
     criar_unidade_federativa_por_dados,
+    criar_transportadora_por_dados,
+    criar_agenda_por_post,
     atualizar_produto_por_dados,
     atualizar_unidade_federativa_por_dados,
+    atualizar_motorista_por_dados,
+    atualizar_transportadora_por_dados,
+    atualizar_agenda_por_post,
+    criar_pedido_pendente_por_post,
+    atualizar_pedido_pendente_por_post,
     criar_titulo_por_dados,
     atualizar_titulo_por_dados,
     criar_natureza_por_dados,
@@ -110,19 +125,25 @@ from .services import (
     criar_producao_por_post,
     atualizar_producao_por_post,
     criar_cidade_por_dados,
+    criar_rota_por_dados,
     atualizar_cidade_por_dados,
     criar_projeto_por_dados,
     criar_regiao_por_dados,
     atualizar_projeto_por_dados,
     atualizar_regiao_por_dados,
+    atualizar_rota_por_dados,
 )
 from .tabulator import (
     build_cidades_tabulator,
     build_colaboradores_tabulator,
     build_projetos_tabulator,
     build_regioes_tabulator,
+    build_rotas_tabulator,
     build_unidades_federativas_tabulator,
     build_parceiros_tabulator,
+    build_motoristas_tabulator,
+    build_transportadoras_tabulator,
+    build_agenda_tabulator,
     build_produtos_tabulator,
     build_titulos_tabulator,
     build_naturezas_tabulator,
@@ -133,6 +154,7 @@ from .tabulator import (
     build_orcamento_tabulator,
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
+    build_pedidos_pendentes_tabulator,
     build_cargas_tabulator,
     build_estoque_tabulator,
     build_fretes_tabulator,
@@ -155,6 +177,59 @@ def _resumir_arquivos_existentes(arquivos, limite=8):
         )
         return texto, True
     return ", ".join(arquivos_ordenados), True
+
+
+def _normalizar_numero_unico_texto(valor):
+    texto = (str(valor or "")).strip()
+    if not texto:
+        return ""
+    if texto.endswith(".0"):
+        texto = texto[:-2]
+    texto = texto.replace(" ", "")
+    if texto.isdigit():
+        return str(int(texto))
+    return texto
+
+
+def _gerente_valido_ou_vazio(valor):
+    texto = (str(valor or "")).strip()
+    if not texto:
+        return ""
+    if texto.upper() in {"<SEM VENDEDOR>", "SEM VENDEDOR", "<SEM GERENTE>", "SEM GERENTE"}:
+        return ""
+    return texto
+
+
+def _empresa_bloqueia_cadastro_edicao_importacao(empresa):
+    return bool(getattr(empresa, "possui_sistema", False))
+
+
+def _valor_checkbox_possui_sistema(post_data):
+    return str(post_data.get("possui_sistema", "")).strip().lower() in {"1", "true", "on", "sim", "yes"}
+
+
+def _bloquear_criar_em_modulo_com_importacao_se_necessario(request, empresa, acao, acoes_criar):
+    if (
+        request.method == "POST"
+        and acao in acoes_criar
+        and _empresa_bloqueia_cadastro_edicao_importacao(empresa)
+    ):
+        messages.error(
+            request,
+            "Cadastro manual desabilitado para esta empresa neste modulo.",
+        )
+        return True
+    return False
+
+
+def _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, redirect_name):
+    if _empresa_bloqueia_cadastro_edicao_importacao(empresa):
+        messages.error(
+            request,
+            "Edicao manual desabilitada para esta empresa neste modulo.",
+        )
+        return redirect(redirect_name, empresa_id=empresa.id)
+    return None
 
 
 @login_required(login_url="entrar")
@@ -230,7 +305,10 @@ def painel_admin(request):
 @staff_member_required(login_url="entrar")
 def criar_empresa(request):
     if request.method == "POST":
-        erro = criar_empresa_por_nome(request.POST.get("nome"))
+        erro = criar_empresa_por_nome(
+            request.POST.get("nome"),
+            possui_sistema=_valor_checkbox_possui_sistema(request.POST),
+        )
         if erro:
             messages.error(request, erro)
             return redirect("painel_admin")
@@ -242,7 +320,11 @@ def criar_empresa(request):
 def editar_empresa(request, empresa_id):
     empresa = Empresa.objects.get(id=empresa_id)
     if request.method == "POST":
-        erro = atualizar_empresa_por_nome(empresa, request.POST.get("nome"))
+        erro = atualizar_empresa_por_nome(
+            empresa,
+            request.POST.get("nome"),
+            possui_sistema=_valor_checkbox_possui_sistema(request.POST),
+        )
         if erro:
             messages.error(request, erro)
             return redirect("painel_admin")
@@ -583,6 +665,13 @@ def contas_a_receber(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_conta"},
+        ):
+            return redirect("contas_a_receber", empresa_id=empresa.id)
         if acao == "criar_conta":
             erro = criar_contas_a_receber_por_post(empresa, request.POST)
             if erro:
@@ -642,6 +731,7 @@ def contas_a_receber(request, empresa_id):
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
@@ -650,7 +740,11 @@ def contas_a_receber(request, empresa_id):
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
-        "contas_tabulator": build_contas_a_receber_tabulator(contas_qs, empresa.id),
+        "contas_tabulator": build_contas_a_receber_tabulator(
+            contas_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
     }
     return render(request, modulo["template"], contexto)
 
@@ -666,6 +760,13 @@ def dfc(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_dfc"},
+        ):
+            return redirect("dfc", empresa_id=empresa.id)
         if acao == "criar_dfc":
             erro = criar_dfc_por_post(empresa, request.POST)
             if erro:
@@ -716,6 +817,7 @@ def dfc(request, empresa_id):
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
@@ -724,7 +826,11 @@ def dfc(request, empresa_id):
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
-        "dfc_tabulator": build_dfc_tabulator(dfc_qs, empresa.id),
+        "dfc_tabulator": build_dfc_tabulator(
+            dfc_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
     }
     return render(request, modulo["template"], contexto)
 
@@ -1066,11 +1172,14 @@ def parceiros(request, empresa_id):
     if not autorizado:
         return redirect("index")
 
-    parceiros_qs = Parceiro.objects.filter(empresa=empresa).order_by("nome")
+    parceiros_qs = Parceiro.objects.filter(empresa=empresa).select_related("cidade").order_by("nome")
+    cidades_qs = Cidade.objects.filter(empresa=empresa).order_by("nome")
     parceiros_tabulator = build_parceiros_tabulator(parceiros_qs, empresa.id)
     contexto = {
         "empresa": empresa,
         "parceiros": parceiros_qs,
+        "cidades": cidades_qs,
+        "cidades_js": list(cidades_qs.values("id", "nome", "codigo")),
         "parceiros_tabulator": parceiros_tabulator,
     }
     return render(request, "financeiro/parceiros.html", contexto)
@@ -1085,7 +1194,12 @@ def criar_parceiro_modulo(request, empresa_id):
     if request.method != "POST":
         return redirect("parceiros", empresa_id=empresa.id)
 
-    erro = criar_parceiro_por_dados(empresa, request.POST.get("nome"), request.POST.get("codigo"))
+    erro = criar_parceiro_por_dados(
+        empresa,
+        request.POST.get("nome"),
+        request.POST.get("codigo"),
+        request.POST.get("cidade_id"),
+    )
     if erro:
         messages.error(request, erro)
         return redirect("parceiros", empresa_id=empresa.id)
@@ -1104,10 +1218,16 @@ def editar_parceiro_modulo(request, empresa_id, parceiro_id):
 
     parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first()
     if not parceiro:
-        messages.error(request, "Parceiro nao encontrado.")
+        messages.error(request, "Parceiro não encontrado.")
         return redirect("parceiros", empresa_id=empresa.id)
 
-    erro = atualizar_parceiro_por_dados(parceiro, request.POST.get("nome"), request.POST.get("codigo"), empresa)
+    erro = atualizar_parceiro_por_dados(
+        parceiro,
+        request.POST.get("nome"),
+        request.POST.get("codigo"),
+        empresa,
+        request.POST.get("cidade_id"),
+    )
     if erro:
         messages.error(request, erro)
         return redirect("parceiros", empresa_id=empresa.id)
@@ -1126,11 +1246,11 @@ def excluir_parceiro_modulo(request, empresa_id, parceiro_id):
 
     parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first()
     if not parceiro:
-        messages.error(request, "Parceiro nao encontrado.")
+        messages.error(request, "Parceiro não encontrado.")
         return redirect("parceiros", empresa_id=empresa.id)
 
     parceiro.excluir_parceiro()
-    messages.success(request, "Parceiro excluido com sucesso.")
+    messages.success(request, "Parceiro excluído com sucesso.")
     return redirect("parceiros", empresa_id=empresa.id)
 
 
@@ -1287,6 +1407,172 @@ def excluir_unidade_federativa_modulo(request, empresa_id, unidade_federativa_id
     unidade_federativa.excluir_unidade_federativa()
     messages.success(request, "Unidade federativa excluida com sucesso.")
     return redirect("unidades_federativas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def motoristas(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Motoristas")
+    if not autorizado:
+        return redirect("index")
+
+    motoristas_qs = Motorista.objects.filter(empresa=empresa).order_by("nome")
+    motoristas_tabulator = build_motoristas_tabulator(motoristas_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "motoristas_tabulator": motoristas_tabulator,
+    }
+    return render(request, "parametros/motoristas.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_motorista_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Motoristas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("motoristas", empresa_id=empresa.id)
+
+    erro = criar_motorista_por_dados(
+        empresa,
+        request.POST.get("codigo_motorista"),
+        request.POST.get("nome"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("motoristas", empresa_id=empresa.id)
+    messages.success(request, "Motorista criado com sucesso.")
+    return redirect("motoristas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_motorista_modulo(request, empresa_id, motorista_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Motoristas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("motoristas", empresa_id=empresa.id)
+
+    motorista = Motorista.objects.filter(id=motorista_id, empresa=empresa).first()
+    if not motorista:
+        messages.error(request, "Motorista não encontrado.")
+        return redirect("motoristas", empresa_id=empresa.id)
+
+    erro = atualizar_motorista_por_dados(
+        motorista,
+        request.POST.get("codigo_motorista"),
+        request.POST.get("nome"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("motoristas", empresa_id=empresa.id)
+    messages.success(request, "Motorista atualizado com sucesso.")
+    return redirect("motoristas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_motorista_modulo(request, empresa_id, motorista_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Motoristas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("motoristas", empresa_id=empresa.id)
+
+    motorista = Motorista.objects.filter(id=motorista_id, empresa=empresa).first()
+    if not motorista:
+        messages.error(request, "Motorista não encontrado.")
+        return redirect("motoristas", empresa_id=empresa.id)
+
+    try:
+        motorista.excluir_motorista()
+    except ProtectedError:
+        messages.error(request, "Não é possível excluir o motorista porque há agendas vinculadas.")
+        return redirect("motoristas", empresa_id=empresa.id)
+    messages.success(request, "Motorista excluído com sucesso.")
+    return redirect("motoristas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def transportadoras(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Transportadoras")
+    if not autorizado:
+        return redirect("index")
+
+    transportadoras_qs = Transportadora.objects.filter(empresa=empresa).order_by("nome")
+    transportadoras_tabulator = build_transportadoras_tabulator(transportadoras_qs, empresa.id)
+    contexto = {
+        "empresa": empresa,
+        "transportadoras_tabulator": transportadoras_tabulator,
+    }
+    return render(request, "parametros/transportadoras.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_transportadora_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Transportadoras")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("transportadoras", empresa_id=empresa.id)
+
+    erro = criar_transportadora_por_dados(
+        empresa,
+        request.POST.get("codigo_transportadora"),
+        request.POST.get("nome"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("transportadoras", empresa_id=empresa.id)
+    messages.success(request, "Transportadora criada com sucesso.")
+    return redirect("transportadoras", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_transportadora_modulo(request, empresa_id, transportadora_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Transportadoras")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("transportadoras", empresa_id=empresa.id)
+
+    transportadora = Transportadora.objects.filter(id=transportadora_id, empresa=empresa).first()
+    if not transportadora:
+        messages.error(request, "Transportadora não encontrada.")
+        return redirect("transportadoras", empresa_id=empresa.id)
+
+    erro = atualizar_transportadora_por_dados(
+        transportadora,
+        request.POST.get("codigo_transportadora"),
+        request.POST.get("nome"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("transportadoras", empresa_id=empresa.id)
+    messages.success(request, "Transportadora atualizada com sucesso.")
+    return redirect("transportadoras", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_transportadora_modulo(request, empresa_id, transportadora_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Transportadoras")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("transportadoras", empresa_id=empresa.id)
+
+    transportadora = Transportadora.objects.filter(id=transportadora_id, empresa=empresa).first()
+    if not transportadora:
+        messages.error(request, "Transportadora não encontrada.")
+        return redirect("transportadoras", empresa_id=empresa.id)
+
+    try:
+        transportadora.excluir_transportadora()
+    except ProtectedError:
+        messages.error(request, "Não é possível excluir a transportadora porque há agendas vinculadas.")
+        return redirect("transportadoras", empresa_id=empresa.id)
+    messages.success(request, "Transportadora excluída com sucesso.")
+    return redirect("transportadoras", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
@@ -1590,6 +1876,9 @@ def editar_dfc_modulo(request, empresa_id, dfc_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "DFC")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "dfc")
+    if bloqueio:
+        return bloqueio
 
     dfc_item = FluxoDeCaixaDFC.objects.filter(id=dfc_id, empresa=empresa).first()
     if not dfc_item:
@@ -1639,6 +1928,9 @@ def editar_contas_a_receber_modulo(request, empresa_id, conta_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas a Receber")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "contas_a_receber")
+    if bloqueio:
+        return bloqueio
 
     conta_item = ContasAReceber.objects.filter(id=conta_id, empresa=empresa).first()
     if not conta_item:
@@ -1695,6 +1987,13 @@ def carteira(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_carteira"},
+        ):
+            return redirect("carteira", empresa_id=empresa_id)
         if acao == "criar_carteira":
             erro = criar_carteira_por_post(empresa, request.POST)
             if erro:
@@ -1770,7 +2069,9 @@ def carteira(request, empresa_id):
         regioes=regioes,
         parceiros=parceiros,
         carteiras_dashboard_qs=carteiras_dashboard_qs,
+        permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
     )
+    contexto["bloquear_cadastro_edicao_importacao"] = _empresa_bloqueia_cadastro_edicao_importacao(empresa)
 
     # 4) Render
     return render(request, modulo["template"], contexto)
@@ -1781,6 +2082,9 @@ def editar_carteira_modulo(request, empresa_id, carteira_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Carteira")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "carteira")
+    if bloqueio:
+        return bloqueio
 
     carteira_item = Carteira.objects.filter(id=carteira_id, empresa=empresa).first()
     if not carteira_item:
@@ -1930,7 +2234,7 @@ def criar_regiao_modulo(request, empresa_id):
     if erro:
         messages.error(request, erro)
         return redirect("regioes", empresa_id=empresa.id)
-    messages.success(request, "Regiao criada com sucesso.")
+    messages.success(request, "Região criada com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -1945,14 +2249,14 @@ def editar_regiao_modulo(request, empresa_id, regiao_id):
 
     regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
     if not regiao:
-        messages.error(request, "Regiao nao encontrada.")
+        messages.error(request, "Região não encontrada.")
         return redirect("regioes", empresa_id=empresa.id)
 
     erro = atualizar_regiao_por_dados(regiao, request.POST.get("nome"), request.POST.get("codigo"), empresa)
     if erro:
         messages.error(request, erro)
         return redirect("regioes", empresa_id=empresa.id)
-    messages.success(request, "Regiao atualizada com sucesso.")
+    messages.success(request, "Região atualizada com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -1967,18 +2271,366 @@ def excluir_regiao_modulo(request, empresa_id, regiao_id):
 
     regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
     if not regiao:
-        messages.error(request, "Regiao nao encontrada.")
+        messages.error(request, "Região não encontrada.")
         return redirect("regioes", empresa_id=empresa.id)
 
     regiao.excluir_regiao()
-    messages.success(request, "Regiao excluida com sucesso.")
+    messages.success(request, "Região excluída com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def rotas(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Rotas")
+    if not autorizado:
+        return redirect("index")
+
+    rotas_qs = Rota.objects.filter(empresa=empresa).select_related("uf").order_by("nome")
+    ufs_qs = UnidadeFederativa.objects.filter(empresa=empresa).order_by("sigla", "codigo")
+    contexto = {
+        "empresa": empresa,
+        "rotas_tabulator": build_rotas_tabulator(rotas_qs, empresa.id),
+        "unidades_federativas": ufs_qs,
+        "unidades_federativas_js": list(ufs_qs.values("id", "codigo", "sigla")),
+    }
+    return render(request, "parametros/rotas.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_rota_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Rotas")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("rotas", empresa_id=empresa.id)
+
+    erro = criar_rota_por_dados(
+        empresa,
+        request.POST.get("codigo_rota"),
+        request.POST.get("nome"),
+        request.POST.get("uf_id"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("rotas", empresa_id=empresa.id)
+    messages.success(request, "Rota criada com sucesso.")
+    return redirect("rotas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_rota_modulo(request, empresa_id, rota_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Rotas")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("rotas", empresa_id=empresa.id)
+
+    rota = Rota.objects.filter(id=rota_id, empresa=empresa).first()
+    if not rota:
+        messages.error(request, "Rota não encontrada.")
+        return redirect("rotas", empresa_id=empresa.id)
+
+    erro = atualizar_rota_por_dados(
+        rota,
+        request.POST.get("codigo_rota"),
+        request.POST.get("nome"),
+        empresa,
+        request.POST.get("uf_id"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("rotas", empresa_id=empresa.id)
+    messages.success(request, "Rota atualizada com sucesso.")
+    return redirect("rotas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_rota_modulo(request, empresa_id, rota_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Rotas")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("rotas", empresa_id=empresa.id)
+
+    rota = Rota.objects.filter(id=rota_id, empresa=empresa).first()
+    if not rota:
+        messages.error(request, "Rota não encontrada.")
+        return redirect("rotas", empresa_id=empresa.id)
+
+    rota.excluir_rota()
+    messages.success(request, "Rota excluída com sucesso.")
+    return redirect("rotas", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
 def pedidos_pendentes(request, empresa_id):
     modulo = _obter_modulo("Comercial", "Pedidos Pendentes")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_pedidos_pendentes()
+
+    if request.method == "POST":
+        acao = (request.POST.get("acao") or "").strip()
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_pedido_pendente"},
+        ):
+            return redirect("pedidos_pendentes", empresa_id=empresa.id)
+        if acao == "criar_pedido_pendente":
+            erro = criar_pedido_pendente_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Pedido pendente criado com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_pedidos_pendentes")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_pedidos_pendentes(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("pedidos_pendentes", empresa_id=empresa.id)
+
+    pedidos_qs = (
+        PedidoPendente.objects.filter(empresa=empresa)
+        .select_related("rota", "regiao", "parceiro")
+        .order_by("-id")
+    )
+    numeros_unicos = {
+        _normalizar_numero_unico_texto(valor)
+        for valor in pedidos_qs.values_list("numero_unico", flat=True)
+        if _normalizar_numero_unico_texto(valor)
+    }
+    agendas_por_numero = {}
+    agendas_qs = (
+        Agenda.objects.filter(empresa=empresa)
+        .select_related("motorista", "transportadora")
+        .order_by("-id")
+    )
+    for agenda_item in agendas_qs:
+        chave_numero = _normalizar_numero_unico_texto(agenda_item.numero_unico)
+        if chave_numero and chave_numero not in agendas_por_numero:
+            agendas_por_numero[chave_numero] = agenda_item
+    parceiro_ids = set(
+        pedidos_qs.filter(parceiro_id__isnull=False).values_list("parceiro_id", flat=True)
+    )
+    gerentes_por_parceiro = {}
+    carteiras_qs = (
+        Carteira.objects.filter(empresa=empresa, parceiro_id__in=parceiro_ids)
+        .exclude(gerente="")
+        .exclude(gerente__iexact="<SEM VENDEDOR>")
+        .exclude(gerente__iexact="SEM VENDEDOR")
+        .exclude(gerente__iexact="<SEM GERENTE>")
+        .exclude(gerente__iexact="SEM GERENTE")
+        .select_related("parceiro")
+        .order_by("parceiro_id", "-data_cadastro", "-id")
+    )
+    for carteira_item in carteiras_qs:
+        if carteira_item.parceiro_id not in gerentes_por_parceiro:
+            gerente = _gerente_valido_ou_vazio(carteira_item.gerente)
+            if gerente:
+                gerentes_por_parceiro[carteira_item.parceiro_id] = gerente
+
+    gerentes_opcoes = set(gerentes_por_parceiro.values())
+    for gerente_valor in pedidos_qs.values_list("gerente", flat=True):
+        gerente_limpo = _gerente_valido_ou_vazio(gerente_valor)
+        if gerente_limpo:
+            gerentes_opcoes.add(gerente_limpo)
+    gerentes_opcoes = sorted(gerentes_opcoes, key=lambda item: item.lower())
+
+    arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    pedidos_tabulator = build_pedidos_pendentes_tabulator(
+        pedidos_qs,
+        empresa.id,
+        agendas_por_numero=agendas_por_numero,
+        gerentes_por_parceiro=gerentes_por_parceiro,
+        permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+    )
+    total_pedidos = len(pedidos_tabulator)
+    total_atrasados = sum(1 for item in pedidos_tabulator if item.get("status") == "Atrasado")
+    total_atencao = sum(1 for item in pedidos_tabulator if item.get("status") == "Atenção")
+    total_no_prazo = total_pedidos - total_atrasados - total_atencao
+
+    contexto = {
+        "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "rotas": Rota.objects.filter(empresa=empresa).order_by("codigo_rota", "nome"),
+        "regioes": Regiao.objects.filter(empresa=empresa).order_by("codigo", "nome"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome"),
+        "gerentes_opcoes": gerentes_opcoes,
+        "pedidos_pendentes_tabulator": pedidos_tabulator,
+        "dashboard_total_pedidos": total_pedidos,
+        "dashboard_atrasados": total_atrasados,
+        "dashboard_atencao": total_atencao,
+        "dashboard_no_prazo": total_no_prazo,
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def editar_pedido_pendente_modulo(request, empresa_id, pedido_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Pedidos Pendentes")
+    if not permitido:
+        return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "pedidos_pendentes")
+    if bloqueio:
+        return bloqueio
+
+    pedido = (
+        PedidoPendente.objects.filter(id=pedido_id, empresa=empresa)
+        .select_related("rota", "regiao", "parceiro")
+        .first()
+    )
+    if not pedido:
+        messages.error(request, "Pedido pendente não encontrado.")
+        return redirect("pedidos_pendentes", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_pedido_pendente_por_post(pedido, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_pedido_pendente_modulo", empresa_id=empresa.id, pedido_id=pedido.id)
+        messages.success(request, "Pedido pendente atualizado com sucesso.")
+        return redirect("pedidos_pendentes", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "pedido": pedido,
+        "rotas": Rota.objects.filter(empresa=empresa).order_by("codigo_rota"),
+        "regioes": Regiao.objects.filter(empresa=empresa).order_by("codigo"),
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "gerentes_opcoes": sorted(
+            {
+                gerente
+                for gerente in [
+                    *Carteira.objects.filter(empresa=empresa).values_list("gerente", flat=True),
+                    *PedidoPendente.objects.filter(empresa=empresa).values_list("gerente", flat=True),
+                ]
+                for gerente in [_gerente_valido_ou_vazio(gerente)]
+                if gerente
+            }
+            | ({_gerente_valido_ou_vazio(pedido.gerente)} if _gerente_valido_ou_vazio(pedido.gerente) else set()),
+            key=lambda item: item.lower(),
+        ),
+    }
+    return render(request, "comercial/pedidos_pendentes_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_pedido_pendente_modulo(request, empresa_id, pedido_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Pedidos Pendentes")
+    if not permitido:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("pedidos_pendentes", empresa_id=empresa.id)
+
+    pedido = PedidoPendente.objects.filter(id=pedido_id, empresa=empresa).first()
+    if not pedido:
+        messages.error(request, "Pedido pendente não encontrado.")
+        return redirect("pedidos_pendentes", empresa_id=empresa.id)
+
+    pedido.excluir_pedido_pendente()
+    messages.success(request, "Pedido pendente excluído com sucesso.")
+    return redirect("pedidos_pendentes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def agenda(request, empresa_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Pedidos Pendentes")
+    if not permitido:
+        return redirect("index")
+
+    if request.method == "POST":
+        erro = criar_agenda_por_post(empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+        else:
+            messages.success(request, "Agenda criada com sucesso.")
+        return redirect("agenda", empresa_id=empresa.id)
+
+    agenda_qs = (
+        Agenda.objects.filter(empresa=empresa)
+        .select_related("motorista", "transportadora")
+        .order_by("-data_registro", "-id")
+    )
+    numero_unico_prefill = _normalizar_numero_unico_texto(request.GET.get("numero_unico"))
+    contexto = {
+        "empresa": empresa,
+        "numero_unico_prefill": numero_unico_prefill,
+        "motoristas": Motorista.objects.filter(empresa=empresa).order_by("nome"),
+        "transportadoras": Transportadora.objects.filter(empresa=empresa).order_by("nome"),
+        "agenda_tabulator": build_agenda_tabulator(agenda_qs, empresa.id),
+    }
+    return render(request, "comercial/agenda.html", contexto)
+
+
+@login_required(login_url="entrar")
+def editar_agenda_modulo(request, empresa_id, agenda_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Pedidos Pendentes")
+    if not permitido:
+        return redirect("index")
+
+    agenda_item = (
+        Agenda.objects.filter(id=agenda_id, empresa=empresa)
+        .select_related("motorista", "transportadora")
+        .first()
+    )
+    if not agenda_item:
+        messages.error(request, "Agenda não encontrada.")
+        return redirect("agenda", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_agenda_por_post(agenda_item, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_agenda_modulo", empresa_id=empresa.id, agenda_id=agenda_item.id)
+        messages.success(request, "Agenda atualizada com sucesso.")
+        return redirect("agenda", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "agenda_item": agenda_item,
+        "motoristas": Motorista.objects.filter(empresa=empresa).order_by("nome"),
+        "transportadoras": Transportadora.objects.filter(empresa=empresa).order_by("nome"),
+    }
+    return render(request, "comercial/agenda_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_agenda_modulo(request, empresa_id, agenda_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Pedidos Pendentes")
+    if not permitido:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("agenda", empresa_id=empresa.id)
+
+    agenda_item = Agenda.objects.filter(id=agenda_id, empresa=empresa).first()
+    if not agenda_item:
+        messages.error(request, "Agenda não encontrada.")
+        return redirect("agenda", empresa_id=empresa.id)
+
+    agenda_item.excluir_agenda()
+    messages.success(request, "Agenda excluída com sucesso.")
+    return redirect("agenda", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
@@ -1992,6 +2644,13 @@ def vendas_por_categoria(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_venda"},
+        ):
+            return redirect("vendas_por_categoria", empresa_id=empresa_id)
         if acao == "criar_venda":
             erro = criar_venda_por_post(empresa, request.POST)
             if erro:
@@ -2051,7 +2710,9 @@ def vendas_por_categoria(request, empresa_id):
         arquivo_existente=arquivo_existente_texto,
         tem_arquivo_existente=tem_arquivo_existente,
         vendas_qs=vendas_qs,
+        permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
     )
+    contexto["bloquear_cadastro_edicao_importacao"] = _empresa_bloqueia_cadastro_edicao_importacao(empresa)
     return render(request, modulo["template"], contexto)
 
 
@@ -2060,6 +2721,9 @@ def editar_venda_modulo(request, empresa_id, venda_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Vendas por Categoria")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "vendas_por_categoria")
+    if bloqueio:
+        return bloqueio
 
     venda_item = Venda.objects.filter(id=venda_id, empresa=empresa).first()
     if not venda_item:
@@ -2123,6 +2787,13 @@ def cargas_em_aberto(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_carga"},
+        ):
+            return redirect("cargas_em_aberto", empresa_id=empresa_id)
         if acao == "criar_carga":
             erro = criar_carga_por_post(empresa, request.POST)
             if erro:
@@ -2159,6 +2830,7 @@ def cargas_em_aberto(request, empresa_id):
 
     contexto = {
         "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
@@ -2166,7 +2838,11 @@ def cargas_em_aberto(request, empresa_id):
         "dashboard_total_cargas": dashboard_total_cargas,
         "dashboard_no_prazo": dashboard_no_prazo,
         "dashboard_fora_prazo": dashboard_fora_prazo,
-        "cargas_tabulator": build_cargas_tabulator(cargas_lista, empresa.id),
+        "cargas_tabulator": build_cargas_tabulator(
+            cargas_lista,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
     }
     return render(request, modulo["template"], contexto)
 
@@ -2176,6 +2852,9 @@ def editar_carga_modulo(request, empresa_id, carga_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Cargas em Aberto")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "cargas_em_aberto")
+    if bloqueio:
+        return bloqueio
 
     carga_item = Cargas.objects.filter(id=carga_id, empresa=empresa).first()
     if not carga_item:
@@ -2228,6 +2907,13 @@ def producao(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_producao"},
+        ):
+            return redirect("producao", empresa_id=empresa_id)
         if acao == "criar_producao":
             erro = criar_producao_por_post(empresa, request.POST)
             if erro:
@@ -2269,12 +2955,17 @@ def producao(request, empresa_id):
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     contexto = {
         "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
         "situacoes_producao_opcoes": situacoes_producao,
-        "producao_tabulator": build_producao_tabulator(producoes_qs, empresa.id),
+        "producao_tabulator": build_producao_tabulator(
+            producoes_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
     }
     return render(request, "operacional/producao.html", contexto)
 
@@ -2284,6 +2975,9 @@ def editar_producao_modulo(request, empresa_id, producao_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Producao")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "producao")
+    if bloqueio:
+        return bloqueio
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).select_related("produto").first()
     if not producao_item:
@@ -2356,6 +3050,13 @@ def tabela_de_fretes(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_frete"},
+        ):
+            return redirect("tabela_de_fretes", empresa_id=empresa_id)
         if acao == "criar_frete":
             erro = criar_frete_por_post(empresa, request.POST)
             if erro:
@@ -2397,6 +3098,7 @@ def tabela_de_fretes(request, empresa_id):
 
     contexto = {
         "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
@@ -2404,7 +3106,11 @@ def tabela_de_fretes(request, empresa_id):
         "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
         "unidades_federativas": UnidadeFederativa.objects.filter(empresa=empresa).order_by("sigla", "codigo"),
         "tipos_frete_opcoes": tipos_frete,
-        "fretes_tabulator": build_fretes_tabulator(fretes_qs, empresa.id),
+        "fretes_tabulator": build_fretes_tabulator(
+            fretes_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
     }
     return render(request, modulo["template"], contexto)
 
@@ -2414,6 +3120,9 @@ def editar_frete_modulo(request, empresa_id, frete_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Tabela de Fretes")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "tabela_de_fretes")
+    if bloqueio:
+        return bloqueio
 
     frete_item = (
         Frete.objects.filter(id=frete_id, empresa=empresa)
@@ -2486,6 +3195,13 @@ def estoque_pcp(request, empresa_id):
 
     if request.method == "POST":
         acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_estoque"},
+        ):
+            return redirect("estoque_pcp", empresa_id=empresa_id)
         if acao == "criar_estoque":
             erro = criar_estoque_por_post(empresa, request.POST)
             if erro:
@@ -2538,6 +3254,7 @@ def estoque_pcp(request, empresa_id):
 
     contexto = {
         "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
@@ -2545,7 +3262,11 @@ def estoque_pcp(request, empresa_id):
         "status_opcoes_estoque": ["Ativo", "Inativo", "Pendente"],
         "codigos_voume_estoque": codigos_voume,
         "codigos_local_estoque": codigos_local,
-        "estoque_tabulator": build_estoque_tabulator(estoque_qs, empresa.id),
+        "estoque_tabulator": build_estoque_tabulator(
+            estoque_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
     }
     return render(request, "operacional/estoque_pcp.html", contexto)
 
@@ -2555,6 +3276,9 @@ def editar_estoque_modulo(request, empresa_id, estoque_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Estoque - PCP")
     if not autorizado:
         return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "estoque_pcp")
+    if bloqueio:
+        return bloqueio
 
     estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).select_related("produto").first()
     if not estoque_item:

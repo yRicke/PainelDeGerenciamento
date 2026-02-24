@@ -16,13 +16,16 @@
     <h1>Carteira</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegacao de secoes da Carteira">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importacao</a>
         <a href="#sec-dashboard">Dashboard</a>
         <a href="#sec-visualizacao">Visualizacao</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Nova Carteira (Cadastro Manual)</h2>
     <p class="form-note">Cadastre os dados principais da carteira e marque os indicadores aplicaveis.</p>
@@ -102,6 +105,7 @@
         </div>
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importacao de Carteira</h2>

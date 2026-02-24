@@ -16,13 +16,16 @@
     <h1>Cargas em Aberto</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegação de seções de Cargas em Aberto">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importação</a>
         <a href="#sec-dashboard">Dashboard</a>
         <a href="#sec-visualizacao">Visualização</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Nova Carga (Cadastro Manual)</h2>
     <p class="form-note">Informe os dados operacionais para acompanhar prazo, crítica e verificação.</p>
@@ -85,6 +88,7 @@
         </div>
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Cargas</h2>

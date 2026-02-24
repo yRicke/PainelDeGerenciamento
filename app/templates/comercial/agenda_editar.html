@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Agenda{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/comercial/agenda.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'agenda' empresa.id %}">Voltar para Agenda</a>
+    <h1>Editar Agenda #{{ agenda_item.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <p class="form-note">Atualize os dados de carregamento da agenda.</p>
+    <form action="{% url 'editar_agenda_modulo' empresa.id agenda_item.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Data registro</label>
+                <input type="date" name="data_registro" value="{{ agenda_item.data_registro|date:'Y-m-d' }}" readonly>
+            </div>
+            <div>
+                <label>Número único</label>
+                <input type="text" name="numero_unico" value="{{ agenda_item.numero_unico }}" required>
+            </div>
+            <div>
+                <label>Previsão de carregamento</label>
+                <input type="date" name="previsao_carregamento" value="{{ agenda_item.previsao_carregamento|date:'Y-m-d' }}" required>
+            </div>
+            <div class="field-with-action">
+                <div>
+                    <label>Motorista</label>
+                    <select name="motorista_id" required>
+                        <option value="">-</option>
+                        {% for item in motoristas %}
+                        <option value="{{ item.id }}" {% if agenda_item.motorista_id == item.id %}selected{% endif %}>
+                            {{ item.nome }} ({{ item.codigo_motorista }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <a class="btn-light" href="{% url 'motoristas' empresa.id %}" target="_blank" rel="noopener">Cadastrar motorista</a>
+            </div>
+            <div class="field-with-action">
+                <div>
+                    <label>Transportadora</label>
+                    <select name="transportadora_id" required>
+                        <option value="">-</option>
+                        {% for item in transportadoras %}
+                        <option value="{{ item.id }}" {% if agenda_item.transportadora_id == item.id %}selected{% endif %}>
+                            {{ item.nome }} ({{ item.codigo_transportadora }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <a class="btn-light" href="{% url 'transportadoras' empresa.id %}" target="_blank" rel="noopener">Cadastrar transportadora</a>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alterações</button>
+        </div>
+    </form>
+
+    <div class="danger-zone">
+        <p>Ação irreversível: exclui este registro da agenda.</p>
+        <form action="{% url 'excluir_agenda_modulo' empresa.id agenda_item.id %}" method="POST" onsubmit="return confirm('Excluir agenda {{ agenda_item.numero_unico }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir agenda</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
+

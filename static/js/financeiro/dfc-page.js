@@ -123,69 +123,74 @@
     preencherSelect(tipoOperacaoSelect, valoresUnicos("operacao_codigo").sort());
     preencherSelect(tipoMovimentoSelect, valoresUnicos("tipo_movimento").sort());
 
+    var colunas = [
+        {title: "ID", field: "id", width: 70, hozAlign: "center", headerFilter: "input"},
+        {
+            title: "Data negociacao",
+            field: "data_negociacao",
+            headerFilter: "input",
+            sorter: function (a, b, aRow, bRow) {
+                var aIso = aRow.getData().data_negociacao_iso || "";
+                var bIso = bRow.getData().data_negociacao_iso || "";
+                return aIso.localeCompare(bIso);
+            },
+        },
+        {
+            title: "Data vencimento",
+            field: "data_vencimento",
+            headerFilter: "input",
+            sorter: function (a, b, aRow, bRow) {
+                var aIso = aRow.getData().data_vencimento_iso || "";
+                var bIso = bRow.getData().data_vencimento_iso || "";
+                return aIso.localeCompare(bIso);
+            },
+        },
+        {
+            title: "Valor liquido",
+            field: "valor_liquido",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {
+                decimal: ",",
+                thousand: ".",
+                symbol: "R$ ",
+                symbolAfter: false,
+                precision: 2,
+            },
+        },
+        {title: "Numero nota", field: "numero_nota", headerFilter: "input"},
+        {title: "Titulo codigo", field: "titulo_codigo", headerFilter: "input"},
+        {title: "Titulo descricao", field: "titulo_descricao", headerFilter: "input"},
+        {title: "Centro resultado", field: "centro_resultado_descricao", headerFilter: "input"},
+        {title: "Tipo operacao", field: "operacao_codigo", headerFilter: "input"},
+        {title: "Natureza codigo", field: "natureza_codigo", headerFilter: "input"},
+        {title: "Natureza descricao", field: "natureza_descricao", headerFilter: "input"},
+        {title: "Historico", field: "historico", headerFilter: "input"},
+        {title: "Parceiro codigo", field: "parceiro_codigo", headerFilter: "input"},
+        {title: "Parceiro", field: "parceiro_nome", headerFilter: "input"},
+        {title: "Receita/Despesa", field: "operacao_descricao", headerFilter: "input"},
+        {title: "Tipo movimento", field: "tipo_movimento", headerFilter: "input"},
+    ];
+
+    if (data.some(function (item) { return Boolean(item.editar_url); })) {
+        colunas.push({
+            title: "Acoes",
+            field: "editar_url",
+            formatter: function (cell) {
+                var url = cell.getValue();
+                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
+            },
+            hozAlign: "center",
+        });
+    }
+
     var tabela = window.TabulatorDefaults.create("#dfc-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
-        columns: [
-            {title: "ID", field: "id", width: 70, hozAlign: "center", headerFilter: "input"},
-            {
-                title: "Data negociacao",
-                field: "data_negociacao",
-                headerFilter: "input",
-                sorter: function (a, b, aRow, bRow) {
-                    var aIso = aRow.getData().data_negociacao_iso || "";
-                    var bIso = bRow.getData().data_negociacao_iso || "";
-                    return aIso.localeCompare(bIso);
-                },
-            },
-            {
-                title: "Data vencimento",
-                field: "data_vencimento",
-                headerFilter: "input",
-                sorter: function (a, b, aRow, bRow) {
-                    var aIso = aRow.getData().data_vencimento_iso || "";
-                    var bIso = bRow.getData().data_vencimento_iso || "";
-                    return aIso.localeCompare(bIso);
-                },
-            },
-            {
-                title: "Valor liquido",
-                field: "valor_liquido",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {
-                    decimal: ",",
-                    thousand: ".",
-                    symbol: "R$ ",
-                    symbolAfter: false,
-                    precision: 2,
-                },
-            },
-            {title: "Numero nota", field: "numero_nota", headerFilter: "input"},
-            {title: "Titulo codigo", field: "titulo_codigo", headerFilter: "input"},
-            {title: "Titulo descricao", field: "titulo_descricao", headerFilter: "input"},
-            {title: "Centro resultado", field: "centro_resultado_descricao", headerFilter: "input"},
-            {title: "Tipo operacao", field: "operacao_codigo", headerFilter: "input"},
-            {title: "Natureza codigo", field: "natureza_codigo", headerFilter: "input"},
-            {title: "Natureza descricao", field: "natureza_descricao", headerFilter: "input"},
-            {title: "Historico", field: "historico", headerFilter: "input"},
-            {title: "Parceiro codigo", field: "parceiro_codigo", headerFilter: "input"},
-            {title: "Parceiro", field: "parceiro_nome", headerFilter: "input"},
-            {title: "Receita/Despesa", field: "operacao_descricao", headerFilter: "input"},
-            {title: "Tipo movimento", field: "tipo_movimento", headerFilter: "input"},
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return '<a class="btn-primary" href="' + url + '">Editar</a>';
-                },
-                hozAlign: "center",
-            },
-        ],
+        columns: colunas,
     });
 
     function atualizarDashboard() {

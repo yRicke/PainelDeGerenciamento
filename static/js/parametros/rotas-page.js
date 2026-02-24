@@ -1,50 +1,50 @@
 (function () {
-    var dataElement = document.getElementById("parceiros-tabulator-data");
-    var cidadesElement = document.getElementById("parceiros-cidades-data");
-    if (!dataElement || !cidadesElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
+    var dataElement = document.getElementById("rotas-tabulator-data");
+    var ufsElement = document.getElementById("rotas-ufs-data");
+    if (!dataElement || !ufsElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var cidades = JSON.parse(cidadesElement.textContent || "[]");
+    var ufs = JSON.parse(ufsElement.textContent || "[]");
     var submitPost = window.FinanceiroCrudUtils.submitPost;
-    var filtroNome = document.getElementById("filtro-parceiro-nome");
-    var filtroCodigo = document.getElementById("filtro-parceiro-codigo");
-    var filtroCidade = document.getElementById("filtro-parceiro-cidade");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-parceiros");
-    var cidadesValues = {"": "Sem cidade"};
+    var filtroCodigo = document.getElementById("filtro-rota-codigo");
+    var filtroNome = document.getElementById("filtro-rota-nome");
+    var filtroUf = document.getElementById("filtro-rota-uf");
+    var limparFiltrosBtn = document.getElementById("limpar-filtros-rotas");
+    var ufValues = {"": "Sem UF"};
 
-    cidades.forEach(function (cidade) {
-        cidadesValues[String(cidade.id)] = (cidade.nome || "") + " (" + (cidade.codigo || "") + ")";
+    ufs.forEach(function (uf) {
+        ufValues[String(uf.id)] = (uf.sigla || "") + " (" + (uf.codigo || "") + ")";
     });
 
-    var tabela = window.TabulatorDefaults.create("#parceiros-tabulator", {
+    var tabela = window.TabulatorDefaults.create("#rotas-tabulator", {
         data: data,
         layout: "fitDataStretch",
         pagination: true,
         paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
+            {title: "Código da Rota", field: "codigo_rota", editor: "input"},
             {title: "Nome", field: "nome", editor: "input"},
-            {title: "Código", field: "codigo", editor: "input"},
             {
-                title: "Cidade",
-                field: "cidade_id",
+                title: "UF",
+                field: "uf_id",
                 editor: "list",
                 editorParams: {
-                    values: cidadesValues,
+                    values: ufValues,
                     clearable: true,
                 },
                 formatter: function (cell) {
                     var row = cell.getRow().getData();
-                    return row.cidade_nome || "Sem cidade";
+                    return row.uf_sigla || "Sem UF";
                 },
                 cellEdited: function (cell) {
                     var row = cell.getRow().getData();
-                    var cidadeId = String(row.cidade_id || "");
-                    var cidadeSelecionada = cidades.find(function (item) {
-                        return String(item.id) === cidadeId;
+                    var ufId = String(row.uf_id || "");
+                    var ufSelecionada = ufs.find(function (item) {
+                        return String(item.id) === ufId;
                     });
-                    row.cidade_nome = cidadeSelecionada ? cidadeSelecionada.nome : "";
-                    cell.getRow().update({cidade_nome: row.cidade_nome});
+                    row.uf_sigla = ufSelecionada ? ufSelecionada.sigla : "";
+                    cell.getRow().update({uf_sigla: row.uf_sigla});
                 },
             },
             {
@@ -58,13 +58,13 @@
                     var row = cell.getRow().getData();
                     if (e.target && e.target.classList && e.target.classList.contains("btn-primary")) {
                         submitPost(row.editar_url, {
+                            codigo_rota: row.codigo_rota || "",
                             nome: row.nome || "",
-                            codigo: row.codigo || "",
-                            cidade_id: row.cidade_id || "",
+                            uf_id: row.uf_id || "",
                         });
                     }
                     if (e.target && e.target.classList && e.target.classList.contains("btn-danger")) {
-                        submitPost(row.excluir_url, {}, "Excluir parceiro?");
+                        submitPost(row.excluir_url, {}, "Excluir rota?");
                     }
                 },
             },
@@ -72,27 +72,25 @@
     });
 
     function aplicarFiltros() {
-        var nome = (filtroNome.value || "").toLowerCase().trim();
         var codigo = (filtroCodigo.value || "").toLowerCase().trim();
-        var cidade = (filtroCidade.value || "").toLowerCase().trim();
+        var nome = (filtroNome.value || "").toLowerCase().trim();
+        var uf = (filtroUf.value || "").toLowerCase().trim();
         tabela.setFilter(function (dataRow) {
+            if (codigo && !(dataRow.codigo_rota || "").toLowerCase().includes(codigo)) return false;
             if (nome && !(dataRow.nome || "").toLowerCase().includes(nome)) return false;
-            if (codigo && !(dataRow.codigo || "").toLowerCase().includes(codigo)) return false;
-            if (cidade && !(dataRow.cidade_nome || "").toLowerCase().includes(cidade)) return false;
+            if (uf && !(dataRow.uf_sigla || "").toLowerCase().includes(uf)) return false;
             return true;
         });
     }
 
-    [filtroNome, filtroCodigo, filtroCidade].forEach(function (element) {
+    [filtroCodigo, filtroNome, filtroUf].forEach(function (element) {
         element.addEventListener("input", aplicarFiltros);
     });
 
     limparFiltrosBtn.addEventListener("click", function () {
-        filtroNome.value = "";
         filtroCodigo.value = "";
-        filtroCidade.value = "";
+        filtroNome.value = "";
+        filtroUf.value = "";
         tabela.clearFilter(true);
     });
 })();
-
-

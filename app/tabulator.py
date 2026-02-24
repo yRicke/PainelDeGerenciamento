@@ -16,6 +16,27 @@ def _fmt_datetime_br(data):
     return data.strftime("%d/%m/%Y %H:%M")
 
 
+def _normalizar_numero_unico_texto(valor):
+    texto = (str(valor or "")).strip()
+    if not texto:
+        return ""
+    if texto.endswith(".0"):
+        texto = texto[:-2]
+    texto = texto.replace(" ", "")
+    if texto.isdigit():
+        return str(int(texto))
+    return texto
+
+
+def _gerente_valido_ou_vazio(valor):
+    texto = (str(valor or "")).strip()
+    if not texto:
+        return ""
+    if texto.upper() in {"<SEM VENDEDOR>", "SEM VENDEDOR", "<SEM GERENTE>", "SEM GERENTE"}:
+        return ""
+    return texto
+
+
 def _situacao_margem(margem):
     try:
         valor = float(margem)
@@ -57,7 +78,7 @@ def build_atividades_tabulator(atividades_qs, empresa_id: int):
     ]
 
 
-def build_carteiras_tabulator(carteiras_qs, empresa_id: int):
+def build_carteiras_tabulator(carteiras_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for carteira_item in carteiras_qs:
         data_cadastro = carteira_item.get("data_cadastro")
@@ -84,16 +105,17 @@ def build_carteiras_tabulator(carteiras_qs, empresa_id: int):
                 "regiao_codigo": carteira_item.get("regiao__codigo") or "",
                 "cidade_nome": carteira_item.get("cidade__nome") or "",
                 "cidade_codigo": carteira_item.get("cidade__codigo") or "",
-                "editar_url": reverse(
-                    "editar_carteira_modulo",
-                    kwargs={"empresa_id": empresa_id, "carteira_id": carteira_item.get("id")},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_carteira_modulo",
+                kwargs={"empresa_id": empresa_id, "carteira_id": carteira_item.get("id")},
+            )
     return resultado
 
 
-def build_vendas_tabulator(vendas_qs, empresa_id: int):
+def build_vendas_tabulator(vendas_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for venda in vendas_qs:
         data_venda = venda.get("data_venda")
@@ -115,16 +137,89 @@ def build_vendas_tabulator(vendas_qs, empresa_id: int):
                 "data_venda_iso": data_venda.strftime("%Y-%m-%d") if data_venda else "",
                 "ano_venda": data_venda.year if data_venda else "",
                 "mes_venda": data_venda.month if data_venda else "",
-                "editar_url": reverse(
-                    "editar_venda_modulo",
-                    kwargs={"empresa_id": empresa_id, "venda_id": venda.get("id")},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_venda_modulo",
+                kwargs={"empresa_id": empresa_id, "venda_id": venda.get("id")},
+            )
     return resultado
 
 
-def build_cargas_tabulator(cargas_qs, empresa_id: int):
+def build_pedidos_pendentes_tabulator(
+    pedidos_qs,
+    empresa_id: int,
+    agendas_por_numero=None,
+    gerentes_por_parceiro=None,
+    permitir_edicao: bool = True,
+):
+    agendas_por_numero = agendas_por_numero or {}
+    gerentes_por_parceiro = gerentes_por_parceiro or {}
+    resultado = []
+
+    for item in pedidos_qs:
+        data_para_calculo = item.data_para_calculo or item.previsao_entrega or item.dt_neg
+        dias_negociados = (timezone.localdate() - data_para_calculo).days if data_para_calculo else ""
+        if data_para_calculo is None:
+            status = ""
+        else:
+            saldo_prazo = int(item.prazo_maximo or 0) - int(dias_negociados)
+            if saldo_prazo < 0:
+                status = "Atrasado"
+            elif saldo_prazo == 0:
+                status = "Atenção"
+            else:
+                status = "No Prazo"
+
+        chave_numero = _normalizar_numero_unico_texto(item.numero_unico)
+        agenda_item = agendas_por_numero.get(chave_numero) or agendas_por_numero.get(str(item.numero_unico or "").strip())
+        gerente = _gerente_valido_ou_vazio(item.gerente) or gerentes_por_parceiro.get(item.parceiro_id, "")
+
+        resultado.append(
+            {
+                "id": item.id,
+                "numero_unico": item.numero_unico or "",
+                "rota": item.rota_texto or (f"{item.rota.codigo_rota} - {item.rota.nome}" if item.rota else ""),
+                "regiao": item.regiao_texto or (f"{item.regiao.codigo} - {item.regiao.nome}" if item.regiao else ""),
+                "valor_tonelada_frete_safia": item.valor_tonelada_frete_safia or "",
+                "pendente": item.pendente or "",
+                "nome_cidade_parceiro_safia": item.nome_cidade_parceiro_safia or "",
+                "previsao_entrega": _fmt_date_br(item.previsao_entrega),
+                "previsao_entrega_iso": item.previsao_entrega.strftime("%Y-%m-%d") if item.previsao_entrega else "",
+                "dt_neg": _fmt_date_br(item.dt_neg),
+                "dt_neg_iso": item.dt_neg.strftime("%Y-%m-%d") if item.dt_neg else "",
+                "prazo_maximo": int(item.prazo_maximo or 0),
+                "dias_negociados": dias_negociados,
+                "status": status,
+                "tipo_venda": item.tipo_venda or "",
+                "nome_empresa": item.nome_empresa or "",
+                "cod_nome_parceiro": item.cod_nome_parceiro or "",
+                "vlr_nota": float(item.vlr_nota or 0),
+                "peso_bruto": float(item.peso_bruto or 0),
+                "peso": float(item.peso or 0),
+                "peso_liq_itens": float(item.peso_liq_itens or 0),
+                "apelido_vendedor": item.apelido_vendedor or "",
+                "gerente": gerente or "",
+                "data_para_calculo": _fmt_date_br(data_para_calculo),
+                "data_para_calculo_iso": data_para_calculo.strftime("%Y-%m-%d") if data_para_calculo else "",
+                "descricao_tipo_negociacao": item.descricao_tipo_negociacao or "",
+                "nro_nota": int(item.nro_nota or 0),
+                "previsao_do_carregamento": _fmt_date_br(agenda_item.previsao_carregamento) if agenda_item else "",
+                "motorista": agenda_item.motorista.nome if agenda_item and agenda_item.motorista else "",
+                "transportadora": agenda_item.transportadora.nome if agenda_item and agenda_item.transportadora else "",
+                "agenda_base_url": reverse("agenda", kwargs={"empresa_id": empresa_id}),
+            }
+        )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_pedido_pendente_modulo",
+                kwargs={"empresa_id": empresa_id, "pedido_id": item.id},
+            )
+    return resultado
+
+
+def build_cargas_tabulator(cargas_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for carga in cargas_qs:
         resultado.append(
@@ -144,16 +239,17 @@ def build_cargas_tabulator(cargas_qs, empresa_id: int):
                 "idade_dias": carga.idade_dias or 0,
                 "verificacao": bool(carga.verificacao),
                 "critica": carga.critica,
-                "editar_url": reverse(
-                    "editar_carga_modulo",
-                    kwargs={"empresa_id": empresa_id, "carga_id": carga.id},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_carga_modulo",
+                kwargs={"empresa_id": empresa_id, "carga_id": carga.id},
+            )
     return resultado
 
 
-def build_producao_tabulator(producoes_qs, empresa_id: int):
+def build_producao_tabulator(producoes_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for item in producoes_qs:
         entrada_atividade = item.data_hora_entrada_atividade
@@ -180,12 +276,13 @@ def build_producao_tabulator(producoes_qs, empresa_id: int):
                 "producao_por_dia": float(item.producao_por_dia or 0),
                 "kg_por_lote": float(item.kg_por_lote or 0),
                 "pacote_por_fardo_parametro": float(item.produto.pacote_por_fardo or 0) if item.produto else 0,
-                "editar_url": reverse(
-                    "editar_producao_modulo",
-                    kwargs={"empresa_id": empresa_id, "producao_id": item.id},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_producao_modulo",
+                kwargs={"empresa_id": empresa_id, "producao_id": item.id},
+            )
     return resultado
 
 
@@ -264,6 +361,27 @@ def build_regioes_tabulator(regioes_qs, empresa_id: int):
     ]
 
 
+def build_rotas_tabulator(rotas_qs, empresa_id: int):
+    return [
+        {
+            "id": rota.id,
+            "codigo_rota": rota.codigo_rota,
+            "nome": rota.nome,
+            "uf_id": rota.uf_id or "",
+            "uf_sigla": rota.uf.sigla if rota.uf else "",
+            "editar_url": reverse(
+                "editar_rota_modulo",
+                kwargs={"empresa_id": empresa_id, "rota_id": rota.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_rota_modulo",
+                kwargs={"empresa_id": empresa_id, "rota_id": rota.id},
+            ),
+        }
+        for rota in rotas_qs
+    ]
+
+
 def build_unidades_federativas_tabulator(unidades_qs, empresa_id: int):
     return [
         {
@@ -289,6 +407,8 @@ def build_parceiros_tabulator(parceiros_qs, empresa_id: int):
             "id": parceiro.id,
             "nome": parceiro.nome,
             "codigo": parceiro.codigo,
+            "cidade_id": parceiro.cidade_id or "",
+            "cidade_nome": parceiro.cidade.nome if parceiro.cidade else "",
             "editar_url": reverse(
                 "editar_parceiro_modulo",
                 kwargs={"empresa_id": empresa_id, "parceiro_id": parceiro.id},
@@ -299,6 +419,72 @@ def build_parceiros_tabulator(parceiros_qs, empresa_id: int):
             ),
         }
         for parceiro in parceiros_qs
+    ]
+
+
+def build_motoristas_tabulator(motoristas_qs, empresa_id: int):
+    return [
+        {
+            "id": motorista.id,
+            "codigo_motorista": motorista.codigo_motorista,
+            "nome": motorista.nome,
+            "editar_url": reverse(
+                "editar_motorista_modulo",
+                kwargs={"empresa_id": empresa_id, "motorista_id": motorista.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_motorista_modulo",
+                kwargs={"empresa_id": empresa_id, "motorista_id": motorista.id},
+            ),
+        }
+        for motorista in motoristas_qs
+    ]
+
+
+def build_transportadoras_tabulator(transportadoras_qs, empresa_id: int):
+    return [
+        {
+            "id": transportadora.id,
+            "codigo_transportadora": transportadora.codigo_transportadora,
+            "nome": transportadora.nome,
+            "editar_url": reverse(
+                "editar_transportadora_modulo",
+                kwargs={"empresa_id": empresa_id, "transportadora_id": transportadora.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_transportadora_modulo",
+                kwargs={"empresa_id": empresa_id, "transportadora_id": transportadora.id},
+            ),
+        }
+        for transportadora in transportadoras_qs
+    ]
+
+
+def build_agenda_tabulator(agenda_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "data_registro": _fmt_date_br(item.data_registro),
+            "data_registro_iso": item.data_registro.strftime("%Y-%m-%d") if item.data_registro else "",
+            "numero_unico": item.numero_unico or "",
+            "previsao_carregamento": _fmt_date_br(item.previsao_carregamento),
+            "previsao_carregamento_iso": (
+                item.previsao_carregamento.strftime("%Y-%m-%d")
+                if item.previsao_carregamento
+                else ""
+            ),
+            "motorista_nome": item.motorista.nome if item.motorista else "",
+            "transportadora_nome": item.transportadora.nome if item.transportadora else "",
+            "editar_url": reverse(
+                "editar_agenda_modulo",
+                kwargs={"empresa_id": empresa_id, "agenda_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_agenda_modulo",
+                kwargs={"empresa_id": empresa_id, "agenda_id": item.id},
+            ),
+        }
+        for item in agenda_qs
     ]
 
 
@@ -334,7 +520,7 @@ def build_produtos_tabulator(produtos_qs, empresa_id: int):
     ]
 
 
-def build_fretes_tabulator(fretes_qs, empresa_id: int):
+def build_fretes_tabulator(fretes_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for item in fretes_qs:
         resultado.append(
@@ -359,16 +545,17 @@ def build_fretes_tabulator(fretes_qs, empresa_id: int):
                 "valor_frete_por_km": float(item.valor_frete_por_km or 0),
                 "valor_taxa_entrada": float(item.valor_taxa_entrada or 0),
                 "venda_minima": float(item.venda_minima or 0),
-                "editar_url": reverse(
-                    "editar_frete_modulo",
-                    kwargs={"empresa_id": empresa_id, "frete_id": item.id},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_frete_modulo",
+                kwargs={"empresa_id": empresa_id, "frete_id": item.id},
+            )
     return resultado
 
 
-def build_estoque_tabulator(estoques_qs, empresa_id: int):
+def build_estoque_tabulator(estoques_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for item in estoques_qs:
         resultado.append(
@@ -398,12 +585,13 @@ def build_estoque_tabulator(estoques_qs, empresa_id: int):
                 "codigo_local": item.codigo_local or "",
                 "ano_contagem": item.data_contagem.year if item.data_contagem else "",
                 "mes_contagem": item.data_contagem.month if item.data_contagem else "",
-                "editar_url": reverse(
-                    "editar_estoque_modulo",
-                    kwargs={"empresa_id": empresa_id, "estoque_id": item.id},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_estoque_modulo",
+                kwargs={"empresa_id": empresa_id, "estoque_id": item.id},
+            )
     return resultado
 
 
@@ -482,7 +670,7 @@ def build_centros_resultado_tabulator(centros_resultado_qs, empresa_id: int):
     ]
 
 
-def build_dfc_tabulator(dfc_qs, empresa_id: int):
+def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for dfc_item in dfc_qs:
         resultado.append(
@@ -523,16 +711,17 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int):
                 "operacao_codigo": dfc_item.get("operacao__tipo_operacao_codigo") or "",
                 "operacao_descricao": dfc_item.get("operacao__descricao_receita_despesa") or "",
                 "tipo_movimento": dfc_item.get("tipo_movimento") or "",
-                "editar_url": reverse(
-                    "editar_dfc_modulo",
-                    kwargs={"empresa_id": empresa_id, "dfc_id": dfc_item.get("id")},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_dfc_modulo",
+                kwargs={"empresa_id": empresa_id, "dfc_id": dfc_item.get("id")},
+            )
     return resultado
 
 
-def build_contas_a_receber_tabulator(contas_qs, empresa_id: int):
+def build_contas_a_receber_tabulator(contas_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     hoje = timezone.localdate()
     for conta in contas_qs:
@@ -617,12 +806,13 @@ def build_contas_a_receber_tabulator(contas_qs, empresa_id: int):
                 "status": status,
                 "dias_diferenca": dias_diferenca,
                 "intervalo": intervalo,
-                "editar_url": reverse(
-                    "editar_contas_a_receber_modulo",
-                    kwargs={"empresa_id": empresa_id, "conta_id": conta.get("id")},
-                ),
             }
         )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_contas_a_receber_modulo",
+                kwargs={"empresa_id": empresa_id, "conta_id": conta.get("id")},
+            )
     return resultado
 
 

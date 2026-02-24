@@ -10,18 +10,22 @@ UNSET = object()
 
 class Empresa(models.Model):
     nome = models.CharField(max_length=150)
+    possui_sistema = models.BooleanField(default=False)
 
     def __str__(self):
         return self.nome
 
     @classmethod
-    def criar_empresa(cls, nome):
-        empresa = cls(nome=nome)
+    def criar_empresa(cls, nome, possui_sistema=False):
+        empresa = cls(nome=nome, possui_sistema=possui_sistema)
         empresa.save()
         return empresa
 
-    def atualizar_nome(self, novo_nome):
-        self.nome = novo_nome
+    def atualizar_nome(self, novo_nome=UNSET, possui_sistema=UNSET):
+        if novo_nome is not UNSET:
+            self.nome = novo_nome
+        if possui_sistema is not UNSET:
+            self.possui_sistema = bool(possui_sistema)
         self.save()
 
     def excluir_empresa(self):
@@ -380,8 +384,371 @@ class UnidadeFederativa(models.Model):
         self.delete()
 
 
+class Rota(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="rotas")
+    codigo_rota = models.CharField(max_length=50)
+    uf = models.ForeignKey(UnidadeFederativa, on_delete=models.SET_NULL, null=True, blank=True, related_name="rotas")
+    nome = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo_rota"], name="uq_rota_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.codigo_rota} - {self.nome}"
+
+    @classmethod
+    def criar_rota(cls, empresa, codigo_rota, nome, uf=None):
+        item = cls(empresa=empresa, codigo_rota=codigo_rota, nome=nome, uf=uf)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_rotas_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_rota(self, codigo_rota=UNSET, nome=UNSET, uf=UNSET):
+        if codigo_rota is not UNSET:
+            self.codigo_rota = codigo_rota
+        if nome is not UNSET:
+            self.nome = nome
+        if uf is not UNSET:
+            self.uf = uf
+        self.save()
+
+    def excluir_rota(self):
+        self.delete()
+
+
+class Motorista(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="motoristas")
+    codigo_motorista = models.CharField(max_length=50)
+    nome = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo_motorista"], name="uq_motorista_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} ({self.codigo_motorista})"
+
+    @classmethod
+    def criar_motorista(cls, empresa, codigo_motorista, nome):
+        item = cls(empresa=empresa, codigo_motorista=codigo_motorista, nome=nome)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_motoristas_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_motorista(self, codigo_motorista=UNSET, nome=UNSET):
+        if codigo_motorista is not UNSET:
+            self.codigo_motorista = codigo_motorista
+        if nome is not UNSET:
+            self.nome = nome
+        self.save()
+
+    def excluir_motorista(self):
+        self.delete()
+
+
+class Transportadora(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="transportadoras")
+    codigo_transportadora = models.CharField(max_length=50)
+    nome = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo_transportadora"], name="uq_transportadora_empresa_codigo"),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} ({self.codigo_transportadora})"
+
+    @classmethod
+    def criar_transportadora(cls, empresa, codigo_transportadora, nome):
+        item = cls(empresa=empresa, codigo_transportadora=codigo_transportadora, nome=nome)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_transportadoras_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_transportadora(self, codigo_transportadora=UNSET, nome=UNSET):
+        if codigo_transportadora is not UNSET:
+            self.codigo_transportadora = codigo_transportadora
+        if nome is not UNSET:
+            self.nome = nome
+        self.save()
+
+    def excluir_transportadora(self):
+        self.delete()
+
+
+class Agenda(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="agendas")
+    data_registro = models.DateField(default=timezone.localdate)
+    numero_unico = models.CharField(max_length=80)
+    previsao_carregamento = models.DateField()
+    motorista = models.ForeignKey(Motorista, on_delete=models.PROTECT, related_name="agendas")
+    transportadora = models.ForeignKey(Transportadora, on_delete=models.PROTECT, related_name="agendas")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "numero_unico"], name="uq_agenda_empresa_numero_unico"),
+        ]
+
+    def __str__(self):
+        return f"Agenda {self.numero_unico}"
+
+    @classmethod
+    def criar_agenda(
+        cls,
+        empresa,
+        numero_unico,
+        previsao_carregamento,
+        motorista,
+        transportadora,
+        data_registro=None,
+    ):
+        item = cls(
+            empresa=empresa,
+            data_registro=data_registro or timezone.localdate(),
+            numero_unico=numero_unico,
+            previsao_carregamento=previsao_carregamento,
+            motorista=motorista,
+            transportadora=transportadora,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_agendas_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_agenda(
+        self,
+        numero_unico=UNSET,
+        previsao_carregamento=UNSET,
+        motorista=UNSET,
+        transportadora=UNSET,
+        data_registro=UNSET,
+    ):
+        if numero_unico is not UNSET:
+            self.numero_unico = numero_unico
+        if previsao_carregamento is not UNSET:
+            self.previsao_carregamento = previsao_carregamento
+        if motorista is not UNSET:
+            self.motorista = motorista
+        if transportadora is not UNSET:
+            self.transportadora = transportadora
+        if data_registro is not UNSET:
+            self.data_registro = data_registro
+        self.save()
+
+    def excluir_agenda(self):
+        self.delete()
+
+
+class PedidoPendente(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="pedidos_pendentes")
+    numero_unico = models.CharField(max_length=80)
+    rota = models.ForeignKey(Rota, on_delete=models.SET_NULL, null=True, blank=True, related_name="pedidos_pendentes")
+    regiao = models.ForeignKey(Regiao, on_delete=models.SET_NULL, null=True, blank=True, related_name="pedidos_pendentes")
+    parceiro = models.ForeignKey("Parceiro", on_delete=models.SET_NULL, null=True, blank=True, related_name="pedidos_pendentes")
+    rota_texto = models.CharField(max_length=200, blank=True, default="")
+    regiao_texto = models.CharField(max_length=200, blank=True, default="")
+    valor_tonelada_frete_safia = models.CharField(max_length=80, blank=True, default="")
+    pendente = models.CharField(max_length=30, blank=True, default="")
+    nome_cidade_parceiro_safia = models.CharField(max_length=150, blank=True, default="")
+    previsao_entrega = models.DateField(null=True, blank=True)
+    dt_neg = models.DateField(null=True, blank=True)
+    prazo_maximo = models.PositiveSmallIntegerField(default=3)
+    tipo_venda = models.CharField(max_length=80, blank=True, default="")
+    nome_empresa = models.CharField(max_length=220, blank=True, default="")
+    cod_nome_parceiro = models.CharField(max_length=220, blank=True, default="")
+    vlr_nota = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    peso_bruto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    peso = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    peso_liq_itens = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    apelido_vendedor = models.CharField(max_length=150, blank=True, default="")
+    gerente = models.CharField(max_length=150, blank=True, default="")
+    data_para_calculo = models.DateField(null=True, blank=True)
+    descricao_tipo_negociacao = models.CharField(max_length=220, blank=True, default="")
+    nro_nota = models.BigIntegerField(default=0)
+
+    def __str__(self):
+        return f"Pedido Pendente {self.numero_unico}"
+
+    @property
+    def dias_negociados(self):
+        data_base = self.data_para_calculo or self.previsao_entrega or self.dt_neg
+        if not data_base:
+            return None
+        return (timezone.localdate() - data_base).days
+
+    @property
+    def status_dias_negociados(self):
+        if self.dias_negociados is None:
+            return ""
+        saldo = int(self.prazo_maximo or 0) - int(self.dias_negociados or 0)
+        if saldo < 0:
+            return "Atrasado"
+        if saldo == 0:
+            return "Atenção"
+        return "No Prazo"
+
+    @classmethod
+    def criar_pedido_pendente(
+        cls,
+        empresa,
+        numero_unico,
+        rota=None,
+        regiao=None,
+        parceiro=None,
+        rota_texto="",
+        regiao_texto="",
+        valor_tonelada_frete_safia="",
+        pendente="",
+        nome_cidade_parceiro_safia="",
+        previsao_entrega=None,
+        dt_neg=None,
+        prazo_maximo=3,
+        tipo_venda="",
+        nome_empresa="",
+        cod_nome_parceiro="",
+        vlr_nota=0,
+        peso_bruto=0,
+        peso=0,
+        peso_liq_itens=0,
+        apelido_vendedor="",
+        gerente="",
+        data_para_calculo=None,
+        descricao_tipo_negociacao="",
+        nro_nota=0,
+    ):
+        item = cls(
+            empresa=empresa,
+            numero_unico=numero_unico,
+            rota=rota,
+            regiao=regiao,
+            parceiro=parceiro,
+            rota_texto=rota_texto,
+            regiao_texto=regiao_texto,
+            valor_tonelada_frete_safia=valor_tonelada_frete_safia,
+            pendente=pendente,
+            nome_cidade_parceiro_safia=nome_cidade_parceiro_safia,
+            previsao_entrega=previsao_entrega,
+            dt_neg=dt_neg,
+            prazo_maximo=prazo_maximo,
+            tipo_venda=tipo_venda,
+            nome_empresa=nome_empresa,
+            cod_nome_parceiro=cod_nome_parceiro,
+            vlr_nota=vlr_nota,
+            peso_bruto=peso_bruto,
+            peso=peso,
+            peso_liq_itens=peso_liq_itens,
+            apelido_vendedor=apelido_vendedor,
+            gerente=gerente,
+            data_para_calculo=data_para_calculo,
+            descricao_tipo_negociacao=descricao_tipo_negociacao,
+            nro_nota=nro_nota,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_pedido_pendente(
+        self,
+        numero_unico=UNSET,
+        rota=UNSET,
+        regiao=UNSET,
+        parceiro=UNSET,
+        rota_texto=UNSET,
+        regiao_texto=UNSET,
+        valor_tonelada_frete_safia=UNSET,
+        pendente=UNSET,
+        nome_cidade_parceiro_safia=UNSET,
+        previsao_entrega=UNSET,
+        dt_neg=UNSET,
+        prazo_maximo=UNSET,
+        tipo_venda=UNSET,
+        nome_empresa=UNSET,
+        cod_nome_parceiro=UNSET,
+        vlr_nota=UNSET,
+        peso_bruto=UNSET,
+        peso=UNSET,
+        peso_liq_itens=UNSET,
+        apelido_vendedor=UNSET,
+        gerente=UNSET,
+        data_para_calculo=UNSET,
+        descricao_tipo_negociacao=UNSET,
+        nro_nota=UNSET,
+    ):
+        if numero_unico is not UNSET:
+            self.numero_unico = numero_unico
+        if rota is not UNSET:
+            self.rota = rota
+        if regiao is not UNSET:
+            self.regiao = regiao
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if rota_texto is not UNSET:
+            self.rota_texto = rota_texto
+        if regiao_texto is not UNSET:
+            self.regiao_texto = regiao_texto
+        if valor_tonelada_frete_safia is not UNSET:
+            self.valor_tonelada_frete_safia = valor_tonelada_frete_safia
+        if pendente is not UNSET:
+            self.pendente = pendente
+        if nome_cidade_parceiro_safia is not UNSET:
+            self.nome_cidade_parceiro_safia = nome_cidade_parceiro_safia
+        if previsao_entrega is not UNSET:
+            self.previsao_entrega = previsao_entrega
+        if dt_neg is not UNSET:
+            self.dt_neg = dt_neg
+        if prazo_maximo is not UNSET:
+            self.prazo_maximo = prazo_maximo
+        if tipo_venda is not UNSET:
+            self.tipo_venda = tipo_venda
+        if nome_empresa is not UNSET:
+            self.nome_empresa = nome_empresa
+        if cod_nome_parceiro is not UNSET:
+            self.cod_nome_parceiro = cod_nome_parceiro
+        if vlr_nota is not UNSET:
+            self.vlr_nota = vlr_nota
+        if peso_bruto is not UNSET:
+            self.peso_bruto = peso_bruto
+        if peso is not UNSET:
+            self.peso = peso
+        if peso_liq_itens is not UNSET:
+            self.peso_liq_itens = peso_liq_itens
+        if apelido_vendedor is not UNSET:
+            self.apelido_vendedor = apelido_vendedor
+        if gerente is not UNSET:
+            self.gerente = gerente
+        if data_para_calculo is not UNSET:
+            self.data_para_calculo = data_para_calculo
+        if descricao_tipo_negociacao is not UNSET:
+            self.descricao_tipo_negociacao = descricao_tipo_negociacao
+        if nro_nota is not UNSET:
+            self.nro_nota = nro_nota
+        self.save()
+
+    def excluir_pedido_pendente(self):
+        self.delete()
+
+
 class Parceiro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parceiros")
+    cidade = models.ForeignKey(Cidade, on_delete=models.SET_NULL, null=True, blank=True, related_name="parceiros")
     nome = models.CharField(max_length=150)
     codigo = models.CharField(max_length=50)
 
@@ -394,8 +761,8 @@ class Parceiro(models.Model):
         return f"{self.nome} ({self.codigo})"
     
     @classmethod
-    def criar_parceiro(cls, nome, codigo, empresa):
-        parceiro = cls(nome=nome, codigo=codigo, empresa=empresa)
+    def criar_parceiro(cls, nome, codigo, empresa, cidade=None):
+        parceiro = cls(nome=nome, codigo=codigo, empresa=empresa, cidade=cidade)
         parceiro.save()
         return parceiro
     
@@ -416,11 +783,13 @@ class Parceiro(models.Model):
             parceiro.save(update_fields=["nome"])
         return parceiro
 
-    def atualizar_parceiro(self, novo_nome=None, novo_codigo=None):
+    def atualizar_parceiro(self, novo_nome=None, novo_codigo=None, cidade=UNSET):
         if novo_nome:
             self.nome = novo_nome
         if novo_codigo:
             self.codigo = novo_codigo
+        if cidade is not UNSET:
+            self.cidade = cidade
         self.save()
 
     def excluir_parceiro(self):

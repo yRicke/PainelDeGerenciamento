@@ -483,57 +483,62 @@
         return valor ? trueLabel : falseLabel;
     }
 
+    var colunas = [
+        {title: "ID", field: "id", width: 75, hozAlign: "center", headerFilter: "input"},
+        {title: "Parceiro", field: "nome_parceiro", headerFilter: "input"},
+        {title: "Codigo parceiro", field: "codigo_parceiro", headerFilter: "input"},
+        {title: "Gerente", field: "gerente", headerFilter: "input"},
+        {title: "Vendedor", field: "vendedor", headerFilter: "input"},
+        {
+            title: "Valor faturado",
+            field: "valor_faturado",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
+        },
+        {
+            title: "Limite credito",
+            field: "limite_credito",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
+        },
+        {title: "Ultima venda", field: "ultima_venda", headerFilter: "input"},
+        {title: "Dias sem venda", field: "qtd_dias_sem_venda", hozAlign: "center", headerFilter: "input"},
+        {title: "Intervalo", field: "intervalo"},
+        {title: "Descricao perfil", field: "descricao_perfil", headerFilter: "input"},
+        {title: "Ativo", field: "ativo_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
+        {title: "Cliente", field: "cliente_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
+        {title: "Fornecedor", field: "fornecedor_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
+        {title: "Transportadora", field: "transporte_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
+        {title: "Ano cadastro", field: "ano_cadastro", hozAlign: "center", headerFilter: "input"},
+        {title: "Data cadastro", field: "data_cadastro", headerFilter: "input"},
+        {title: "Regiao", field: "regiao_nome", headerFilter: "input"},
+        {title: "Codigo regiao", field: "regiao_codigo", headerFilter: "input"},
+        {title: "Cidade", field: "cidade_nome", headerFilter: "input"},
+        {title: "Codigo cidade", field: "cidade_codigo", headerFilter: "input"},
+    ];
+
+    if (data.some(function (item) { return Boolean(item.editar_url); })) {
+        colunas.push({
+            title: "Acoes",
+            field: "editar_url",
+            formatter: function (cell) {
+                var url = cell.getValue();
+                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
+            },
+            hozAlign: "center",
+        });
+    }
+
     var tabela = window.TabulatorDefaults.create("#carteira-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
-        columns: [
-            {title: "ID", field: "id", width: 75, hozAlign: "center", headerFilter: "input"},
-            {title: "Parceiro", field: "nome_parceiro", headerFilter: "input"},
-            {title: "Codigo parceiro", field: "codigo_parceiro", headerFilter: "input"},
-            {title: "Gerente", field: "gerente", headerFilter: "input"},
-            {title: "Vendedor", field: "vendedor", headerFilter: "input"},
-            {
-                title: "Valor faturado",
-                field: "valor_faturado",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-            },
-            {
-                title: "Limite credito",
-                field: "limite_credito",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-            },
-            {title: "Ultima venda", field: "ultima_venda", headerFilter: "input"},
-            {title: "Dias sem venda", field: "qtd_dias_sem_venda", hozAlign: "center", headerFilter: "input"},
-            {title: "Intervalo", field: "intervalo"},
-            {title: "Descricao perfil", field: "descricao_perfil", headerFilter: "input"},
-            {title: "Ativo", field: "ativo_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-            {title: "Cliente", field: "cliente_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-            {title: "Fornecedor", field: "fornecedor_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-            {title: "Transportadora", field: "transporte_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-            {title: "Ano cadastro", field: "ano_cadastro", hozAlign: "center", headerFilter: "input"},
-            {title: "Data cadastro", field: "data_cadastro", headerFilter: "input"},
-            {title: "Regiao", field: "regiao_nome", headerFilter: "input"},
-            {title: "Codigo regiao", field: "regiao_codigo", headerFilter: "input"},
-            {title: "Cidade", field: "cidade_nome", headerFilter: "input"},
-            {title: "Codigo cidade", field: "cidade_codigo", headerFilter: "input"},
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return '<a class="btn-primary" href="' + url + '">Editar</a>';
-                },
-                hozAlign: "center",
-            },
-        ],
+        columns: colunas,
     });
 
     function aplicarFiltros() {

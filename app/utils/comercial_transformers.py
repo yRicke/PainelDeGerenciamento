@@ -143,6 +143,7 @@ def montar_contexto_carteira(
     regioes,
     parceiros,
     carteiras_dashboard_qs,
+    permitir_edicao=True,
 ):
     dashboard_resumo = _calcular_dashboard_resumo_carteira(carteiras_qs)
     contexto = {
@@ -150,7 +151,11 @@ def montar_contexto_carteira(
         "modulo_nome": modulo_nome,
         "arquivo_existente": arquivo_existente,
         "tem_arquivo_existente": tem_arquivo_existente,
-        "carteiras_tabulator": build_carteiras_tabulator(dashboard_resumo["registros"], empresa.id),
+        "carteiras_tabulator": build_carteiras_tabulator(
+            dashboard_resumo["registros"],
+            empresa.id,
+            permitir_edicao=permitir_edicao,
+        ),
         "cidades": cidades,
         "regioes": regioes,
         "parceiros": parceiros,
@@ -168,13 +173,18 @@ def montar_contexto_vendas(
     arquivo_existente,
     tem_arquivo_existente,
     vendas_qs,
+    permitir_edicao=True,
 ):
     return {
         "empresa": empresa,
         "modulo_nome": modulo_nome,
         "arquivo_existente": arquivo_existente,
         "tem_arquivo_existente": tem_arquivo_existente,
-        "vendas_tabulator": build_vendas_tabulator(vendas_qs, empresa.id),
+        "vendas_tabulator": build_vendas_tabulator(
+            vendas_qs,
+            empresa.id,
+            permitir_edicao=permitir_edicao,
+        ),
     }
 
 def _definir_lucro(valor_venda, custo_medio_icms_cmv):

@@ -506,92 +506,97 @@
         return (nomeMes[valor] || valor) + " (" + String(valor).padStart(2, "0") + ")";
     });
 
+    var colunas = [
+        {title: "ID", field: "id", width: 80, hozAlign: "center", headerFilter: "input"},
+        {title: "Codigo", field: "codigo", headerFilter: "input"},
+        {title: "Descricao", field: "descricao", headerFilter: "input"},
+        {
+            title: "Valor venda",
+            field: "valor_venda",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
+        },
+        {title: "Qtd notas", field: "qtd_notas", hozAlign: "center", headerFilter: "input"},
+        {
+            title: "Custo medio ICMS CMV",
+            field: "custo_medio_icms_cmv",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
+        },
+        {
+            title: "Lucro",
+            field: "lucro",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
+        },
+        {
+            title: "Peso bruto",
+            field: "peso_bruto",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
+        },
+        {
+            title: "Peso liquido",
+            field: "peso_liquido",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
+        },
+        {
+            title: "Margem",
+            field: "margem",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: function (cell) {
+                return Number(cell.getValue() || 0).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }) + "%";
+            }
+        },
+        {title: "Situacao margem", field: "margem_situacao", headerFilter: "input"},
+        {title: "Ano venda", field: "ano_venda", hozAlign: "center", headerFilter: "input"},
+        {title: "Mes venda", field: "mes_venda", hozAlign: "center", headerFilter: "input"},
+        {
+            title: "Data venda",
+            field: "data_venda",
+            headerFilter: "input",
+            sorter: function (a, b, aRow, bRow) {
+                var dataA = aRow.getData().data_venda_iso || "";
+                var dataB = bRow.getData().data_venda_iso || "";
+                if (dataA === dataB) return 0;
+                return dataA > dataB ? 1 : -1;
+            }
+        },
+    ];
+
+    if (data.some(function (item) { return Boolean(item.editar_url); })) {
+        colunas.push({
+            title: "Acoes",
+            field: "editar_url",
+            formatter: function (cell) {
+                var url = cell.getValue();
+                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
+            },
+            hozAlign: "center"
+        });
+    }
+
     var tabela = window.TabulatorDefaults.create("#vendas-tabulator", {
         data: data,
         layout: "fitDataTable",
         pagination: true,
         paginationSize: 100,
-        columns: [
-            {title: "ID", field: "id", width: 80, hozAlign: "center", headerFilter: "input"},
-            {title: "Codigo", field: "codigo", headerFilter: "input"},
-            {title: "Descricao", field: "descricao", headerFilter: "input"},
-            {
-                title: "Valor venda",
-                field: "valor_venda",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
-            },
-            {title: "Qtd notas", field: "qtd_notas", hozAlign: "center", headerFilter: "input"},
-            {
-                title: "Custo medio ICMS CMV",
-                field: "custo_medio_icms_cmv",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
-            },
-            {
-                title: "Lucro",
-                field: "lucro",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
-            },
-            {
-                title: "Peso bruto",
-                field: "peso_bruto",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
-            },
-            {
-                title: "Peso liquido",
-                field: "peso_liquido",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: "money",
-                formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
-            },
-            {
-                title: "Margem",
-                field: "margem",
-                hozAlign: "right",
-                headerFilter: "input",
-                formatter: function (cell) {
-                    return Number(cell.getValue() || 0).toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    }) + "%";
-                }
-            },
-            {title: "Situacao margem", field: "margem_situacao", headerFilter: "input"},
-            {title: "Ano venda", field: "ano_venda", hozAlign: "center", headerFilter: "input"},
-            {title: "Mes venda", field: "mes_venda", hozAlign: "center", headerFilter: "input"},
-            {
-                title: "Data venda",
-                field: "data_venda",
-                headerFilter: "input",
-                sorter: function (a, b, aRow, bRow) {
-                    var dataA = aRow.getData().data_venda_iso || "";
-                    var dataB = bRow.getData().data_venda_iso || "";
-                    if (dataA === dataB) return 0;
-                    return dataA > dataB ? 1 : -1;
-                }
-            },
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return '<a class="btn-primary" href="' + url + '">Editar</a>';
-                },
-                hozAlign: "center"
-            }
-        ]
+        columns: colunas
     });
 
     function aplicarFiltros() {

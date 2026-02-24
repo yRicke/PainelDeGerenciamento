@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Pedido Pendente{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/comercial/pedidos-pendentes.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'pedidos_pendentes' empresa.id %}">Voltar para Pedidos Pendentes</a>
+    <h1>Editar Pedido Pendente #{{ pedido.numero_unico }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <p class="form-note">Atualize os dados do pedido pendente e salve as alterações.</p>
+    <form action="{% url 'editar_pedido_pendente_modulo' empresa.id pedido.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div>
+                <label>Nro. Único</label>
+                <input type="text" name="numero_unico" value="{{ pedido.numero_unico }}" required>
+            </div>
+            <div>
+                <label>Rota (FK)</label>
+                <select name="rota_id">
+                    <option value="">-</option>
+                    {% for rota in rotas %}
+                    <option value="{{ rota.id }}" {% if pedido.rota_id == rota.id %}selected{% endif %}>
+                        {{ rota.codigo_rota }} - {{ rota.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Região (FK)</label>
+                <select name="regiao_id">
+                    <option value="">-</option>
+                    {% for regiao in regioes %}
+                    <option value="{{ regiao.id }}" {% if pedido.regiao_id == regiao.id %}selected{% endif %}>
+                        {{ regiao.codigo }} - {{ regiao.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Parceiro (FK)</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for parceiro in parceiros %}
+                    <option value="{{ parceiro.id }}" {% if pedido.parceiro_id == parceiro.id %}selected{% endif %}>
+                        {{ parceiro.codigo }} - {{ parceiro.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Valor Tonelada Frete[SAFIA]</label>
+                <input type="text" name="valor_tonelada_frete_safia" value="{{ pedido.valor_tonelada_frete_safia }}">
+            </div>
+            <div>
+                <label>Pendente</label>
+                <select name="pendente">
+                    <option value="Sim" {% if pedido.pendente == "Sim" %}selected{% endif %}>Sim</option>
+                    <option value="Não" {% if pedido.pendente == "Não" or pedido.pendente == "Nao" %}selected{% endif %}>Não</option>
+                </select>
+            </div>
+            <div>
+                <label>Previsão de entrega</label>
+                <input type="date" name="previsao_entrega" value="{% if pedido.previsao_entrega %}{{ pedido.previsao_entrega|date:'Y-m-d' }}{% endif %}">
+            </div>
+            <div>
+                <label>Dt. Neg.</label>
+                <input type="date" name="dt_neg" value="{% if pedido.dt_neg %}{{ pedido.dt_neg|date:'Y-m-d' }}{% endif %}">
+            </div>
+            <div>
+                <label>Prazo Máximo</label>
+                <input type="number" name="prazo_maximo" min="0" value="{{ pedido.prazo_maximo }}">
+            </div>
+            <div>
+                <label>Tipo da Venda</label>
+                <input type="text" name="tipo_venda" value="{{ pedido.tipo_venda }}">
+            </div>
+            <div>
+                <label>Nome Empresa</label>
+                <input type="text" name="nome_empresa" value="{{ pedido.nome_empresa }}">
+            </div>
+            <div>
+                <label>Vlr. Nota</label>
+                <input type="text" name="vlr_nota" value="{{ pedido.vlr_nota }}">
+            </div>
+            <div>
+                <label>Peso bruto</label>
+                <input type="text" name="peso_bruto" value="{{ pedido.peso_bruto }}">
+            </div>
+            <div>
+                <label>Peso</label>
+                <input type="text" name="peso" value="{{ pedido.peso }}">
+            </div>
+            <div>
+                <label>Peso liq. dos Itens</label>
+                <input type="text" name="peso_liq_itens" value="{{ pedido.peso_liq_itens }}">
+            </div>
+            <div>
+                <label>Apelido (Vendedor)</label>
+                <input type="text" name="apelido_vendedor" value="{{ pedido.apelido_vendedor }}">
+            </div>
+            <div>
+                <label>Gerente</label>
+                <select name="gerente">
+                    <option value="">-</option>
+                    {% for gerente in gerentes_opcoes %}
+                    <option value="{{ gerente }}" {% if pedido.gerente == gerente %}selected{% endif %}>{{ gerente }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Descrição (Tipo de Negociação)</label>
+                <input type="text" name="descricao_tipo_negociacao" value="{{ pedido.descricao_tipo_negociacao }}">
+            </div>
+            <div>
+                <label>Nro. Nota</label>
+                <input type="number" name="nro_nota" value="{{ pedido.nro_nota }}">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alterações</button>
+        </div>
+    </form>
+
+    <div class="danger-zone">
+        <p>Ação irreversível: exclui este registro de pedido pendente.</p>
+        <form action="{% url 'excluir_pedido_pendente_modulo' empresa.id pedido.id %}" method="POST" onsubmit="return confirm('Excluir pedido pendente {{ pedido.numero_unico }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir pedido pendente</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
+

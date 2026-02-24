@@ -16,13 +16,16 @@
     <h1>Contas a Receber</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegacao de secoes de Contas a Receber">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importacao</a>
         <a href="#sec-dashboard">Dashboard</a>
         <a href="#sec-visualizacao">Visualizacao</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Novo Registro (Cadastro Manual)</h2>
     <form action="{% url 'contas_a_receber' empresa.id %}" method="post">
@@ -78,6 +81,7 @@
         </div>
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importacao de Contas a Receber</h2>

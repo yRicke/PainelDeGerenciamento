@@ -16,13 +16,16 @@
     <h1>DFC</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegacao de secoes do DFC">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importacao</a>
         <a href="#sec-dashboard">Dashboard</a>
         <a href="#sec-visualizacao">Visualizacao</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Novo Registro DFC (Cadastro Manual)</h2>
     <p class="form-note">Preencha os dados essenciais do lancamento e conclua o cadastro.</p>
@@ -77,6 +80,7 @@
         </div>
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importacao de DFC</h2>

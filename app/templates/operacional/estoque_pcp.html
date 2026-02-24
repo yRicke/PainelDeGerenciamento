@@ -16,13 +16,16 @@
     <h1>Estoque - PCP</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegação de seções de estoque PCP">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importação</a>
         <a href="#sec-dashboard">Dashboard</a>
         <a href="#sec-visualizacao">Visualização</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Novo Registro de Estoque (Cadastro Manual)</h2>
     <p class="form-note">Os cálculos de subtotal, PCP e dia de produção são recalculados automaticamente ao salvar.</p>
@@ -128,6 +131,7 @@
         {% endif %}
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Estoque</h2>

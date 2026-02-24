@@ -9,7 +9,7 @@ import unicodedata
 
 from django.db import transaction
 
-from ..models import Carteira, Cidade, Parceiro, Regiao, Venda
+from ..models import Carteira, Cidade, PedidoPendente, Parceiro, Regiao, Rota, Venda
 
 try:
     import xlrd
@@ -251,6 +251,26 @@ def _obter_primeiro_valor(registro: dict, nomes_coluna: list[str]):
     return ""
 
 
+def _valor_coluna(registro: dict, nome_coluna: str):
+    valor_base = registro.get(nome_coluna, "")
+    if _normalizar_texto(valor_base):
+        return valor_base
+    prefixo = f"{nome_coluna}__"
+    for chave, valor in registro.items():
+        if chave.startswith(prefixo) and _normalizar_texto(valor):
+            return valor
+    return valor_base
+
+
+def _gerente_valido_ou_vazio(valor):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return ""
+    if texto.upper() in {"<SEM VENDEDOR>", "SEM VENDEDOR", "<SEM GERENTE>", "SEM GERENTE"}:
+        return ""
+    return texto
+
+
 def _cidade_por_codigo(empresa, codigo: str, nome: str):
     defaults = {"empresa": empresa, "nome": nome}
     cidade, created = Cidade.objects.get_or_create(codigo=codigo, defaults=defaults)
@@ -487,4 +507,236 @@ def importar_vendas_do_diretorio(
         "arquivos": len(arquivos),
         "linhas": total_linhas,
         "vendas": total_vendas,
+    }
+
+
+def _split_codigo_nome(valor_texto: str):
+    texto = _normalizar_texto(valor_texto)
+    if not texto:
+        return "", ""
+
+    if " - " in texto:
+        codigo, nome = texto.split(" - ", 1)
+        return _normalizar_codigo(codigo), _normalizar_texto(nome)
+
+    return _normalizar_codigo(texto), _normalizar_texto(texto)
+
+
+def _rota_por_codigo_nome(empresa, codigo: str, nome: str):
+    if not codigo:
+        return None
+    rota = Rota.objects.filter(empresa=empresa, codigo_rota=codigo).first()
+    if not rota:
+        rota = Rota.criar_rota(empresa=empresa, codigo_rota=codigo, nome=nome or codigo, uf=None)
+        return rota
+    if nome and rota.nome != nome:
+        rota.nome = nome
+        rota.save(update_fields=["nome"])
+    return rota
+
+
+@transaction.atomic
+def importar_pedidos_pendentes_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/comercial/pedidos_pendentes",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xlsx"))
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "pedidos_pendentes": 0,
+            "rotas": 0,
+            "regioes": 0,
+            "parceiros": 0,
+        }
+
+    if limpar_antes:
+        PedidoPendente.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_pedidos = 0
+    rotas_criadas = 0
+    regioes_criadas = 0
+    parceiros_criados = 0
+
+    cache_rotas: dict[str, Rota] = {}
+    cache_regioes: dict[str, Regiao] = {}
+    cache_parceiros: dict[str, Parceiro] = {}
+
+    objetos: list[PedidoPendente] = []
+    titulos_obrigatorios = {
+        "Valor Tonelada Frete[SAFIA]",
+        "Dt. Neg.",
+        "Previsão de entrega",
+        "Nro. Único",
+        "Parceiro",
+        "Nome Parceiro (Parceiro)",
+        "Vlr. Nota",
+        "Descrição (Tipo de Negociação)",
+        "Apelido (Vendedor)",
+        "Nome Cidade Parceiro [SAFIA]",
+        "Peso bruto",
+        "Pendente",
+        "Nro. Nota",
+        "Tipo da Venda",
+        "Peso",
+        "Empresa",
+        "Nome Fantasia (Empresa)",
+        "Peso liq. dos Itens",
+        "Região",
+        "Rota",
+    }
+
+    for arquivo in arquivos:
+        cabecalho = None
+        for idx, linha in enumerate(_iterar_linhas_xlsx(arquivo)):
+            if idx < 2:
+                continue
+
+            if cabecalho is None:
+                cabecalho = linha
+                cabecalho_set = {str(col).strip() for col in cabecalho if str(col).strip()}
+                faltantes = sorted(titulos_obrigatorios - cabecalho_set)
+                if faltantes:
+                    raise ValueError(
+                        "Titulos obrigatorios ausentes no arquivo "
+                        f"'{arquivo.name}': {', '.join(faltantes)}"
+                    )
+                continue
+
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            registro = {}
+            for i in range(len(cabecalho)):
+                chave_base = cabecalho[i]
+                chave = chave_base
+                sufixo = 2
+                while chave in registro:
+                    chave = f"{chave_base}__{sufixo}"
+                    sufixo += 1
+                registro[chave] = linha[i] if i < len(linha) else ""
+
+            nome_fantasia_empresa = _normalizar_texto(_valor_coluna(registro, "Nome Fantasia (Empresa)"))
+            if not nome_fantasia_empresa:
+                continue
+
+            empresa_codigo = _normalizar_codigo(_valor_coluna(registro, "Empresa"))
+            nome_empresa = " - ".join(
+                [parte for parte in [empresa_codigo, nome_fantasia_empresa] if parte]
+            )
+
+            parceiro_codigo = _normalizar_codigo(_valor_coluna(registro, "Parceiro"))
+            parceiro_nome = _normalizar_texto(_valor_coluna(registro, "Nome Parceiro (Parceiro)"))
+            cod_nome_parceiro = " - ".join(
+                [parte for parte in [parceiro_codigo, parceiro_nome] if parte]
+            )
+
+            parceiro = None
+            if parceiro_codigo:
+                parceiro = cache_parceiros.get(parceiro_codigo)
+                if parceiro is None:
+                    parceiro_existia = Parceiro.objects.filter(empresa=empresa, codigo=parceiro_codigo).exists()
+                    parceiro = Parceiro.obter_ou_criar_por_codigo_nome(
+                        empresa=empresa,
+                        codigo=parceiro_codigo,
+                        nome=parceiro_nome,
+                    )
+                    cache_parceiros[parceiro_codigo] = parceiro
+                    if not parceiro_existia:
+                        parceiros_criados += 1
+
+            rota_texto = _normalizar_texto(_valor_coluna(registro, "Rota"))
+            rota_codigo, rota_nome = _split_codigo_nome(rota_texto)
+            rota = None
+            if rota_codigo:
+                rota = cache_rotas.get(rota_codigo)
+                if rota is None:
+                    rota_existia = Rota.objects.filter(empresa=empresa, codigo_rota=rota_codigo).exists()
+                    rota = _rota_por_codigo_nome(empresa, rota_codigo, rota_nome)
+                    cache_rotas[rota_codigo] = rota
+                    if rota and not rota_existia:
+                        rotas_criadas += 1
+
+            regiao_texto = _normalizar_texto(_valor_coluna(registro, "Região"))
+            regiao_codigo, regiao_nome = _split_codigo_nome(regiao_texto)
+            regiao = None
+            if regiao_codigo:
+                regiao = cache_regioes.get(regiao_codigo)
+                if regiao is None:
+                    regiao_existia = Regiao.objects.filter(codigo=regiao_codigo).exists()
+                    regiao = _regiao_por_codigo(empresa, regiao_codigo, regiao_nome)
+                    cache_regioes[regiao_codigo] = regiao
+                    if regiao and not regiao_existia:
+                        regioes_criadas += 1
+
+            dt_neg = _excel_date(_valor_coluna(registro, "Dt. Neg."))
+            previsao_entrega = _excel_date(_valor_coluna(registro, "Previsão de entrega"))
+            data_para_calculo = previsao_entrega or dt_neg
+
+            gerente = ""
+            if parceiro:
+                carteira_item = (
+                    Carteira.objects.filter(empresa=empresa, parceiro=parceiro)
+                    .exclude(gerente="")
+                    .exclude(gerente__iexact="<SEM VENDEDOR>")
+                    .exclude(gerente__iexact="SEM VENDEDOR")
+                    .exclude(gerente__iexact="<SEM GERENTE>")
+                    .exclude(gerente__iexact="SEM GERENTE")
+                    .order_by("-data_cadastro", "-id")
+                    .first()
+                )
+                if carteira_item:
+                    gerente = _gerente_valido_ou_vazio(carteira_item.gerente)
+
+            objetos.append(
+                PedidoPendente(
+                    empresa=empresa,
+                    numero_unico=_normalizar_codigo(_valor_coluna(registro, "Nro. Único")),
+                    rota=rota,
+                    regiao=regiao,
+                    parceiro=parceiro,
+                    rota_texto=rota_texto,
+                    regiao_texto=regiao_texto,
+                    valor_tonelada_frete_safia=_normalizar_texto(_valor_coluna(registro, "Valor Tonelada Frete[SAFIA]")),
+                    pendente=_normalizar_texto(_valor_coluna(registro, "Pendente")),
+                    nome_cidade_parceiro_safia=_normalizar_texto(_valor_coluna(registro, "Nome Cidade Parceiro [SAFIA]")),
+                    previsao_entrega=previsao_entrega,
+                    dt_neg=dt_neg,
+                    prazo_maximo=3,
+                    tipo_venda=_normalizar_texto(_valor_coluna(registro, "Tipo da Venda")),
+                    nome_empresa=nome_empresa,
+                    cod_nome_parceiro=cod_nome_parceiro,
+                    vlr_nota=_to_decimal(_valor_coluna(registro, "Vlr. Nota"), max_digits=12, decimal_places=2),
+                    peso_bruto=_to_decimal(_valor_coluna(registro, "Peso bruto"), max_digits=12, decimal_places=2),
+                    peso=_to_decimal(_valor_coluna(registro, "Peso"), max_digits=12, decimal_places=2),
+                    peso_liq_itens=_to_decimal(_valor_coluna(registro, "Peso liq. dos Itens"), max_digits=12, decimal_places=2),
+                    apelido_vendedor=_normalizar_texto(_valor_coluna(registro, "Apelido (Vendedor)")),
+                    gerente=gerente,
+                    data_para_calculo=data_para_calculo,
+                    descricao_tipo_negociacao=_normalizar_texto(_valor_coluna(registro, "Descrição (Tipo de Negociação)")),
+                    nro_nota=_to_int(_valor_coluna(registro, "Nro. Nota")),
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                PedidoPendente.objects.bulk_create(objetos, batch_size=1000)
+                total_pedidos += len(objetos)
+                objetos = []
+
+    if objetos:
+        PedidoPendente.objects.bulk_create(objetos, batch_size=1000)
+        total_pedidos += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "pedidos_pendentes": total_pedidos,
+        "rotas": rotas_criadas,
+        "regioes": regioes_criadas,
+        "parceiros": parceiros_criados,
     }

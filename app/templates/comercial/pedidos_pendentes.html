@@ -1,16 +1,247 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Pedidos Pendentes{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/comercial/pedidos-pendentes.css' %}">
+{% endblock %}
 
 {% block content %}
 <section class="page-hero">
     <a href="{% url 'comercial' %}">Voltar</a>
     <h1>Pedidos Pendentes</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegação de seções de pedidos pendentes">
+        {% if not bloquear_cadastro_edicao_importacao %}
+        <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
+        <a href="#sec-importacao">Importação</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualização</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Pedidos Pendentes</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+{% if not bloquear_cadastro_edicao_importacao %}
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Novo Pedido Pendente (Cadastro Manual)</h2>
+    <p class="form-note">Cadastre manualmente quando nao quiser usar importacao.</p>
+    <form action="{% url 'pedidos_pendentes' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_pedido_pendente">
+        <div class="form-grid">
+            <div>
+                <label>Nro. Único</label>
+                <input type="text" name="numero_unico" required>
+            </div>
+            <div>
+                <label>Rota (FK)</label>
+                <select name="rota_id">
+                    <option value="">-</option>
+                    {% for rota in rotas %}
+                    <option value="{{ rota.id }}">{{ rota.codigo_rota }} - {{ rota.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Região (FK)</label>
+                <select name="regiao_id">
+                    <option value="">-</option>
+                    {% for regiao in regioes %}
+                    <option value="{{ regiao.id }}">{{ regiao.codigo }} - {{ regiao.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Parceiro (FK)</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for parceiro in parceiros %}
+                    <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Previsão de entrega</label>
+                <input type="date" name="previsao_entrega">
+            </div>
+            <div>
+                <label>Dt. Neg.</label>
+                <input type="date" name="dt_neg">
+            </div>
+            <div>
+                <label>Prazo Máximo</label>
+                <input type="number" name="prazo_maximo" min="0" value="3">
+            </div>
+            <div>
+                <label>Tipo da Venda</label>
+                <input type="text" name="tipo_venda">
+            </div>
+            <div>
+                <label>Nome Empresa</label>
+                <input type="text" name="nome_empresa">
+            </div>
+            <div>
+                <label>Vlr. Nota</label>
+                <input type="text" name="vlr_nota" value="0">
+            </div>
+            <div>
+                <label>Peso bruto</label>
+                <input type="text" name="peso_bruto" value="0">
+            </div>
+            <div>
+                <label>Peso</label>
+                <input type="text" name="peso" value="0">
+            </div>
+            <div>
+                <label>Peso liq. dos Itens</label>
+                <input type="text" name="peso_liq_itens" value="0">
+            </div>
+            <div>
+                <label>Apelido (Vendedor)</label>
+                <input type="text" name="apelido_vendedor">
+            </div>
+            <div>
+                <label>Gerente</label>
+                <select name="gerente">
+                    <option value="">-</option>
+                    {% for gerente in gerentes_opcoes %}
+                    <option value="{{ gerente }}">{{ gerente }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Descrição (Tipo de Negociação)</label>
+                <input type="text" name="descricao_tipo_negociacao">
+            </div>
+            <div>
+                <label>Nro. Nota</label>
+                <input type="number" name="nro_nota" value="0">
+            </div>
+            <div>
+                <label>Pendente</label>
+                <select name="pendente">
+                    <option value="Sim" selected>Sim</option>
+                    <option value="Não">Não</option>
+                </select>
+            </div>
+            <div>
+                <label>Valor Tonelada Frete[SAFIA]</label>
+                <input type="text" name="valor_tonelada_frete_safia">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importação de Pedidos Pendentes</h2>
+    <p>Envie o arquivo <code>.xlsx</code> no padrão do ERP para atualizar a base.</p>
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+
+    <form id="upload-pedidos-pendentes-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+        {% csrf_token %}
+        <input type="file" id="arquivo-pedidos-pendentes-input" name="arquivo_pedidos_pendentes" accept=".xlsx" hidden>
+        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+        <div id="dropzone-pedidos-pendentes" class="dropzone">
+            <strong>Arraste e solte o arquivo aqui</strong>
+            <span>ou clique para selecionar um arquivo <code>.xlsx</code>.</span>
+        </div>
+        <div class="upload-actions">
+            <button type="submit" class="upload-button">Enviar e importar</button>
+            <span id="nome-arquivo-pedidos-pendentes-selecionado" class="file-status"></span>
+        </div>
+    </form>
+</section>
+
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Dashboard</h2>
+    <div class="dashboard-kpi-grid dashboard-kpi-grid--pedidos">
+        <article class="dashboard-kpi-card dashboard-kpi-card--entrega">
+            <h3>Entrega Atrasada <span class="kpi-alert-x">X</span></h3>
+            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-entrega-peso-bruto">0</strong></div>
+            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-entrega-qtd">0</strong></div>
+            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-entrega-valor-nota">R$-</strong></div>
+        </article>
+        <article class="dashboard-kpi-card dashboard-kpi-card--venda-balcao">
+            <h3>Venda Balcão Atrasada <span class="kpi-alert-x">X</span></h3>
+            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-venda-balcao-peso-bruto">0</strong></div>
+            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-venda-balcao-qtd">0</strong></div>
+            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-venda-balcao-valor-nota">R$-</strong></div>
+        </article>
+        <article class="dashboard-kpi-card dashboard-kpi-card--atencao">
+            <h3>Atenção</h3>
+            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-atencao-peso-bruto">0</strong></div>
+            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-atencao-qtd">0</strong></div>
+            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-atencao-valor-nota">R$-</strong></div>
+        </article>
+        <article class="dashboard-kpi-card dashboard-kpi-card--no-prazo">
+            <h3>No Prazo</h3>
+            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-no-prazo-peso-bruto">0</strong></div>
+            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-no-prazo-qtd">0</strong></div>
+            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-no-prazo-valor-nota">R$-</strong></div>
+        </article>
+        <article class="dashboard-kpi-card dashboard-kpi-card--total">
+            <h3>Total Pedidos</h3>
+            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-total-pedidos-peso-bruto">{{ dashboard_total_pedidos }}</strong></div>
+            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-total-pedidos-qtd">{{ dashboard_total_pedidos }}</strong></div>
+            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-total-pedidos-valor-nota">R$-</strong></div>
+        </article>
+    </div>
+    <div class="dashboard-chart-card">
+        <h3>Status dos Pedidos</h3>
+        <div id="pedidos-status-chart"></div>
+    </div>
+    <div class="dashboard-actions">
+        <a class="btn-light" href="{% url 'agenda' empresa.id %}">Abrir Agenda de Carregamento</a>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados de Pedidos Pendentes</h2>
+    <div class="filter-grid">
+        <div class="carteira-filtro-card">
+            <label>Rota</label>
+            <div id="filtro-pedidos-rota" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Região</label>
+            <div id="filtro-pedidos-regiao" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Tipo de Venda</label>
+            <div id="filtro-pedidos-tipo-venda" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Status</label>
+            <div id="filtro-pedidos-status" class="carteira-filtro-options carteira-filtro-options--chips"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Gerente</label>
+            <div id="filtro-pedidos-gerente" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+    </div>
+    <button type="button" class="btn-light" id="limpar-filtros-pedidos">Limpar filtros</button>
+    <div class="table-wrapper">
+        <div id="pedidos-pendentes-tabulator"></div>
+    </div>
 </section>
 {% endblock %}
+
+{% block extra_js %}
+{{ pedidos_pendentes_tabulator|json_script:"pedidos-pendentes-tabulator-data" }}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/comercial/pedidos-pendentes-page.js' %}"></script>
+{% endblock %}
+
+

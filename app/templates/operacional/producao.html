@@ -16,12 +16,15 @@
     <h1>Produção</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <nav class="module-sections-nav" aria-label="Navegação de seções de produção">
+        {% if not bloquear_cadastro_edicao_importacao %}
         <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
         <a href="#sec-importacao">Importação</a>
         <a href="#sec-visualizacao">Visualização</a>
     </nav>
 </section>
 
+{% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Novo Registro de Produção (Cadastro Manual)</h2>
     <p class="form-note">O produto é obrigatório. Código e descrição são exibidos pela FK de produto.</p>
@@ -89,6 +92,7 @@
         {% endif %}
     </form>
 </section>
+{% endif %}
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Produção por Pasta</h2>
