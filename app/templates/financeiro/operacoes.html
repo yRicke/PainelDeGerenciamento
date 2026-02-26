@@ -5,12 +5,12 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/financeiro/operacoes.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
 {% endblock %}
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'financeiro' %}">Voltar</a>
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
     <h1>Operacoes</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -33,7 +33,7 @@
         <div><label>Buscar por descricao</label><input type="text" id="filtro-operacao-descricao" placeholder="Digite a descricao"></div>
         <div><button type="button" class="btn-light" id="limpar-filtros-operacoes">Limpar</button></div>
     </div>
-    <div class="table-wrapper"><div id="operacoes-tabulator" class="cadastro-tabulator"></div></div>
+    <div class="table-wrapper"><div id="operacoes-tabulator"></div></div>
 </section>
 {% endblock %}
 
@@ -43,4 +43,5 @@
 <script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
 <script src="{% static 'js/financeiro/operacoes-page.js' %}"></script>
 {% endblock %}
+
 

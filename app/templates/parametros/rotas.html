@@ -10,7 +10,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'parametros' %}">Voltar</a>
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
     <h1>Rotas</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -51,7 +51,7 @@
             <button type="button" class="btn-light" id="limpar-filtros-rotas">Limpar</button>
         </div>
     </div>
-    <div class="table-wrapper"><div id="rotas-tabulator" class="cadastro-tabulator"></div></div>
+    <div class="table-wrapper"><div id="rotas-tabulator"></div></div>
 </section>
 {% endblock %}
 
@@ -62,4 +62,5 @@
 <script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
 <script src="{% static 'js/parametros/rotas-page.js' %}"></script>
 {% endblock %}
+
 

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Controle de Margem{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'controle_de_margem' empresa.id %}">Voltar para Controle de Margem</a>
+    <h1>Editar Controle de Margem</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel module-section">
+    <form method="post" action="{% url 'editar_controle_margem_modulo' empresa.id controle.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="data_origem" value="{{ controle.data_origem }}">
+        <div class="form-grid">
+            <div><label>Nro. Unico</label><input type="number" name="nro_unico" min="1" value="{{ controle.nro_unico }}" required></div>
+            <div><label>Nome empresa</label><input type="text" name="nome_empresa" value="{{ controle.nome_empresa }}"></div>
+            <div>
+                <label>Parceiro (FK)</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for parceiro in parceiros %}
+                    <option value="{{ parceiro.id }}" {% if controle.parceiro_id == parceiro.id %}selected{% endif %}>{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div><label>Descrição perfil</label><input type="text" name="descricao_perfil" value="{{ controle.descricao_perfil|default:'' }}"></div>
+            <div><label>Apelido vendedor</label><input type="text" name="apelido_vendedor" value="{{ controle.apelido_vendedor|default:'' }}"></div>
+            <div><label>Gerente</label><input type="text" name="gerente" value="{{ controle.gerente|default:'' }}"></div>
+            <div><label>Dt. Neg.</label><input type="date" name="dt_neg" value="{{ controle.dt_neg|date:'Y-m-d' }}"></div>
+            <div><label>Previsão de entrega</label><input type="date" name="previsao_entrega" value="{{ controle.previsao_entrega|date:'Y-m-d' }}"></div>
+            <div><label>Tipo da venda</label><input type="text" name="tipo_venda" value="{{ controle.tipo_venda|default:'' }}"></div>
+            <div><label>Vlr. Nota</label><input type="text" name="vlr_nota" value="{{ controle.vlr_nota }}"></div>
+            <div><label>Custo Total do Produto</label><input type="text" name="custo_total_produto" value="{{ controle.custo_total_produto }}"></div>
+            <div><label>Valor Tonelada Frete[SAFIA]</label><input type="text" name="valor_tonelada_frete_safia" value="{{ controle.valor_tonelada_frete_safia }}"></div>
+            <div><label>Peso bruto</label><input type="text" name="peso_bruto" value="{{ controle.peso_bruto }}"></div>
+            <div><label>Vendas</label><input type="text" name="vendas" value="{{ controle.vendas }}"></div>
+            <div><label>Produção</label><input type="text" name="producao" value="{{ controle.producao }}"></div>
+            <div><label>Operador Logística</label><input type="text" name="operador_logistica" value="{{ controle.operador_logistica }}"></div>
+            <div><label>Frete Distribuição</label><input type="text" name="frete_distribuicao" value="{{ controle.frete_distribuicao }}"></div>
+            <div><label>Administração</label><input type="text" name="administracao" value="{{ controle.administracao }}"></div>
+            <div><label>Financeiro</label><input type="text" name="financeiro" value="{{ controle.financeiro }}"></div>
+            <div><label>Valor Líquido</label><input type="text" name="valor_liquido" value="{{ controle.valor_liquido }}"></div>
+            <div><label>Margem Líquida</label><input type="text" name="margem_liquida" value="{{ controle.margem_liquida }}"></div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alterações</button>
+        </div>
+    </form>
+
+    <form method="post" action="{% url 'excluir_controle_margem_modulo' empresa.id controle.id %}" onsubmit="return confirm('Excluir este registro?');" style="margin-top: 1rem;">
+        {% csrf_token %}
+        <button type="submit" class="btn-light">Excluir registro</button>
+    </form>
+</section>
+{% endblock %}

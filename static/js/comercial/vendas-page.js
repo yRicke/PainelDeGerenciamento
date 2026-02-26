@@ -184,6 +184,7 @@
         btn.type = "button";
         btn.className = "dashboard-chip" + (ativo ? " is-active" : "");
         btn.textContent = label;
+        btn.setAttribute("aria-pressed", ativo ? "true" : "false");
         btn.addEventListener("click", onClick);
         return btn;
     }
@@ -489,6 +490,23 @@
         12: "Dezembro"
     };
 
+    function normalizarSituacaoMargem(valor) {
+        return String(valor || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+    }
+
+    function obterCorMargemPorSituacao(situacaoMargem) {
+        var situacao = normalizarSituacaoMargem(situacaoMargem);
+        if (situacao === "roxo") return "#8e24aa";
+        if (situacao === "vermelho") return "#e74c3c";
+        if (situacao === "amarelo") return "#b37f00";
+        if (situacao === "verde") return "#2f9e44";
+        return "";
+    }
+
     function preencherSelect(select, valores, labelFn) {
         valores.forEach(function (valor) {
             var option = document.createElement("option");
@@ -507,7 +525,6 @@
     });
 
     var colunas = [
-        {title: "ID", field: "id", width: 80, hozAlign: "center", headerFilter: "input"},
         {title: "Codigo", field: "codigo", headerFilter: "input"},
         {title: "Descricao", field: "descricao", headerFilter: "input"},
         {
@@ -557,13 +574,18 @@
             hozAlign: "right",
             headerFilter: "input",
             formatter: function (cell) {
-                return Number(cell.getValue() || 0).toLocaleString("pt-BR", {
+                var valorFormatado = Number(cell.getValue() || 0).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }) + "%";
+                var situacaoMargem = cell.getRow() && cell.getRow().getData()
+                    ? cell.getRow().getData().margem_situacao
+                    : "";
+                var cor = obterCorMargemPorSituacao(situacaoMargem);
+                if (!cor) return valorFormatado;
+                return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:' + cor + ';color:#fff;font-weight:600;">' + valorFormatado + "</span>";
             }
         },
-        {title: "Situacao margem", field: "margem_situacao", headerFilter: "input"},
         {title: "Ano venda", field: "ano_venda", hozAlign: "center", headerFilter: "input"},
         {title: "Mes venda", field: "mes_venda", hozAlign: "center", headerFilter: "input"},
         {
@@ -593,9 +615,6 @@
 
     var tabela = window.TabulatorDefaults.create("#vendas-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: colunas
     });
 
@@ -625,5 +644,7 @@
         tabela.clearHeaderFilter();
     });
 })();
+
+
 
 

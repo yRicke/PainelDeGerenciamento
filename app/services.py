@@ -19,6 +19,7 @@ from .models import (
     Carteira,
     Cidade,
     Colaborador,
+    ControleMargem,
     ContasAReceber,
     Empresa,
     FluxoDeCaixaDFC,
@@ -29,6 +30,10 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    ParametroMargemAdministracao,
+    ParametroMargemFinanceiro,
+    ParametroMargemLogistica,
+    ParametroMargemVendas,
     PedidoPendente,
     Motorista,
     Producao,
@@ -48,8 +53,13 @@ from .utils.administrativo_utils import (
     _transformar_int_ou_none,
     _transformar_iso_week_parts_ou_none,
 )
+from .utils.controle_margem_regras import (
+    calcular_campos_controle_margem_legado,
+    obter_parametros_controle_margem,
+)
 from .utils.comercial_importacao import (
     importar_carteira_do_diretorio,
+    importar_controle_margem_do_diretorio,
     importar_pedidos_pendentes_do_diretorio,
     importar_vendas_do_diretorio,
 )
@@ -657,6 +667,33 @@ def _parse_decimal_ou_zero(valor):
         return Decimal("0")
 
 
+def _parse_percentual_ratio_ou_zero(valor):
+    texto = (valor or "").strip()
+    if not texto:
+        return Decimal("0")
+    tem_percentual = "%" in texto
+    numero = _parse_decimal_ou_zero(texto.replace("%", ""))
+    if tem_percentual:
+        return numero / Decimal("100")
+    return numero
+
+
+def _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(valor):
+    texto = (valor or "").strip()
+    if not texto:
+        return Decimal("0")
+
+    tem_percentual = "%" in texto
+    numero = _parse_decimal_ou_zero(texto.replace("%", ""))
+    if tem_percentual:
+        return numero / Decimal("100")
+    if numero.copy_abs() > Decimal("1"):
+        return numero / Decimal("100")
+    if numero.copy_abs() >= Decimal("0.1"):
+        return numero / Decimal("100")
+    return numero
+
+
 def _parse_date_ou_none(valor):
     if not valor:
         return None
@@ -917,6 +954,312 @@ def criar_pedido_pendente_por_post(empresa, post_data):
     dados["data_para_calculo"] = data_para_calculo
     PedidoPendente.criar_pedido_pendente(empresa=empresa, **dados)
     return ""
+
+
+def _dados_controle_margem_from_post(post_data, empresa):
+    parceiro = Parceiro.objects.filter(id=post_data.get("parceiro_id"), empresa=empresa).first()
+    nro_unico_raw = (post_data.get("nro_unico") or "").strip()
+    data_origem = (post_data.get("data_origem") or "").strip()
+    vlr_nota = _parse_decimal_ou_zero(post_data.get("vlr_nota"))
+    custo_total_produto = _parse_decimal_ou_zero(post_data.get("custo_total_produto"))
+    peso_bruto = _parse_decimal_ou_zero(post_data.get("peso_bruto"))
+    nome_empresa = (post_data.get("nome_empresa") or "").strip()
+    gerente = (post_data.get("gerente") or "").strip() or None
+    tipo_venda = (post_data.get("tipo_venda") or "").strip() or None
+    valor_tonelada_frete_safia = _parse_decimal_ou_zero(post_data.get("valor_tonelada_frete_safia"))
+    parametros = obter_parametros_controle_margem(empresa)
+    campos_calculados = calcular_campos_controle_margem_legado(
+        nome_empresa=nome_empresa,
+        gerente=gerente,
+        tipo_venda=tipo_venda,
+        vlr_nota=vlr_nota,
+        custo_total_produto=custo_total_produto,
+        peso_bruto=peso_bruto,
+        valor_tonelada_frete_safia=valor_tonelada_frete_safia,
+        taxa_vendas_percentual=parametros["vendas"].remuneracao_percentual,
+        taxa_operador_logistica_rs=parametros["logistica"].remuneracao_rs,
+        taxa_administracao_percentual=parametros["administracao"].remuneracao_percentual,
+        taxa_financeiro_mes=parametros["financeiro"].taxa_ao_mes,
+    )
+    cod_nome_parceiro = (post_data.get("cod_nome_parceiro") or "").strip()
+    if not cod_nome_parceiro and parceiro:
+        cod_nome_parceiro = f"{parceiro.codigo} - {parceiro.nome}"
+
+    return {
+        "nro_unico_raw": nro_unico_raw,
+        "nro_unico": _parse_int_ou_zero(nro_unico_raw),
+        "data_origem": data_origem,
+        "nome_empresa": nome_empresa,
+        "parceiro": parceiro,
+        "cod_nome_parceiro": cod_nome_parceiro,
+        "descricao_perfil": (post_data.get("descricao_perfil") or "").strip() or None,
+        "apelido_vendedor": (post_data.get("apelido_vendedor") or "").strip() or None,
+        "gerente": gerente,
+        "dt_neg_raw": (post_data.get("dt_neg") or "").strip(),
+        "dt_neg": _parse_date_ou_none(post_data.get("dt_neg")),
+        "previsao_entrega_raw": (post_data.get("previsao_entrega") or "").strip(),
+        "previsao_entrega": _parse_date_ou_none(post_data.get("previsao_entrega")),
+        "tipo_venda": tipo_venda,
+        "vlr_nota": vlr_nota,
+        "custo_total_produto": custo_total_produto,
+        "margem_bruta": campos_calculados["margem_bruta"],
+        "lucro_bruto": campos_calculados["lucro_bruto"],
+        "valor_tonelada_frete_safia": valor_tonelada_frete_safia,
+        "peso_bruto": peso_bruto,
+        "custo_por_kg": campos_calculados["custo_por_kg"],
+        "vendas": campos_calculados["vendas"],
+        "producao": campos_calculados["producao"],
+        "operador_logistica": campos_calculados["operador_logistica"],
+        "frete_distribuicao": campos_calculados["frete_distribuicao"],
+        "total_logistica": campos_calculados["total_logistica"],
+        "administracao": campos_calculados["administracao"],
+        "financeiro": campos_calculados["financeiro"],
+        "total_setores": campos_calculados["total_setores"],
+        "valor_liquido": campos_calculados["valor_liquido"],
+        "margem_liquida": campos_calculados["margem_liquida"],
+    }
+
+
+def criar_controle_margem_por_post(empresa, post_data):
+    dados = _dados_controle_margem_from_post(post_data, empresa)
+    if not dados["data_origem"]:
+        return "Data origem e obrigatoria."
+    if not dados["nro_unico_raw"]:
+        return "Nro. Unico e obrigatorio."
+    if dados["nro_unico"] <= 0:
+        return "Nro. Unico invalido."
+    if dados["dt_neg_raw"] and not dados["dt_neg"]:
+        return "Dt. Neg. invalida."
+    if dados["previsao_entrega_raw"] and not dados["previsao_entrega"]:
+        return "Previsao de entrega invalida."
+    if ControleMargem.objects.filter(empresa=empresa, nro_unico=dados["nro_unico"]).exists():
+        return "Ja existe controle de margem com este Nro. Unico nesta empresa."
+
+    dados.pop("nro_unico_raw", None)
+    dados.pop("dt_neg_raw", None)
+    dados.pop("previsao_entrega_raw", None)
+    ControleMargem.criar_controle_margem(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_controle_margem_por_post(controle, empresa, post_data):
+    dados = _dados_controle_margem_from_post(post_data, empresa)
+    if not dados["data_origem"]:
+        return "Data origem e obrigatoria."
+    if not dados["nro_unico_raw"]:
+        return "Nro. Unico e obrigatorio."
+    if dados["nro_unico"] <= 0:
+        return "Nro. Unico invalido."
+    if dados["dt_neg_raw"] and not dados["dt_neg"]:
+        return "Dt. Neg. invalida."
+    if dados["previsao_entrega_raw"] and not dados["previsao_entrega"]:
+        return "Previsao de entrega invalida."
+    if ControleMargem.objects.filter(empresa=empresa, nro_unico=dados["nro_unico"]).exclude(id=controle.id).exists():
+        return "Ja existe controle de margem com este Nro. Unico nesta empresa."
+
+    dados.pop("nro_unico_raw", None)
+    dados.pop("dt_neg_raw", None)
+    dados.pop("previsao_entrega_raw", None)
+    controle.atualizar_controle_margem(**dados)
+    return ""
+
+
+def recalcular_controle_margem_por_empresa(empresa):
+    parametros = obter_parametros_controle_margem(empresa)
+    itens = list(ControleMargem.objects.filter(empresa=empresa))
+    if not itens:
+        return 0
+
+    for item in itens:
+        calculados = calcular_campos_controle_margem_legado(
+            nome_empresa=item.nome_empresa,
+            gerente=item.gerente,
+            tipo_venda=item.tipo_venda,
+            vlr_nota=item.vlr_nota,
+            custo_total_produto=item.custo_total_produto,
+            peso_bruto=item.peso_bruto,
+            valor_tonelada_frete_safia=item.valor_tonelada_frete_safia,
+            taxa_vendas_percentual=parametros["vendas"].remuneracao_percentual,
+            taxa_operador_logistica_rs=parametros["logistica"].remuneracao_rs,
+            taxa_administracao_percentual=parametros["administracao"].remuneracao_percentual,
+            taxa_financeiro_mes=parametros["financeiro"].taxa_ao_mes,
+        )
+        item.lucro_bruto = calculados["lucro_bruto"]
+        item.margem_bruta = calculados["margem_bruta"]
+        item.custo_por_kg = calculados["custo_por_kg"]
+        item.vendas = calculados["vendas"]
+        item.producao = calculados["producao"]
+        item.operador_logistica = calculados["operador_logistica"]
+        item.frete_distribuicao = calculados["frete_distribuicao"]
+        item.total_logistica = calculados["total_logistica"]
+        item.administracao = calculados["administracao"]
+        item.financeiro = calculados["financeiro"]
+        item.total_setores = calculados["total_setores"]
+        item.valor_liquido = calculados["valor_liquido"]
+        item.margem_liquida = calculados["margem_liquida"]
+
+    ControleMargem.objects.bulk_update(
+        itens,
+        [
+            "lucro_bruto",
+            "margem_bruta",
+            "custo_por_kg",
+            "vendas",
+            "producao",
+            "operador_logistica",
+            "frete_distribuicao",
+            "total_logistica",
+            "administracao",
+            "financeiro",
+            "total_setores",
+            "valor_liquido",
+            "margem_liquida",
+        ],
+        batch_size=1000,
+    )
+    return len(itens)
+
+
+def criar_parametro_margem_vendas(empresa, post_data):
+    parametro = (post_data.get("parametro") or "").strip()
+    criterio = (post_data.get("criterio") or "").strip()
+    remuneracao_percentual = _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(
+        post_data.get("remuneracao_percentual")
+    )
+    if not parametro:
+        return "Parametro e obrigatorio.", 0
+    if not criterio:
+        return "Criterio e obrigatorio.", 0
+    ParametroMargemVendas.objects.create(
+        empresa=empresa,
+        parametro=parametro,
+        criterio=criterio,
+        remuneracao_percentual=remuneracao_percentual,
+    )
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def atualizar_parametro_margem_vendas(item, empresa, post_data):
+    parametro = (post_data.get("parametro") or "").strip()
+    criterio = (post_data.get("criterio") or "").strip()
+    remuneracao_percentual = _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(
+        post_data.get("remuneracao_percentual")
+    )
+    if not parametro:
+        return "Parametro e obrigatorio.", 0
+    if not criterio:
+        return "Criterio e obrigatorio.", 0
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa.", 0
+    item.parametro = parametro
+    item.criterio = criterio
+    item.remuneracao_percentual = remuneracao_percentual
+    item.save(update_fields=["parametro", "criterio", "remuneracao_percentual"])
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def excluir_parametro_margem_vendas(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa.", 0
+    item.delete()
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def criar_parametro_margem_logistica(empresa, post_data):
+    parametro = (post_data.get("parametro") or "").strip()
+    criterio = (post_data.get("criterio") or "").strip()
+    remuneracao_rs = _parse_decimal_ou_zero(post_data.get("remuneracao_rs"))
+    if not parametro:
+        return "Parametro e obrigatorio.", 0
+    if not criterio:
+        return "Criterio e obrigatorio.", 0
+    ParametroMargemLogistica.objects.create(
+        empresa=empresa,
+        parametro=parametro,
+        criterio=criterio,
+        remuneracao_rs=remuneracao_rs,
+    )
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def atualizar_parametro_margem_logistica(item, empresa, post_data):
+    parametro = (post_data.get("parametro") or "").strip()
+    criterio = (post_data.get("criterio") or "").strip()
+    remuneracao_rs = _parse_decimal_ou_zero(post_data.get("remuneracao_rs"))
+    if not parametro:
+        return "Parametro e obrigatorio.", 0
+    if not criterio:
+        return "Criterio e obrigatorio.", 0
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa.", 0
+    item.parametro = parametro
+    item.criterio = criterio
+    item.remuneracao_rs = remuneracao_rs
+    item.save(update_fields=["parametro", "criterio", "remuneracao_rs"])
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def excluir_parametro_margem_logistica(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa.", 0
+    item.delete()
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def salvar_parametro_margem_administracao(empresa, post_data):
+    parametro, _ = ParametroMargemAdministracao.objects.get_or_create(empresa=empresa)
+    parametro.parametro = (post_data.get("parametro") or "Administracao").strip() or "Administracao"
+    parametro.remuneracao_percentual = _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(
+        post_data.get("remuneracao_percentual")
+    )
+    parametro.save(update_fields=["parametro", "remuneracao_percentual"])
+    return recalcular_controle_margem_por_empresa(empresa)
+
+
+def criar_parametro_margem_financeiro(empresa, post_data):
+    parametro = (post_data.get("parametro") or "").strip()
+    taxa_ao_mes = _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(post_data.get("taxa_ao_mes"))
+    remuneracao_percentual = taxa_ao_mes / Decimal("30")
+    if not parametro:
+        return "Parametro e obrigatorio.", 0
+    ParametroMargemFinanceiro.objects.create(
+        empresa=empresa,
+        parametro=parametro,
+        taxa_ao_mes=taxa_ao_mes,
+        remuneracao_percentual=remuneracao_percentual,
+    )
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def atualizar_parametro_margem_financeiro(item, empresa, post_data):
+    parametro = (post_data.get("parametro") or "").strip()
+    taxa_ao_mes = _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(post_data.get("taxa_ao_mes"))
+    remuneracao_percentual = taxa_ao_mes / Decimal("30")
+    if not parametro:
+        return "Parametro e obrigatorio.", 0
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa.", 0
+    item.parametro = parametro
+    item.taxa_ao_mes = taxa_ao_mes
+    item.remuneracao_percentual = remuneracao_percentual
+    item.save(update_fields=["parametro", "taxa_ao_mes", "remuneracao_percentual"])
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
+
+
+def excluir_parametro_margem_financeiro(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa.", 0
+    item.delete()
+    total = recalcular_controle_margem_por_empresa(empresa)
+    return "", total
 
 
 def _dados_carteira_from_post(post_data, empresa):
@@ -1717,6 +2060,14 @@ def preparar_diretorios_pedidos_pendentes():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_controle_margem():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "controle_de_margem"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def preparar_diretorios_dfc():
     diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "dfc"
     diretorio_subscritos = diretorio_importacao / "subscritos"
@@ -1829,6 +2180,58 @@ def importar_upload_pedidos_pendentes(
             f"linhas: {resultado['linhas']}, pedidos: {resultado['pedidos_pendentes']}, "
             f"rotas criadas: {resultado['rotas']}, regioes criadas: {resultado['regioes']}, "
             f"parceiros criados: {resultado['parceiros']}."
+        ),
+    )
+
+
+def importar_upload_controle_margem(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+):
+    if not arquivo:
+        return False, "Selecione um arquivo .xls ou .xlsx para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    nome_arquivo_lower = nome_arquivo.lower()
+    if not (nome_arquivo_lower.endswith(".xlsx") or nome_arquivo_lower.endswith(".xls")):
+        return False, "Formato invalido. Envie apenas arquivo .xls ou .xlsx."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_controle_margem_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=False,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Controle de Margem: {exc}"
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas processadas: {resultado['linhas']}, criados: {resultado['criados']}, "
+            f"atualizados: {resultado['atualizados']}, parceiros criados: {resultado['parceiros_criados']}, "
+            f"erros: {resultado['erros']}."
         ),
     )
 

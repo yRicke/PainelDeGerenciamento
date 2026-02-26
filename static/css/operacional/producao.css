@@ -1,9 +1,5 @@
 @import url("./cargas-em-aberto-shared.css");
 
-#producao-tabulator {
-    min-width: 1400px;
-}
-
 .producao-dashboard-layout {
     display: grid;
     grid-template-columns: 320px 1fr;
@@ -175,14 +171,6 @@
 .reloginho-metricas span {
     margin-left: 0.35rem;
     color: #0f4c67;
-}
-
-.btn-light {
-    background: #f3f5f7;
-    color: #111;
-    border: 1px solid #d8dee4;
-    padding: 0.45rem 0.6rem;
-    cursor: pointer;
 }
 
 @media (max-width: 980px) {

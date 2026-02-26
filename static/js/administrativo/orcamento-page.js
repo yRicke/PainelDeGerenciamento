@@ -146,7 +146,6 @@
                 title: "Custo Bruto / Despesas",
                 field: "descricao",
                 width: 340,
-                frozen: true,
                 headerFilter: "input",
             },
         ];
@@ -173,7 +172,6 @@
 
         window.TabulatorDefaults.create(target, {
             data: data,
-            layout: "fitDataTable",
             dataTree: true,
             dataTreeStartExpanded: false,
             dataTreeChildField: "_children",
@@ -201,9 +199,6 @@
 
         window.TabulatorDefaults.create(target, {
             data: data,
-            layout: "fitDataTable",
-            pagination: true,
-            paginationSize: 100,
             columns: [
                 { title: "Nome Empresa", field: "nome_empresa", headerFilter: "input" },
                 {
@@ -244,9 +239,6 @@
         var data = JSON.parse(dataElement.textContent || "[]");
         window.TabulatorDefaults.create(target, {
             data: data,
-            layout: "fitDataTable",
-            pagination: true,
-            paginationSize: 100,
             columns: [
                 { title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao", headerFilter: "input" },
                 { title: "Descricao (Natureza)", field: "natureza_descricao", headerFilter: "input" },
@@ -281,4 +273,6 @@
     montarTabelaRealizados();
     montarTabelaOrcamentos();
 })();
+
+
 

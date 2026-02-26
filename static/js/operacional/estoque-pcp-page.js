@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     function vincularParametrosProdutoNoFormulario(formulario) {
         if (!formulario) return;
         var selectProduto = formulario.querySelector('select[name="produto_id"]');
@@ -194,8 +194,10 @@
         btn.type = "button";
         btn.className = "carteira-filtro-btn";
         btn.textContent = valor;
+        btn.setAttribute("aria-pressed", "false");
         btn.addEventListener("click", function () {
             onToggle(btn, valor);
+            btn.setAttribute("aria-pressed", btn.classList.contains("is-active") ? "true" : "false");
             aplicarFiltros();
         });
         return btn;
@@ -209,9 +211,11 @@
                 var ativo = elemento.classList.contains("is-active");
                 Array.from(container.querySelectorAll(".carteira-filtro-btn")).forEach(function (b) {
                     b.classList.remove("is-active");
+                    b.setAttribute("aria-pressed", "false");
                 });
                 if (!ativo) {
                     elemento.classList.add("is-active");
+                    elemento.setAttribute("aria-pressed", "true");
                     filtros[chave] = token;
                 } else {
                     filtros[chave] = "";
@@ -230,9 +234,11 @@
                 var token = String(valor);
                 if (elemento.classList.contains("is-active")) {
                     elemento.classList.remove("is-active");
+                    elemento.setAttribute("aria-pressed", "false");
                     filtros[chave].delete(token);
                 } else {
                     elemento.classList.add("is-active");
+                    elemento.setAttribute("aria-pressed", "true");
                     filtros[chave].add(token);
                 }
             });
@@ -273,29 +279,6 @@
 
     var tabela = window.TabulatorDefaults.create("#estoque-tabulator", {
         data: dadosOriginais,
-        layout: "fitDataTable",
-        movableColumns: true,
-        pagination: "local",
-        paginationSize: 100,
-        initialSort: [
-            {column: "data_contagem", dir: "desc"},
-            {column: "id", dir: "desc"},
-        ],
-        locale: true,
-        langs: {
-            "pt-br": {
-                pagination: {
-                    first: "Primeira",
-                    first_title: "Primeira página",
-                    last: "Última",
-                    last_title: "Última página",
-                    prev: "Anterior",
-                    prev_title: "Página anterior",
-                    next: "Próxima",
-                    next_title: "Próxima página"
-                }
-            }
-        },
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {
@@ -402,6 +385,7 @@
             };
             document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
                 btn.classList.remove("is-active");
+                btn.setAttribute("aria-pressed", "false");
             });
             tabela.clearFilter(true);
             tabela.clearHeaderFilter();
@@ -417,5 +401,7 @@
     tabela.setLocale("pt-br");
     atualizarDashboardComLinhas(dadosOriginais);
 })();
+
+
 
 

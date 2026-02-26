@@ -163,9 +163,6 @@
 
     var tabela = window.TabulatorDefaults.create("#contas-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: colunas,
     });
 
@@ -224,9 +221,12 @@
         btn.type = "button";
         btn.className = "contas-filtro-btn";
         btn.textContent = valor;
+        btn.setAttribute("aria-pressed", "false");
         btn.addEventListener("click", function () {
             btn.classList.toggle("is-active");
-            onToggle(btn.classList.contains("is-active"), valor);
+            var ativo = btn.classList.contains("is-active");
+            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+            onToggle(ativo, valor);
             aplicarFiltros();
         });
         return btn;
@@ -309,6 +309,7 @@
         if (dataArquivoFinalInput) dataArquivoFinalInput.value = "";
         document.querySelectorAll(".contas-filtro-btn.is-active").forEach(function (btn) {
             btn.classList.remove("is-active");
+            btn.setAttribute("aria-pressed", "false");
         });
         tabela.clearFilter(true);
         tabela.clearHeaderFilter();
@@ -340,7 +341,9 @@
             }).data_arquivo;
             filtrosSelecionados.data_arquivo = new Set([labelMaisRecente]);
             document.querySelectorAll("#filtro-contas-data-arquivo .contas-filtro-btn").forEach(function (btn) {
-                btn.classList.toggle("is-active", btn.textContent === labelMaisRecente);
+                var ativo = btn.textContent === labelMaisRecente;
+                btn.classList.toggle("is-active", ativo);
+                btn.setAttribute("aria-pressed", ativo ? "true" : "false");
             });
             aplicarFiltros();
         });
@@ -355,4 +358,6 @@
     tabela.on("renderComplete", atualizarDashboard);
     setTimeout(atualizarDashboard, 0);
 })();
+
+
 

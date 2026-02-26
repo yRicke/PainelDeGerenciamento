@@ -1,11 +1,5 @@
 @import url("../financeiro/lancamentos-shared.css");
 
-#orcamento-realizado-tabulator,
-#orcamentos-tabulator,
-#orcamento-comparativo-tabulator {
-    min-width: 1300px;
-}
-
 .module-shortcuts {
     display: flex;
     gap: 12px;

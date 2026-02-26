@@ -11,9 +11,6 @@
 
     var tabela = window.TabulatorDefaults.create("#agenda-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "Data Registro", field: "data_registro"},
             {title: "Número Único", field: "numero_unico"},
@@ -63,3 +60,5 @@
         tabela.clearFilter(true);
     });
 })();
+
+

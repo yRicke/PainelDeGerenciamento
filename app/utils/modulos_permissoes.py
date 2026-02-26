@@ -45,6 +45,10 @@ MODULOS_POR_AREA = {
         {"nome": "Rotas", "url": "rotas", "template": "parametros/rotas.html"},
         {"nome": "Motoristas", "url": "motoristas", "template": "parametros/motoristas.html"},
         {"nome": "Transportadoras", "url": "transportadoras", "template": "parametros/transportadoras.html"},
+        {"nome": "Parametros Vendas", "url": "parametros_vendas", "template": "parametros/parametros_vendas.html"},
+        {"nome": "Parametros Logistica", "url": "parametros_logistica", "template": "parametros/parametros_logistica.html"},
+        {"nome": "Parametros Administracao", "url": "parametros_administracao", "template": "parametros/parametros_administracao.html"},
+        {"nome": "Parametros Financeiro", "url": "parametros_financeiro", "template": "parametros/parametros_financeiro.html"},
     ],
     "Operacional": [
         {"nome": "Cargas em Aberto", "url": "cargas_em_aberto", "template": "operacional/cargas_em_aberto.html"},

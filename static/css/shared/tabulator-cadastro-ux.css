@@ -1,0 +1,24 @@
+@import url("./module-crud.css");
+
+.tabulator-cadastro-ux .inline-form {
+    display: grid;
+    grid-template-columns: var(--cadastro-inline-columns, 1fr auto);
+    gap: 0.45rem;
+    align-items: end;
+    width: 100%;
+}
+
+.tabulator-cadastro-ux .inline-form > * {
+    width: 100%;
+}
+
+.tabulator-cadastro-ux .filter-grid {
+    grid-template-columns: var(--cadastro-filter-columns, repeat(2, minmax(220px, 1fr)) 120px);
+}
+
+@media (max-width: 900px) {
+    .tabulator-cadastro-ux .inline-form,
+    .tabulator-cadastro-ux .filter-grid {
+        grid-template-columns: 1fr;
+    }
+}

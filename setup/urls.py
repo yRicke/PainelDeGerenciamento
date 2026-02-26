@@ -90,6 +90,10 @@ urlpatterns = [
     path('transportadoras/<int:empresa_id>/criar/', views.criar_transportadora_modulo, name='criar_transportadora_modulo'),
     path('transportadoras/<int:empresa_id>/editar/<int:transportadora_id>/', views.editar_transportadora_modulo, name='editar_transportadora_modulo'),
     path('transportadoras/<int:empresa_id>/excluir/<int:transportadora_id>/', views.excluir_transportadora_modulo, name='excluir_transportadora_modulo'),
+    path('parametros_vendas/<int:empresa_id>/', views.parametros_vendas, name='parametros_vendas'),
+    path('parametros_logistica/<int:empresa_id>/', views.parametros_logistica, name='parametros_logistica'),
+    path('parametros_administracao/<int:empresa_id>/', views.parametros_administracao, name='parametros_administracao'),
+    path('parametros_financeiro/<int:empresa_id>/', views.parametros_financeiro, name='parametros_financeiro'),
     path('centros_resultado/<int:empresa_id>/', views.centros_resultado, name='centros_resultado'),
     path('centros_resultado/<int:empresa_id>/criar/', views.criar_centro_resultado_modulo, name='criar_centro_resultado_modulo'),
     path('centros_resultado/<int:empresa_id>/editar/<int:centro_resultado_id>/', views.editar_centro_resultado_modulo, name='editar_centro_resultado_modulo'),
@@ -151,6 +155,8 @@ urlpatterns = [
     path('vendas_por_categoria/<int:empresa_id>/excluir/<int:venda_id>/', views.excluir_venda_modulo, name='excluir_venda_modulo'),
     path('precificacao/<int:empresa_id>/', views.precificacao, name='precificacao'),
     path('controle_de_margem/<int:empresa_id>/', views.controle_de_margem, name='controle_de_margem'),
+    path('controle_de_margem/<int:empresa_id>/editar/<int:controle_id>/', views.editar_controle_margem_modulo, name='editar_controle_margem_modulo'),
+    path('controle_de_margem/<int:empresa_id>/excluir/<int:controle_id>/', views.excluir_controle_margem_modulo, name='excluir_controle_margem_modulo'),
 
 
     # Modulos - Operacional

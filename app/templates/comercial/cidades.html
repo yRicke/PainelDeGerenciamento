@@ -1,66 +1,17 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Cidades{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<style>
-    .inline-form {
-        display: grid;
-        grid-template-columns: 1fr 160px auto;
-        gap: 0.4rem;
-        align-items: center;
-        width: 100%;
-    }
-
-    .btn-danger {
-        background: #b42318;
-        color: #fff;
-        border: 0;
-        padding: 0.45rem 0.6rem;
-        cursor: pointer;
-    }
-
-    .btn-primary {
-        background: #175cd3;
-        color: #fff;
-        border: 0;
-        padding: 0.45rem 0.6rem;
-        cursor: pointer;
-    }
-
-    .table-wrapper {
-        width: 100%;
-        overflow-x: auto;
-    }
-
-    #cidades-tabulator {
-        min-width: 920px;
-    }
-
-    .filter-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(220px, 1fr)) 120px;
-        gap: 0.6rem;
-        margin-bottom: 0.8rem;
-        align-items: end;
-    }
-
-    .btn-light {
-        background: #f3f5f7;
-        color: #111;
-        border: 1px solid #d8dee4;
-        padding: 0.45rem 0.6rem;
-        text-decoration: none;
-        display: inline-block;
-        cursor: pointer;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'css/shared/tabulator-cadastro-ux.css' %}">
 {% endblock %}
 
 {% block content %}
+<div class="tabulator-cadastro-ux" style="--cadastro-inline-columns: 1fr 160px auto; --cadastro-filter-columns: repeat(2, minmax(220px, 1fr)) 120px;">
 <section class="page-hero">
-    <a href="{% url 'comercial' %}">Voltar</a>
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
     <h1>Cidades</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -95,6 +46,7 @@
         <div id="cidades-tabulator"></div>
     </div>
 </section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -137,9 +89,6 @@
 
         var tabela = window.TabulatorDefaults.create("#cidades-tabulator", {
             data: data,
-            layout: "fitDataStretch",
-            pagination: true,
-            paginationSize: 100,
             columns: [
                 {title: "ID", field: "id", width: 80, hozAlign: "center"},
                 {title: "Nome", field: "nome", editor: "input"},
@@ -189,5 +138,6 @@
     })();
 </script>
 {% endblock %}
+
 
 

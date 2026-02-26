@@ -3,14 +3,14 @@
 
     {% if user.is_authenticated %}
     <nav class="nav-links" aria-label="Navegação principal">
-        <a class="{% if request.path == '/' %}is-active{% endif %}" href="{% url 'index' %}">Início</a>
-        <a class="{% if request.path == '/financeiro/' %}is-active{% endif %}" href="{% url 'financeiro' %}">Financeiro</a>
-        <a class="{% if request.path == '/administrativo/' %}is-active{% endif %}" href="{% url 'administrativo' %}">Administrativo</a>
-        <a class="{% if request.path == '/comercial/' %}is-active{% endif %}" href="{% url 'comercial' %}">Comercial</a>
-        <a class="{% if request.path == '/operacional/' %}is-active{% endif %}" href="{% url 'operacional' %}">Operacional</a>
-        <a class="{% if request.path == '/parametros/' %}is-active{% endif %}" href="{% url 'parametros' %}">Parâmetros</a>
+        <a class="{% if request.path == '/' %}is-active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %} href="{% url 'index' %}">Início</a>
+        <a class="{% if request.path|slice:':11' == '/financeiro/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/financeiro/' %}aria-current="page"{% endif %} href="{% url 'financeiro' %}">Financeiro</a>
+        <a class="{% if request.path|slice:':15' == '/administrativo/' %}is-active{% endif %}" {% if request.path|slice:':15' == '/administrativo/' %}aria-current="page"{% endif %} href="{% url 'administrativo' %}">Administrativo</a>
+        <a class="{% if request.path|slice:':11' == '/comercial/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/comercial/' %}aria-current="page"{% endif %} href="{% url 'comercial' %}">Comercial</a>
+        <a class="{% if request.path|slice:':13' == '/operacional/' %}is-active{% endif %}" {% if request.path|slice:':13' == '/operacional/' %}aria-current="page"{% endif %} href="{% url 'operacional' %}">Operacional</a>
+        <a class="{% if request.path|slice:':12' == '/parametros/' %}is-active{% endif %}" {% if request.path|slice:':12' == '/parametros/' %}aria-current="page"{% endif %} href="{% url 'parametros' %}">Parâmetros</a>
         {% if user.is_staff %}
-        <a href="{% url 'painel_admin' %}">Admin</a>
+        <a {% if request.path|slice:':7' == '/admin/' %}aria-current="page"{% endif %} href="{% url 'painel_admin' %}">Admin</a>
         {% endif %}
     </nav>
     <a class="logout-link" href="{% url 'sair' %}">Sair</a>

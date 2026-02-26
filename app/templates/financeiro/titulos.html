@@ -5,12 +5,12 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/financeiro/titulos.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
 {% endblock %}
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'financeiro' %}">Voltar</a>
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
     <h1>Titulos</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -33,7 +33,7 @@
         <div><label>Buscar por descricao</label><input type="text" id="filtro-titulo-descricao" placeholder="Digite a descricao"></div>
         <div><button type="button" class="btn-light" id="limpar-filtros-titulos">Limpar</button></div>
     </div>
-    <div class="table-wrapper"><div id="titulos-tabulator" class="cadastro-tabulator"></div></div>
+    <div class="table-wrapper"><div id="titulos-tabulator"></div></div>
 </section>
 {% endblock %}
 
@@ -43,4 +43,5 @@
 <script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
 <script src="{% static 'js/financeiro/titulos-page.js' %}"></script>
 {% endblock %}
+
 

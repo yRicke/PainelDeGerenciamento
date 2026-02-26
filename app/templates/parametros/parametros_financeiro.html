@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Parametros Financeiro{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/parametros/controle-margem-parametros.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
+    <h1>Parametros Financeiro</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel module-section">
+    <h2>Novo Parametro</h2>
+    <form method="post" action="{% url 'parametros_financeiro' empresa.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar">
+        <div class="parametros-cm-grid">
+            <div>
+                <label>Parametro</label>
+                <input type="text" name="parametro" required>
+            </div>
+            <div>
+                <label>Taxa ao Mes (%)</label>
+                <input type="text" name="taxa_ao_mes" id="taxa-ao-mes-novo" required>
+            </div>
+            <div>
+                <label>Remuneracao (%)</label>
+                <input type="text" id="remuneracao-novo" value="0,0000%" disabled>
+                <small>Resultado automatico: Taxa ao Mes / 30</small>
+            </div>
+            <div class="parametros-cm-card">
+                <p>Financeiro = Taxa ao Mes x Vlr. Nota.</p>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Adicionar e recalcular</button>
+        </div>
+    </form>
+</section>
+
+<section class="panel module-section">
+    <h2>Parametros Cadastrados</h2>
+    <div class="filter-grid parametros-cm-filtros">
+        <div>
+            <label>Buscar por parametro</label>
+            <input type="text" id="filtro-parametros-financeiro-parametro" placeholder="Digite o parametro">
+        </div>
+        <div>
+            <label>Buscar por taxa ao mes (%)</label>
+            <input type="text" id="filtro-parametros-financeiro-taxa" placeholder="Digite a taxa">
+        </div>
+        <div>
+            <label>Buscar por remuneracao (%)</label>
+            <input type="text" id="filtro-parametros-financeiro-remuneracao" placeholder="Digite a remuneracao">
+        </div>
+        <div>
+            <button type="button" class="btn-light" id="limpar-filtros-parametros-financeiro">Limpar</button>
+        </div>
+    </div>
+    <div class="table-wrapper" data-table-label="Parametros Financeiro">
+        <div id="parametros-financeiro-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ parametros_financeiro_tabulator|json_script:"parametros-financeiro-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/parametros-financeiro-page.js' %}"></script>
+{% endblock %}

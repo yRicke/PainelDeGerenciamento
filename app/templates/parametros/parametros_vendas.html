@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Parametros Vendas{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/parametros/controle-margem-parametros.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
+    <h1>Parametros Vendas</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel module-section">
+    <h2>Novo Parametro</h2>
+    <form method="post" action="{% url 'parametros_vendas' empresa.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar">
+        <div class="parametros-cm-grid">
+            <div>
+                <label>Parametro</label>
+                <input type="text" name="parametro" required>
+            </div>
+            <div>
+                <label>Criterio</label>
+                <input type="text" name="criterio" required>
+            </div>
+            <div>
+                <label>Remuneracao (%)</label>
+                <input type="text" name="remuneracao_percentual" required>
+            </div>
+            <div class="parametros-cm-card full-row">
+                <p>Regra aplicada no recalculo: Vendas = Remuneracao(%) x Vlr. Nota, exceto empresa filial (empresa 5), onde Vendas = 0.</p>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Adicionar e recalcular</button>
+        </div>
+    </form>
+</section>
+
+<section class="panel module-section">
+    <h2>Parametros Cadastrados</h2>
+    <div class="filter-grid parametros-cm-filtros">
+        <div>
+            <label>Buscar por parametro</label>
+            <input type="text" id="filtro-parametros-vendas-parametro" placeholder="Digite o parametro">
+        </div>
+        <div>
+            <label>Buscar por criterio</label>
+            <input type="text" id="filtro-parametros-vendas-criterio" placeholder="Digite o criterio">
+        </div>
+        <div>
+            <label>Buscar por remuneracao (%)</label>
+            <input type="text" id="filtro-parametros-vendas-remuneracao" placeholder="Digite o valor">
+        </div>
+        <div>
+            <button type="button" class="btn-light" id="limpar-filtros-parametros-vendas">Limpar</button>
+        </div>
+    </div>
+    <div class="table-wrapper" data-table-label="Parametros Vendas">
+        <div id="parametros-vendas-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ parametros_vendas_tabulator|json_script:"parametros-vendas-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/parametros-vendas-page.js' %}"></script>
+{% endblock %}

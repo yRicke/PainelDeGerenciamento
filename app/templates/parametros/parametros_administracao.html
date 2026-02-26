@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Parametros Administracao{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/parametros/controle-margem-parametros.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
+    <h1>Parametros Administracao</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel module-section">
+    <h2>Configuracao</h2>
+    <form method="post" action="{% url 'parametros_administracao' empresa.id %}">
+        {% csrf_token %}
+        <div class="parametros-cm-grid">
+            <div>
+                <label>Parametro</label>
+                <input type="text" name="parametro" value="{{ parametro.parametro }}" required>
+            </div>
+            <div>
+                <label>Remuneracao (%)</label>
+                <input type="text" name="remuneracao_percentual" value="{{ parametro.remuneracao_percentual }}" required>
+            </div>
+            <div class="parametros-cm-card">
+                <p>Administracao = Remuneracao(%) x Vlr. Nota.</p>
+            </div>
+            <div class="parametros-cm-card full-row">
+                <p>Regra aplicada no recalculo: empresa filial (empresa 5) recebe Administracao = 0.</p>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar e recalcular</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

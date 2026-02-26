@@ -187,9 +187,6 @@
 
     var tabela = window.TabulatorDefaults.create("#dfc-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: colunas,
     });
 
@@ -279,5 +276,7 @@
     tabela.on("renderComplete", atualizarDashboard);
     setTimeout(atualizarDashboard, 0);
 })();
+
+
 
 

@@ -1,25 +1,11 @@
 @import url("./cargas-em-aberto-shared.css");
 
-#fretes-tabulator {
-    min-width: 1400px;
-}
-
 .filter-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(220px, 1fr));
     gap: 0.6rem;
     margin-bottom: 0.8rem;
     align-items: end;
-}
-
-.btn-light {
-    background: #f3f5f7;
-    color: #111;
-    border: 1px solid #d8dee4;
-    padding: 0.45rem 0.6rem;
-    text-decoration: none;
-    display: inline-block;
-    cursor: pointer;
 }
 
 .carteira-filtro-card {

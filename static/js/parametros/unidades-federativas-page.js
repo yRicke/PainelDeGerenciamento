@@ -10,9 +10,6 @@
 
     var tabela = window.TabulatorDefaults.create("#unidades-federativas-tabulator", {
         data: data,
-        layout: "fitDataStretch",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Codigo", field: "codigo", editor: "input"},
@@ -59,4 +56,5 @@
         tabela.clearFilter(true);
     });
 })();
+
 

@@ -267,27 +267,7 @@
 
     var tabela = window.TabulatorDefaults.create("#producao-tabulator", {
         data: dadosOriginais,
-        layout: "fitDataTable",
-        movableColumns: true,
-        pagination: "local",
-        paginationSize: 100,
-        locale: true,
-        langs: {
-            "pt-br": {
-                pagination: {
-                    first: "Primeira",
-                    first_title: "Primeira página",
-                    last: "Última",
-                    last_title: "Última página",
-                    prev: "Anterior",
-                    prev_title: "Página anterior",
-                    next: "Próxima",
-                    next_title: "Próxima página"
-                }
-            }
-        },
         columns: [
-            { title: "ID", field: "id", hozAlign: "right", width: 70 },
             { title: "Data Origem", field: "data_origem" },
             { title: "N. Operação", field: "numero_operacao", hozAlign: "right" },
             { title: "Situação", field: "situacao" },
@@ -301,18 +281,21 @@
             { title: "Fim Atividade", field: "data_hora_fim_atividade" },
             { title: "Kg", field: "kg", hozAlign: "right" },
             { title: "Produção Dia (FD)", field: "producao_por_dia", hozAlign: "right" },
-            { title: "Kg por Lote", field: "kg_por_lote", hozAlign: "right" },
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-                },
-                hozAlign: "center"
-            }
+            { title: "Kg por Lote", field: "kg_por_lote", hozAlign: "right" }
         ]
     });
+
+    if (data.some(function (item) { return Boolean(item.editar_url); })) {
+        colunas.push({
+            title: "Acoes",
+            field: "editar_url",
+            formatter: function (cell) {
+                var url = cell.getValue();
+                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
+            },
+            hozAlign: "center"
+        });
+    }
 
     function aplicarFiltrosTabela() {
         tabela.setFilter(function (item) {
@@ -535,4 +518,6 @@
     tabela.setLocale("pt-br");
     atualizarDashboard(dadosOriginais);
 })();
+
+
 

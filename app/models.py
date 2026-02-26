@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 from .utils.comercial_transformers import _definir_margem, _definir_lucro
 
 UNSET = object()
@@ -744,6 +745,286 @@ class PedidoPendente(models.Model):
 
     def excluir_pedido_pendente(self):
         self.delete()
+
+
+class ControleMargem(models.Model):
+    SITUACAO_AMARELO = "AMARELO"
+    SITUACAO_ROXO = "ROXO"
+    SITUACAO_VERDE = "VERDE"
+    SITUACAO_VERMELHO = "VERMELHO"
+    SITUACAO_CHOICES = [
+        (SITUACAO_AMARELO, "Amarelo"),
+        (SITUACAO_ROXO, "Roxo"),
+        (SITUACAO_VERDE, "Verde"),
+        (SITUACAO_VERMELHO, "Vermelho"),
+    ]
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="controles_margem")
+    data_origem = models.CharField(max_length=120, blank=True, default="")
+
+    nro_unico = models.BigIntegerField(db_index=True)
+    nome_empresa = models.CharField(max_length=220, blank=True, default="")
+
+    parceiro = models.ForeignKey(
+        "Parceiro",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="controles_margem",
+    )
+    cod_nome_parceiro = models.CharField(max_length=220, blank=True, default="")
+
+    descricao_perfil = models.CharField(max_length=220, null=True, blank=True)
+    apelido_vendedor = models.CharField(max_length=150, null=True, blank=True)
+    gerente = models.CharField(max_length=150, null=True, blank=True)
+
+    dt_neg = models.DateField(null=True, blank=True)
+    previsao_entrega = models.DateField(null=True, blank=True)
+    tipo_venda = models.CharField(max_length=80, null=True, blank=True)
+
+    vlr_nota = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    custo_total_produto = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    margem_bruta = models.DecimalField(max_digits=16, decimal_places=9, default=0)
+    lucro_bruto = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+
+    valor_tonelada_frete_safia = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    peso_bruto = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    custo_por_kg = models.DecimalField(max_digits=16, decimal_places=9, default=0)
+
+    vendas = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    producao = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    operador_logistica = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    frete_distribuicao = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    total_logistica = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    administracao = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    financeiro = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    total_setores = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+
+    valor_liquido = models.DecimalField(max_digits=16, decimal_places=6, default=0)
+    margem_liquida = models.DecimalField(max_digits=16, decimal_places=9, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "nro_unico"], name="uq_controle_margem_empresa_nro_unico"),
+        ]
+
+    def __str__(self):
+        return f"Controle Margem #{self.nro_unico} - {self.empresa.nome}"
+
+    @property
+    def situacao(self):
+        valor = self.margem_bruta if self.margem_bruta is not None else Decimal("0")
+        if valor < Decimal("0"):
+            return self.SITUACAO_ROXO
+        if valor < Decimal("0.10"):
+            return self.SITUACAO_ROXO
+        if valor < Decimal("0.12"):
+            return self.SITUACAO_VERMELHO
+        if valor < Decimal("0.18"):
+            return self.SITUACAO_AMARELO
+        return self.SITUACAO_VERDE
+
+    @classmethod
+    def criar_controle_margem(
+        cls,
+        empresa,
+        nro_unico,
+        data_origem="",
+        nome_empresa="",
+        parceiro=None,
+        cod_nome_parceiro="",
+        descricao_perfil=None,
+        apelido_vendedor=None,
+        gerente=None,
+        dt_neg=None,
+        previsao_entrega=None,
+        tipo_venda=None,
+        vlr_nota=0,
+        custo_total_produto=0,
+        margem_bruta=0,
+        lucro_bruto=0,
+        valor_tonelada_frete_safia=0,
+        peso_bruto=0,
+        custo_por_kg=0,
+        vendas=0,
+        producao=0,
+        operador_logistica=0,
+        frete_distribuicao=0,
+        total_logistica=0,
+        administracao=0,
+        financeiro=0,
+        total_setores=0,
+        valor_liquido=0,
+        margem_liquida=0,
+    ):
+        item = cls(
+            empresa=empresa,
+            data_origem=data_origem,
+            nro_unico=nro_unico,
+            nome_empresa=nome_empresa,
+            parceiro=parceiro,
+            cod_nome_parceiro=cod_nome_parceiro,
+            descricao_perfil=descricao_perfil,
+            apelido_vendedor=apelido_vendedor,
+            gerente=gerente,
+            dt_neg=dt_neg,
+            previsao_entrega=previsao_entrega,
+            tipo_venda=tipo_venda,
+            vlr_nota=vlr_nota,
+            custo_total_produto=custo_total_produto,
+            margem_bruta=margem_bruta,
+            lucro_bruto=lucro_bruto,
+            valor_tonelada_frete_safia=valor_tonelada_frete_safia,
+            peso_bruto=peso_bruto,
+            custo_por_kg=custo_por_kg,
+            vendas=vendas,
+            producao=producao,
+            operador_logistica=operador_logistica,
+            frete_distribuicao=frete_distribuicao,
+            total_logistica=total_logistica,
+            administracao=administracao,
+            financeiro=financeiro,
+            total_setores=total_setores,
+            valor_liquido=valor_liquido,
+            margem_liquida=margem_liquida,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_controle_margem(
+        self,
+        data_origem=UNSET,
+        nro_unico=UNSET,
+        nome_empresa=UNSET,
+        parceiro=UNSET,
+        cod_nome_parceiro=UNSET,
+        descricao_perfil=UNSET,
+        apelido_vendedor=UNSET,
+        gerente=UNSET,
+        dt_neg=UNSET,
+        previsao_entrega=UNSET,
+        tipo_venda=UNSET,
+        vlr_nota=UNSET,
+        custo_total_produto=UNSET,
+        margem_bruta=UNSET,
+        lucro_bruto=UNSET,
+        valor_tonelada_frete_safia=UNSET,
+        peso_bruto=UNSET,
+        custo_por_kg=UNSET,
+        vendas=UNSET,
+        producao=UNSET,
+        operador_logistica=UNSET,
+        frete_distribuicao=UNSET,
+        total_logistica=UNSET,
+        administracao=UNSET,
+        financeiro=UNSET,
+        total_setores=UNSET,
+        valor_liquido=UNSET,
+        margem_liquida=UNSET,
+    ):
+        if data_origem is not UNSET:
+            self.data_origem = data_origem
+        if nro_unico is not UNSET:
+            self.nro_unico = nro_unico
+        if nome_empresa is not UNSET:
+            self.nome_empresa = nome_empresa
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if cod_nome_parceiro is not UNSET:
+            self.cod_nome_parceiro = cod_nome_parceiro
+        if descricao_perfil is not UNSET:
+            self.descricao_perfil = descricao_perfil
+        if apelido_vendedor is not UNSET:
+            self.apelido_vendedor = apelido_vendedor
+        if gerente is not UNSET:
+            self.gerente = gerente
+        if dt_neg is not UNSET:
+            self.dt_neg = dt_neg
+        if previsao_entrega is not UNSET:
+            self.previsao_entrega = previsao_entrega
+        if tipo_venda is not UNSET:
+            self.tipo_venda = tipo_venda
+        if vlr_nota is not UNSET:
+            self.vlr_nota = vlr_nota
+        if custo_total_produto is not UNSET:
+            self.custo_total_produto = custo_total_produto
+        if margem_bruta is not UNSET:
+            self.margem_bruta = margem_bruta
+        if lucro_bruto is not UNSET:
+            self.lucro_bruto = lucro_bruto
+        if valor_tonelada_frete_safia is not UNSET:
+            self.valor_tonelada_frete_safia = valor_tonelada_frete_safia
+        if peso_bruto is not UNSET:
+            self.peso_bruto = peso_bruto
+        if custo_por_kg is not UNSET:
+            self.custo_por_kg = custo_por_kg
+        if vendas is not UNSET:
+            self.vendas = vendas
+        if producao is not UNSET:
+            self.producao = producao
+        if operador_logistica is not UNSET:
+            self.operador_logistica = operador_logistica
+        if frete_distribuicao is not UNSET:
+            self.frete_distribuicao = frete_distribuicao
+        if total_logistica is not UNSET:
+            self.total_logistica = total_logistica
+        if administracao is not UNSET:
+            self.administracao = administracao
+        if financeiro is not UNSET:
+            self.financeiro = financeiro
+        if total_setores is not UNSET:
+            self.total_setores = total_setores
+        if valor_liquido is not UNSET:
+            self.valor_liquido = valor_liquido
+        if margem_liquida is not UNSET:
+            self.margem_liquida = margem_liquida
+        self.save()
+
+    def excluir_controle_margem(self):
+        self.delete()
+
+
+class ParametroMargemVendas(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_margem_vendas")
+    parametro = models.CharField(max_length=80, default="Vendas")
+    criterio = models.CharField(max_length=120, default="Geral")
+    remuneracao_percentual = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    def __str__(self):
+        return f"Parametro Vendas - {self.empresa.nome}"
+
+
+class ParametroMargemLogistica(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_margem_logistica")
+    parametro = models.CharField(max_length=80, default="Operador Logistico")
+    criterio = models.CharField(max_length=120, default="Entrega+Balcao")
+    remuneracao_rs = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+
+    def __str__(self):
+        return f"Parametro Logistica - {self.empresa.nome}"
+
+
+class ParametroMargemAdministracao(models.Model):
+    empresa = models.OneToOneField(Empresa, on_delete=models.CASCADE, related_name="parametro_margem_administracao")
+    parametro = models.CharField(max_length=80, default="Administracao")
+    remuneracao_percentual = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    def __str__(self):
+        return f"Parametro Administracao - {self.empresa.nome}"
+
+
+class ParametroMargemFinanceiro(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_margem_financeiro")
+    parametro = models.CharField(max_length=80, default="Contas a Receber")
+    taxa_ao_mes = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    remuneracao_percentual = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    def __str__(self):
+        return f"Parametro Financeiro - {self.empresa.nome}"
 
 
 class Parceiro(models.Model):

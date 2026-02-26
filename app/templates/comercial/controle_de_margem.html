@@ -1,16 +1,156 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Controle de Margem{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/comercial/controle-de-margem.css' %}">
+{% endblock %}
 
 {% block content %}
 <section class="page-hero">
     <a href="{% url 'comercial' %}">Voltar</a>
     <h1>Controle de Margem</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <nav class="module-sections-nav" aria-label="Navegação de seções de controle de margem">
+        {% if not bloquear_cadastro_edicao_importacao %}
+        <a href="#sec-cadastro">Cadastro</a>
+        {% endif %}
+        <a href="#sec-importacao">Importação</a>
+        <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualização</a>
+    </nav>
 </section>
 
-<section class="panel">
-    <h2>Controle de Margem</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+{% if not bloquear_cadastro_edicao_importacao %}
+<section id="sec-cadastro" class="panel module-section">
+    <h2>Novo Controle de Margem (Cadastro Manual)</h2>
+    <form action="{% url 'controle_de_margem' empresa.id %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar_controle_margem">
+        <input type="hidden" name="data_origem" value="MANUAL">
+        <div class="form-grid">
+            <div><label>Nro. Unico</label><input type="number" name="nro_unico" min="1" required></div>
+            <div><label>Nome empresa</label><input type="text" name="nome_empresa"></div>
+            <div>
+                <label>Parceiro (FK)</label>
+                <select name="parceiro_id">
+                    <option value="">-</option>
+                    {% for parceiro in parceiros %}
+                    <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div><label>Descrição perfil</label><input type="text" name="descricao_perfil"></div>
+            <div><label>Apelido vendedor</label><input type="text" name="apelido_vendedor"></div>
+            <div><label>Gerente</label><input type="text" name="gerente"></div>
+            <div><label>Dt. Neg.</label><input type="date" name="dt_neg"></div>
+            <div><label>Previsão de entrega</label><input type="date" name="previsao_entrega"></div>
+            <div><label>Tipo da venda</label><input type="text" name="tipo_venda"></div>
+            <div><label>Vlr. Nota</label><input type="text" name="vlr_nota" value="0"></div>
+            <div><label>Custo Total do Produto</label><input type="text" name="custo_total_produto" value="0"></div>
+            <div><label>Valor Tonelada Frete[SAFIA]</label><input type="text" name="valor_tonelada_frete_safia" value="0"></div>
+            <div><label>Peso bruto</label><input type="text" name="peso_bruto" value="0"></div>
+            <div><label>Vendas</label><input type="text" name="vendas" value="0"></div>
+            <div><label>Produção</label><input type="text" name="producao" value="0"></div>
+            <div><label>Operador Logística</label><input type="text" name="operador_logistica" value="0"></div>
+            <div><label>Frete Distribuição</label><input type="text" name="frete_distribuicao" value="0"></div>
+            <div><label>Administração</label><input type="text" name="administracao" value="0"></div>
+            <div><label>Financeiro</label><input type="text" name="financeiro" value="0"></div>
+            <div><label>Valor Líquido</label><input type="text" name="valor_liquido" value="0"></div>
+            <div><label>Margem Líquida</label><input type="text" name="margem_liquida" placeholder="0,00%"></div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </div>
+    </form>
 </section>
+{% endif %}
+
+<section id="sec-importacao" class="panel module-section">
+    <h2>Importação de Controle de Margem</h2>
+    <p>Selecione o arquivo padrão utilizado no módulo Pedidos Pendentes (mesmo layout).</p>
+    <p>A planilha obrigatória para leitura é <code>new sheet</code>.</p>
+    {% if arquivo_existente %}
+    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    {% else %}
+    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+    {% endif %}
+    <form id="upload-controle-margem-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+        {% csrf_token %}
+        <input type="file" id="arquivo-controle-margem-input" name="arquivo_controle_margem" accept=".xls,.xlsx" hidden>
+        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+        <div id="dropzone-controle-margem" class="dropzone">
+            <strong>Arraste e solte o arquivo aqui</strong>
+            <span>ou clique para selecionar um arquivo <code>.xls</code> ou <code>.xlsx</code>.</span>
+        </div>
+        <div class="upload-actions">
+            <button type="submit" class="upload-button">Enviar e importar</button>
+            <span id="nome-arquivo-controle-margem-selecionado" class="file-status"></span>
+        </div>
+        <div id="controle-margem-loading-status" class="loading-status">
+            Carregamento em andamento. O arquivo está sendo enviado e a importação foi iniciada.
+        </div>
+    </form>
+</section>
+
+<section id="sec-dashboard" class="panel module-section">
+    <h2>Dashboard</h2>
+    <div class="dashboard-margem-grid">
+        <article class="dashboard-margem-card dashboard-margem-card--pedido">
+            <h3>Pedido</h3>
+            <p id="dashboard-pedido">R$ 0,00</p>
+        </article>
+        <article class="dashboard-margem-card dashboard-margem-card--cmv">
+            <h3>CMV</h3>
+            <p id="dashboard-cmv">R$ 0,00</p>
+        </article>
+        <article class="dashboard-margem-card dashboard-margem-card--lucro">
+            <h3>Lucro</h3>
+            <p id="dashboard-lucro">R$ 0,00</p>
+        </article>
+        <article class="dashboard-margem-card dashboard-margem-card--margem">
+            <h3>Margem</h3>
+            <p id="dashboard-margem">0,00%</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados de Controle de Margem</h2>
+    <div class="filter-grid">
+        <div class="carteira-filtro-card">
+            <label>Situação</label>
+            <div id="filtro-controle-situacao" class="carteira-filtro-options carteira-filtro-options--chips"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Descrição perfil</label>
+            <div id="filtro-controle-descricao-perfil" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Apelido vendedor</label>
+            <div id="filtro-controle-apelido-vendedor" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Nome empresa</label>
+            <div id="filtro-controle-nome-empresa" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+        <div class="carteira-filtro-card">
+            <label>Tipo venda</label>
+            <div id="filtro-controle-tipo-venda" class="carteira-filtro-options carteira-filtro-options--list"></div>
+        </div>
+    </div>
+    <button type="button" class="btn-light" id="limpar-filtros-controle-margem">Limpar filtros</button>
+    <div class="table-wrapper">
+        <div id="controle-margem-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ controle_margem_tabulator|json_script:"controle-margem-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/comercial/controle-de-margem-page.js' %}"></script>
 {% endblock %}

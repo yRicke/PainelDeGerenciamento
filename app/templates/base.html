@@ -6,16 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Gerenciamento{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/shared/system-table-theme.css' %}">
     {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/shared/filter-ux.css' %}">
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Pular para conteudo</a>
     <header class="site-header">
         <div class="container">
             {% include "blocks/nav.html" %}
         </div>
     </header>
 
-    <main class="site-main">
+    <main id="main-content" class="site-main">
         <div class="container">
             {% include "blocks/messages.html" %}
             {% block content %}{% endblock %}

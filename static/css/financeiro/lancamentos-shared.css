@@ -5,13 +5,6 @@
     margin-bottom: 0.75rem;
 }
 
-.table-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-}
-
 .btn-primary,
 .btn-danger,
 .btn-light {

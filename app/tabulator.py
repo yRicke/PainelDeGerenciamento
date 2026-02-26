@@ -45,9 +45,9 @@ def _situacao_margem(margem):
 
     if valor < 10:
         return "Roxo"
-    if valor < 13:
+    if valor < 12:
         return "Vermelho"
-    if valor <= 14:
+    if valor < 14:
         return "Amarelo"
     return "Verde"
 
@@ -215,6 +215,50 @@ def build_pedidos_pendentes_tabulator(
             resultado[-1]["editar_url"] = reverse(
                 "editar_pedido_pendente_modulo",
                 kwargs={"empresa_id": empresa_id, "pedido_id": item.id},
+            )
+    return resultado
+
+
+def build_controle_margem_tabulator(controles_qs, empresa_id: int, permitir_edicao: bool = True):
+    resultado = []
+    for item in controles_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "data_origem": item.data_origem or "",
+                "nro_unico": int(item.nro_unico or 0),
+                "nome_empresa": item.nome_empresa or "",
+                "cod_nome_parceiro": item.cod_nome_parceiro or "",
+                "descricao_perfil": item.descricao_perfil or "",
+                "apelido_vendedor": item.apelido_vendedor or "",
+                "gerente": item.gerente or "",
+                "dt_neg": _fmt_date_br(item.dt_neg),
+                "previsao_entrega": _fmt_date_br(item.previsao_entrega),
+                "tipo_venda": item.tipo_venda or "",
+                "vlr_nota": float(item.vlr_nota or 0),
+                "custo_total_produto": float(item.custo_total_produto or 0),
+                "margem_bruta": float(item.margem_bruta or 0),
+                "lucro_bruto": float(item.lucro_bruto or 0),
+                "valor_tonelada_frete_safia": float(item.valor_tonelada_frete_safia or 0),
+                "peso_bruto": float(item.peso_bruto or 0),
+                "custo_por_kg": float(item.custo_por_kg or 0),
+                "vendas": float(item.vendas or 0),
+                "producao": float(item.producao or 0),
+                "operador_logistica": float(item.operador_logistica or 0),
+                "frete_distribuicao": float(item.frete_distribuicao or 0),
+                "total_logistica": float(item.total_logistica or 0),
+                "administracao": float(item.administracao or 0),
+                "financeiro": float(item.financeiro or 0),
+                "total_setores": float(item.total_setores or 0),
+                "valor_liquido": float(item.valor_liquido or 0),
+                "margem_liquida": float(item.margem_liquida or 0),
+                "situacao": item.situacao or "",
+            }
+        )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_controle_margem_modulo",
+                kwargs={"empresa_id": empresa_id, "controle_id": item.id},
             )
     return resultado
 
@@ -667,6 +711,48 @@ def build_centros_resultado_tabulator(centros_resultado_qs, empresa_id: int):
             ),
         }
         for centro in centros_resultado_qs
+    ]
+
+
+def build_parametros_margem_vendas_tabulator(parametros_qs, empresa_id: int):
+    acao_url = reverse("parametros_vendas", kwargs={"empresa_id": empresa_id})
+    return [
+        {
+            "id": item.id,
+            "parametro": item.parametro or "",
+            "criterio": item.criterio or "",
+            "remuneracao_percentual": float(item.remuneracao_percentual or 0),
+            "acao_url": acao_url,
+        }
+        for item in parametros_qs
+    ]
+
+
+def build_parametros_margem_logistica_tabulator(parametros_qs, empresa_id: int):
+    acao_url = reverse("parametros_logistica", kwargs={"empresa_id": empresa_id})
+    return [
+        {
+            "id": item.id,
+            "parametro": item.parametro or "",
+            "criterio": item.criterio or "",
+            "remuneracao_rs": float(item.remuneracao_rs or 0),
+            "acao_url": acao_url,
+        }
+        for item in parametros_qs
+    ]
+
+
+def build_parametros_margem_financeiro_tabulator(parametros_qs, empresa_id: int):
+    acao_url = reverse("parametros_financeiro", kwargs={"empresa_id": empresa_id})
+    return [
+        {
+            "id": item.id,
+            "parametro": item.parametro or "",
+            "taxa_ao_mes": float(item.taxa_ao_mes or 0),
+            "remuneracao_percentual": float(item.remuneracao_percentual or 0),
+            "acao_url": acao_url,
+        }
+        for item in parametros_qs
     ]
 
 

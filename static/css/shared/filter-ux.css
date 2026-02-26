@@ -1,0 +1,161 @@
+:root {
+    --ux-filter-border: #d7e0ea;
+    --ux-filter-border-strong: #b8c9dd;
+    --ux-filter-bg: #ffffff;
+    --ux-filter-bg-soft: #f8fbff;
+    --ux-filter-text: #1f2937;
+    --ux-filter-muted: #546174;
+    --ux-filter-accent: #175cd3;
+    --ux-filter-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+}
+
+.filter-grid > div:not(.carteira-filtro-card):not(.contas-filtro-card):not(.tofu-filtro-card),
+.carteira-filtro-card,
+.contas-filtro-card,
+.tofu-filtro-card,
+.dashboard-filtro-box {
+    border: 1px solid var(--ux-filter-border);
+    border-radius: 10px;
+    background: linear-gradient(180deg, var(--ux-filter-bg-soft) 0%, var(--ux-filter-bg) 46%);
+    padding: 0.58rem;
+    box-shadow: var(--ux-filter-shadow);
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.filter-grid > div:not(.carteira-filtro-card):not(.contas-filtro-card):not(.tofu-filtro-card):focus-within,
+.carteira-filtro-card:focus-within,
+.contas-filtro-card:focus-within,
+.tofu-filtro-card:focus-within,
+.dashboard-filtro-box:focus-within {
+    border-color: var(--ux-filter-border-strong);
+    box-shadow: 0 0 0 3px rgba(23, 92, 211, 0.09);
+}
+
+.filter-grid > div label,
+.carteira-filtro-card label,
+.contas-filtro-card label,
+.tofu-filtro-card label,
+.dashboard-filtro-box h3 {
+    display: block;
+    margin: 0 0 0.42rem;
+    color: var(--ux-filter-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.filter-grid input:not([type="checkbox"]):not([type="radio"]),
+.filter-grid select,
+.dashboard-filtro-box select {
+    width: 100%;
+    min-height: 36px;
+    border: 1px solid #c6d3e3;
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--ux-filter-text);
+    padding: 0.42rem 0.55rem;
+    font-size: 0.84rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.filter-grid input:not([type="checkbox"]):not([type="radio"]):focus,
+.filter-grid select:focus,
+.dashboard-filtro-box select:focus {
+    outline: 0;
+    border-color: var(--ux-filter-accent);
+    box-shadow: 0 0 0 3px rgba(23, 92, 211, 0.13);
+}
+
+.filter-grid .btn-light,
+.filter-grid .btn-primary,
+.filter-grid .btn-danger {
+    min-height: 36px;
+    border-radius: 8px;
+}
+
+.filter-grid + .btn-light,
+.filter-grid + button.btn-light {
+    margin-top: 0.15rem;
+}
+
+.carteira-filtro-options,
+.contas-filtro-options,
+.tofu-filtro-options {
+    display: grid;
+    gap: 0.34rem;
+}
+
+.carteira-filtro-options--chips,
+.contas-filtro-options--chips,
+.tofu-filtro-options--chips {
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+}
+
+.carteira-filtro-options--list,
+.contas-filtro-options--list,
+.tofu-filtro-options--list {
+    max-height: 164px;
+    overflow-y: auto;
+    align-content: flex-start;
+    padding-right: 2px;
+}
+
+.carteira-filtro-options--list::-webkit-scrollbar,
+.contas-filtro-options--list::-webkit-scrollbar,
+.tofu-filtro-options--list::-webkit-scrollbar,
+.dashboard-chip-group-scroll::-webkit-scrollbar {
+    width: 7px;
+}
+
+.carteira-filtro-options--list::-webkit-scrollbar-thumb,
+.contas-filtro-options--list::-webkit-scrollbar-thumb,
+.tofu-filtro-options--list::-webkit-scrollbar-thumb,
+.dashboard-chip-group-scroll::-webkit-scrollbar-thumb {
+    background: #c5d3e4;
+    border-radius: 999px;
+}
+
+.carteira-filtro-btn,
+.contas-filtro-btn,
+.tofu-filtro-btn,
+.dashboard-chip {
+    border: 1px solid var(--ux-filter-border);
+    background: #ffffff;
+    color: var(--ux-filter-text);
+    border-radius: 8px;
+    padding: 0.36rem 0.52rem;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.carteira-filtro-btn:hover,
+.contas-filtro-btn:hover,
+.tofu-filtro-btn:hover,
+.dashboard-chip:hover {
+    border-color: var(--ux-filter-border-strong);
+    background: #eef4ff;
+}
+
+.carteira-filtro-btn:focus-visible,
+.contas-filtro-btn:focus-visible,
+.tofu-filtro-btn:focus-visible,
+.dashboard-chip:focus-visible {
+    outline: 0;
+    border-color: var(--ux-filter-accent);
+    box-shadow: 0 0 0 3px rgba(23, 92, 211, 0.16);
+}
+
+.carteira-filtro-btn.is-active,
+.contas-filtro-btn.is-active,
+.tofu-filtro-btn.is-active,
+.dashboard-chip.is-active {
+    border-color: var(--ux-filter-accent);
+    background: var(--ux-filter-accent);
+    color: #ffffff;
+}

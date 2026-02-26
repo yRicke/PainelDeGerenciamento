@@ -40,9 +40,12 @@
         btn.type = "button";
         btn.className = "tofu-filtro-btn";
         btn.textContent = valor;
+        btn.setAttribute("aria-pressed", "false");
         btn.addEventListener("click", function () {
             btn.classList.toggle("is-active");
-            onToggle(btn.classList.contains("is-active"), valor);
+            var ativo = btn.classList.contains("is-active");
+            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+            onToggle(ativo, valor);
             aplicarFiltros();
         });
         return btn;
@@ -62,9 +65,6 @@
 
     var tabela = window.TabulatorDefaults.create("#atividades-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 70, hozAlign: "center"},
             {title: "Projeto", field: "projeto"},
@@ -116,8 +116,11 @@
         filtrosSelecionados = criarEstadoSelecao();
         document.querySelectorAll(".tofu-filtro-btn.is-active").forEach(function (btn) {
             btn.classList.remove("is-active");
+            btn.setAttribute("aria-pressed", "false");
         });
         tabela.clearFilter(true);
     });
 })();
+
+
 

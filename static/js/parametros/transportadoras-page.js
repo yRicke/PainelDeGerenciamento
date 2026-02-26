@@ -10,9 +10,6 @@
 
     var tabela = window.TabulatorDefaults.create("#transportadoras-tabulator", {
         data: data,
-        layout: "fitDataStretch",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Nome", field: "nome", editor: "input"},
@@ -60,3 +57,4 @@
         tabela.clearFilter(true);
     });
 })();
+

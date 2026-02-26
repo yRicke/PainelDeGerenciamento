@@ -18,9 +18,6 @@
 
     var tabela = window.TabulatorDefaults.create("#rotas-tabulator", {
         data: data,
-        layout: "fitDataStretch",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Código da Rota", field: "codigo_rota", editor: "input"},
@@ -94,3 +91,4 @@
         tabela.clearFilter(true);
     });
 })();
+

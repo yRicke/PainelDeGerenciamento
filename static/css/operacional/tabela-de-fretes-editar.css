@@ -1,9 +1,0 @@
-@import url("./cargas-em-aberto-editar-base.css");
-
-.btn-danger {
-    background: #b42318;
-    color: #fff;
-    border: 0;
-    padding: 0.45rem 0.6rem;
-    cursor: pointer;
-}

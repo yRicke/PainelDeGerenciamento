@@ -9,7 +9,11 @@ import unicodedata
 
 from django.db import transaction
 
-from ..models import Carteira, Cidade, PedidoPendente, Parceiro, Regiao, Rota, Venda
+from ..models import Carteira, Cidade, ControleMargem, PedidoPendente, Parceiro, Regiao, Rota, Venda
+from .controle_margem_regras import (
+    calcular_campos_controle_margem_legado,
+    obter_parametros_controle_margem,
+)
 
 try:
     import xlrd
@@ -43,17 +47,28 @@ def _texto_compartilhado(zf: zipfile.ZipFile) -> list[str]:
     return valores
 
 
-def _primeira_planilha(zf: zipfile.ZipFile) -> str:
+def _primeira_planilha(zf: zipfile.ZipFile, nome_planilha: str | None = None) -> str:
     ns = {"a": XML_NS}
     wb = ET.fromstring(zf.read("xl/workbook.xml"))
     rels = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
     rel_map = {rel.attrib.get("Id"): rel.attrib.get("Target") for rel in rels}
 
-    primeira = wb.find("a:sheets/a:sheet", ns)
-    if primeira is None:
-        raise ValueError("Arquivo sem planilha.")
+    planilha = None
+    if nome_planilha:
+        nome_planilha_normalizado = _normalizar_texto(nome_planilha).lower()
+        for sheet in wb.findall("a:sheets/a:sheet", ns):
+            nome_atual = _normalizar_texto(sheet.attrib.get("name", "")).lower()
+            if nome_atual == nome_planilha_normalizado:
+                planilha = sheet
+                break
+        if planilha is None:
+            raise ValueError(f"Planilha '{nome_planilha}' nao encontrada.")
+    else:
+        planilha = wb.find("a:sheets/a:sheet", ns)
+        if planilha is None:
+            raise ValueError("Arquivo sem planilha.")
 
-    rid = primeira.attrib.get(f"{{{REL_NS}}}id")
+    rid = planilha.attrib.get(f"{{{REL_NS}}}id")
     if not rid or rid not in rel_map:
         raise ValueError("Relacionamento da planilha nao encontrado.")
 
@@ -79,13 +94,13 @@ def _valor_celula(celula: ET.Element, shared_strings: list[str]) -> str:
     return valor.text
 
 
-def _iterar_linhas_xlsx(caminho: Path):
+def _iterar_linhas_xlsx(caminho: Path, nome_planilha: str | None = None):
     ns_row = f"{{{XML_NS}}}row"
     ns_cell = f"{{{XML_NS}}}c"
 
     with zipfile.ZipFile(caminho, "r") as zf:
         shared_strings = _texto_compartilhado(zf)
-        planilha = _primeira_planilha(zf)
+        planilha = _primeira_planilha(zf, nome_planilha=nome_planilha)
         with zf.open(planilha) as stream:
             for _, elem in ET.iterparse(stream, events=("end",)):
                 if elem.tag != ns_row:
@@ -210,7 +225,7 @@ def _extrair_data_venda_do_nome_arquivo(caminho: Path):
         ) from exc
 
 
-def _iterar_linhas_xls(caminho: Path):
+def _iterar_linhas_xls(caminho: Path, nome_planilha: str | None = None):
     if xlrd is None:
         raise RuntimeError(
             "Dependencia 'xlrd' nao encontrada. Instale com: pip install xlrd==2.0.1"
@@ -220,7 +235,16 @@ def _iterar_linhas_xls(caminho: Path):
     if workbook.nsheets <= 0:
         return
 
-    sheet = workbook.sheet_by_index(0)
+    if nome_planilha:
+        sheet = next(
+            (workbook.sheet_by_index(i) for i in range(workbook.nsheets) if _normalizar_texto(workbook.sheet_by_index(i).name).lower() == _normalizar_texto(nome_planilha).lower()),
+            None,
+        )
+        if sheet is None:
+            raise ValueError(f"Planilha '{nome_planilha}' nao encontrada.")
+    else:
+        sheet = workbook.sheet_by_index(0)
+
     for row_idx in range(sheet.nrows):
         linha = []
         for col_idx in range(sheet.ncols):
@@ -229,6 +253,15 @@ def _iterar_linhas_xls(caminho: Path):
                 valor = int(valor)
             linha.append(valor)
         yield linha
+
+
+def _iterar_linhas_planilha(caminho: Path, nome_planilha: str | None = None):
+    sufixo = caminho.suffix.lower()
+    if sufixo == ".xlsx":
+        return _iterar_linhas_xlsx(caminho, nome_planilha=nome_planilha)
+    if sufixo == ".xls":
+        return _iterar_linhas_xls(caminho, nome_planilha=nome_planilha)
+    raise ValueError(f"Formato de arquivo invalido: {caminho.name}. Use .xls ou .xlsx.")
 
 
 def _obter_primeiro_valor(registro: dict, nomes_coluna: list[str]):
@@ -522,6 +555,27 @@ def _split_codigo_nome(valor_texto: str):
     return _normalizar_codigo(texto), _normalizar_texto(texto)
 
 
+def _limpar_valor_tonelada_frete(valor):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return "0"
+    texto = texto.replace("/", "")
+    texto = texto.replace("TON", "").replace("ton", "")
+    return texto.strip()
+
+
+def _to_decimal_percentual(valor, decimal_places: int = 9):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return Decimal("0")
+    tem_percentual = "%" in texto
+    texto = texto.replace("%", "")
+    numero = _to_decimal(texto, max_digits=18, decimal_places=decimal_places)
+    if tem_percentual:
+        return numero / Decimal("100")
+    return numero
+
+
 def _rota_por_codigo_nome(empresa, codigo: str, nome: str):
     if not codigo:
         return None
@@ -739,4 +793,202 @@ def importar_pedidos_pendentes_do_diretorio(
         "rotas": rotas_criadas,
         "regioes": regioes_criadas,
         "parceiros": parceiros_criados,
+    }
+
+
+@transaction.atomic
+def importar_controle_margem_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/comercial/controle_de_margem",
+    limpar_antes: bool = False,
+):
+    base = Path(diretorio)
+    arquivos = sorted(
+        [
+            *base.glob("*.xlsx"),
+            *base.glob("*.xls"),
+        ]
+    )
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "criados": 0,
+            "atualizados": 0,
+            "parceiros_criados": 0,
+            "erros": 0,
+        }
+
+    if limpar_antes:
+        ControleMargem.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_criados = 0
+    total_atualizados = 0
+    total_erros = 0
+    parceiros_criados = 0
+
+    cache_parceiros: dict[str, Parceiro] = {}
+    cache_carteiras: dict[int, Carteira | None] = {}
+    parametros = obter_parametros_controle_margem(empresa)
+
+    titulos_obrigatorios = {
+        "Nro. Único",
+        "Parceiro",
+        "Nome Parceiro (Parceiro)",
+        "Vlr. Nota",
+        "Custo Total do Produto",
+        "Peso bruto",
+    }
+
+    for arquivo in arquivos:
+        data_origem = arquivo.stem
+        cabecalho = None
+        iterador_linhas = _iterar_linhas_planilha(arquivo, nome_planilha="new sheet")
+
+        for idx, linha in enumerate(iterador_linhas):
+            if idx < 2:
+                continue
+
+            if cabecalho is None:
+                cabecalho = linha
+                cabecalho_set = {str(col).strip() for col in cabecalho if str(col).strip()}
+                faltantes = sorted(titulos_obrigatorios - cabecalho_set)
+                if faltantes:
+                    raise ValueError(
+                        "Titulos obrigatorios ausentes no arquivo "
+                        f"'{arquivo.name}': {', '.join(faltantes)}"
+                    )
+                continue
+
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            registro = {}
+            for i in range(len(cabecalho)):
+                chave_base = cabecalho[i]
+                chave = chave_base
+                sufixo = 2
+                while chave in registro:
+                    chave = f"{chave_base}__{sufixo}"
+                    sufixo += 1
+                registro[chave] = linha[i] if i < len(linha) else ""
+
+            nro_unico_texto = _normalizar_codigo(_valor_coluna(registro, "Nro. Único"))
+            if not nro_unico_texto:
+                continue
+
+            try:
+                nro_unico = int(Decimal(nro_unico_texto.replace(",", ".")))
+            except (InvalidOperation, ValueError):
+                total_erros += 1
+                continue
+
+            parceiro_codigo = _normalizar_codigo(_valor_coluna(registro, "Parceiro"))
+            parceiro_nome = _normalizar_texto(_valor_coluna(registro, "Nome Parceiro (Parceiro)"))
+            cod_nome_parceiro = " - ".join([parte for parte in [parceiro_codigo, parceiro_nome] if parte])
+            if cod_nome_parceiro.upper() == "3620 - SAFIA DISTRIBUIDORA DE ALIMENTOS FILIAL":
+                continue
+
+            parceiro = None
+            if parceiro_codigo:
+                parceiro = cache_parceiros.get(parceiro_codigo)
+                if parceiro is None:
+                    parceiro_existia = Parceiro.objects.filter(empresa=empresa, codigo=parceiro_codigo).exists()
+                    parceiro = Parceiro.obter_ou_criar_por_codigo_nome(
+                        empresa=empresa,
+                        codigo=parceiro_codigo,
+                        nome=parceiro_nome,
+                    )
+                    cache_parceiros[parceiro_codigo] = parceiro
+                    if not parceiro_existia:
+                        parceiros_criados += 1
+
+            carteira_item = None
+            if parceiro:
+                carteira_item = cache_carteiras.get(parceiro.id)
+                if parceiro.id not in cache_carteiras:
+                    carteira_item = (
+                        Carteira.objects.filter(empresa=empresa, parceiro=parceiro)
+                        .order_by("-data_cadastro", "-id")
+                        .first()
+                    )
+                    cache_carteiras[parceiro.id] = carteira_item
+
+            empresa_codigo = _normalizar_codigo(_valor_coluna(registro, "Empresa"))
+            nome_fantasia_empresa = _normalizar_texto(_valor_coluna(registro, "Nome Fantasia (Empresa)"))
+            nome_empresa = " - ".join([parte for parte in [empresa_codigo, nome_fantasia_empresa] if parte])
+
+            vlr_nota = _to_decimal(_valor_coluna(registro, "Vlr. Nota"), max_digits=16, decimal_places=6)
+            custo_total_produto = _to_decimal(_valor_coluna(registro, "Custo Total do Produto"), max_digits=16, decimal_places=6)
+            peso_bruto = _to_decimal(_valor_coluna(registro, "Peso bruto"), max_digits=16, decimal_places=6)
+            valor_tonelada_frete_safia = _to_decimal(
+                _limpar_valor_tonelada_frete(_valor_coluna(registro, "Valor Tonelada Frete[SAFIA]")),
+                max_digits=16,
+                decimal_places=6,
+            )
+            gerente_valor = (_gerente_valido_ou_vazio(carteira_item.gerente) if carteira_item else None)
+            tipo_venda_valor = _normalizar_texto(_valor_coluna(registro, "Tipo da Venda")) or None
+            calculados = calcular_campos_controle_margem_legado(
+                nome_empresa=nome_empresa,
+                gerente=gerente_valor,
+                tipo_venda=tipo_venda_valor,
+                vlr_nota=vlr_nota,
+                custo_total_produto=custo_total_produto,
+                peso_bruto=peso_bruto,
+                valor_tonelada_frete_safia=valor_tonelada_frete_safia,
+                taxa_vendas_percentual=parametros["vendas"].remuneracao_percentual,
+                taxa_operador_logistica_rs=parametros["logistica"].remuneracao_rs,
+                taxa_administracao_percentual=parametros["administracao"].remuneracao_percentual,
+                taxa_financeiro_mes=parametros["financeiro"].taxa_ao_mes,
+            )
+
+            defaults = {
+                "data_origem": data_origem,
+                "nome_empresa": nome_empresa,
+                "parceiro": parceiro,
+                "cod_nome_parceiro": cod_nome_parceiro,
+                "descricao_perfil": (carteira_item.descricao_perfil if carteira_item else None),
+                "apelido_vendedor": _normalizar_texto(_valor_coluna(registro, "Apelido (Vendedor)")) or None,
+                "gerente": gerente_valor,
+                "dt_neg": _excel_date(_valor_coluna(registro, "Dt. Neg.")),
+                "previsao_entrega": _excel_date(_valor_coluna(registro, "Previsão de entrega")),
+                "tipo_venda": tipo_venda_valor,
+                "vlr_nota": vlr_nota,
+                "custo_total_produto": custo_total_produto,
+                "margem_bruta": calculados["margem_bruta"],
+                "lucro_bruto": calculados["lucro_bruto"],
+                "valor_tonelada_frete_safia": valor_tonelada_frete_safia,
+                "peso_bruto": peso_bruto,
+                "custo_por_kg": calculados["custo_por_kg"],
+                "vendas": calculados["vendas"],
+                "producao": calculados["producao"],
+                "operador_logistica": calculados["operador_logistica"],
+                "frete_distribuicao": calculados["frete_distribuicao"],
+                "total_logistica": calculados["total_logistica"],
+                "administracao": calculados["administracao"],
+                "financeiro": calculados["financeiro"],
+                "total_setores": calculados["total_setores"],
+                "valor_liquido": calculados["valor_liquido"],
+                "margem_liquida": calculados["margem_liquida"],
+            }
+
+            _, criado = ControleMargem.objects.update_or_create(
+                empresa=empresa,
+                nro_unico=nro_unico,
+                defaults=defaults,
+            )
+            if criado:
+                total_criados += 1
+            else:
+                total_atualizados += 1
+            total_linhas += 1
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "criados": total_criados,
+        "atualizados": total_atualizados,
+        "parceiros_criados": parceiros_criados,
+        "erros": total_erros,
     }

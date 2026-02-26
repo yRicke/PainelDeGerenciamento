@@ -459,9 +459,12 @@
         btn.type = "button";
         btn.className = "carteira-filtro-btn";
         btn.textContent = valor;
+        btn.setAttribute("aria-pressed", "false");
         btn.addEventListener("click", function () {
             btn.classList.toggle("is-active");
-            onToggle(btn.classList.contains("is-active"), valor);
+            var ativo = btn.classList.contains("is-active");
+            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+            onToggle(ativo, valor);
             aplicarFiltros();
         });
         return btn;
@@ -535,9 +538,6 @@
 
     var tabela = window.TabulatorDefaults.create("#carteira-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: colunas,
     });
 
@@ -582,6 +582,7 @@
         filtrosSelecionados = criarEstadoSelecao();
         document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
             btn.classList.remove("is-active");
+            btn.setAttribute("aria-pressed", "false");
         });
         tabela.clearFilter(true);
         tabela.clearHeaderFilter();
@@ -593,5 +594,7 @@
     tabela.on("dataFiltered", atualizarDashboardComDadosVisiveis);
     setTimeout(atualizarDashboardComDadosVisiveis, 0);
 })();
+
+
 
 

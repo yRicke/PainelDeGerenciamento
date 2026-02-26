@@ -9,9 +9,6 @@
 
     var tabela = window.TabulatorDefaults.create("#centros-resultado-tabulator", {
         data: data,
-        layout: "fitDataStretch",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Descricao", field: "descricao", editor: "input"},
@@ -49,4 +46,5 @@
         tabela.clearFilter(true);
     });
 })();
+
 

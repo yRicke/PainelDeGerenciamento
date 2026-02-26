@@ -130,9 +130,12 @@
         btn.type = "button";
         btn.className = "carteira-filtro-btn";
         btn.textContent = valor;
+        btn.setAttribute("aria-pressed", "false");
         btn.addEventListener("click", function () {
             btn.classList.toggle("is-active");
-            onToggle(btn.classList.contains("is-active"), valor);
+            var ativo = btn.classList.contains("is-active");
+            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+            onToggle(ativo, valor);
             aplicarFiltrosExibicao();
         });
         return btn;
@@ -152,25 +155,6 @@
 
     var table = window.TabulatorDefaults.create("#fretes-tabulator", {
         data: dadosOriginais,
-        layout: "fitDataTable",
-        movableColumns: true,
-        pagination: "local",
-        paginationSize: 100,
-        locale: true,
-        langs: {
-            "pt-br": {
-                pagination: {
-                    first: "Primeira",
-                    first_title: "Primeira página",
-                    last: "Última",
-                    last_title: "Última página",
-                    prev: "Anterior",
-                    prev_title: "Página anterior",
-                    next: "Próxima",
-                    next_title: "Próxima página"
-                }
-            }
-        },
         columns: [
             { title: "ID", field: "id", width: 80, hozAlign: "center" },
             { title: "Cidade Código", field: "cidade_codigo" },
@@ -225,6 +209,7 @@
             };
             document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
                 btn.classList.remove("is-active");
+                btn.setAttribute("aria-pressed", "false");
             });
             table.clearFilter(true);
             table.clearHeaderFilter();
@@ -233,4 +218,6 @@
 
     table.setLocale("pt-br");
 })();
+
+
 

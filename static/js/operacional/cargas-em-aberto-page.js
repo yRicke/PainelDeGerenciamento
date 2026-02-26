@@ -180,25 +180,6 @@
 
     var table = window.TabulatorDefaults.create("#cargas-tabulator", {
         data: dadosOriginais,
-        layout: "fitDataTable",
-        movableColumns: true,
-        pagination: "local",
-        paginationSize: 100,
-        locale: true,
-        langs: {
-            "pt-br": {
-                pagination: {
-                    first: "Primeira",
-                    first_title: "Primeira página",
-                    last: "Última",
-                    last_title: "Última página",
-                    prev: "Anterior",
-                    prev_title: "Página anterior",
-                    next: "Próxima",
-                    next_title: "Próxima página"
-                }
-            }
-        },
         columns: [
             { title: "Ordem Carga", field: "ordem_de_carga_codigo", headerFilter: "input" },
             { title: "Situação", field: "situacao", headerFilter: "input" },
@@ -291,5 +272,7 @@
     table.setLocale("pt-br");
     atualizarDashboard(dadosOriginais);
 })();
+
+
 
 

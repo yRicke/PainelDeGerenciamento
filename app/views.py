@@ -15,6 +15,7 @@ from .models import (
     Carteira,
     Cidade,
     Colaborador,
+    ControleMargem,
     ContasAReceber,
     Empresa,
     Estoque,
@@ -25,6 +26,10 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    ParametroMargemAdministracao,
+    ParametroMargemFinanceiro,
+    ParametroMargemLogistica,
+    ParametroMargemVendas,
     PedidoPendente,
     Motorista,
     Producao,
@@ -56,6 +61,7 @@ from .services import (
     preparar_diretorios_carteira,
     preparar_diretorios_vendas,
     preparar_diretorios_pedidos_pendentes,
+    preparar_diretorios_controle_margem,
     preparar_diretorios_dfc,
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_orcamento,
@@ -66,6 +72,7 @@ from .services import (
     importar_upload_carteira,
     importar_upload_vendas,
     importar_upload_pedidos_pendentes,
+    importar_upload_controle_margem,
     importar_upload_dfc,
     importar_upload_contas_a_receber,
     importar_upload_orcamento,
@@ -96,6 +103,18 @@ from .services import (
     atualizar_agenda_por_post,
     criar_pedido_pendente_por_post,
     atualizar_pedido_pendente_por_post,
+    criar_controle_margem_por_post,
+    atualizar_controle_margem_por_post,
+    criar_parametro_margem_vendas,
+    atualizar_parametro_margem_vendas,
+    excluir_parametro_margem_vendas,
+    criar_parametro_margem_logistica,
+    atualizar_parametro_margem_logistica,
+    excluir_parametro_margem_logistica,
+    salvar_parametro_margem_administracao,
+    criar_parametro_margem_financeiro,
+    atualizar_parametro_margem_financeiro,
+    excluir_parametro_margem_financeiro,
     criar_titulo_por_dados,
     atualizar_titulo_por_dados,
     criar_natureza_por_dados,
@@ -149,12 +168,16 @@ from .tabulator import (
     build_naturezas_tabulator,
     build_operacoes_tabulator,
     build_centros_resultado_tabulator,
+    build_parametros_margem_vendas_tabulator,
+    build_parametros_margem_logistica_tabulator,
+    build_parametros_margem_financeiro_tabulator,
     build_dfc_tabulator,
     build_contas_a_receber_tabulator,
     build_orcamento_tabulator,
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
     build_pedidos_pendentes_tabulator,
+    build_controle_margem_tabulator,
     build_cargas_tabulator,
     build_estoque_tabulator,
     build_fretes_tabulator,
@@ -206,6 +229,38 @@ def _empresa_bloqueia_cadastro_edicao_importacao(empresa):
 
 def _valor_checkbox_possui_sistema(post_data):
     return str(post_data.get("possui_sistema", "")).strip().lower() in {"1", "true", "on", "sim", "yes"}
+
+
+def _normalizar_lista_query(request, chave):
+    valores = [str(v or "").strip() for v in request.GET.getlist(chave)]
+    return [v for v in valores if v]
+
+
+def _situacao_controle_margem_param_ou_none(valor):
+    texto = (valor or "").strip().lower()
+    if not texto:
+        return ""
+    mapa = {
+        "amarelo": ControleMargem.SITUACAO_AMARELO,
+        "roxo": ControleMargem.SITUACAO_ROXO,
+        "verde": ControleMargem.SITUACAO_VERDE,
+        "vermelho": ControleMargem.SITUACAO_VERMELHO,
+    }
+    return mapa.get(texto, "")
+
+
+def _filtrar_controle_margem_por_situacao(qs, situacao):
+    if not situacao:
+        return qs
+    if situacao == ControleMargem.SITUACAO_ROXO:
+        return qs.filter(margem_bruta__lt=0.10)
+    if situacao == ControleMargem.SITUACAO_VERMELHO:
+        return qs.filter(margem_bruta__gte=0.10, margem_bruta__lt=0.12)
+    if situacao == ControleMargem.SITUACAO_AMARELO:
+        return qs.filter(margem_bruta__gte=0.12, margem_bruta__lt=0.18)
+    if situacao == ControleMargem.SITUACAO_VERDE:
+        return qs.filter(margem_bruta__gte=0.18)
+    return qs.none()
 
 
 def _bloquear_criar_em_modulo_com_importacao_se_necessario(request, empresa, acao, acoes_criar):
@@ -1252,6 +1307,151 @@ def excluir_parceiro_modulo(request, empresa_id, parceiro_id):
     parceiro.excluir_parceiro()
     messages.success(request, "Parceiro excluído com sucesso.")
     return redirect("parceiros", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def parametros_vendas(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Vendas")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method == "POST":
+        acao = (request.POST.get("acao") or "").strip()
+        if acao == "criar":
+            erro, total_recalculado = criar_parametro_margem_vendas(empresa, request.POST)
+        elif acao == "editar":
+            item = ParametroMargemVendas.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_vendas", empresa_id=empresa.id)
+            erro, total_recalculado = atualizar_parametro_margem_vendas(item, empresa, request.POST)
+        elif acao == "excluir":
+            item = ParametroMargemVendas.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_vendas", empresa_id=empresa.id)
+            erro, total_recalculado = excluir_parametro_margem_vendas(item, empresa)
+        else:
+            messages.error(request, "Acao invalida para parametros de vendas.")
+            return redirect("parametros_vendas", empresa_id=empresa.id)
+
+        if erro:
+            messages.error(request, erro)
+            return redirect("parametros_vendas", empresa_id=empresa.id)
+        messages.success(request, f"Parametros de vendas atualizados. Registros recalculados: {total_recalculado}.")
+        return redirect("parametros_vendas", empresa_id=empresa.id)
+
+    parametros_qs = ParametroMargemVendas.objects.filter(empresa=empresa).order_by("id")
+    contexto = {
+        "empresa": empresa,
+        "parametros": parametros_qs,
+        "parametros_vendas_tabulator": build_parametros_margem_vendas_tabulator(parametros_qs, empresa.id),
+    }
+    return render(request, "parametros/parametros_vendas.html", contexto)
+
+
+@login_required(login_url="entrar")
+def parametros_logistica(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Logistica")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method == "POST":
+        acao = (request.POST.get("acao") or "").strip()
+        if acao == "criar":
+            erro, total_recalculado = criar_parametro_margem_logistica(empresa, request.POST)
+        elif acao == "editar":
+            item = ParametroMargemLogistica.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_logistica", empresa_id=empresa.id)
+            erro, total_recalculado = atualizar_parametro_margem_logistica(item, empresa, request.POST)
+        elif acao == "excluir":
+            item = ParametroMargemLogistica.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_logistica", empresa_id=empresa.id)
+            erro, total_recalculado = excluir_parametro_margem_logistica(item, empresa)
+        else:
+            messages.error(request, "Acao invalida para parametros de logistica.")
+            return redirect("parametros_logistica", empresa_id=empresa.id)
+
+        if erro:
+            messages.error(request, erro)
+            return redirect("parametros_logistica", empresa_id=empresa.id)
+        messages.success(request, f"Parametros de logistica atualizados. Registros recalculados: {total_recalculado}.")
+        return redirect("parametros_logistica", empresa_id=empresa.id)
+
+    parametros_qs = ParametroMargemLogistica.objects.filter(empresa=empresa).order_by("id")
+    contexto = {
+        "empresa": empresa,
+        "parametros": parametros_qs,
+        "parametros_logistica_tabulator": build_parametros_margem_logistica_tabulator(parametros_qs, empresa.id),
+    }
+    return render(request, "parametros/parametros_logistica.html", contexto)
+
+
+@login_required(login_url="entrar")
+def parametros_administracao(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Administracao")
+    if not autorizado:
+        return redirect("index")
+
+    parametro, _ = ParametroMargemAdministracao.objects.get_or_create(empresa=empresa)
+    if request.method == "POST":
+        total_recalculado = salvar_parametro_margem_administracao(empresa, request.POST)
+        messages.success(
+            request,
+            f"Parametros de administracao salvos. Registros de Controle de Margem recalculados: {total_recalculado}.",
+        )
+        return redirect("parametros_administracao", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "parametro": parametro,
+    }
+    return render(request, "parametros/parametros_administracao.html", contexto)
+
+
+@login_required(login_url="entrar")
+def parametros_financeiro(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Financeiro")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method == "POST":
+        acao = (request.POST.get("acao") or "").strip()
+        if acao == "criar":
+            erro, total_recalculado = criar_parametro_margem_financeiro(empresa, request.POST)
+        elif acao == "editar":
+            item = ParametroMargemFinanceiro.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_financeiro", empresa_id=empresa.id)
+            erro, total_recalculado = atualizar_parametro_margem_financeiro(item, empresa, request.POST)
+        elif acao == "excluir":
+            item = ParametroMargemFinanceiro.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_financeiro", empresa_id=empresa.id)
+            erro, total_recalculado = excluir_parametro_margem_financeiro(item, empresa)
+        else:
+            messages.error(request, "Acao invalida para parametros financeiro.")
+            return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+        if erro:
+            messages.error(request, erro)
+            return redirect("parametros_financeiro", empresa_id=empresa.id)
+        messages.success(request, f"Parametros financeiro atualizados. Registros recalculados: {total_recalculado}.")
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    parametros_qs = ParametroMargemFinanceiro.objects.filter(empresa=empresa).order_by("id")
+    contexto = {
+        "empresa": empresa,
+        "parametros": parametros_qs,
+        "parametros_financeiro_tabulator": build_parametros_margem_financeiro_tabulator(parametros_qs, empresa.id),
+    }
+    return render(request, "parametros/parametros_financeiro.html", contexto)
 
 
 @login_required(login_url="entrar")
@@ -2773,7 +2973,198 @@ def precificacao(request, empresa_id):
 @login_required(login_url="entrar")
 def controle_de_margem(request, empresa_id):
     modulo = _obter_modulo("Comercial", "Controle de Margem")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_controle_margem()
+
+    if request.method == "POST":
+        acao = (request.POST.get("acao") or "").strip()
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_controle_margem"},
+        ):
+            return redirect("controle_de_margem", empresa_id=empresa.id)
+        if acao == "criar_controle_margem":
+            erro = criar_controle_margem_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Controle de margem criado com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_controle_margem")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_controle_margem(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    controles_base_qs = (
+        ControleMargem.objects.filter(empresa=empresa)
+        .select_related("parceiro")
+        .order_by("-dt_neg", "-id")
+    )
+
+    filtros_disponiveis = {
+        "descricao_perfil": sorted(
+            [
+                valor
+                for valor in controles_base_qs.values_list("descricao_perfil", flat=True).distinct()
+                if str(valor or "").strip()
+            ],
+            key=lambda item: item.lower(),
+        ),
+        "apelido_vendedor": sorted(
+            [
+                valor
+                for valor in controles_base_qs.values_list("apelido_vendedor", flat=True).distinct()
+                if str(valor or "").strip()
+            ],
+            key=lambda item: item.lower(),
+        ),
+        "nome_empresa": sorted(
+            [
+                valor
+                for valor in controles_base_qs.values_list("nome_empresa", flat=True).distinct()
+                if str(valor or "").strip()
+            ],
+            key=lambda item: item.lower(),
+        ),
+        "tipo_venda": sorted(
+            [
+                valor
+                for valor in controles_base_qs.values_list("tipo_venda", flat=True).distinct()
+                if str(valor or "").strip()
+            ],
+            key=lambda item: item.lower(),
+        ),
+    }
+
+    situacao_param = _situacao_controle_margem_param_ou_none(request.GET.get("situacao"))
+    situacao_raw = (request.GET.get("situacao") or "").strip()
+    if situacao_raw and not situacao_param:
+        messages.error(request, "Filtro de situacao invalido.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    descricao_perfil_selecionados = _normalizar_lista_query(request, "descricao_perfil")
+    apelido_vendedor_selecionados = _normalizar_lista_query(request, "apelido_vendedor")
+    nome_empresa_selecionados = _normalizar_lista_query(request, "nome_empresa")
+    tipo_venda_selecionados = _normalizar_lista_query(request, "tipo_venda")
+
+    if any(item not in filtros_disponiveis["descricao_perfil"] for item in descricao_perfil_selecionados):
+        messages.error(request, "Filtro descricao_perfil invalido.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+    if any(item not in filtros_disponiveis["apelido_vendedor"] for item in apelido_vendedor_selecionados):
+        messages.error(request, "Filtro apelido_vendedor invalido.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+    if any(item not in filtros_disponiveis["nome_empresa"] for item in nome_empresa_selecionados):
+        messages.error(request, "Filtro nome_empresa invalido.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+    if any(item not in filtros_disponiveis["tipo_venda"] for item in tipo_venda_selecionados):
+        messages.error(request, "Filtro tipo_venda invalido.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    controles_qs = controles_base_qs
+    if situacao_param:
+        controles_qs = _filtrar_controle_margem_por_situacao(controles_qs, situacao_param)
+    if descricao_perfil_selecionados:
+        controles_qs = controles_qs.filter(descricao_perfil__in=descricao_perfil_selecionados)
+    if apelido_vendedor_selecionados:
+        controles_qs = controles_qs.filter(apelido_vendedor__in=apelido_vendedor_selecionados)
+    if nome_empresa_selecionados:
+        controles_qs = controles_qs.filter(nome_empresa__in=nome_empresa_selecionados)
+    if tipo_venda_selecionados:
+        controles_qs = controles_qs.filter(tipo_venda__in=tipo_venda_selecionados)
+
+    arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    controles_tabulator = build_controle_margem_tabulator(
+        controles_qs,
+        empresa.id,
+        permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+    )
+
+    contexto = {
+        "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome"),
+        "controle_margem_tabulator": controles_tabulator,
+        "filtros_disponiveis": filtros_disponiveis,
+        "filtros_aplicados": {
+            "situacao": situacao_param,
+            "descricao_perfil": descricao_perfil_selecionados,
+            "apelido_vendedor": apelido_vendedor_selecionados,
+            "nome_empresa": nome_empresa_selecionados,
+            "tipo_venda": tipo_venda_selecionados,
+        },
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def editar_controle_margem_modulo(request, empresa_id, controle_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Controle de Margem")
+    if not permitido:
+        return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "controle_de_margem")
+    if bloqueio:
+        return bloqueio
+
+    controle = (
+        ControleMargem.objects.filter(id=controle_id, empresa=empresa)
+        .select_related("parceiro")
+        .first()
+    )
+    if not controle:
+        messages.error(request, "Controle de margem nao encontrado.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_controle_margem_por_post(controle, empresa, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_controle_margem_modulo", empresa_id=empresa.id, controle_id=controle.id)
+        messages.success(request, "Controle de margem atualizado com sucesso.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "controle": controle,
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome"),
+    }
+    return render(request, "comercial/controle_de_margem_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_controle_margem_modulo(request, empresa_id, controle_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Controle de Margem")
+    if not permitido:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    controle = ControleMargem.objects.filter(id=controle_id, empresa=empresa).first()
+    if not controle:
+        messages.error(request, "Controle de margem nao encontrado.")
+        return redirect("controle_de_margem", empresa_id=empresa.id)
+
+    controle.excluir_controle_margem()
+    messages.success(request, "Controle de margem excluido com sucesso.")
+    return redirect("controle_de_margem", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

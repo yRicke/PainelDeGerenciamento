@@ -10,9 +10,6 @@
 
     var tabela = window.TabulatorDefaults.create("#produtos-tabulator", {
         data: data,
-        layout: "fitDataTable",
-        pagination: true,
-        paginationSize: 100,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Codigo", field: "codigo_produto"},
@@ -70,4 +67,6 @@
         tabela.clearFilter(true);
     });
 })();
+
+
 
