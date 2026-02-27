@@ -6,7 +6,7 @@
     var colunas = [
         {title: "ID", field: "id", width: 80, hozAlign: "center"},
         {title: "Nome", field: "nome"},
-        {title: "CÃ³digo", field: "codigo"},
+        {title: "Código", field: "codigo"},
         {title: "Cidade", field: "cidade_nome"},
     ];
 

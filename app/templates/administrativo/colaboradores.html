@@ -18,7 +18,7 @@
 
 <section class="panel">
     <h2>Novo Colaborador</h2>
-    <p class="form-note">Cadastre colaboradores para vincular gestor e responsÃ¡vel nas atividades.</p>
+    <p class="form-note">Cadastre colaboradores para vincular gestor e responsável nas atividades.</p>
     <form action="{% url 'criar_colaborador_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
         <input type="text" name="nome" placeholder="Nome do colaborador" required>

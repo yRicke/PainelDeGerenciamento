@@ -24,7 +24,7 @@
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Nome", field: "nome", editor: "input"},
-            {title: "CÃ³digo", field: "codigo_transportadora", editor: "input"},
+            {title: "Código", field: "codigo_transportadora", editor: "input"},
             colunaAcoes,
         ],
     });

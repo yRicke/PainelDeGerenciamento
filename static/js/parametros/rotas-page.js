@@ -32,7 +32,7 @@
         data: data,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
-            {title: "CÃ³digo da Rota", field: "codigo_rota", editor: "input"},
+            {title: "Código da Rota", field: "codigo_rota", editor: "input"},
             {title: "Nome", field: "nome", editor: "input"},
             {
                 title: "UF",
