@@ -153,6 +153,9 @@
     var tabela = window.TabulatorDefaults.create("#contas-a-receber-tabulator", {
         data: data,
         columns: colunas,
+        freezeUX: {
+            enabled: true,
+        },
     });
 
     function atualizarDashboardComTabela() {

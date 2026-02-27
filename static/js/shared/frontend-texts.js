@@ -23,6 +23,9 @@
         common: Object.freeze({
             actionColumn: "A\u00E7\u00F5es",
             selectedFilePrefix: "Arquivo selecionado: ",
+            freezeColumn: "Fixar coluna",
+            unfreezeColumn: "Desfixar coluna",
+            clearFrozenColumns: "Limpar colunas fixas",
         }),
         confirm: Object.freeze({
             replaceCurrentFile: "J\u00E1 existe um arquivo na pasta. Deseja substituir o arquivo atual?",

@@ -192,6 +192,9 @@
     var tabela = window.TabulatorDefaults.create("#dfc-tabulator", {
         data: data,
         columns: colunas,
+        freezeUX: {
+            enabled: true,
+        },
     });
 
     function atualizarDashboardComTabela() {
