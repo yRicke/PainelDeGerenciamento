@@ -405,11 +405,13 @@
         var persisted = readPersistedFrozenState(freezeOptions);
         if (!persisted || !Array.isArray(persisted.frozenFields)) return false;
 
-        var persistedFields = new Set(
-            persisted.frozenFields
-                .map(function (value) { return String(value || ""); })
-                .filter(Boolean)
-        );
+        var persistedOrder = persisted.frozenFields
+            .map(function (value) { return String(value || ""); })
+            .filter(Boolean);
+        if (freezeOptions) {
+            freezeOptions.initialFrozenOrder = Array.from(new Set(persistedOrder));
+        }
+        var persistedFields = new Set(persistedOrder);
 
         var leafColumns = collectLeafColumns(columns, []);
         leafColumns.forEach(function (column) {
@@ -424,7 +426,41 @@
             }
         });
 
+        movePersistedFrozenColumnsToLeft(columns, persistedFields);
         return true;
+    }
+
+    function movePersistedFrozenColumnsToLeft(columns, persistedFields) {
+        if (!Array.isArray(columns) || !columns.length) return;
+        if (!(persistedFields instanceof Set) || !persistedFields.size) return;
+
+        var hasNested = columns.some(function (column) {
+            return Boolean(column && Array.isArray(column.columns) && column.columns.length);
+        });
+        if (hasNested) return;
+
+        var frozenColumns = [];
+        var remainingColumns = [];
+
+        columns.forEach(function (column) {
+            if (!column || !column.field || isActionColumn(column)) {
+                remainingColumns.push(column);
+                return;
+            }
+
+            if (persistedFields.has(String(column.field))) {
+                frozenColumns.push(column);
+                return;
+            }
+
+            remainingColumns.push(column);
+        });
+
+        if (!frozenColumns.length) return;
+        columns.length = 0;
+        frozenColumns.concat(remainingColumns).forEach(function (column) {
+            columns.push(column);
+        });
     }
 
     function collectLeafColumnComponents(columnComponents, output) {
@@ -458,26 +494,34 @@
     }
 
     function setColumnFrozenState(column, shouldFreeze) {
-        if (!column) return;
+        if (!column) return null;
 
         if (shouldFreeze) {
             if (typeof column.freeze === "function") {
-                column.freeze();
-                return;
+                return column.freeze();
             }
             if (typeof column.updateDefinition === "function") {
-                column.updateDefinition({frozen: true});
+                return column.updateDefinition({frozen: true});
             }
-            return;
+            return null;
         }
 
         if (typeof column.unfreeze === "function") {
-            column.unfreeze();
-            return;
+            return column.unfreeze();
         }
         if (typeof column.updateDefinition === "function") {
-            column.updateDefinition({frozen: false});
+            return column.updateDefinition({frozen: false});
         }
+        return null;
+    }
+
+    function runAfterColumnMutation(result, onDone) {
+        var callback = typeof onDone === "function" ? onDone : function () {};
+        if (result && typeof result.then === "function") {
+            result.then(callback).catch(callback);
+            return;
+        }
+        callback();
     }
 
     function getColumnField(column) {
@@ -503,8 +547,30 @@
         return -1;
     }
 
+    function findColumnComponentByField(leafColumns, field) {
+        if (!Array.isArray(leafColumns) || !leafColumns.length) return null;
+        var normalizedField = String(field || "");
+        if (!normalizedField) return null;
+
+        for (var i = 0; i < leafColumns.length; i += 1) {
+            if (getColumnField(leafColumns[i]) === normalizedField) return leafColumns[i];
+        }
+
+        return null;
+    }
+
     function moveColumnNearReference(column, referenceColumn, placeAfter) {
         if (!column || !referenceColumn || column === referenceColumn) return false;
+
+        var table = getTableFromColumn(column);
+        if (table && typeof table.moveColumn === "function") {
+            try {
+                table.moveColumn(column, referenceColumn, placeAfter === true);
+                return true;
+            } catch (_errMoveTable) {
+                // Fallback below.
+            }
+        }
 
         try {
             if (typeof column.move === "function") {
@@ -512,60 +578,16 @@
                 return true;
             }
         } catch (_errMoveColumn) {
-            // Fallback below for environments where component move is unavailable.
+            // No-op.
         }
 
-        var table = getTableFromColumn(column);
         if (!table || typeof table.moveColumn !== "function") return false;
-
         try {
             table.moveColumn(column, referenceColumn, placeAfter === true);
             return true;
-        } catch (_errMoveTable) {
+        } catch (_errMoveTableAgain) {
             return false;
         }
-    }
-
-    function moveColumnNearNearestFrozen(column) {
-        if (!column) return;
-        var table = getTableFromColumn(column);
-        if (!table || typeof table.getColumns !== "function") return;
-
-        var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
-        if (!leafColumns.length) return;
-
-        var selectedIndex = findColumnIndex(leafColumns, column);
-        if (selectedIndex < 0) return;
-
-        var nearestFrozenColumn = null;
-        var nearestFrozenIndex = -1;
-        var nearestDistance = Number.POSITIVE_INFINITY;
-
-        for (var i = 0; i < leafColumns.length; i += 1) {
-            var candidate = leafColumns[i];
-            if (!candidate || candidate === column) continue;
-            if (!isFreezableColumnComponent(candidate)) continue;
-
-            var candidateDefinition = candidate.getDefinition();
-            if (!candidateDefinition || !candidateDefinition.frozen) continue;
-
-            var distance = Math.abs(i - selectedIndex);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestFrozenColumn = candidate;
-                nearestFrozenIndex = i;
-            }
-        }
-
-        if (!nearestFrozenColumn || nearestFrozenIndex < 0) return;
-
-        var placeAfter = selectedIndex > nearestFrozenIndex;
-        var alreadyAdjacent = placeAfter
-            ? selectedIndex === nearestFrozenIndex + 1
-            : selectedIndex === nearestFrozenIndex - 1;
-        if (alreadyAdjacent) return;
-
-        moveColumnNearReference(column, nearestFrozenColumn, placeAfter);
     }
 
     function collectFrozenFieldsFromDefinitions(definitions, output) {
@@ -584,30 +606,273 @@
         return output;
     }
 
-    function captureFrozenFields(table) {
-        if (!table) return [];
+    function getFrozenFieldSetFromTable(table) {
+        if (!table || typeof table.getColumnDefinitions !== "function") return null;
+        var frozenFields = collectFrozenFieldsFromDefinitions(table.getColumnDefinitions(), []);
+        return new Set(frozenFields);
+    }
 
-        if (typeof table.getColumnDefinitions === "function") {
-            var definitions = table.getColumnDefinitions();
-            var fieldsFromDefinitions = collectFrozenFieldsFromDefinitions(definitions, []);
-            return Array.from(new Set(fieldsFromDefinitions));
-        }
+    function getOrderedFrozenFields(table) {
+        if (!table || typeof table.getColumns !== "function") return [];
 
-        if (typeof table.getColumns !== "function") return [];
+        var frozenSet = getFrozenFieldSetFromTable(table);
         var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
-        var frozenFields = [];
+        if (!leafColumns.length) return [];
+
+        var orderedFields = [];
         leafColumns.forEach(function (column) {
             if (!isFreezableColumnComponent(column)) return;
-            var definition = column.getDefinition();
-            if (!definition.frozen) return;
-            frozenFields.push(String(definition.field));
+            var field = getColumnField(column);
+            if (!field) return;
+            if (frozenSet && !frozenSet.has(field)) return;
+            if (!frozenSet && !isColumnCurrentlyFrozen(column)) return;
+            orderedFields.push(field);
         });
-        return Array.from(new Set(frozenFields));
+
+        return Array.from(new Set(orderedFields));
+    }
+
+    function normalizeFrozenOrderForTable(table, frozenOrder) {
+        if (!table || typeof table.getColumns !== "function") return [];
+
+        var desiredOrder = Array.isArray(frozenOrder)
+            ? frozenOrder.map(function (item) { return String(item || ""); }).filter(Boolean)
+            : [];
+
+        var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
+        if (!leafColumns.length || !desiredOrder.length) return [];
+
+        var existingFields = new Set();
+        leafColumns.forEach(function (column) {
+            if (!isFreezableColumnComponent(column)) return;
+            var field = getColumnField(column);
+            if (!field) return;
+            existingFields.add(field);
+        });
+
+        return Array.from(new Set(desiredOrder)).filter(function (field) {
+            return existingFields.has(field);
+        });
+    }
+
+    function positionColumnsForFrozenOrder(table, frozenOrder) {
+        if (!table || typeof table.getColumns !== "function") return;
+        var order = normalizeFrozenOrderForTable(table, frozenOrder);
+        if (!order.length) return;
+
+        for (var i = 0; i < order.length; i += 1) {
+            var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
+            if (!leafColumns.length) return;
+
+            var currentColumn = findColumnComponentByField(leafColumns, order[i]);
+            if (!currentColumn) continue;
+
+            if (i === 0) {
+                var leftmostColumn = leafColumns[0];
+                if (leftmostColumn && leftmostColumn !== currentColumn) {
+                    moveColumnNearReference(currentColumn, leftmostColumn, false);
+                }
+                continue;
+            }
+
+            var prevColumn = findColumnComponentByField(leafColumns, order[i - 1]);
+            if (!prevColumn || prevColumn === currentColumn) continue;
+
+            var prevIndex = findColumnIndex(leafColumns, prevColumn);
+            var currIndex = findColumnIndex(leafColumns, currentColumn);
+            if (prevIndex < 0 || currIndex < 0) continue;
+
+            if (currIndex !== prevIndex + 1) {
+                moveColumnNearReference(currentColumn, prevColumn, true);
+            }
+        }
+    }
+
+    function captureHeaderFilterState(table) {
+        if (!table || typeof table.getHeaderFilters !== "function") return [];
+        try {
+            var filters = table.getHeaderFilters();
+            if (!Array.isArray(filters)) return [];
+            return filters
+                .filter(function (item) {
+                    return item && item.field;
+                })
+                .map(function (item) {
+                    return {
+                        field: String(item.field),
+                        value: item.value,
+                    };
+                });
+        } catch (_err) {
+            return [];
+        }
+    }
+
+    function restoreHeaderFilterState(table, state) {
+        if (!table || typeof table.setHeaderFilterValue !== "function") return;
+        if (!Array.isArray(state) || !state.length) return;
+
+        state.forEach(function (item) {
+            if (!item || !item.field) return;
+            try {
+                table.setHeaderFilterValue(item.field, item.value);
+            } catch (_err) {
+                // Ignore restoration errors for fields that may no longer exist.
+            }
+        });
+    }
+
+    function countExpectedHeaderFiltersFromDefinitions(definitions) {
+        if (!Array.isArray(definitions) || !definitions.length) return 0;
+        var count = 0;
+
+        definitions.forEach(function (definition) {
+            if (!definition) return;
+            if (Array.isArray(definition.columns) && definition.columns.length) {
+                count += countExpectedHeaderFiltersFromDefinitions(definition.columns);
+                return;
+            }
+
+            if (!definition.field || isActionColumn(definition)) return;
+            if (definition.visible === false) return;
+            if (!Object.prototype.hasOwnProperty.call(definition, "headerFilter")) return;
+            if (definition.headerFilter === false || definition.headerFilter === null) return;
+            count += 1;
+        });
+
+        return count;
+    }
+
+    function getRenderedHeaderFilterInputCount(table) {
+        if (!table || typeof table.getElement !== "function") return 0;
+        var tableElement = table.getElement();
+        if (!tableElement) return 0;
+        return tableElement.querySelectorAll(
+            ".tabulator-header .tabulator-header-filter input, .tabulator-header .tabulator-header-filter select, .tabulator-header .tabulator-header-filter textarea"
+        ).length;
+    }
+
+    function recoverHeaderFiltersIfMissing(table, savedState) {
+        if (!table || typeof table.getColumnDefinitions !== "function") return;
+        if (typeof table.setColumns !== "function") return;
+
+        var expectedCount = countExpectedHeaderFiltersFromDefinitions(table.getColumnDefinitions());
+        if (expectedCount <= 0) return;
+
+        var renderedCount = getRenderedHeaderFilterInputCount(table);
+        if (renderedCount > 0) return;
+
+        var definitions = table.getColumnDefinitions();
+        var result = table.setColumns(definitions);
+        runAfterColumnMutation(result, function () {
+            restoreHeaderFilterState(table, savedState);
+            if (typeof table.redraw === "function") {
+                table.redraw(true);
+            }
+        });
+    }
+
+    function applyFrozenFlagsForOrder(table, frozenOrder, freezeOptions, savedHeaderFilters) {
+        if (!table || typeof table.getColumns !== "function") {
+            finalizeFrozenColumnMutation(table, freezeOptions, savedHeaderFilters);
+            return;
+        }
+
+        var normalizedOrder = normalizeFrozenOrderForTable(table, frozenOrder);
+        if (freezeOptions) {
+            freezeOptions.runtimeFrozenOrder = normalizedOrder.slice();
+        }
+        var desiredSet = new Set(normalizedOrder);
+        var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
+        var pending = 0;
+
+        function done() {
+            pending -= 1;
+            if (pending <= 0) {
+                finalizeFrozenColumnMutation(table, freezeOptions, savedHeaderFilters);
+            }
+        }
+
+        leafColumns.forEach(function (column) {
+            if (!isFreezableColumnComponent(column)) return;
+            var field = getColumnField(column);
+            if (!field) return;
+
+            var shouldBeFrozen = desiredSet.has(field);
+            var currentlyFrozen = isColumnCurrentlyFrozen(column);
+            if (currentlyFrozen === shouldBeFrozen) return;
+
+            pending += 1;
+            var mutation = setColumnFrozenState(column, shouldBeFrozen);
+            runAfterColumnMutation(mutation, done);
+        });
+
+        if (pending === 0) {
+            finalizeFrozenColumnMutation(table, freezeOptions, savedHeaderFilters);
+        }
+    }
+
+    function applyDeterministicFrozenLayout(table, frozenOrder, freezeOptions) {
+        if (!table) return;
+        var normalizedOrder = normalizeFrozenOrderForTable(table, frozenOrder);
+        var savedHeaderFilters = captureHeaderFilterState(table);
+        positionColumnsForFrozenOrder(table, normalizedOrder);
+        applyFrozenFlagsForOrder(table, normalizedOrder, freezeOptions, savedHeaderFilters);
+    }
+
+    function resolveOrderForFreezeAction(table, targetField) {
+        var currentOrder = getOrderedFrozenFields(table);
+        var field = String(targetField || "");
+        if (!field) return currentOrder;
+        if (currentOrder.indexOf(field) >= 0) return currentOrder;
+
+        var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
+        if (!leafColumns.length) return currentOrder.concat([field]);
+
+        var targetColumn = findColumnComponentByField(leafColumns, field);
+        if (!targetColumn) return currentOrder.concat([field]);
+
+        var targetIndex = findColumnIndex(leafColumns, targetColumn);
+        if (targetIndex < 0) return currentOrder.concat([field]);
+
+        var insertAt = 0;
+        for (var i = 0; i < currentOrder.length; i += 1) {
+            var frozenColumn = findColumnComponentByField(leafColumns, currentOrder[i]);
+            if (!frozenColumn) continue;
+            var frozenIndex = findColumnIndex(leafColumns, frozenColumn);
+            if (frozenIndex < targetIndex) insertAt = i + 1;
+        }
+
+        var nextOrder = currentOrder.slice();
+        nextOrder.splice(insertAt, 0, field);
+        return nextOrder;
+    }
+
+    function isColumnCurrentlyFrozen(column) {
+        if (!column) return false;
+
+        var table = getTableFromColumn(column);
+        var field = getColumnField(column);
+        if (table && field) {
+            var frozenFieldSet = getFrozenFieldSetFromTable(table);
+            if (frozenFieldSet) return frozenFieldSet.has(field);
+        }
+
+        var definition = typeof column.getDefinition === "function" ? column.getDefinition() : null;
+        return Boolean(definition && definition.frozen);
+    }
+
+    function captureFrozenFields(table) {
+        if (!table) return [];
+        return getOrderedFrozenFields(table);
     }
 
     function persistFrozenFields(table, freezeOptions) {
         if (!freezeOptions || !freezeOptions.persist) return;
-        writePersistedFrozenState(freezeOptions, captureFrozenFields(table));
+        var frozenFields = Array.isArray(freezeOptions.runtimeFrozenOrder)
+            ? freezeOptions.runtimeFrozenOrder.slice()
+            : captureFrozenFields(table);
+        writePersistedFrozenState(freezeOptions, frozenFields);
     }
 
     function queuePersistFrozenFields(table, freezeOptions) {
@@ -617,49 +882,101 @@
         }, 0);
     }
 
-    function clearAllFrozenColumns(table, freezeOptions) {
-        if (!table || typeof table.getColumns !== "function") return;
-
-        var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
-        leafColumns.forEach(function (column) {
-            if (!isFreezableColumnComponent(column)) return;
-            setColumnFrozenState(column, false);
-        });
-
-        queuePersistFrozenFields(table, freezeOptions);
+    function queueTableRedraw(table) {
+        if (!table || typeof table.redraw !== "function") return;
+        setTimeout(function () {
+            table.redraw(true);
+        }, 0);
     }
 
-    function buildFreezeMenuItems(freezeOptions) {
-        var labels = (freezeOptions && freezeOptions.labels) || resolveFreezeMenuLabels();
-        var items = [
-            {
-                label: labels.freeze,
-                action: function (_event, column) {
-                    if (!isFreezableColumnComponent(column)) return;
-                    var definition = column.getDefinition();
-                    if (!definition || !definition.frozen) {
-                        moveColumnNearNearestFrozen(column);
-                    }
-                    setColumnFrozenState(column, true);
-                    queuePersistFrozenFields(getTableFromColumn(column), freezeOptions);
-                },
-            },
-            {
-                label: labels.unfreeze,
-                action: function (_event, column) {
-                    if (!isFreezableColumnComponent(column)) return;
-                    setColumnFrozenState(column, false);
-                    queuePersistFrozenFields(getTableFromColumn(column), freezeOptions);
-                },
-            },
-        ];
+    function finalizeFrozenColumnMutation(table, freezeOptions, savedHeaderFilters) {
+        if (!table) return;
+        queuePersistFrozenFields(table, freezeOptions);
+        queueTableRedraw(table);
+        setTimeout(function () {
+            recoverHeaderFiltersIfMissing(table, savedHeaderFilters);
+        }, 0);
+    }
 
-        if (freezeOptions && freezeOptions.includeClearAction) {
+    function installInitialFrozenLayoutNormalization(table, freezeOptions) {
+        if (!table || !freezeOptions) return;
+        var initialized = false;
+        function runOnce() {
+            if (initialized) return;
+            initialized = true;
+            var initialOrder = Array.isArray(freezeOptions.initialFrozenOrder)
+                ? freezeOptions.initialFrozenOrder.slice()
+                : getOrderedFrozenFields(table);
+            applyDeterministicFrozenLayout(table, initialOrder, freezeOptions);
+            setTimeout(function () {
+                applyDeterministicFrozenLayout(table, initialOrder, freezeOptions);
+            }, 0);
+        }
+
+        if (typeof table.on === "function") {
+            table.on("tableBuilt", runOnce);
+        }
+        setTimeout(runOnce, 0);
+    }
+
+    function freezeColumnFromMenu(column, freezeOptions) {
+        if (!isFreezableColumnComponent(column)) return;
+        if (isColumnCurrentlyFrozen(column)) return;
+
+        var table = getTableFromColumn(column);
+        var field = getColumnField(column);
+        if (!table || !field) return;
+
+        var nextOrder = resolveOrderForFreezeAction(table, field);
+        applyDeterministicFrozenLayout(table, nextOrder, freezeOptions);
+    }
+
+    function unfreezeColumnFromMenu(column, freezeOptions) {
+        if (!isFreezableColumnComponent(column)) return;
+        if (!isColumnCurrentlyFrozen(column)) return;
+
+        var table = getTableFromColumn(column);
+        var field = getColumnField(column);
+        if (!table || !field) return;
+
+        var nextOrder = getOrderedFrozenFields(table).filter(function (frozenField) {
+            return frozenField !== field;
+        });
+        applyDeterministicFrozenLayout(table, nextOrder, freezeOptions);
+    }
+
+    function clearAllFrozenColumns(table, freezeOptions) {
+        if (!table) return;
+        applyDeterministicFrozenLayout(table, [], freezeOptions);
+    }
+
+    function buildFreezeMenuItems(column, freezeOptions) {
+        var labels = (freezeOptions && freezeOptions.labels) || resolveFreezeMenuLabels();
+        var isFrozen = isColumnCurrentlyFrozen(column);
+        var items = [];
+
+        if (isFrozen) {
+            items.push({
+                label: labels.unfreeze,
+                action: function (_event, columnComponent) {
+                    unfreezeColumnFromMenu(columnComponent, freezeOptions);
+                },
+            });
+        } else {
+            items.push({
+                label: labels.freeze,
+                action: function (_event, columnComponent) {
+                    freezeColumnFromMenu(columnComponent, freezeOptions);
+                },
+            });
+        }
+
+        if (isFrozen && freezeOptions && freezeOptions.includeClearAction) {
             items.push({separator: true});
             items.push({
                 label: labels.clear,
-                action: function (_event, column) {
-                    clearAllFrozenColumns(getTableFromColumn(column), freezeOptions);
+                action: function (_event, columnComponent) {
+                    clearAllFrozenColumns(getTableFromColumn(columnComponent), freezeOptions);
                 },
             });
         }
@@ -667,24 +984,52 @@
         return items;
     }
 
+    function resolveExistingHeaderMenuItems(existingHeaderMenu, context, args) {
+        if (typeof existingHeaderMenu === "function") {
+            try {
+                var resolved = existingHeaderMenu.apply(context, args || []);
+                return Array.isArray(resolved) ? resolved.slice() : [];
+            } catch (_errExistingMenu) {
+                return [];
+            }
+        }
+
+        if (Array.isArray(existingHeaderMenu)) {
+            return existingHeaderMenu.slice();
+        }
+
+        return [];
+    }
+
     function applyFreezeHeaderMenu(columns, freezeOptions) {
         if (!Array.isArray(columns) || !columns.length || !freezeOptions) return;
-        var freezeMenuItems = buildFreezeMenuItems(freezeOptions);
-        if (!freezeMenuItems.length) return;
-
         var leafColumns = collectLeafColumns(columns, []);
         leafColumns.forEach(function (column) {
             if (!column || !column.field || isActionColumn(column)) return;
-            if (typeof column.headerMenu === "function") return;
+            var existingHeaderMenu = column.headerMenu;
+            column.headerMenu = function () {
+                var args = Array.prototype.slice.call(arguments);
+                var columnComponent = null;
 
-            if (Array.isArray(column.headerMenu) && column.headerMenu.length) {
-                column.headerMenu = column.headerMenu
-                    .slice()
-                    .concat([{separator: true}], freezeMenuItems);
-                return;
-            }
+                if (this && typeof this.getDefinition === "function") {
+                    columnComponent = this;
+                } else {
+                    for (var i = 0; i < args.length; i += 1) {
+                        var candidate = args[i];
+                        if (candidate && typeof candidate.getDefinition === "function") {
+                            columnComponent = candidate;
+                            break;
+                        }
+                    }
+                }
 
-            column.headerMenu = freezeMenuItems.slice();
+                var existingItems = resolveExistingHeaderMenuItems(existingHeaderMenu, this, args);
+                var freezeItems = buildFreezeMenuItems(columnComponent, freezeOptions);
+
+                if (!existingItems.length) return freezeItems;
+                if (!freezeItems.length) return existingItems;
+                return existingItems.concat([{separator: true}], freezeItems);
+            };
         });
     }
 
@@ -930,6 +1275,9 @@
         var table = new window.Tabulator(target, enhancedConfig);
         installBottomHorizontalScrollbar(table);
         hideEmptyActionColumns(table, enhancedConfig);
+        if (freezeOptions) {
+            installInitialFrozenLayoutNormalization(table, freezeOptions);
+        }
         return table;
     }
 
