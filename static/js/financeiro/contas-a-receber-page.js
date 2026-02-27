@@ -73,176 +73,13 @@
 
 (function () {
     var dataElement = document.getElementById("contas-tabulator-data");
-    if (!dataElement || !window.Tabulator) return;
+    if (!dataElement) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-contas");
-    var statusContainer = document.getElementById("filtro-contas-status");
-    var intervaloContainer = document.getElementById("filtro-contas-intervalo");
-    var dataVencimentoContainer = document.getElementById("filtro-contas-data-vencimento");
-    var dataArquivoContainer = document.getElementById("filtro-contas-data-arquivo");
-    var dataArquivoInicialInput = document.getElementById("filtro-contas-data-arquivo-inicial");
-    var dataArquivoFinalInput = document.getElementById("filtro-contas-data-arquivo-final");
-    var selecionarMaisRecenteBtn = document.getElementById("filtro-contas-data-arquivo-mais-recente");
-    var tituloDescricaoContainer = document.getElementById("filtro-contas-titulo-descricao");
-    var nomeFantasiaContainer = document.getElementById("filtro-contas-nome-fantasia");
-    var naturezaDescricaoContainer = document.getElementById("filtro-contas-natureza-descricao");
+    var tabelaTarget = document.getElementById("contas-a-receber-tabulator");
     var kpiQuantidadeEl = document.getElementById("contas-kpi-quantidade");
     var kpiFaturadoEl = document.getElementById("contas-kpi-faturado");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
-
-    function compararDataIso(aRow, bRow, campoIso) {
-        var aIso = aRow.getData()[campoIso] || "";
-        var bIso = bRow.getData()[campoIso] || "";
-        return aIso.localeCompare(bIso);
-    }
-
-    var colunas = [
-        {
-            title: "Dt. Negociacao",
-            field: "data_negociacao",
-            headerFilter: "input",
-            sorter: function (_a, _b, aRow, bRow) {
-                return compararDataIso(aRow, bRow, "data_negociacao_iso");
-            },
-        },
-        {
-            title: "Dt. Vencimento",
-            field: "data_vencimento",
-            headerFilter: "input",
-            sorter: function (_a, _b, aRow, bRow) {
-                return compararDataIso(aRow, bRow, "data_vencimento_iso");
-            },
-        },
-        {
-            title: "Data Arquivo",
-            field: "data_arquivo",
-            headerFilter: "input",
-            sorter: function (_a, _b, aRow, bRow) {
-                return compararDataIso(aRow, bRow, "data_arquivo_iso");
-            },
-        },
-        {title: "Nome Fantasia (Empresa)", field: "nome_fantasia_empresa", headerFilter: "input"},
-        {title: "Nome Parceiro (Parceiro)", field: "parceiro_nome", headerFilter: "input"},
-        {title: "Nro Nota", field: "numero_nota", headerFilter: "input"},
-        {
-            title: "Vlr do Desdobramento",
-            field: "valor_desdobramento",
-            hozAlign: "right",
-            formatter: "money",
-            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-        },
-        {
-            title: "Valor Liquido",
-            field: "valor_liquido",
-            hozAlign: "right",
-            formatter: "money",
-            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
-        },
-        {title: "Descricao (Tipo de Titulo)", field: "titulo_descricao", headerFilter: "input"},
-        {title: "Descricao (Natureza)", field: "natureza_descricao", headerFilter: "input"},
-        {title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao", headerFilter: "input"},
-        {title: "Vendedor", field: "vendedor", headerFilter: "input"},
-        {title: "Receita/Despesa", field: "operacao_descricao", headerFilter: "input"},
-        {title: "Status", field: "status", headerFilter: "input"},
-        {title: "Dias Diferenca", field: "dias_diferenca", hozAlign: "center", headerFilter: "input"},
-        {title: "Intervalo", field: "intervalo", headerFilter: "input"},
-    ];
-
-    if (data.some(function (item) { return Boolean(item.editar_url); })) {
-        colunas.push({
-            title: "Acoes",
-            field: "editar_url",
-            formatter: function (cell) {
-                var url = cell.getValue();
-                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-            },
-            hozAlign: "center",
-        });
-    }
-
-    var tabela = window.TabulatorDefaults.create("#contas-tabulator", {
-        data: data,
-        columns: colunas,
-    });
-
-    function normalizarTexto(valor, vazioLabel) {
-        var texto = (valor || "").toString().trim();
-        return texto || vazioLabel;
-    }
-
-    function valoresUnicosOrdenados(campo, vazioLabel) {
-        var setValores = new Set();
-        data.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        return Array.from(setValores).sort(function (a, b) {
-            return a.localeCompare(b, "pt-BR");
-        });
-    }
-
-    function parseDataBrParaOrdenacao(valor) {
-        if (!valor || !valor.includes("/")) return "";
-        var partes = valor.split("/");
-        if (partes.length !== 3) return "";
-        return [partes[2], partes[1], partes[0]].join("-");
-    }
-
-    function valoresUnicosDataOrdenados(campo, vazioLabel) {
-        var setValores = new Set();
-        data.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        return Array.from(setValores).sort(function (a, b) {
-            if (a === vazioLabel) return 1;
-            if (b === vazioLabel) return -1;
-            var isoA = parseDataBrParaOrdenacao(a);
-            var isoB = parseDataBrParaOrdenacao(b);
-            return isoB.localeCompare(isoA);
-        });
-    }
-
-    function criarEstadoSelecao() {
-        return {
-            status: new Set(),
-            intervalo: new Set(),
-            data_vencimento: new Set(),
-            data_arquivo: new Set(),
-            titulo_descricao: new Set(),
-            nome_fantasia_empresa: new Set(),
-            natureza_descricao: new Set(),
-        };
-    }
-
-    var filtrosSelecionados = criarEstadoSelecao();
-
-    function criarBotaoFiltro(valor, onToggle) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "contas-filtro-btn";
-        btn.textContent = valor;
-        btn.setAttribute("aria-pressed", "false");
-        btn.addEventListener("click", function () {
-            btn.classList.toggle("is-active");
-            var ativo = btn.classList.contains("is-active");
-            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-            onToggle(ativo, valor);
-            aplicarFiltros();
-        });
-        return btn;
-    }
-
-    function montarGrupoFiltros(container, valores, chaveEstado) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
-                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
-                else filtrosSelecionados[chaveEstado].delete(valorToggle);
-            });
-            container.appendChild(btn);
-        });
-    }
 
     function normalizarTipoOperacao(item) {
         var tipo = (item.operacao_descricao || "").toLowerCase();
@@ -259,105 +96,75 @@
         return valor;
     }
 
-    function atualizarDashboard() {
-        if (!kpiQuantidadeEl && !kpiFaturadoEl) return;
-
-        var linhas = tabela.getData("active");
-        if (!linhas) linhas = [];
-
-        var totalFaturado = linhas.reduce(function (acc, item) {
+    function atualizarDashboard(linhas) {
+        var totalFaturado = (linhas || []).reduce(function (acc, item) {
             return acc + calcularValorFaturado(item);
         }, 0);
-
-        if (kpiQuantidadeEl) kpiQuantidadeEl.textContent = String(linhas.length);
+        if (kpiQuantidadeEl) kpiQuantidadeEl.textContent = String((linhas || []).length);
         if (kpiFaturadoEl) kpiFaturadoEl.textContent = formatadorMoeda.format(totalFaturado);
     }
 
-    function aplicarFiltros() {
-        var dataArquivoInicial = dataArquivoInicialInput ? dataArquivoInicialInput.value : "";
-        var dataArquivoFinal = dataArquivoFinalInput ? dataArquivoFinalInput.value : "";
-
-        tabela.setFilter(function (item) {
-            var statusValor = normalizarTexto(item.status, "<SEM STATUS>");
-            var intervaloValor = normalizarTexto(item.intervalo, "<SEM INTERVALO>");
-            var vencimentoValor = normalizarTexto(item.data_vencimento, "<SEM DATA VENCIMENTO>");
-            var dataArquivoValor = normalizarTexto(item.data_arquivo, "<SEM DATA ARQUIVO>");
-            var tituloValor = normalizarTexto(item.titulo_descricao, "<SEM TIPO DE TITULO>");
-            var nomeFantasiaValor = normalizarTexto(item.nome_fantasia_empresa, "<SEM NOME FANTASIA>");
-            var naturezaValor = normalizarTexto(item.natureza_descricao, "<SEM NATUREZA>");
-            var dataArquivoIso = item.data_arquivo_iso || "";
-
-            if (dataArquivoInicial && (!dataArquivoIso || dataArquivoIso < dataArquivoInicial)) return false;
-            if (dataArquivoFinal && (!dataArquivoIso || dataArquivoIso > dataArquivoFinal)) return false;
-
-            if (filtrosSelecionados.status.size && !filtrosSelecionados.status.has(statusValor)) return false;
-            if (filtrosSelecionados.intervalo.size && !filtrosSelecionados.intervalo.has(intervaloValor)) return false;
-            if (filtrosSelecionados.data_vencimento.size && !filtrosSelecionados.data_vencimento.has(vencimentoValor)) return false;
-            if (filtrosSelecionados.data_arquivo.size && !filtrosSelecionados.data_arquivo.has(dataArquivoValor)) return false;
-            if (filtrosSelecionados.titulo_descricao.size && !filtrosSelecionados.titulo_descricao.has(tituloValor)) return false;
-            if (filtrosSelecionados.nome_fantasia_empresa.size && !filtrosSelecionados.nome_fantasia_empresa.has(nomeFantasiaValor)) return false;
-            if (filtrosSelecionados.natureza_descricao.size && !filtrosSelecionados.natureza_descricao.has(naturezaValor)) return false;
-            return true;
-        });
-
-        atualizarDashboard();
+    if (!tabelaTarget || !window.Tabulator || !window.TabulatorDefaults) {
+        atualizarDashboard(data);
+        return;
     }
 
-    function limparFiltrosExternos() {
-        filtrosSelecionados = criarEstadoSelecao();
-        if (dataArquivoInicialInput) dataArquivoInicialInput.value = "";
-        if (dataArquivoFinalInput) dataArquivoFinalInput.value = "";
-        document.querySelectorAll(".contas-filtro-btn.is-active").forEach(function (btn) {
-            btn.classList.remove("is-active");
-            btn.setAttribute("aria-pressed", "false");
-        });
-        tabela.clearFilter(true);
-        tabela.clearHeaderFilter();
-        atualizarDashboard();
-    }
+    var colunas = [
+        {title: "ID", field: "id", width: 90, hozAlign: "center"},
+        {title: "Status", field: "status", width: 110, hozAlign: "center"},
+        {title: "Intervalo", field: "intervalo", width: 130},
+        {title: "Dias diferenca", field: "dias_diferenca", width: 130, hozAlign: "center"},
+        {title: "Data negociacao", field: "data_negociacao"},
+        {title: "Data vencimento", field: "data_vencimento"},
+        {title: "Data arquivo", field: "data_arquivo"},
+        {title: "Ano negociacao", field: "ano_negociacao", hozAlign: "center"},
+        {title: "Mes negociacao", field: "mes_negociacao", hozAlign: "center"},
+        {title: "Nome fantasia empresa", field: "nome_fantasia_empresa"},
+        {title: "Numero nota", field: "numero_nota"},
+        {title: "Vendedor", field: "vendedor"},
+        {title: "Valor desdobramento", field: "valor_desdobramento"},
+        {title: "Valor liquido", field: "valor_liquido"},
+        {title: "Titulo cod", field: "titulo_codigo"},
+        {title: "Titulo descricao", field: "titulo_descricao"},
+        {title: "Natureza cod", field: "natureza_codigo"},
+        {title: "Natureza descricao", field: "natureza_descricao"},
+        {title: "Centro resultado", field: "centro_resultado_descricao"},
+        {title: "Parceiro cod", field: "parceiro_codigo"},
+        {title: "Parceiro nome", field: "parceiro_nome"},
+        {title: "Operacao cod", field: "operacao_codigo"},
+        {title: "Operacao descricao", field: "operacao_descricao"},
+    ];
 
-    montarGrupoFiltros(statusContainer, valoresUnicosOrdenados("status", "<SEM STATUS>"), "status");
-    montarGrupoFiltros(intervaloContainer, valoresUnicosOrdenados("intervalo", "<SEM INTERVALO>"), "intervalo");
-    montarGrupoFiltros(dataVencimentoContainer, valoresUnicosDataOrdenados("data_vencimento", "<SEM DATA VENCIMENTO>"), "data_vencimento");
-    montarGrupoFiltros(dataArquivoContainer, valoresUnicosDataOrdenados("data_arquivo", "<SEM DATA ARQUIVO>"), "data_arquivo");
-    montarGrupoFiltros(tituloDescricaoContainer, valoresUnicosOrdenados("titulo_descricao", "<SEM TIPO DE TITULO>"), "titulo_descricao");
-    montarGrupoFiltros(nomeFantasiaContainer, valoresUnicosOrdenados("nome_fantasia_empresa", "<SEM NOME FANTASIA>"), "nome_fantasia_empresa");
-    montarGrupoFiltros(naturezaDescricaoContainer, valoresUnicosOrdenados("natureza_descricao", "<SEM NATUREZA>"), "natureza_descricao");
-
-    [dataArquivoInicialInput, dataArquivoFinalInput].forEach(function (input) {
-        if (!input) return;
-        input.addEventListener("change", aplicarFiltros);
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data, {
+        width: 110,
+        formatter: function (cell) {
+            var url = cell.getValue();
+            if (!url) return "";
+            return '<button type="button" class="btn-primary js-editar-conta">Editar</button>';
+        },
+        cellClick: function (e, cell) {
+            var row = cell.getRow().getData();
+            var target = e.target && e.target.closest ? e.target.closest(".js-editar-conta") : null;
+            if (!target || !row.editar_url) return;
+            window.location.href = row.editar_url;
+        },
     });
 
-    if (selecionarMaisRecenteBtn) {
-        selecionarMaisRecenteBtn.addEventListener("click", function () {
-            var linhasComData = data.filter(function (item) { return Boolean(item.data_arquivo_iso); });
-            if (!linhasComData.length) return;
-            var maisRecenteIso = linhasComData
-                .map(function (item) { return item.data_arquivo_iso; })
-                .sort(function (a, b) { return b.localeCompare(a); })[0];
-            var labelMaisRecente = linhasComData.find(function (item) {
-                return item.data_arquivo_iso === maisRecenteIso;
-            }).data_arquivo;
-            filtrosSelecionados.data_arquivo = new Set([labelMaisRecente]);
-            document.querySelectorAll("#filtro-contas-data-arquivo .contas-filtro-btn").forEach(function (btn) {
-                var ativo = btn.textContent === labelMaisRecente;
-                btn.classList.toggle("is-active", ativo);
-                btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-            });
-            aplicarFiltros();
-        });
+    var tabela = window.TabulatorDefaults.create("#contas-a-receber-tabulator", {
+        data: data,
+        columns: colunas,
+    });
+
+    function atualizarDashboardComTabela() {
+        var linhasAtivas = tabela.getData("active");
+        if (!Array.isArray(linhasAtivas)) linhasAtivas = tabela.getData() || [];
+        atualizarDashboard(linhasAtivas);
     }
 
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener("click", limparFiltrosExternos);
-    }
-
-    tabela.on("tableBuilt", atualizarDashboard);
-    tabela.on("dataFiltered", atualizarDashboard);
-    tabela.on("renderComplete", atualizarDashboard);
-    setTimeout(atualizarDashboard, 0);
+    tabela.on("tableBuilt", atualizarDashboardComTabela);
+    tabela.on("dataLoaded", atualizarDashboardComTabela);
+    tabela.on("dataFiltered", atualizarDashboardComTabela);
+    tabela.on("renderComplete", atualizarDashboardComTabela);
+    setTimeout(atualizarDashboardComTabela, 0);
 })();
-
-
 

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
 
 {% block title %}TOFU Lista de Atividades{% endblock %}
@@ -14,10 +14,10 @@
     <a href="{% url 'administrativo' %}">Voltar</a>
     <h1>TOFU Lista de Atividades</h1>
     <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegacao de secoes do TOFU">
+    <nav class="module-sections-nav" aria-label="Navegação de seções do TOFU">
         <a href="#sec-cadastro">Cadastro</a>
         <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualizacao</a>
+        <a href="#sec-visualizacao">Visualização</a>
     </nav>
 </section>
 
@@ -47,7 +47,7 @@
             </div>
 
             <div>
-                <label>Responsavel</label>
+                <label>Responsável</label>
                 <select name="responsavel_id">
                     <option value="">-</option>
                     {% for colaborador in colaboradores %}
@@ -67,12 +67,12 @@
             </div>
 
             <div>
-                <label>Prev. Inicio</label>
+                <label>Prev. Início</label>
                 <input type="date" name="data_previsao_inicio" readonly data-data-previsao-inicio>
             </div>
 
             <div>
-                <label>Prev. Termino</label>
+                <label>Prev. Término</label>
                 <input type="date" name="data_previsao_termino" readonly data-data-previsao-termino>
             </div>
 
@@ -87,7 +87,7 @@
             </div>
 
             <div class="full">
-                <label>Historico</label>
+                <label>Histórico</label>
                 <textarea name="historico"></textarea>
             </div>
 
@@ -116,12 +116,12 @@
             <h3><span class="dashboard-card-icon" aria-hidden="true">&#128276;</span> Alertas</h3>
             <p>Total: {{ dashboard.alertas.total }}</p>
             <p>Semana atual: {{ dashboard.alertas.semana_atual }}</p>
-            <p>Proxima semana: {{ dashboard.alertas.proxima_semana }}</p>
+            <p>Próxima semana: {{ dashboard.alertas.proxima_semana }}</p>
             <p>% do total: {{ dashboard.alertas.percentual }}%</p>
         </article>
 
         <article class="dashboard-card">
-            <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Concluidos</h3>
+            <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Concluídos</h3>
             <p>Total: {{ dashboard.concluidos.total }}</p>
             <p>No prazo: {{ dashboard.concluidos.no_prazo }}</p>
             <p>Fora do prazo: {{ dashboard.concluidos.fora_do_prazo }}</p>
@@ -141,27 +141,6 @@
 <section id="sec-visualizacao" class="panel module-section">
     <h2>Atividades Cadastradas</h2>
 
-    <div class="filter-grid">
-        <div class="tofu-filtro-card">
-            <label>Codigo</label>
-            <div id="filtro-codigo" class="tofu-filtro-options tofu-filtro-options--list"></div>
-        </div>
-        <div class="tofu-filtro-card">
-            <label>Gestor</label>
-            <div id="filtro-gestor" class="tofu-filtro-options tofu-filtro-options--list"></div>
-        </div>
-        <div class="tofu-filtro-card">
-            <label>Responsavel</label>
-            <div id="filtro-responsavel" class="tofu-filtro-options tofu-filtro-options--list"></div>
-        </div>
-        <div class="tofu-filtro-card">
-            <label>Indicador</label>
-            <div id="filtro-indicador" class="tofu-filtro-options tofu-filtro-options--chips"></div>
-        </div>
-        <div>
-            <button type="button" class="btn-light" id="limpar-filtros-tabulator">Limpar</button>
-        </div>
-    </div>
 
     <div class="table-wrapper">
         <div id="atividades-tabulator"></div>

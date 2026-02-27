@@ -27,7 +27,7 @@
 {% if not bloquear_cadastro_edicao_importacao %}
 <section id="sec-cadastro" class="panel module-section">
     <h2>Novo Pedido Pendente (Cadastro Manual)</h2>
-    <p class="form-note">Cadastre manualmente quando nao quiser usar importacao.</p>
+    <p class="form-note">Cadastre manualmente quando não quiser usar importação.</p>
     <form action="{% url 'pedidos_pendentes' empresa.id %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="acao" value="criar_pedido_pendente">
@@ -208,29 +208,6 @@
 
 <section id="sec-visualizacao" class="panel module-section">
     <h2>Dados de Pedidos Pendentes</h2>
-    <div class="filter-grid">
-        <div class="carteira-filtro-card">
-            <label>Rota</label>
-            <div id="filtro-pedidos-rota" class="carteira-filtro-options carteira-filtro-options--list"></div>
-        </div>
-        <div class="carteira-filtro-card">
-            <label>Região</label>
-            <div id="filtro-pedidos-regiao" class="carteira-filtro-options carteira-filtro-options--list"></div>
-        </div>
-        <div class="carteira-filtro-card">
-            <label>Tipo de Venda</label>
-            <div id="filtro-pedidos-tipo-venda" class="carteira-filtro-options carteira-filtro-options--list"></div>
-        </div>
-        <div class="carteira-filtro-card">
-            <label>Status</label>
-            <div id="filtro-pedidos-status" class="carteira-filtro-options carteira-filtro-options--chips"></div>
-        </div>
-        <div class="carteira-filtro-card">
-            <label>Gerente</label>
-            <div id="filtro-pedidos-gerente" class="carteira-filtro-options carteira-filtro-options--list"></div>
-        </div>
-    </div>
-    <button type="button" class="btn-light" id="limpar-filtros-pedidos">Limpar filtros</button>
     <div class="table-wrapper">
         <div id="pedidos-pendentes-tabulator"></div>
     </div>

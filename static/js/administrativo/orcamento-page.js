@@ -1,4 +1,8 @@
 (function () {
+    var submitPost = window.FinanceiroCrudUtils && typeof window.FinanceiroCrudUtils.submitPost === "function"
+        ? window.FinanceiroCrudUtils.submitPost
+        : null;
+
     function moneyFormatter(cell) {
         var value = Number(cell.getValue() || 0);
         if (!value) return "R$ -";
@@ -40,10 +44,61 @@
         return '<span class="desvio-chip ' + classe + '">' + label + "</span>";
     }
 
-    function linkEditarFormatter(cell) {
-        var url = cell.getValue();
-        if (!url) return "";
-        return '<a class="tabulator-action-link" href="' + url + '">Editar</a>';
+    function readJsonScript(id) {
+        var element = document.getElementById(id);
+        if (!element) return [];
+        try {
+            return JSON.parse(element.textContent || "[]");
+        } catch (_error) {
+            return [];
+        }
+    }
+
+    function formatDateIsoToBr(value) {
+        var iso = String(value || "").trim();
+        if (!iso) return "";
+        var parts = iso.split("-");
+        if (parts.length !== 3) return iso;
+        return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+
+    function buildEditorValues(items, idKey, labelBuilder) {
+        var values = {};
+        (items || []).forEach(function (item) {
+            var id = String(item && item[idKey] !== undefined && item[idKey] !== null ? item[idKey] : "").trim();
+            if (!id) return;
+            values[id] = String(labelBuilder(item) || "").trim();
+        });
+        return values;
+    }
+
+    function buildLabelMap(values) {
+        var map = {};
+        Object.keys(values || {}).forEach(function (key) {
+            map[String(key)] = values[key];
+        });
+        return map;
+    }
+
+    function buildOrcamentoActionsColumn(config) {
+        var cfg = config || {};
+        return window.TabulatorDefaults.buildSaveDeleteActionColumn({
+            field: "editar_url",
+            submitPost: submitPost,
+            getSavePayload: typeof cfg.getSavePayload === "function" ? cfg.getSavePayload : function () { return {}; },
+            getDeleteUrl: function (row) {
+                return row.excluir_url;
+            },
+            deleteConfirm: cfg.deleteConfirm || "",
+            width: 180,
+        });
+    }
+
+    function hasEditAction(data) {
+        if (window.TabulatorDefaults && typeof window.TabulatorDefaults.hasAnyRowAction === "function") {
+            return window.TabulatorDefaults.hasAnyRowAction(data, ["editar_url"]);
+        }
+        return Array.isArray(data) && data.some(function (item) { return Boolean(item && item.editar_url); });
     }
 
     function configurarUpload(config) {
@@ -191,43 +246,139 @@
         if (!dataElement || !target || !window.Tabulator) return;
 
         var data = JSON.parse(dataElement.textContent || "[]");
-        function compararDataIso(aRow, bRow, campoIso) {
-            var aIso = aRow.getData()[campoIso] || "";
-            var bIso = bRow.getData()[campoIso] || "";
-            return aIso.localeCompare(bIso);
+        var titulos = readJsonScript("orcamento-titulos-data");
+        var naturezas = readJsonScript("orcamento-naturezas-data");
+        var operacoes = readJsonScript("orcamento-operacoes-data");
+        var parceiros = readJsonScript("orcamento-parceiros-data");
+        var centros = readJsonScript("orcamento-centros-resultado-data");
+
+        var titulosValues = buildEditorValues(titulos, "id", function (item) {
+            return (item.tipo_titulo_codigo || "") + " - " + (item.descricao || "");
+        });
+        var naturezasValues = buildEditorValues(naturezas, "id", function (item) {
+            return (item.codigo || "") + " - " + (item.descricao || "");
+        });
+        var operacoesValues = buildEditorValues(operacoes, "id", function (item) {
+            return (item.tipo_operacao_codigo || "") + " - " + (item.descricao_receita_despesa || "");
+        });
+        var parceirosValues = buildEditorValues(parceiros, "id", function (item) {
+            return (item.codigo || "") + " - " + (item.nome || "");
+        });
+        var centrosValues = buildEditorValues(centros, "id", function (item) {
+            return item.descricao || "";
+        });
+
+        var titulosMap = buildLabelMap(titulosValues);
+        var naturezasMap = buildLabelMap(naturezasValues);
+        var operacoesMap = buildLabelMap(operacoesValues);
+        var parceirosMap = buildLabelMap(parceirosValues);
+        var centrosMap = buildLabelMap(centrosValues);
+        var possuiEdicao = hasEditAction(data);
+
+        var colunas = [
+            { title: "Nome Empresa", field: "nome_empresa", headerFilter: "input", editor: possuiEdicao ? "input" : false },
+            {
+                title: "Dt. Vencimento",
+                field: "data_vencimento_iso",
+                headerFilter: "input",
+                editor: possuiEdicao ? "input" : false,
+                formatter: function (cell) {
+                    return formatDateIsoToBr(cell.getValue());
+                },
+            },
+            {
+                title: "Data Baixa",
+                field: "data_baixa_iso",
+                headerFilter: "input",
+                editor: possuiEdicao ? "input" : false,
+                formatter: function (cell) {
+                    return formatDateIsoToBr(cell.getValue());
+                },
+            },
+            { title: "Vlr Baixa", field: "valor_baixa", hozAlign: "right", formatter: moneyFormatter, editor: possuiEdicao ? "input" : false },
+            { title: "Valor Liquido", field: "valor_liquido", hozAlign: "right", formatter: moneyFormatter, editor: possuiEdicao ? "input" : false },
+            { title: "Vlr do Desdobramento", field: "valor_desdobramento", hozAlign: "right", formatter: moneyFormatter, editor: possuiEdicao ? "input" : false },
+            {
+                title: "Titulo",
+                field: "titulo_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: titulosValues, clearable: true },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return titulosMap[id] || row.titulo_descricao || "";
+                },
+            },
+            {
+                title: "Natureza",
+                field: "natureza_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: naturezasValues, clearable: true },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return naturezasMap[id] || row.natureza_descricao || "";
+                },
+            },
+            {
+                title: "Centro Resultado",
+                field: "centro_resultado_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: centrosValues, clearable: false },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return centrosMap[id] || row.centro_resultado_descricao || "";
+                },
+            },
+            {
+                title: "Receita/Despesa",
+                field: "operacao_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: operacoesValues, clearable: true },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return operacoesMap[id] || row.operacao_descricao || "";
+                },
+            },
+            {
+                title: "Parceiro",
+                field: "parceiro_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: parceirosValues, clearable: true },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return parceirosMap[id] || row.parceiro_nome || "";
+                },
+            },
+        ];
+
+        if (possuiEdicao) {
+            colunas.push(buildOrcamentoActionsColumn({
+                deleteConfirm: "Excluir orcamento realizado?",
+                getSavePayload: function (row) {
+                    return {
+                        nome_empresa: row.nome_empresa || "",
+                        data_vencimento: row.data_vencimento_iso || "",
+                        data_baixa: row.data_baixa_iso || "",
+                        valor_baixa: row.valor_baixa || "",
+                        valor_liquido: row.valor_liquido || "",
+                        valor_desdobramento: row.valor_desdobramento || "",
+                        titulo_id: row.titulo_id || "",
+                        natureza_id: row.natureza_id || "",
+                        centro_resultado_id: row.centro_resultado_id || "",
+                        operacao_id: row.operacao_id || "",
+                        parceiro_id: row.parceiro_id || "",
+                    };
+                },
+            }));
         }
 
         window.TabulatorDefaults.create(target, {
             data: data,
-            columns: [
-                { title: "Nome Empresa", field: "nome_empresa", headerFilter: "input" },
-                {
-                    title: "Dt. Vencimento",
-                    field: "data_vencimento",
-                    headerFilter: "input",
-                    sorter: function (_a, _b, aRow, bRow) {
-                        return compararDataIso(aRow, bRow, "data_vencimento_iso");
-                    },
-                },
-                {
-                    title: "Data Baixa",
-                    field: "data_baixa",
-                    headerFilter: "input",
-                    sorter: function (_a, _b, aRow, bRow) {
-                        return compararDataIso(aRow, bRow, "data_baixa_iso");
-                    },
-                },
-                { title: "Vlr Baixa", field: "valor_baixa", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Valor Liquido", field: "valor_liquido", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Vlr do Desdobramento", field: "valor_desdobramento", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Descricao (Tipo de Titulo)", field: "titulo_descricao", headerFilter: "input" },
-                { title: "Descricao (Natureza)", field: "natureza_descricao", headerFilter: "input" },
-                { title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao", headerFilter: "input" },
-                { title: "Receita/Despesa", field: "operacao_descricao", headerFilter: "input" },
-                { title: "Codigo Parceiro", field: "parceiro_codigo", headerFilter: "input" },
-                { title: "Nome Parceiro", field: "parceiro_nome", headerFilter: "input" },
-                { title: "Acoes", field: "editar_url", formatter: linkEditarFormatter, hozAlign: "center", width: 95 },
-            ],
+            columns: colunas,
         });
     }
 
@@ -237,28 +388,114 @@
         if (!dataElement || !target || !window.Tabulator) return;
 
         var data = JSON.parse(dataElement.textContent || "[]");
+        var naturezas = readJsonScript("orcamento-planejado-naturezas-data");
+        var centros = readJsonScript("orcamento-planejado-centros-resultado-data");
+
+        var naturezasValues = buildEditorValues(naturezas, "id", function (item) {
+            return (item.codigo || "") + " - " + (item.descricao || "");
+        });
+        var centrosValues = buildEditorValues(centros, "id", function (item) {
+            return item.descricao || "";
+        });
+        var naturezasMap = buildLabelMap(naturezasValues);
+        var centrosMap = buildLabelMap(centrosValues);
+        var possuiEdicao = hasEditAction(data);
+
+        function atualizarTotalDaLinha(rowData, row) {
+            var total = 0;
+            [
+                "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+                "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+            ].forEach(function (campo) {
+                total += Number(rowData[campo] || 0);
+            });
+            row.update({ total: total });
+        }
+
+        function monthColumn(title, field) {
+            return {
+                title: title,
+                field: field,
+                hozAlign: "right",
+                formatter: moneyFormatter,
+                editor: possuiEdicao ? "input" : false,
+                cellEdited: function (cell) {
+                    var row = cell.getRow();
+                    var rowData = row.getData();
+                    atualizarTotalDaLinha(rowData, row);
+                },
+            };
+        }
+
+        var colunas = [
+            {
+                title: "Centro Resultado",
+                field: "centro_resultado_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: centrosValues, clearable: true },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return centrosMap[id] || row.centro_resultado_descricao || "";
+                },
+            },
+            {
+                title: "Natureza",
+                field: "natureza_id",
+                editor: possuiEdicao ? "list" : false,
+                editorParams: { values: naturezasValues, clearable: true },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData();
+                    var id = String(cell.getValue() || "");
+                    return naturezasMap[id] || row.natureza_descricao || "";
+                },
+            },
+            { title: "Nome Empresa", field: "nome_empresa", headerFilter: "input", editor: possuiEdicao ? "input" : false },
+            { title: "Ano", field: "ano", hozAlign: "center", headerFilter: "input", editor: possuiEdicao ? "input" : false },
+            monthColumn("Janeiro", "janeiro"),
+            monthColumn("Fevereiro", "fevereiro"),
+            monthColumn("Marco", "marco"),
+            monthColumn("Abril", "abril"),
+            monthColumn("Maio", "maio"),
+            monthColumn("Junho", "junho"),
+            monthColumn("Julho", "julho"),
+            monthColumn("Agosto", "agosto"),
+            monthColumn("Setembro", "setembro"),
+            monthColumn("Outubro", "outubro"),
+            monthColumn("Novembro", "novembro"),
+            monthColumn("Dezembro", "dezembro"),
+            { title: "TOTAL", field: "total", hozAlign: "right", formatter: moneyFormatter },
+        ];
+
+        if (possuiEdicao) {
+            colunas.push(buildOrcamentoActionsColumn({
+                deleteConfirm: "Excluir orcamento planejado?",
+                getSavePayload: function (row) {
+                    return {
+                        nome_empresa: row.nome_empresa || "",
+                        ano: row.ano || "",
+                        centro_resultado_id: row.centro_resultado_id || "",
+                        natureza_id: row.natureza_id || "",
+                        janeiro: row.janeiro || "",
+                        fevereiro: row.fevereiro || "",
+                        marco: row.marco || "",
+                        abril: row.abril || "",
+                        maio: row.maio || "",
+                        junho: row.junho || "",
+                        julho: row.julho || "",
+                        agosto: row.agosto || "",
+                        setembro: row.setembro || "",
+                        outubro: row.outubro || "",
+                        novembro: row.novembro || "",
+                        dezembro: row.dezembro || "",
+                    };
+                },
+            }));
+        }
+
         window.TabulatorDefaults.create(target, {
             data: data,
-            columns: [
-                { title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao", headerFilter: "input" },
-                { title: "Descricao (Natureza)", field: "natureza_descricao", headerFilter: "input" },
-                { title: "Nome Empresa", field: "nome_empresa", headerFilter: "input" },
-                { title: "Ano", field: "ano", hozAlign: "center", headerFilter: "input" },
-                { title: "Janeiro", field: "janeiro", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Fevereiro", field: "fevereiro", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Marco", field: "marco", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Abril", field: "abril", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Maio", field: "maio", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Junho", field: "junho", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Julho", field: "julho", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Agosto", field: "agosto", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Setembro", field: "setembro", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Outubro", field: "outubro", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Novembro", field: "novembro", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Dezembro", field: "dezembro", hozAlign: "right", formatter: moneyFormatter },
-                { title: "TOTAL", field: "total", hozAlign: "right", formatter: moneyFormatter },
-                { title: "Acoes", field: "editar_url", formatter: linkEditarFormatter, hozAlign: "center", width: 95 },
-            ],
+            columns: colunas,
         });
     }
 
@@ -273,6 +510,3 @@
     montarTabelaRealizados();
     montarTabelaOrcamentos();
 })();
-
-
-

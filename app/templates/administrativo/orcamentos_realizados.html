@@ -81,6 +81,12 @@
 
 {% block extra_js %}
 {{ orcamento_tabulator|json_script:"orcamento-realizado-tabulator-data" }}
+{{ orcamento_titulos_js|json_script:"orcamento-titulos-data" }}
+{{ orcamento_naturezas_js|json_script:"orcamento-naturezas-data" }}
+{{ orcamento_operacoes_js|json_script:"orcamento-operacoes-data" }}
+{{ orcamento_parceiros_js|json_script:"orcamento-parceiros-data" }}
+{{ orcamento_centros_resultado_js|json_script:"orcamento-centros-resultado-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
 <script src="{% static 'js/administrativo/orcamento-page.js' %}"></script>
 {% endblock %}

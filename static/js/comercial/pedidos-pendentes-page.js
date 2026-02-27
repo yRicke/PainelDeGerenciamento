@@ -7,13 +7,33 @@
     var confirmInput = document.getElementById("confirmar-substituicao-input");
     var fileStatus = document.getElementById("nome-arquivo-pedidos-pendentes-selecionado");
     var temArquivoExistente = form.dataset.temArquivoExistente === "1";
+    var frontendText = window.FrontendText || {};
+    var commonText = frontendText.common || {};
+    var uploadText = frontendText.upload || {};
+    var confirmText = frontendText.confirm || {};
+    var arquivoXlsxLabel = ".xlsx";
+
+    function mensagemApenasArquivoPermitido() {
+        if (typeof uploadText.onlyAllowedFile === "function") {
+            return uploadText.onlyAllowedFile(arquivoXlsxLabel);
+        }
+        return "Envie apenas arquivo .xlsx.";
+    }
+
+    function mensagemSelecionarArquivoParaContinuar() {
+        if (typeof uploadText.selectFileToContinue === "function") {
+            return uploadText.selectFileToContinue(arquivoXlsxLabel);
+        }
+        return "Selecione um arquivo .xlsx para continuar.";
+    }
 
     function atualizarNomeArquivo() {
         if (!input.files || !input.files.length) {
             fileStatus.textContent = "";
             return;
         }
-        fileStatus.textContent = "Arquivo selecionado: " + input.files[0].name;
+        var selectedFilePrefix = commonText.selectedFilePrefix || "Arquivo selecionado: ";
+        fileStatus.textContent = selectedFilePrefix + input.files[0].name;
     }
 
     function validarExtensaoXlsx(file) {
@@ -25,7 +45,8 @@
             confirmInput.value = "0";
             return true;
         }
-        if (!window.confirm("Já existe um arquivo na pasta. Deseja substituir o arquivo atual?")) return false;
+        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Já existe um arquivo na pasta. Deseja substituir o arquivo atual?";
+        if (!window.confirm(replaceCurrentFileMessage)) return false;
         confirmInput.value = "1";
         return true;
     }
@@ -49,7 +70,7 @@
         var files = event.dataTransfer.files;
         if (!files || !files.length) return;
         if (!validarExtensaoXlsx(files[0])) {
-            window.alert("Envie apenas arquivo .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             return;
         }
         input.files = files;
@@ -59,7 +80,7 @@
     input.addEventListener("change", function () {
         if (!input.files || !input.files.length) return;
         if (!validarExtensaoXlsx(input.files[0])) {
-            window.alert("Envie apenas arquivo .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             input.value = "";
         }
         atualizarNomeArquivo();
@@ -68,12 +89,12 @@
     form.addEventListener("submit", function (event) {
         if (!input.files || !input.files.length) {
             event.preventDefault();
-            window.alert("Selecione um arquivo .xlsx para continuar.");
+            window.alert(mensagemSelecionarArquivoParaContinuar());
             return;
         }
         if (!validarExtensaoXlsx(input.files[0])) {
             event.preventDefault();
-            window.alert("Envie apenas arquivo .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             return;
         }
         if (temArquivoExistente && confirmInput.value !== "1" && !confirmarSubstituicaoSeNecessario()) {
@@ -87,14 +108,24 @@
     if (!dataElement || !window.Tabulator) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var possuiEdicao = data.some(function (item) { return Boolean(item.editar_url); });
-    var filtroStatusContainer = document.getElementById("filtro-pedidos-status");
-    var filtroRotaContainer = document.getElementById("filtro-pedidos-rota");
-    var filtroRegiaoContainer = document.getElementById("filtro-pedidos-regiao");
-    var filtroTipoVendaContainer = document.getElementById("filtro-pedidos-tipo-venda");
-    var filtroGerenteContainer = document.getElementById("filtro-pedidos-gerente");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-pedidos");
+    var possuiEdicao = window.TabulatorDefaults && typeof window.TabulatorDefaults.hasAnyRowAction === "function"
+        ? window.TabulatorDefaults.hasAnyRowAction(data, ["editar_url"])
+        : data.some(function (item) { return Boolean(item.editar_url); });
     var chartContainer = document.getElementById("pedidos-status-chart");
+    var STATUS_LABELS = {
+        atrasado: "Atrasado",
+        atencao: "Atenção",
+        noPrazo: "No Prazo",
+        outros: "Outros",
+    };
+
+    function normalizarParaComparacao(valor) {
+        return String(valor || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+    }
 
     var kpis = {
         entrega: {
@@ -125,73 +156,18 @@
     };
 
     function normalizarStatus(status) {
-        var texto = (status || "").toString().trim().toLowerCase();
-        if (texto === "atencao" || texto === "atenção") return "Atenção";
-        if (texto === "atrasado") return "Atrasado";
-        if (texto === "no prazo") return "No Prazo";
-        return "Other";
+        var texto = normalizarParaComparacao(status);
+        if (texto === "atencao") return STATUS_LABELS.atencao;
+        if (texto === "atrasado") return STATUS_LABELS.atrasado;
+        if (texto === "no prazo") return STATUS_LABELS.noPrazo;
+        return STATUS_LABELS.outros;
     }
 
     function normalizarTipoVenda(tipoVenda) {
-        var texto = (tipoVenda || "").toString().trim().toLowerCase();
-        if (texto.indexOf("venda balc") >= 0 || texto.indexOf("venda balcã") >= 0) return "vendaBalcao";
+        var texto = normalizarParaComparacao(tipoVenda);
+        if (texto.indexOf("venda balcao") >= 0) return "vendaBalcao";
         if (texto.indexOf("entrega") >= 0) return "entrega";
         return "outro";
-    }
-
-    function normalizarTexto(valor, vazioLabel) {
-        var texto = (valor || "").toString().trim();
-        return texto || vazioLabel;
-    }
-
-    function valoresUnicosOrdenados(campo, vazioLabel) {
-        var setValores = new Set();
-        data.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        return Array.from(setValores).sort(function (a, b) {
-            return a.localeCompare(b, "pt-BR");
-        });
-    }
-
-    function criarEstadoSelecao() {
-        return {
-            rota: new Set(),
-            regiao: new Set(),
-            tipo_venda: new Set(),
-            status: new Set(),
-            gerente: new Set(),
-        };
-    }
-
-    var filtrosSelecionados = criarEstadoSelecao();
-
-    function criarBotaoFiltro(valor, onToggle) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "carteira-filtro-btn";
-        btn.textContent = valor;
-        btn.setAttribute("aria-pressed", "false");
-        btn.addEventListener("click", function () {
-            btn.classList.toggle("is-active");
-            var ativo = btn.classList.contains("is-active");
-            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-            onToggle(ativo, valor);
-            aplicarFiltros();
-        });
-        return btn;
-    }
-
-    function montarGrupoFiltros(container, valores, chaveEstado) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
-                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
-                else filtrosSelecionados[chaveEstado].delete(valorToggle);
-            });
-            container.appendChild(btn);
-        });
     }
 
     function formatarNumero(valor) {
@@ -228,7 +204,7 @@
                 type: "donut",
                 height: 290,
             },
-            labels: ["Atrasado", "Atenção", "No Prazo", "Other"],
+            labels: [STATUS_LABELS.atrasado, STATUS_LABELS.atencao, STATUS_LABELS.noPrazo, STATUS_LABELS.outros],
             colors: ["#e23b2d", "#f2bf00", "#2f7ec7", "#a53bb7"],
             series: [0, 0, 0, 0],
             legend: {position: "bottom"},
@@ -328,7 +304,7 @@
             "Atrasado": 0,
             "Atenção": 0,
             "No Prazo": 0,
-            "Other": 0,
+            "Outros": 0,
         };
 
         linhas.forEach(function (item) {
@@ -341,20 +317,23 @@
 
             var statusNorm = normalizarStatus(item.status);
             var tipoKey = normalizarTipoVenda(item.tipo_venda);
-            if (statusNorm === "Atrasado" && (tipoKey === "entrega" || tipoKey === "vendaBalcao")) {
+            if (statusNorm === STATUS_LABELS.atrasado && (tipoKey === "entrega" || tipoKey === "vendaBalcao")) {
                 buckets[tipoKey].pesoBruto += pesoBruto;
                 buckets[tipoKey].valorNota += valorNota;
                 buckets[tipoKey].qtd += 1;
             }
-            if (statusNorm === "Atenção") {
+            if (statusNorm === STATUS_LABELS.atencao) {
                 buckets.atencao.pesoBruto += pesoBruto;
                 buckets.atencao.valorNota += valorNota;
                 buckets.atencao.qtd += 1;
             }
-            if (statusNorm === "No Prazo") {
+            if (statusNorm === STATUS_LABELS.noPrazo) {
                 buckets.noPrazo.pesoBruto += pesoBruto;
                 buckets.noPrazo.valorNota += valorNota;
                 buckets.noPrazo.qtd += 1;
+            }
+            if (!Object.prototype.hasOwnProperty.call(statusSeries, statusNorm)) {
+                statusNorm = STATUS_LABELS.outros;
             }
             statusSeries[statusNorm] += 1;
         });
@@ -367,54 +346,21 @@
 
         if (statusChart) {
             statusChart.updateSeries([
-                statusSeries["Atrasado"],
-                statusSeries["Atenção"],
-                statusSeries["No Prazo"],
-                statusSeries["Other"],
+                statusSeries[STATUS_LABELS.atrasado],
+                statusSeries[STATUS_LABELS.atencao],
+                statusSeries[STATUS_LABELS.noPrazo],
+                statusSeries[STATUS_LABELS.outros],
             ]);
         }
     }
-
-    function aplicarFiltros() {
-        tabela.setFilter(function (item) {
-            var rota = normalizarTexto(item.rota, "<SEM ROTA>");
-            var regiao = normalizarTexto(item.regiao, "<SEM REGIÃO>");
-            var tipoVenda = normalizarTexto(item.tipo_venda, "<SEM TIPO DE VENDA>");
-            var status = normalizarTexto(item.status, "<SEM STATUS>");
-            var gerente = normalizarTexto(item.gerente, "<SEM GERENTE>");
-
-            if (filtrosSelecionados.rota.size && !filtrosSelecionados.rota.has(rota)) return false;
-            if (filtrosSelecionados.regiao.size && !filtrosSelecionados.regiao.has(regiao)) return false;
-            if (filtrosSelecionados.tipo_venda.size && !filtrosSelecionados.tipo_venda.has(tipoVenda)) return false;
-            if (filtrosSelecionados.status.size && !filtrosSelecionados.status.has(status)) return false;
-            if (filtrosSelecionados.gerente.size && !filtrosSelecionados.gerente.has(gerente)) return false;
-            return true;
-        });
-        atualizarDashboard();
-    }
-
-    montarGrupoFiltros(filtroRotaContainer, valoresUnicosOrdenados("rota", "<SEM ROTA>"), "rota");
-    montarGrupoFiltros(filtroRegiaoContainer, valoresUnicosOrdenados("regiao", "<SEM REGIÃO>"), "regiao");
-    montarGrupoFiltros(filtroTipoVendaContainer, valoresUnicosOrdenados("tipo_venda", "<SEM TIPO DE VENDA>"), "tipo_venda");
-    montarGrupoFiltros(filtroStatusContainer, valoresUnicosOrdenados("status", "<SEM STATUS>"), "status");
-    montarGrupoFiltros(filtroGerenteContainer, valoresUnicosOrdenados("gerente", "<SEM GERENTE>"), "gerente");
-
-    limparFiltrosBtn.addEventListener("click", function () {
-        filtrosSelecionados = criarEstadoSelecao();
-        document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
-            btn.classList.remove("is-active");
-            btn.setAttribute("aria-pressed", "false");
-        });
-        tabela.clearFilter(true);
-        tabela.clearHeaderFilter();
-        atualizarDashboard();
-    });
-
     tabela.on("tableBuilt", atualizarDashboard);
     tabela.on("dataLoaded", atualizarDashboard);
     tabela.on("dataFiltered", atualizarDashboard);
     tabela.on("renderComplete", atualizarDashboard);
     setTimeout(atualizarDashboard, 0);
 })();
+
+
+
 
 

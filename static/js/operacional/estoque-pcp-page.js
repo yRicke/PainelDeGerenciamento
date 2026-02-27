@@ -72,7 +72,7 @@
         var totais = contarPorTipo(filesXls);
         fileStatus.textContent = (
             filesXls.length
-            + " arquivo(s) .xls selecionado(s) - posição: "
+            + " arquivo(s) .xls selecionado(s) - posicao: "
             + totais.posicao
             + ", reservado: "
             + totais.reservado
@@ -89,7 +89,7 @@
     function selecionarArquivos(files) {
         var arquivosXls = coletarArquivosXls(files);
         if (arquivosXls.length < 2) {
-            window.alert("Selecione a pasta ESTOQUE com as subpastas de posição e reservado.");
+            window.alert("Selecione a pasta ESTOQUE com as subpastas de posicao e reservado.");
             input.value = "";
             atualizarStatus([]);
             return;
@@ -138,26 +138,8 @@
 
     var data = JSON.parse(dataElement.textContent || "[]");
     var dadosOriginais = Array.isArray(data) ? data.slice() : [];
-
-    var ultimaPosicaoContainer = document.getElementById("filtro-ultima-posicao");
-    var statusContainer = document.getElementById("filtro-status-estoque");
-    var anoContainer = document.getElementById("filtro-ano-estoque");
-    var mesContainer = document.getElementById("filtro-mes-estoque");
-    var limparBtn = document.getElementById("limpar-filtros-estoque");
     var kpiValor = document.getElementById("kpi-estoque-valor");
     var kpiDataRecente = document.getElementById("kpi-estoque-data-recente");
-
-    var mesesLabel = {
-        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-        7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
-    };
-
-    var filtros = {
-        ultima_posicao: "",
-        status: "",
-        ano: new Set(),
-        mes: new Set(),
-    };
 
     function formatMoeda(valor) {
         return Number(valor || 0).toLocaleString("pt-BR", {
@@ -175,111 +157,7 @@
         return p[2] + "/" + p[1] + "/" + p[0];
     }
 
-    function normalizarTexto(valor, vazioLabel) {
-        var texto = (valor || "").toString().trim();
-        return texto || vazioLabel;
-    }
-
-    function valoresUnicosOrdenados(campo, vazioLabel, sorter) {
-        var setValores = new Set();
-        dadosOriginais.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        var arr = Array.from(setValores);
-        return arr.sort(sorter || function (a, b) { return String(a).localeCompare(String(b), "pt-BR"); });
-    }
-
-    function criarBotaoFiltro(valor, onToggle) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "carteira-filtro-btn";
-        btn.textContent = valor;
-        btn.setAttribute("aria-pressed", "false");
-        btn.addEventListener("click", function () {
-            onToggle(btn, valor);
-            btn.setAttribute("aria-pressed", btn.classList.contains("is-active") ? "true" : "false");
-            aplicarFiltros();
-        });
-        return btn;
-    }
-
-    function montarFiltroUnico(container, valores, chave) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var btn = criarBotaoFiltro(valor, function (elemento, token) {
-                var ativo = elemento.classList.contains("is-active");
-                Array.from(container.querySelectorAll(".carteira-filtro-btn")).forEach(function (b) {
-                    b.classList.remove("is-active");
-                    b.setAttribute("aria-pressed", "false");
-                });
-                if (!ativo) {
-                    elemento.classList.add("is-active");
-                    elemento.setAttribute("aria-pressed", "true");
-                    filtros[chave] = token;
-                } else {
-                    filtros[chave] = "";
-                }
-            });
-            container.appendChild(btn);
-        });
-    }
-
-    function montarFiltroMultiplo(container, valores, chave, formatLabel) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var label = formatLabel ? formatLabel(valor) : valor;
-            var btn = criarBotaoFiltro(label, function (elemento) {
-                var token = String(valor);
-                if (elemento.classList.contains("is-active")) {
-                    elemento.classList.remove("is-active");
-                    elemento.setAttribute("aria-pressed", "false");
-                    filtros[chave].delete(token);
-                } else {
-                    elemento.classList.add("is-active");
-                    elemento.setAttribute("aria-pressed", "true");
-                    filtros[chave].add(token);
-                }
-            });
-            container.appendChild(btn);
-        });
-    }
-
-    var dataContagemMaisRecente = "";
-    dadosOriginais.forEach(function (item) {
-        var iso = item.data_contagem_iso || "";
-        if (iso && (!dataContagemMaisRecente || iso > dataContagemMaisRecente)) {
-            dataContagemMaisRecente = iso;
-        }
-    });
-    var dataContagemAnteriorMaisRecente = "";
-    dadosOriginais.forEach(function (item) {
-        var iso = item.data_contagem_iso || "";
-        if (!iso || iso >= dataContagemMaisRecente) return;
-        if (!dataContagemAnteriorMaisRecente || iso > dataContagemAnteriorMaisRecente) {
-            dataContagemAnteriorMaisRecente = iso;
-        }
-    });
-
-    var statusValores = valoresUnicosOrdenados("status", "<SEM STATUS>");
-    var anosValores = valoresUnicosOrdenados("ano_contagem", "<SEM ANO>", function (a, b) {
-        return Number(b) - Number(a);
-    });
-    var mesesValores = valoresUnicosOrdenados("mes_contagem", "<SEM MES>", function (a, b) {
-        return Number(a) - Number(b);
-    });
-
-    montarFiltroUnico(ultimaPosicaoContainer, ["Última posição", "Anterior"], "ultima_posicao");
-    montarFiltroUnico(statusContainer, statusValores, "status");
-    montarFiltroMultiplo(anoContainer, anosValores, "ano");
-    montarFiltroMultiplo(mesContainer, mesesValores, "mes", function (v) {
-        return mesesLabel[Number(v)] || String(v);
-    });
-
-    var tabela = window.TabulatorDefaults.create("#estoque-tabulator", {
-        data: dadosOriginais,
-        columns: [
+    var colunas = [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {
                 title: "Nome Origem",
@@ -300,46 +178,44 @@
                 },
             },
             {title: "Status", field: "status"},
-            {title: "Cód. Empresa", field: "codigo_empresa"},
-            {title: "Cód. Produto", field: "produto_codigo"},
+            {title: "Cod. Empresa", field: "codigo_empresa"},
+            {title: "Cod. Produto", field: "produto_codigo"},
             {title: "Desc. Produto", field: "produto_descricao"},
             {title: "Qtd. Estoque", field: "qtd_estoque", hozAlign: "right"},
             {title: "Giro Mensal", field: "giro_mensal", hozAlign: "right"},
             {title: "Lead Time Fornecimento", field: "lead_time_fornecimento", hozAlign: "right"},
-            {title: "Cód. Volume", field: "codigo_voume"},
+            {title: "Cod. Volume", field: "codigo_voume"},
             {title: "Custo Total", field: "custo_total", hozAlign: "right"},
             {title: "Reservado", field: "reservado", hozAlign: "right"},
             {title: "Pacote por Fardo", field: "pacote_por_fardo", hozAlign: "right"},
             {title: "SubTotal (Est-Pen)", field: "sub_total_est_pen", hozAlign: "right"},
-            {title: "Estoque Mínimo", field: "estoque_minimo", hozAlign: "right"},
+            {title: "Estoque Minimo", field: "estoque_minimo", hozAlign: "right"},
             {
                 title: "PCP",
                 cssClass: "pcp-group",
                 headerHozAlign: "center",
                 columns: [
-                    {title: "Produção por Dia (FD)", field: "producao_por_dia_fd", hozAlign: "right", cssClass: "pcp-col"},
+                    {title: "Producao por Dia (FD)", field: "producao_por_dia_fd", hozAlign: "right", cssClass: "pcp-col"},
                     {title: "Total PCP Pacote", field: "total_pcp_pacote", hozAlign: "right", cssClass: "pcp-col"},
                     {title: "Total PCP Fardo", field: "total_pcp_fardo", hozAlign: "right", cssClass: "pcp-col"},
-                    {title: "Dia de Produção", field: "dia_de_producao", hozAlign: "right", cssClass: "pcp-col"},
-                    {title: "Cód. Local", field: "codigo_local", cssClass: "pcp-col"},
+                    {title: "Dia de Producao", field: "dia_de_producao", hozAlign: "right", cssClass: "pcp-col"},
+                    {title: "Cod. Local", field: "codigo_local", cssClass: "pcp-col"},
                 ],
             },
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-                },
-                hozAlign: "center",
-            },
-        ],
+        ];
+
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
+
+    var tabela = window.TabulatorDefaults.create("#estoque-tabulator", {
+        data: dadosOriginais,
+        columns: colunas,
     });
 
     function atualizarDashboardComLinhas(linhas) {
         if (!kpiValor || !kpiDataRecente) return;
         var custoTotal = 0;
         var dataMaisRecente = "";
+
         linhas.forEach(function (item) {
             custoTotal += Number(item.custo_total || 0);
             var iso = item.data_contagem_iso || "";
@@ -347,50 +223,9 @@
                 dataMaisRecente = iso;
             }
         });
+
         kpiValor.textContent = formatMoeda(custoTotal);
-        if (!filtros.ultima_posicao) {
-            kpiDataRecente.textContent = "Nenhuma selecionada";
-            return;
-        }
         kpiDataRecente.textContent = formatDataIsoParaBr(dataMaisRecente);
-    }
-
-    function aplicarFiltros() {
-        tabela.setFilter(function (row) {
-            var statusValor = normalizarTexto(row.status, "<SEM STATUS>");
-            var anoValor = String(row.ano_contagem || "");
-            var mesValor = String(row.mes_contagem || "");
-            var dataContagemIso = row.data_contagem_iso || "";
-
-            if (filtros.status && filtros.status !== statusValor) return false;
-            if (filtros.ano.size && !filtros.ano.has(anoValor)) return false;
-            if (filtros.mes.size && !filtros.mes.has(mesValor)) return false;
-            if (filtros.ultima_posicao === "Última posição") return dataContagemIso === dataContagemMaisRecente;
-            if (filtros.ultima_posicao === "Anterior") {
-                if (!dataContagemAnteriorMaisRecente) return false;
-                return dataContagemIso === dataContagemAnteriorMaisRecente;
-            }
-
-            return true;
-        });
-    }
-
-    if (limparBtn) {
-        limparBtn.addEventListener("click", function () {
-            filtros = {
-                ultima_posicao: "",
-                status: "",
-                ano: new Set(),
-                mes: new Set(),
-            };
-            document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
-                btn.classList.remove("is-active");
-                btn.setAttribute("aria-pressed", "false");
-            });
-            tabela.clearFilter(true);
-            tabela.clearHeaderFilter();
-            atualizarDashboardComLinhas(dadosOriginais);
-        });
     }
 
     tabela.on("dataFiltered", function (_filters, rows) {
@@ -401,7 +236,3 @@
     tabela.setLocale("pt-br");
     atualizarDashboardComLinhas(dadosOriginais);
 })();
-
-
-
-

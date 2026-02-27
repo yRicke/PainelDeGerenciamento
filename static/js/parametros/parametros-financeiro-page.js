@@ -1,13 +1,9 @@
-(function () {
+﻿(function () {
     var dataElement = document.getElementById("parametros-financeiro-tabulator-data");
     if (!dataElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
     var submitPost = window.FinanceiroCrudUtils.submitPost;
-    var filtroParametro = document.getElementById("filtro-parametros-financeiro-parametro");
-    var filtroTaxa = document.getElementById("filtro-parametros-financeiro-taxa");
-    var filtroRemuneracao = document.getElementById("filtro-parametros-financeiro-remuneracao");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-parametros-financeiro");
 
     function toFieldValue(value) {
         if (value === null || value === undefined) return "";
@@ -55,6 +51,31 @@
         });
     }
 
+    var colunaAcoes = window.TabulatorDefaults.buildSaveDeleteActionColumn({
+        submitPost: submitPost,
+        getSaveUrl: function (row) {
+            return row.acao_url;
+        },
+        getDeleteUrl: function (row) {
+            return row.acao_url;
+        },
+        getSavePayload: function (row) {
+            return {
+                acao: "editar",
+                item_id: row.id,
+                parametro: toFieldValue(row.parametro),
+                taxa_ao_mes: toFieldValue(row.taxa_ao_mes),
+            };
+        },
+        getDeletePayload: function (row) {
+            return {
+                acao: "excluir",
+                item_id: row.id,
+            };
+        },
+        deleteConfirm: "Excluir parametro?",
+    });
+
     var tabela = window.TabulatorDefaults.create("#parametros-financeiro-tabulator", {
         data: data,
         columns: [
@@ -83,65 +104,8 @@
                     return formatPercentFromRatio(cell.getValue());
                 },
             },
-            {
-                title: "Acoes",
-                hozAlign: "center",
-                formatter: function () {
-                    return '<button class="btn-primary" type="button">Salvar</button> <button class="btn-danger" type="button">Excluir</button>';
-                },
-                cellClick: function (e, cell) {
-                    var row = cell.getRow().getData();
-                    if (!row || !row.acao_url) return;
-
-                    if (e.target && e.target.classList && e.target.classList.contains("btn-primary")) {
-                        submitPost(row.acao_url, {
-                            acao: "editar",
-                            item_id: row.id,
-                            parametro: toFieldValue(row.parametro),
-                            taxa_ao_mes: toFieldValue(row.taxa_ao_mes),
-                        });
-                    }
-                    if (e.target && e.target.classList && e.target.classList.contains("btn-danger")) {
-                        submitPost(row.acao_url, {
-                            acao: "excluir",
-                            item_id: row.id,
-                        }, "Excluir parametro?");
-                    }
-                },
-            },
+            colunaAcoes,
         ],
     });
 
-    function aplicarFiltros() {
-        var parametro = (filtroParametro && filtroParametro.value ? filtroParametro.value : "").toLowerCase().trim();
-        var taxa = (filtroTaxa && filtroTaxa.value ? filtroTaxa.value : "").toLowerCase().trim();
-        var remuneracao = (filtroRemuneracao && filtroRemuneracao.value ? filtroRemuneracao.value : "").toLowerCase().trim();
-
-        tabela.setFilter(function (rowData) {
-            var parametroRow = toFieldValue(rowData.parametro).toLowerCase();
-            var taxaRaw = toFieldValue(rowData.taxa_ao_mes).toLowerCase();
-            var taxaFmt = formatPercentFromRatio(rowData.taxa_ao_mes).toLowerCase();
-            var remuneracaoRaw = toFieldValue(rowData.remuneracao_percentual).toLowerCase();
-            var remuneracaoFmt = formatPercentFromRatio(rowData.remuneracao_percentual).toLowerCase();
-
-            if (parametro && parametroRow.indexOf(parametro) < 0) return false;
-            if (taxa && taxaRaw.indexOf(taxa) < 0 && taxaFmt.indexOf(taxa) < 0) return false;
-            if (remuneracao && remuneracaoRaw.indexOf(remuneracao) < 0 && remuneracaoFmt.indexOf(remuneracao) < 0) return false;
-            return true;
-        });
-    }
-
-    [filtroParametro, filtroTaxa, filtroRemuneracao].forEach(function (el) {
-        if (!el) return;
-        el.addEventListener("input", aplicarFiltros);
-    });
-
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener("click", function () {
-            if (filtroParametro) filtroParametro.value = "";
-            if (filtroTaxa) filtroTaxa.value = "";
-            if (filtroRemuneracao) filtroRemuneracao.value = "";
-            tabela.clearFilter(true);
-        });
-    }
 })();

@@ -517,7 +517,9 @@ def build_agenda_tabulator(agenda_qs, empresa_id: int):
                 if item.previsao_carregamento
                 else ""
             ),
+            "motorista_id": item.motorista_id or "",
             "motorista_nome": item.motorista.nome if item.motorista else "",
+            "transportadora_id": item.transportadora_id or "",
             "transportadora_nome": item.transportadora.nome if item.transportadora else "",
             "editar_url": reverse(
                 "editar_agenda_modulo",
@@ -921,14 +923,26 @@ def build_orcamento_tabulator(orcamentos_qs, empresa_id: int):
                 "valor_baixa": float(item.get("valor_baixa_num") or 0),
                 "valor_liquido": float(item.get("valor_liquido_num") or 0),
                 "valor_desdobramento": float(item.get("valor_desdobramento_num") or 0),
+                "titulo_id": item.get("titulo_id") or "",
+                "natureza_id": item.get("natureza_id") or "",
+                "centro_resultado_id": item.get("centro_resultado_id") or "",
+                "operacao_id": item.get("operacao_id") or "",
+                "parceiro_id": item.get("parceiro_id") or "",
+                "titulo_codigo": item.get("titulo__tipo_titulo_codigo") or "",
                 "titulo_descricao": item.get("titulo__descricao") or "",
+                "natureza_codigo": item.get("natureza__codigo") or "",
                 "natureza_descricao": item.get("natureza__descricao") or "",
                 "centro_resultado_descricao": centro_resultado_descricao,
+                "operacao_codigo": item.get("operacao__tipo_operacao_codigo") or "",
                 "operacao_descricao": item.get("operacao__descricao_receita_despesa") or "",
                 "parceiro_codigo": item.get("parceiro__codigo") or "",
                 "parceiro_nome": item.get("parceiro__nome") or "",
                 "editar_url": reverse(
                     "editar_orcamento_modulo",
+                    kwargs={"empresa_id": empresa_id, "orcamento_id": item.get("id")},
+                ),
+                "excluir_url": reverse(
+                    "excluir_orcamento_modulo",
                     kwargs={"empresa_id": empresa_id, "orcamento_id": item.get("id")},
                 ),
             }
@@ -956,7 +970,10 @@ def build_orcamentos_planejados_tabulator(orcamentos_qs, empresa_id: int):
         resultado.append(
             {
                 "id": item.get("id"),
+                "centro_resultado_id": item.get("centro_resultado_id") or "",
                 "centro_resultado_descricao": item.get("centro_resultado__descricao") or "",
+                "natureza_id": item.get("natureza_id") or "",
+                "natureza_codigo": item.get("natureza__codigo") or "",
                 "natureza_descricao": item.get("natureza__descricao") or "",
                 "nome_empresa": item.get("nome_empresa") or "",
                 "ano": item.get("ano") or "",
@@ -964,6 +981,10 @@ def build_orcamentos_planejados_tabulator(orcamentos_qs, empresa_id: int):
                 "total": sum(valores.values()),
                 "editar_url": reverse(
                     "editar_orcamento_planejado_modulo",
+                    kwargs={"empresa_id": empresa_id, "orcamento_planejado_id": item.get("id")},
+                ),
+                "excluir_url": reverse(
+                    "excluir_orcamento_planejado_modulo",
                     kwargs={"empresa_id": empresa_id, "orcamento_planejado_id": item.get("id")},
                 ),
             }

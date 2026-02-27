@@ -138,31 +138,12 @@
     var data = JSON.parse(dataElement.textContent || "[]");
     var dadosOriginais = Array.isArray(data) ? data.slice() : [];
 
-    var filtroOrigem = document.getElementById("filtro-origem");
-    var filtroOperacao = document.getElementById("filtro-operacao");
-    var filtroSituacao = document.getElementById("filtro-situacao-producao");
-    var filtroAno = document.getElementById("filtro-ano-producao");
-    var filtroMes = document.getElementById("filtro-mes-producao");
-    var filtroProduto = document.getElementById("filtro-produto");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-producao");
-
     var CHAVES_RELOGINHO = {
         x30x1: "30x1",
         x15x2: "15x2",
         x6x5: "6x5",
         total: "total",
     };
-
-    var filtros = {
-        origem: "",
-        operacao: "",
-        situacao: "",
-        ano: "",
-        mes: "",
-        produto: "",
-    };
-
-    var MESES_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
     function formatNumero(valor) {
         var numero = Number(valor || 0);
@@ -222,100 +203,29 @@
         return dt;
     }
 
-    function popularSelectComValores(selectEl, valores, labelBuilder) {
-        if (!selectEl) return;
-        var valorAtual = String(selectEl.value || "");
-        var primeiraOpcao = selectEl.querySelector("option");
-        var placeholderLabel = primeiraOpcao ? primeiraOpcao.textContent : "Todos";
-        selectEl.innerHTML = '<option value="">' + placeholderLabel + "</option>";
-        valores.forEach(function (valor) {
-            var opt = document.createElement("option");
-            opt.value = String(valor);
-            opt.textContent = labelBuilder ? labelBuilder(valor) : String(valor);
-            selectEl.appendChild(opt);
-        });
-        selectEl.value = valorAtual && valores.map(String).indexOf(valorAtual) >= 0 ? valorAtual : "";
-    }
+    var colunas = [
+        { title: "Data Origem", field: "data_origem" },
+        { title: "N. Operacao", field: "numero_operacao", hozAlign: "right" },
+        { title: "Situacao", field: "situacao" },
+        { title: "Cod. Produto", field: "produto_codigo" },
+        { title: "Desc. Produto", field: "produto_descricao" },
+        { title: "Tamanho Lote", field: "tamanho_lote" },
+        { title: "Numero Lote", field: "numero_lote" },
+        { title: "Entrada Atividade", field: "data_hora_entrada_atividade" },
+        { title: "Aceite Atividade", field: "data_hora_aceite_atividade" },
+        { title: "Inicio Atividade", field: "data_hora_inicio_atividade" },
+        { title: "Fim Atividade", field: "data_hora_fim_atividade" },
+        { title: "Kg", field: "kg", hozAlign: "right" },
+        { title: "Producao Dia (FD)", field: "producao_por_dia", hozAlign: "right" },
+        { title: "Kg por Lote", field: "kg_por_lote", hozAlign: "right" }
+    ];
 
-    (function inicializarFiltrosSituacaoAnoMes() {
-        var situacoesSet = new Set();
-        var anosSet = new Set();
-        var mesesSet = new Set();
-
-        dadosOriginais.forEach(function (item) {
-            var situacaoTexto = String(item.situacao || "").trim();
-            if (situacaoTexto) situacoesSet.add(situacaoTexto);
-
-            var dt = extrairDataEntrada(item);
-            if (dt) {
-                anosSet.add(dt.getFullYear());
-                mesesSet.add(dt.getMonth() + 1);
-            }
-        });
-
-        var situacoes = Array.from(situacoesSet).sort(function (a, b) { return a.localeCompare(b, "pt-BR"); });
-        var anos = Array.from(anosSet).sort(function (a, b) { return a - b; });
-        var meses = Array.from(mesesSet).sort(function (a, b) { return a - b; });
-
-        popularSelectComValores(filtroSituacao, situacoes);
-        popularSelectComValores(filtroAno, anos);
-        popularSelectComValores(filtroMes, meses, function (m) {
-            var idx = Number(m) - 1;
-            return (MESES_LABEL[idx] || String(m));
-        });
-    })();
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
 
     var tabela = window.TabulatorDefaults.create("#producao-tabulator", {
         data: dadosOriginais,
-        columns: [
-            { title: "Data Origem", field: "data_origem" },
-            { title: "N. Operação", field: "numero_operacao", hozAlign: "right" },
-            { title: "Situação", field: "situacao" },
-            { title: "Cód. Produto", field: "produto_codigo" },
-            { title: "Desc. Produto", field: "produto_descricao" },
-            { title: "Tamanho Lote", field: "tamanho_lote" },
-            { title: "Número Lote", field: "numero_lote" },
-            { title: "Entrada Atividade", field: "data_hora_entrada_atividade" },
-            { title: "Aceite Atividade", field: "data_hora_aceite_atividade" },
-            { title: "Início Atividade", field: "data_hora_inicio_atividade" },
-            { title: "Fim Atividade", field: "data_hora_fim_atividade" },
-            { title: "Kg", field: "kg", hozAlign: "right" },
-            { title: "Produção Dia (FD)", field: "producao_por_dia", hozAlign: "right" },
-            { title: "Kg por Lote", field: "kg_por_lote", hozAlign: "right" }
-        ]
+        columns: colunas,
     });
-
-    if (data.some(function (item) { return Boolean(item.editar_url); })) {
-        colunas.push({
-            title: "Acoes",
-            field: "editar_url",
-            formatter: function (cell) {
-                var url = cell.getValue();
-                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-            },
-            hozAlign: "center"
-        });
-    }
-
-    function aplicarFiltrosTabela() {
-        tabela.setFilter(function (item) {
-            var origemTexto = paraTexto(item.data_origem);
-            var operacaoTexto = String(item.numero_operacao || "");
-            var situacaoTexto = String(item.situacao || "").trim();
-            var produtoTexto = paraTexto((item.produto_codigo || "") + " " + (item.produto_descricao || ""));
-            var dt = extrairDataEntrada(item);
-            var anoAtividade = dt ? String(dt.getFullYear()) : "";
-            var mesAtividade = dt ? String(dt.getMonth() + 1) : "";
-
-            if (filtros.origem && origemTexto.indexOf(filtros.origem) < 0) return false;
-            if (filtros.operacao && operacaoTexto.indexOf(filtros.operacao) < 0) return false;
-            if (filtros.situacao && situacaoTexto !== filtros.situacao) return false;
-            if (filtros.ano && anoAtividade !== filtros.ano) return false;
-            if (filtros.mes && mesAtividade !== filtros.mes) return false;
-            if (filtros.produto && produtoTexto.indexOf(filtros.produto) < 0) return false;
-            return true;
-        });
-    }
 
     function obterCategoriaProduto(desc) {
         var texto = paraTexto(desc).replace(/\s+/g, "");
@@ -361,7 +271,6 @@
         if (!sufixo) return;
 
         var metaAcum = Number(valores.meta_acumulada || 0);
-        var metaAndamento = Number(valores.meta_andamento || 0);
         var real = Number(valores.realizado || 0);
         var pct = metaAcum > 0 ? (real / metaAcum) * 100 : 0;
 
@@ -464,52 +373,6 @@
         atualizarCard("total", metricas.total);
     }
 
-    function ligarInputFiltro(input, chave) {
-        if (!input) return;
-        input.addEventListener("input", function () {
-            filtros[chave] = paraTexto(input.value);
-            aplicarFiltrosTabela();
-        });
-    }
-
-    ligarInputFiltro(filtroOrigem, "origem");
-    ligarInputFiltro(filtroOperacao, "operacao");
-    ligarInputFiltro(filtroProduto, "produto");
-
-    function ligarSelectFiltro(select, chave) {
-        if (!select) return;
-        select.addEventListener("change", function () {
-            filtros[chave] = String(select.value || "");
-            aplicarFiltrosTabela();
-        });
-    }
-
-    ligarSelectFiltro(filtroSituacao, "situacao");
-    ligarSelectFiltro(filtroAno, "ano");
-    ligarSelectFiltro(filtroMes, "mes");
-
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener("click", function () {
-            filtros = {
-                origem: "",
-                operacao: "",
-                situacao: "",
-                ano: "",
-                mes: "",
-                produto: "",
-            };
-            if (filtroOrigem) filtroOrigem.value = "";
-            if (filtroOperacao) filtroOperacao.value = "";
-            if (filtroSituacao) filtroSituacao.value = "";
-            if (filtroAno) filtroAno.value = "";
-            if (filtroMes) filtroMes.value = "";
-            if (filtroProduto) filtroProduto.value = "";
-            tabela.clearFilter(true);
-            tabela.clearHeaderFilter();
-            atualizarDashboard(dadosOriginais);
-        });
-    }
-
     tabela.on("dataFiltered", function (_filters, rows) {
         var dadosFiltrados = rows.map(function (row) { return row.getData(); });
         atualizarDashboard(dadosFiltrados);
@@ -518,6 +381,3 @@
     tabela.setLocale("pt-br");
     atualizarDashboard(dadosOriginais);
 })();
-
-
-

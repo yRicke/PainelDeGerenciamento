@@ -6,6 +6,23 @@
     var input = document.getElementById("arquivos-vendas-input");
     var statusArquivos = document.getElementById("nome-arquivos-vendas-selecionados");
     var loadingStatus = document.getElementById("vendas-loading-status");
+    var frontendText = window.FrontendText || {};
+    var uploadText = frontendText.upload || {};
+    var arquivoXlsLabel = ".xls";
+
+    function mensagemNenhumArquivoEncontrado() {
+        if (typeof uploadText.noFileFound === "function") {
+            return uploadText.noFileFound(arquivoXlsLabel);
+        }
+        return "Nenhum arquivo .xls encontrado.";
+    }
+
+    function mensagemSelecionarPastaParaContinuar() {
+        if (typeof uploadText.selectFolderToContinue === "function") {
+            return uploadText.selectFolderToContinue(arquivoXlsLabel);
+        }
+        return "Selecione uma pasta com arquivos .xls para continuar.";
+    }
 
     function iniciarCarregamento() {
         form.classList.add("is-loading");
@@ -36,7 +53,7 @@
     function selecionarArquivos(files) {
         var arquivosXls = coletarArquivosXls(files);
         if (!arquivosXls.length) {
-            window.alert("Nenhum arquivo .xls encontrado.");
+            window.alert(mensagemNenhumArquivoEncontrado());
             input.value = "";
             atualizarStatus([]);
             return;
@@ -72,7 +89,7 @@
         var arquivosXls = coletarArquivosXls(input.files);
         if (!arquivosXls.length) {
             event.preventDefault();
-            window.alert("Selecione uma pasta com arquivos .xls para continuar.");
+            window.alert(mensagemSelecionarPastaParaContinuar());
             return;
         }
         iniciarCarregamento();
@@ -471,24 +488,6 @@
     if (!dataElement || !window.Tabulator) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var situacaoMargemSelect = document.getElementById("filtro-situacao-margem-tabela");
-    var anoVendaSelect = document.getElementById("filtro-ano-venda-tabela");
-    var mesVendaSelect = document.getElementById("filtro-mes-venda-tabela");
-    var limparBtn = document.getElementById("limpar-filtros-vendas");
-    var nomeMes = {
-        1: "Janeiro",
-        2: "Fevereiro",
-        3: "Marco",
-        4: "Abril",
-        5: "Maio",
-        6: "Junho",
-        7: "Julho",
-        8: "Agosto",
-        9: "Setembro",
-        10: "Outubro",
-        11: "Novembro",
-        12: "Dezembro"
-    };
 
     function normalizarSituacaoMargem(valor) {
         return String(valor || "")
@@ -506,23 +505,6 @@
         if (situacao === "verde") return "#2f9e44";
         return "";
     }
-
-    function preencherSelect(select, valores, labelFn) {
-        valores.forEach(function (valor) {
-            var option = document.createElement("option");
-            option.value = String(valor);
-            option.textContent = labelFn ? labelFn(valor) : String(valor);
-            select.appendChild(option);
-        });
-    }
-
-    var anosVenda = Array.from(new Set(data.map(function (item) { return item.ano_venda; }).filter(Boolean))).sort(function (a, b) { return b - a; });
-    var mesesVenda = Array.from(new Set(data.map(function (item) { return item.mes_venda; }).filter(Boolean))).sort(function (a, b) { return a - b; });
-
-    preencherSelect(anoVendaSelect, anosVenda);
-    preencherSelect(mesVendaSelect, mesesVenda, function (valor) {
-        return (nomeMes[valor] || valor) + " (" + String(valor).padStart(2, "0") + ")";
-    });
 
     var colunas = [
         {title: "Codigo", field: "codigo", headerFilter: "input"},
@@ -601,47 +583,11 @@
         },
     ];
 
-    if (data.some(function (item) { return Boolean(item.editar_url); })) {
-        colunas.push({
-            title: "Acoes",
-            field: "editar_url",
-            formatter: function (cell) {
-                var url = cell.getValue();
-                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-            },
-            hozAlign: "center"
-        });
-    }
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
 
     var tabela = window.TabulatorDefaults.create("#vendas-tabulator", {
         data: data,
         columns: colunas
-    });
-
-    function aplicarFiltros() {
-        var situacaoMargem = situacaoMargemSelect.value || "";
-        var anoVenda = anoVendaSelect.value || "";
-        var mesVenda = mesVendaSelect.value || "";
-
-        tabela.setFilter(function (dataRow) {
-            if (situacaoMargem && dataRow.margem_situacao !== situacaoMargem) return false;
-            if (anoVenda && String(dataRow.ano_venda) !== String(anoVenda)) return false;
-            if (mesVenda && String(dataRow.mes_venda) !== String(mesVenda)) return false;
-            return true;
-        });
-    }
-
-    [situacaoMargemSelect, anoVendaSelect, mesVendaSelect].forEach(function (element) {
-        element.addEventListener("change", aplicarFiltros);
-        element.addEventListener("input", aplicarFiltros);
-    });
-
-    limparBtn.addEventListener("click", function () {
-        situacaoMargemSelect.value = "";
-        anoVendaSelect.value = "";
-        mesVendaSelect.value = "";
-        tabela.clearFilter(true);
-        tabela.clearHeaderFilter();
     });
 })();
 

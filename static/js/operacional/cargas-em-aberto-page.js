@@ -148,22 +148,12 @@
     var dataElement = document.getElementById("cargas-tabulator-data");
     if (!dataElement || !window.Tabulator) return;
 
-    var filtroSituacao = document.getElementById("filtro-situacao");
-    var filtroVerificacao = document.getElementById("filtro-verificacao");
-    var filtroCritica = document.getElementById("filtro-critica");
-    var filtroEmpresa = document.getElementById("filtro-empresa");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-cargas");
-
     var kpiTotal = document.getElementById("kpi-cargas-em-aberto");
     var kpiNoPrazo = document.getElementById("kpi-cargas-no-prazo");
     var kpiForaPrazo = document.getElementById("kpi-cargas-fora-prazo");
 
     var data = JSON.parse(dataElement.textContent || "[]");
     var dadosOriginais = Array.isArray(data) ? data.slice() : [];
-
-    function paraTexto(valor) {
-        return String(valor || "").toLowerCase();
-    }
 
     function atualizarDashboard(dadosFiltrados) {
         if (!kpiTotal || !kpiNoPrazo || !kpiForaPrazo) return;
@@ -178,9 +168,7 @@
         kpiNoPrazo.textContent = String(total - foraPrazo);
     }
 
-    var table = window.TabulatorDefaults.create("#cargas-tabulator", {
-        data: dadosOriginais,
-        columns: [
+    var colunas = [
             { title: "Ordem Carga", field: "ordem_de_carga_codigo", headerFilter: "input" },
             { title: "Situação", field: "situacao", headerFilter: "input" },
             { title: "Empresa", field: "nome_fantasia_empresa", headerFilter: "input" },
@@ -200,67 +188,15 @@
                     return cell.getValue() ? "Verificar" : "Ok";
                 }
             },
-            { title: "Critica", field: "critica", hozAlign: "center" },
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-                },
-                hozAlign: "center"
-            }
-        ]
+            { title: "Critica", field: "critica", hozAlign: "center" }
+        ];
+
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
+
+    var table = window.TabulatorDefaults.create("#cargas-tabulator", {
+        data: dadosOriginais,
+        columns: colunas
     });
-
-    function aplicarFiltrosExibicao() {
-        var situacaoSelecionada = filtroSituacao ? paraTexto(filtroSituacao.value) : "";
-        var verificacaoSelecionada = filtroVerificacao ? paraTexto(filtroVerificacao.value) : "";
-        var criticaSelecionada = filtroCritica ? paraTexto(filtroCritica.value) : "";
-        var empresaDigitada = filtroEmpresa ? paraTexto(filtroEmpresa.value).trim() : "";
-
-        table.setFilter(function (dataItem) {
-            var situacaoAtual = paraTexto(dataItem.situacao);
-            var empresaAtual = paraTexto(dataItem.nome_fantasia_empresa);
-            var criticaAtual = Number(dataItem.critica || 0);
-            var verificacaoAtual = Boolean(dataItem.verificacao);
-
-            if (situacaoSelecionada && situacaoAtual !== situacaoSelecionada) return false;
-            if (empresaDigitada && empresaAtual.indexOf(empresaDigitada) === -1) return false;
-
-            if (verificacaoSelecionada === "ok" && verificacaoAtual) return false;
-            if (verificacaoSelecionada === "verificar" && !verificacaoAtual) return false;
-
-            if (criticaSelecionada === "positiva" && criticaAtual <= 0) return false;
-            if (criticaSelecionada === "zero" && criticaAtual !== 0) return false;
-            if (criticaSelecionada === "negativa" && criticaAtual >= 0) return false;
-
-            return true;
-        });
-    }
-
-    function registrarFiltro(el) {
-        if (!el) return;
-        el.addEventListener("input", aplicarFiltrosExibicao);
-        el.addEventListener("change", aplicarFiltrosExibicao);
-    }
-
-    registrarFiltro(filtroSituacao);
-    registrarFiltro(filtroVerificacao);
-    registrarFiltro(filtroCritica);
-    registrarFiltro(filtroEmpresa);
-
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener("click", function () {
-            if (filtroSituacao) filtroSituacao.value = "";
-            if (filtroVerificacao) filtroVerificacao.value = "";
-            if (filtroCritica) filtroCritica.value = "";
-            if (filtroEmpresa) filtroEmpresa.value = "";
-            table.clearFilter(true);
-            table.clearHeaderFilter();
-            atualizarDashboard(dadosOriginais);
-        });
-    }
 
     table.on("dataFiltered", function (_filters, rows) {
         var dadosFiltrados = rows.map(function (row) {

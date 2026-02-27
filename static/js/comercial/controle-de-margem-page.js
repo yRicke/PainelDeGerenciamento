@@ -8,6 +8,25 @@
     var fileStatus = document.getElementById("nome-arquivo-controle-margem-selecionado");
     var loadingStatus = document.getElementById("controle-margem-loading-status");
     var temArquivoExistente = form.dataset.temArquivoExistente === "1";
+    var frontendText = window.FrontendText || {};
+    var commonText = frontendText.common || {};
+    var uploadText = frontendText.upload || {};
+    var confirmText = frontendText.confirm || {};
+    var arquivoXlsOuXlsxLabel = ".xls ou .xlsx";
+
+    function mensagemApenasArquivoPermitido() {
+        if (typeof uploadText.onlyAllowedFile === "function") {
+            return uploadText.onlyAllowedFile(arquivoXlsOuXlsxLabel);
+        }
+        return "Envie apenas arquivo .xls ou .xlsx.";
+    }
+
+    function mensagemSelecionarArquivoParaContinuar() {
+        if (typeof uploadText.selectFileToContinue === "function") {
+            return uploadText.selectFileToContinue(arquivoXlsOuXlsxLabel);
+        }
+        return "Selecione um arquivo .xls ou .xlsx para continuar.";
+    }
 
     function validarExtensao(file) {
         if (!file) return false;
@@ -20,7 +39,8 @@
             fileStatus.textContent = "";
             return;
         }
-        fileStatus.textContent = "Arquivo selecionado: " + input.files[0].name;
+        var selectedFilePrefix = commonText.selectedFilePrefix || "Arquivo selecionado: ";
+        fileStatus.textContent = selectedFilePrefix + input.files[0].name;
     }
 
     function iniciarCarregamento() {
@@ -33,7 +53,8 @@
             confirmInput.value = "0";
             return true;
         }
-        if (!window.confirm("Ja existe um arquivo na pasta. Deseja substituir o arquivo atual?")) return false;
+        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Já existe um arquivo na pasta. Deseja substituir o arquivo atual?";
+        if (!window.confirm(replaceCurrentFileMessage)) return false;
         confirmInput.value = "1";
         return true;
     }
@@ -57,7 +78,7 @@
         var files = event.dataTransfer.files;
         if (!files || !files.length) return;
         if (!validarExtensao(files[0])) {
-            window.alert("Envie apenas arquivo .xls ou .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             return;
         }
         input.files = files;
@@ -67,7 +88,7 @@
     input.addEventListener("change", function () {
         if (!input.files || !input.files.length) return;
         if (!validarExtensao(input.files[0])) {
-            window.alert("Envie apenas arquivo .xls ou .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             input.value = "";
         }
         atualizarNomeArquivo();
@@ -76,12 +97,12 @@
     form.addEventListener("submit", function (event) {
         if (!input.files || !input.files.length) {
             event.preventDefault();
-            window.alert("Selecione um arquivo .xls ou .xlsx para continuar.");
+            window.alert(mensagemSelecionarArquivoParaContinuar());
             return;
         }
         if (!validarExtensao(input.files[0])) {
             event.preventDefault();
-            window.alert("Envie apenas arquivo .xls ou .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             return;
         }
         if (temArquivoExistente && confirmInput.value !== "1" && !confirmarSubstituicaoSeNecessario()) {
@@ -97,13 +118,6 @@
     if (!dataElement || !window.Tabulator) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var possuiEdicao = data.some(function (item) { return Boolean(item.editar_url); });
-    var filtroSituacaoContainer = document.getElementById("filtro-controle-situacao");
-    var filtroDescricaoPerfilContainer = document.getElementById("filtro-controle-descricao-perfil");
-    var filtroApelidoVendedorContainer = document.getElementById("filtro-controle-apelido-vendedor");
-    var filtroNomeEmpresaContainer = document.getElementById("filtro-controle-nome-empresa");
-    var filtroTipoVendaContainer = document.getElementById("filtro-controle-tipo-venda");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-controle-margem");
     var dashboardPedido = document.getElementById("dashboard-pedido");
     var dashboardCmv = document.getElementById("dashboard-cmv");
     var dashboardLucro = document.getElementById("dashboard-lucro");
@@ -164,82 +178,7 @@
         if (dashboardMargem) dashboardMargem.textContent = fmtPercentualRatio(margem);
     }
 
-    function normalizarTexto(valor, vazioLabel) {
-        var texto = (valor || "").toString().trim();
-        return texto || vazioLabel;
-    }
-
-    function valoresUnicosOrdenados(campo, vazioLabel) {
-        var setValores = new Set();
-        data.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        return Array.from(setValores).sort(function (a, b) {
-            return a.localeCompare(b, "pt-BR");
-        });
-    }
-
-    function criarEstadoSelecao() {
-        return {
-            situacao: new Set(),
-            descricao_perfil: new Set(),
-            apelido_vendedor: new Set(),
-            nome_empresa: new Set(),
-            tipo_venda: new Set(),
-        };
-    }
-
-    var filtrosSelecionados = criarEstadoSelecao();
-
-    function criarBotaoFiltro(valor, onToggle) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "carteira-filtro-btn";
-        btn.textContent = valor;
-        btn.setAttribute("aria-pressed", "false");
-        btn.addEventListener("click", function () {
-            btn.classList.toggle("is-active");
-            var ativo = btn.classList.contains("is-active");
-            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-            onToggle(ativo, valor);
-            aplicarFiltros();
-        });
-        return btn;
-    }
-
-    function montarGrupoFiltros(container, valores, chaveEstado) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
-                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
-                else filtrosSelecionados[chaveEstado].delete(valorToggle);
-            });
-            container.appendChild(btn);
-        });
-    }
-
-    function aplicarFiltros() {
-        tabela.setFilter(function (item) {
-            var situacao = normalizarTexto(item.situacao, "<SEM SITUACAO>");
-            var descricaoPerfil = normalizarTexto(item.descricao_perfil, "<SEM DESCRICAO PERFIL>");
-            var apelidoVendedor = normalizarTexto(item.apelido_vendedor, "<SEM APELIDO VENDEDOR>");
-            var nomeEmpresa = normalizarTexto(item.nome_empresa, "<SEM NOME EMPRESA>");
-            var tipoVenda = normalizarTexto(item.tipo_venda, "<SEM TIPO VENDA>");
-
-            if (filtrosSelecionados.situacao.size && !filtrosSelecionados.situacao.has(situacao)) return false;
-            if (filtrosSelecionados.descricao_perfil.size && !filtrosSelecionados.descricao_perfil.has(descricaoPerfil)) return false;
-            if (filtrosSelecionados.apelido_vendedor.size && !filtrosSelecionados.apelido_vendedor.has(apelidoVendedor)) return false;
-            if (filtrosSelecionados.nome_empresa.size && !filtrosSelecionados.nome_empresa.has(nomeEmpresa)) return false;
-            if (filtrosSelecionados.tipo_venda.size && !filtrosSelecionados.tipo_venda.has(tipoVenda)) return false;
-            return true;
-        });
-        atualizarDashboard();
-    }
-
-    var tabela = window.TabulatorDefaults.create("#controle-margem-tabulator", {
-        data: data,
-        columns: [
+    var colunas = [
             {title: "Nro. Unico", field: "nro_unico", sorter: "number", headerFilter: "input"},
             {title: "Nome Empresa", field: "nome_empresa", headerFilter: "input"},
             {title: "Cod. Nome parceiro", field: "cod_nome_parceiro", headerFilter: "input"},
@@ -279,39 +218,14 @@
             {title: "Total Setores", field: "total_setores", hozAlign: "right", formatter: function (cell) { return fmtMoeda(cell.getValue()); }},
             {title: "Valor Liquido", field: "valor_liquido", hozAlign: "right", formatter: function (cell) { return fmtMoeda(cell.getValue()); }},
             {title: "Margem Liquida", field: "margem_liquida", hozAlign: "right", formatter: function (cell) { return fmtPercentualRatio(cell.getValue()); }},
-        ],
+    ];
+
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
+
+    var tabela = window.TabulatorDefaults.create("#controle-margem-tabulator", {
+        data: data,
+        columns: colunas,
     });
-
-    if (data.some(function (item) { return Boolean(item.editar_url); })) {
-        colunas.push({
-            title: "Acoes",
-            field: "editar_url",
-            formatter: function (cell) {
-                var url = cell.getValue();
-                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-            },
-            hozAlign: "center"
-        });
-    }
-
-    montarGrupoFiltros(filtroSituacaoContainer, valoresUnicosOrdenados("situacao", "<SEM SITUACAO>"), "situacao");
-    montarGrupoFiltros(filtroDescricaoPerfilContainer, valoresUnicosOrdenados("descricao_perfil", "<SEM DESCRICAO PERFIL>"), "descricao_perfil");
-    montarGrupoFiltros(filtroApelidoVendedorContainer, valoresUnicosOrdenados("apelido_vendedor", "<SEM APELIDO VENDEDOR>"), "apelido_vendedor");
-    montarGrupoFiltros(filtroNomeEmpresaContainer, valoresUnicosOrdenados("nome_empresa", "<SEM NOME EMPRESA>"), "nome_empresa");
-    montarGrupoFiltros(filtroTipoVendaContainer, valoresUnicosOrdenados("tipo_venda", "<SEM TIPO VENDA>"), "tipo_venda");
-
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener("click", function () {
-            filtrosSelecionados = criarEstadoSelecao();
-            document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
-                btn.classList.remove("is-active");
-                btn.setAttribute("aria-pressed", "false");
-            });
-            tabela.clearFilter(true);
-            tabela.clearHeaderFilter();
-            atualizarDashboard();
-        });
-    }
 
     tabela.on("tableBuilt", atualizarDashboard);
     tabela.on("dataFiltered", atualizarDashboard);

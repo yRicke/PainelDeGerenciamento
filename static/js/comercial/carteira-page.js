@@ -202,6 +202,25 @@
     var fileStatus = document.getElementById("nome-arquivo-selecionado");
     var loadingStatus = document.getElementById("carteira-loading-status");
     var temArquivoExistente = form.dataset.temArquivoExistente === "1";
+    var frontendText = window.FrontendText || {};
+    var commonText = frontendText.common || {};
+    var uploadText = frontendText.upload || {};
+    var confirmText = frontendText.confirm || {};
+    var arquivoXlsxLabel = ".xlsx";
+
+    function mensagemApenasArquivoPermitido() {
+        if (typeof uploadText.onlyAllowedFile === "function") {
+            return uploadText.onlyAllowedFile(arquivoXlsxLabel);
+        }
+        return "Envie apenas arquivo .xlsx.";
+    }
+
+    function mensagemSelecionarArquivoParaContinuar() {
+        if (typeof uploadText.selectFileToContinue === "function") {
+            return uploadText.selectFileToContinue(arquivoXlsxLabel);
+        }
+        return "Selecione um arquivo .xlsx para continuar.";
+    }
 
     function iniciarCarregamento() {
         form.classList.add("is-loading");
@@ -220,7 +239,8 @@
             fileStatus.textContent = "";
             return;
         }
-        fileStatus.textContent = "Arquivo selecionado: " + input.files[0].name;
+        var selectedFilePrefix = commonText.selectedFilePrefix || "Arquivo selecionado: ";
+        fileStatus.textContent = selectedFilePrefix + input.files[0].name;
     }
 
     function validarExtensaoXlsx(file) {
@@ -233,7 +253,8 @@
             return true;
         }
 
-        var confirmou = window.confirm("Ja existe um arquivo de carteira. Deseja substituir o arquivo atual?");
+        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Já existe um arquivo na pasta. Deseja substituir o arquivo atual?";
+        var confirmou = window.confirm(replaceCurrentFileMessage);
         if (!confirmou) {
             return false;
         }
@@ -265,7 +286,7 @@
 
         var file = files[0];
         if (!validarExtensaoXlsx(file)) {
-            window.alert("Envie apenas arquivo .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             return;
         }
 
@@ -280,7 +301,7 @@
 
         var file = input.files[0];
         if (!validarExtensaoXlsx(file)) {
-            window.alert("Envie apenas arquivo .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             input.value = "";
             atualizarNomeArquivo();
             return;
@@ -292,14 +313,14 @@
     form.addEventListener("submit", function (event) {
         if (!input.files || !input.files.length) {
             event.preventDefault();
-            window.alert("Selecione um arquivo .xlsx para continuar.");
+            window.alert(mensagemSelecionarArquivoParaContinuar());
             return;
         }
 
         var file = input.files[0];
         if (!validarExtensaoXlsx(file)) {
             event.preventDefault();
-            window.alert("Envie apenas arquivo .xlsx.");
+            window.alert(mensagemApenasArquivoPermitido());
             return;
         }
 
@@ -320,14 +341,6 @@
     if (!dataElement || !window.Tabulator) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    var gerenteContainer = document.getElementById("filtro-gerente");
-    var ativoContainer = document.getElementById("filtro-ativo");
-    var clienteContainer = document.getElementById("filtro-cliente");
-    var fornecedorContainer = document.getElementById("filtro-fornecedor");
-    var transportadoraContainer = document.getElementById("filtro-transportadora");
-    var descricaoPerfilContainer = document.getElementById("filtro-descricao-perfil");
-    var anoCadastroContainer = document.getElementById("filtro-ano-cadastro");
-    var limparBtn = document.getElementById("limpar-filtros-carteira");
     var kpiEls = {
         totalCarteira: {
             qtdTotal: document.getElementById("kpi-total-carteira-qtd-total"),
@@ -423,69 +436,6 @@
         kpiEls.totalReal.pulga.textContent = formatPercentual(pulgaReal);
     }
 
-    function normalizarTexto(valor, vazioLabel) {
-        var texto = (valor || "").toString().trim();
-        return texto || vazioLabel;
-    }
-
-    function valoresUnicosOrdenados(campo, vazioLabel, sorter) {
-        var setValores = new Set();
-        data.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        var valores = Array.from(setValores);
-        if (sorter) return valores.sort(sorter);
-        return valores.sort(function (a, b) {
-            return a.localeCompare(b, "pt-BR");
-        });
-    }
-
-    function criarEstadoSelecao() {
-        return {
-            gerente: new Set(),
-            ativo: new Set(),
-            cliente: new Set(),
-            fornecedor: new Set(),
-            transportadora: new Set(),
-            descricao_perfil: new Set(),
-            ano_cadastro: new Set(),
-        };
-    }
-
-    var filtrosSelecionados = criarEstadoSelecao();
-
-    function criarBotaoFiltro(valor, onToggle) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "carteira-filtro-btn";
-        btn.textContent = valor;
-        btn.setAttribute("aria-pressed", "false");
-        btn.addEventListener("click", function () {
-            btn.classList.toggle("is-active");
-            var ativo = btn.classList.contains("is-active");
-            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-            onToggle(ativo, valor);
-            aplicarFiltros();
-        });
-        return btn;
-    }
-
-    function montarGrupoFiltros(container, valores, chaveEstado) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
-                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
-                else filtrosSelecionados[chaveEstado].delete(valorToggle);
-            });
-            container.appendChild(btn);
-        });
-    }
-
-    function boolToLabel(valor, trueLabel, falseLabel) {
-        return valor ? trueLabel : falseLabel;
-    }
-
     var colunas = [
         {title: "ID", field: "id", width: 75, hozAlign: "center", headerFilter: "input"},
         {title: "Parceiro", field: "nome_parceiro", headerFilter: "input"},
@@ -524,68 +474,11 @@
         {title: "Codigo cidade", field: "cidade_codigo", headerFilter: "input"},
     ];
 
-    if (data.some(function (item) { return Boolean(item.editar_url); })) {
-        colunas.push({
-            title: "Acoes",
-            field: "editar_url",
-            formatter: function (cell) {
-                var url = cell.getValue();
-                return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-            },
-            hozAlign: "center",
-        });
-    }
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
 
     var tabela = window.TabulatorDefaults.create("#carteira-tabulator", {
         data: data,
         columns: colunas,
-    });
-
-    function aplicarFiltros() {
-        tabela.setFilter(function (dataRow) {
-            var gerenteValor = normalizarTexto(dataRow.gerente, "<SEM GERENTE>");
-            var ativoValor = boolToLabel(Boolean(dataRow.ativo_indicador), "Ativo", "Desativado");
-            var clienteValor = boolToLabel(Boolean(dataRow.cliente_indicador), "Cliente", "Nao Cliente");
-            var fornecedorValor = boolToLabel(Boolean(dataRow.fornecedor_indicador), "Fornecedor", "Nao Fornecedor");
-            var transportadoraValor = boolToLabel(Boolean(dataRow.transporte_indicador), "Transportadora", "Nao Transportadora");
-            var descricaoPerfilValor = normalizarTexto(dataRow.descricao_perfil, "<SEM DESCRICAO>");
-            var anoCadastroValor = normalizarTexto(dataRow.ano_cadastro, "<SEM ANO>");
-
-            if (filtrosSelecionados.gerente.size && !filtrosSelecionados.gerente.has(gerenteValor)) return false;
-            if (filtrosSelecionados.ativo.size && !filtrosSelecionados.ativo.has(ativoValor)) return false;
-            if (filtrosSelecionados.cliente.size && !filtrosSelecionados.cliente.has(clienteValor)) return false;
-            if (filtrosSelecionados.fornecedor.size && !filtrosSelecionados.fornecedor.has(fornecedorValor)) return false;
-            if (filtrosSelecionados.transportadora.size && !filtrosSelecionados.transportadora.has(transportadoraValor)) return false;
-            if (filtrosSelecionados.descricao_perfil.size && !filtrosSelecionados.descricao_perfil.has(descricaoPerfilValor)) return false;
-            if (filtrosSelecionados.ano_cadastro.size && !filtrosSelecionados.ano_cadastro.has(anoCadastroValor)) return false;
-            return true;
-        });
-    }
-
-    montarGrupoFiltros(gerenteContainer, valoresUnicosOrdenados("gerente", "<SEM GERENTE>"), "gerente");
-    montarGrupoFiltros(ativoContainer, ["Ativo", "Desativado"], "ativo");
-    montarGrupoFiltros(clienteContainer, ["Cliente", "Nao Cliente"], "cliente");
-    montarGrupoFiltros(fornecedorContainer, ["Fornecedor", "Nao Fornecedor"], "fornecedor");
-    montarGrupoFiltros(transportadoraContainer, ["Transportadora", "Nao Transportadora"], "transportadora");
-    montarGrupoFiltros(descricaoPerfilContainer, valoresUnicosOrdenados("descricao_perfil", "<SEM DESCRICAO>"), "descricao_perfil");
-    montarGrupoFiltros(
-        anoCadastroContainer,
-        valoresUnicosOrdenados("ano_cadastro", "<SEM ANO>", function (a, b) {
-            if (a === "<SEM ANO>") return 1;
-            if (b === "<SEM ANO>") return -1;
-            return Number(b) - Number(a);
-        }),
-        "ano_cadastro"
-    );
-
-    limparBtn.addEventListener("click", function () {
-        filtrosSelecionados = criarEstadoSelecao();
-        document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
-            btn.classList.remove("is-active");
-            btn.setAttribute("aria-pressed", "false");
-        });
-        tabela.clearFilter(true);
-        tabela.clearHeaderFilter();
     });
 
     tabela.on("tableBuilt", atualizarDashboardComDadosVisiveis);

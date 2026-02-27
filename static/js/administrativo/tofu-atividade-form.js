@@ -73,8 +73,8 @@
         }
 
         dataFinalizadaInput.title = podePreencherDataFinalizada
-            ? "Com progresso 100%, o preenchimento da Data Finalizada e obrigatorio."
-            : "A data finalizada so pode ser preenchida com progresso 100%.";
+            ? "Com progresso 100%, o preenchimento da Data Finalizada é obrigatório."
+            : "A Data Finalizada só pode ser preenchida com progresso 100%.";
     }
 
     document.querySelectorAll("[data-atividade-form]").forEach(function (form) {

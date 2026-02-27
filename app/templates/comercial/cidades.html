@@ -29,19 +29,6 @@
 
 <section class="panel">
     <h2>Lista de Cidades</h2>
-    <div class="filter-grid">
-        <div>
-            <label>Buscar por nome</label>
-            <input type="text" id="filtro-cidade-nome" placeholder="Digite o nome">
-        </div>
-        <div>
-            <label>Buscar por codigo</label>
-            <input type="text" id="filtro-cidade-codigo" placeholder="Digite o codigo">
-        </div>
-        <div>
-            <button type="button" class="btn-light" id="limpar-filtros-cidades">Limpar</button>
-        </div>
-    </div>
     <div class="table-wrapper">
         <div id="cidades-tabulator"></div>
     </div>
@@ -58,83 +45,19 @@
         if (!dataElement || !window.Tabulator) return;
 
         var data = JSON.parse(dataElement.textContent || "[]");
-        var csrfToken = "{{ csrf_token }}";
-        var filtroNome = document.getElementById("filtro-cidade-nome");
-        var filtroCodigo = document.getElementById("filtro-cidade-codigo");
-        var limparFiltrosBtn = document.getElementById("limpar-filtros-cidades");
+        var colunas = [
+            {title: "ID", field: "id", width: 80, hozAlign: "center"},
+            {title: "Nome", field: "nome"},
+            {title: "Codigo", field: "codigo"},
+        ];
 
-        function submitPost(url, fields, confirmMsg) {
-            if (confirmMsg && !window.confirm(confirmMsg)) return;
-            var form = document.createElement("form");
-            form.method = "POST";
-            form.action = url;
-
-            var csrfInput = document.createElement("input");
-            csrfInput.type = "hidden";
-            csrfInput.name = "csrfmiddlewaretoken";
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-
-            Object.keys(fields || {}).forEach(function (key) {
-                var input = document.createElement("input");
-                input.type = "hidden";
-                input.name = key;
-                input.value = fields[key];
-                form.appendChild(input);
-            });
-
-            document.body.appendChild(form);
-            form.submit();
-        }
+        window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
 
         var tabela = window.TabulatorDefaults.create("#cidades-tabulator", {
             data: data,
-            columns: [
-                {title: "ID", field: "id", width: 80, hozAlign: "center"},
-                {title: "Nome", field: "nome", editor: "input"},
-                {title: "Codigo", field: "codigo", editor: "input"},
-                {
-                    title: "Acoes",
-                    field: "editar_url",
-                    hozAlign: "center",
-                    formatter: function () {
-                        return '<button class="btn-primary" type="button">Salvar</button> <button class="btn-danger" type="button">Excluir</button>';
-                    },
-                    cellClick: function (e, cell) {
-                        var row = cell.getRow().getData();
-                        if (e.target && e.target.classList.contains("btn-primary")) {
-                            submitPost(row.editar_url, {
-                                nome: row.nome || "",
-                                codigo: row.codigo || "",
-                            });
-                        }
-                        if (e.target && e.target.classList.contains("btn-danger")) {
-                            submitPost(row.excluir_url, {}, "Excluir cidade?");
-                        }
-                    },
-                },
-            ],
+            columns: colunas,
         });
 
-        function aplicarFiltros() {
-            var nome = (filtroNome.value || "").toLowerCase().trim();
-            var codigo = (filtroCodigo.value || "").toLowerCase().trim();
-            tabela.setFilter(function (dataRow) {
-                if (nome && !(dataRow.nome || "").toLowerCase().includes(nome)) return false;
-                if (codigo && !(dataRow.codigo || "").toLowerCase().includes(codigo)) return false;
-                return true;
-            });
-        }
-
-        [filtroNome, filtroCodigo].forEach(function (element) {
-            element.addEventListener("input", aplicarFiltros);
-        });
-
-        limparFiltrosBtn.addEventListener("click", function () {
-            filtroNome.value = "";
-            filtroCodigo.value = "";
-            tabela.clearFilter(true);
-        });
     })();
 </script>
 {% endblock %}

@@ -149,40 +149,6 @@
 
 <section id="sec-visualizacao" class="panel module-section">
     <h2>Dados das Cargas</h2>
-    <div class="filter-grid">
-        <div>
-            <label for="filtro-situacao">Situação</label>
-            <select id="filtro-situacao">
-                <option value="">Todas</option>
-                <option value="aberta">Aberta</option>
-                <option value="fechada">Fechada</option>
-            </select>
-        </div>
-        <div>
-            <label for="filtro-verificacao">Verificação</label>
-            <select id="filtro-verificacao">
-                <option value="">Todas</option>
-                <option value="ok">Ok</option>
-                <option value="verificar">Verificar</option>
-            </select>
-        </div>
-        <div>
-            <label for="filtro-critica">Crítica</label>
-            <select id="filtro-critica">
-                <option value="">Todas</option>
-                <option value="positiva">Positiva (&gt; 0)</option>
-                <option value="zero">Zero (= 0)</option>
-                <option value="negativa">Negativa (&lt; 0)</option>
-            </select>
-        </div>
-        <div>
-            <label for="filtro-empresa">Nome Fantasia (Empresa)</label>
-            <input type="text" id="filtro-empresa" placeholder="Digite para filtrar">
-        </div>
-    </div>
-    <div class="module-actions">
-        <button type="button" class="btn-light" id="limpar-filtros-cargas">Limpar filtros</button>
-    </div>
     <div class="table-wrapper">
         <div id="cargas-tabulator"></div>
     </div>

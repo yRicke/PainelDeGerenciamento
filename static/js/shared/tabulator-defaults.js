@@ -21,25 +21,39 @@
         pagination: {
             page_size: "Linhas",
             first: "Primeira",
-            first_title: "Primeira pagina",
-            last: "Ultima",
-            last_title: "Ultima pagina",
+            first_title: "Primeira p\u00E1gina",
+            last: "\u00DAltima",
+            last_title: "\u00DAltima p\u00E1gina",
             prev: "Anterior",
-            prev_title: "Pagina anterior",
-            next: "Proxima",
-            next_title: "Proxima pagina",
+            prev_title: "P\u00E1gina anterior",
+            next: "Pr\u00F3xima",
+            next_title: "Pr\u00F3xima p\u00E1gina",
             all: "Todas",
             counter: {
                 showing: "Mostrando",
                 of: "de",
                 rows: "linhas",
-                pages: "paginas",
+                pages: "p\u00E1ginas",
             },
         },
         headerFilters: {
             default: "Filtrar coluna...",
         },
     };
+
+    function normalizeForComparison(value) {
+        return String(value || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function resolveActionColumnTitle() {
+        var shared = window.FrontendText
+            && window.FrontendText.common
+            && window.FrontendText.common.actionColumn;
+        return shared || "A\u00E7\u00F5es";
+    }
 
     function isPlainObject(value) {
         return Object.prototype.toString.call(value) === "[object Object]";
@@ -227,7 +241,7 @@
     }
 
     function isActionColumn(column) {
-        var title = String(column.title || "").toLowerCase();
+        var title = normalizeForComparison(column.title || "");
         var field = String(column.field || "").toLowerCase();
         return title.indexOf("acoes") >= 0
             || title.indexOf("acao") >= 0
@@ -338,6 +352,10 @@
         }
 
         if (!next.field) return next;
+
+        if (isActionColumn(next)) {
+            next.title = resolveActionColumnTitle();
+        }
 
         if (!Object.prototype.hasOwnProperty.call(next, "formatter") && looksLikeBooleanIndicatorColumn(next)) {
             next.formatter = "tickCross";
@@ -497,12 +515,193 @@
 
     function create(target, config) {
         if (!window.Tabulator) {
-            throw new Error("Tabulator nao esta carregado.");
+            throw new Error("Tabulator n\u00E3o est\u00E1 carregado.");
         }
         var enhancedConfig = enhanceConfig(config);
         var table = new window.Tabulator(target, enhancedConfig);
         installBottomHorizontalScrollbar(table);
+        hideEmptyActionColumns(table, enhancedConfig);
         return table;
+    }
+
+    function toButtonLabel(value, fallback) {
+        var text = String(value || "").trim();
+        return text || fallback;
+    }
+
+    function toCssClass(value, fallback) {
+        var text = String(value || "").trim();
+        return text || fallback;
+    }
+
+    function normalizeColumnOptions(options) {
+        return isPlainObject(options) ? options : {};
+    }
+
+    function resolveRowValue(rowData, valueOrFn) {
+        if (typeof valueOrFn === "function") {
+            return valueOrFn(rowData);
+        }
+        return valueOrFn;
+    }
+
+    function buildEditActionColumn(options) {
+        var cfg = normalizeColumnOptions(options);
+        var field = String(cfg.field || "editar_url");
+        var actionLabel = toButtonLabel(cfg.label, "Editar");
+        var actionClass = toCssClass(cfg.className, "btn-primary");
+        var column = {
+            title: resolveActionColumnTitle(),
+            field: field,
+            hozAlign: cfg.hozAlign || "center",
+            formatter: typeof cfg.formatter === "function"
+                ? cfg.formatter
+                : function (cell) {
+                    var url = cell.getValue();
+                    if (!url) return "";
+                    return '<a class="' + actionClass + '" href="' + url + '">' + actionLabel + "</a>";
+                },
+        };
+
+        if (Number.isFinite(cfg.width)) {
+            column.width = cfg.width;
+        }
+
+        if (typeof cfg.cellClick === "function") {
+            column.cellClick = cfg.cellClick;
+        }
+
+        return column;
+    }
+
+    function addEditActionColumnIfAny(columns, data, options) {
+        if (!Array.isArray(columns)) return columns;
+        var cfg = normalizeColumnOptions(options);
+        var field = String(cfg.field || "editar_url");
+        if (!hasAnyRowAction(data, [field])) return columns;
+        columns.push(buildEditActionColumn(cfg));
+        return columns;
+    }
+
+    function buildSaveDeleteActionColumn(options) {
+        var cfg = normalizeColumnOptions(options);
+        var saveActionClass = toCssClass(cfg.saveActionClass, "js-tabulator-action-save");
+        var deleteActionClass = toCssClass(cfg.deleteActionClass, "js-tabulator-action-delete");
+        var saveButtonClass = toCssClass(cfg.saveButtonClass, "btn-primary");
+        var deleteButtonClass = toCssClass(cfg.deleteButtonClass, "btn-danger");
+        var saveLabel = toButtonLabel(cfg.saveLabel, "Salvar");
+        var deleteLabel = toButtonLabel(cfg.deleteLabel, "Excluir");
+        var submitPost = typeof cfg.submitPost === "function" ? cfg.submitPost : null;
+        var getSaveUrl = typeof cfg.getSaveUrl === "function"
+            ? cfg.getSaveUrl
+            : function (rowData) { return rowData ? rowData.editar_url : ""; };
+        var getDeleteUrl = typeof cfg.getDeleteUrl === "function"
+            ? cfg.getDeleteUrl
+            : function (rowData) { return rowData ? rowData.excluir_url : ""; };
+        var getSavePayload = typeof cfg.getSavePayload === "function"
+            ? cfg.getSavePayload
+            : function () { return {}; };
+        var getDeletePayload = typeof cfg.getDeletePayload === "function"
+            ? cfg.getDeletePayload
+            : function () { return {}; };
+        var onSave = typeof cfg.onSave === "function" ? cfg.onSave : null;
+        var onDelete = typeof cfg.onDelete === "function" ? cfg.onDelete : null;
+        var getDeleteConfirm = typeof cfg.getDeleteConfirm === "function"
+            ? cfg.getDeleteConfirm
+            : function (rowData) {
+                return resolveRowValue(rowData, cfg.deleteConfirm) || "";
+            };
+        var column = {
+            title: resolveActionColumnTitle(),
+            hozAlign: cfg.hozAlign || "center",
+            formatter: function () {
+                return '<button class="' + saveButtonClass + " " + saveActionClass + '" type="button">' + saveLabel + "</button>"
+                    + ' <button class="' + deleteButtonClass + " " + deleteActionClass + '" type="button">' + deleteLabel + "</button>";
+            },
+            cellClick: function (event, cell) {
+                var rowData = cell && cell.getRow ? cell.getRow().getData() : null;
+                if (!rowData) return;
+
+                var target = event && event.target;
+                var saveTarget = target && target.closest ? target.closest("." + saveActionClass) : null;
+                if (saveTarget) {
+                    if (onSave) {
+                        onSave({ event: event, cell: cell, rowData: rowData });
+                        return;
+                    }
+                    if (!submitPost) return;
+                    var saveUrl = getSaveUrl(rowData);
+                    if (!saveUrl) return;
+                    submitPost(saveUrl, getSavePayload(rowData));
+                    return;
+                }
+
+                var deleteTarget = target && target.closest ? target.closest("." + deleteActionClass) : null;
+                if (!deleteTarget) return;
+                if (onDelete) {
+                    onDelete({ event: event, cell: cell, rowData: rowData });
+                    return;
+                }
+                if (!submitPost) return;
+                var deleteUrl = getDeleteUrl(rowData);
+                if (!deleteUrl) return;
+                submitPost(deleteUrl, getDeletePayload(rowData), getDeleteConfirm(rowData));
+            },
+        };
+
+        if (cfg.field) {
+            column.field = String(cfg.field);
+        }
+
+        if (Number.isFinite(cfg.width)) {
+            column.width = cfg.width;
+        }
+
+        return column;
+    }
+
+    function hasAnyRowAction(data, actionFields) {
+        if (!Array.isArray(data) || !data.length) return false;
+        var fields = Array.isArray(actionFields) && actionFields.length
+            ? actionFields
+            : ["editar_url", "excluir_url", "deletar_url"];
+
+        return data.some(function (item) {
+            if (!item || typeof item !== "object") return false;
+            return fields.some(function (field) {
+                return Boolean(item[field]);
+            });
+        });
+    }
+
+    function collectActionFieldsFromColumns(columns) {
+        var actionFields = [];
+        var leafColumns = collectLeafColumns(columns, []);
+        leafColumns.forEach(function (column) {
+            if (!column || !column.field) return;
+            if (!isActionColumn(column)) return;
+            actionFields.push(String(column.field));
+        });
+        return Array.from(new Set(actionFields));
+    }
+
+    function hideEmptyActionColumns(table, config) {
+        if (!table || !config) return;
+        if (config.keepActionColumnWhenNoRowAction === true) return;
+
+        var data = Array.isArray(config.data) ? config.data : [];
+        if (!data.length) return;
+
+        var actionFields = collectActionFieldsFromColumns(config.columns);
+        if (!actionFields.length) return;
+        if (hasAnyRowAction(data, actionFields)) return;
+
+        actionFields.forEach(function (field) {
+            var column = typeof table.getColumn === "function" ? table.getColumn(field) : null;
+            if (column && typeof column.hide === "function") {
+                column.hide();
+            }
+        });
     }
 
     function installGlobalDomStickyWatcher() {
@@ -558,6 +757,10 @@
     window.TabulatorDefaults = {
         create: create,
         enhanceConfig: enhanceConfig,
+        hasAnyRowAction: hasAnyRowAction,
+        buildEditActionColumn: buildEditActionColumn,
+        addEditActionColumnIfAny: addEditActionColumnIfAny,
+        buildSaveDeleteActionColumn: buildSaveDeleteActionColumn,
     };
 
     installGlobalDomStickyWatcher();

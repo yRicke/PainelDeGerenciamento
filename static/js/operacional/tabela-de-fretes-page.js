@@ -93,69 +93,9 @@
     var dataElement = document.getElementById("fretes-tabulator-data");
     if (!dataElement || !window.Tabulator) return;
 
-    var tipoFreteContainer = document.getElementById("filtro-frete-tipo-frete");
-    var regiaoNomeContainer = document.getElementById("filtro-frete-regiao-nome");
-    var cidadeNomeContainer = document.getElementById("filtro-frete-cidade-nome");
-    var limparFiltrosBtn = document.getElementById("limpar-filtros-fretes");
-
     var data = JSON.parse(dataElement.textContent || "[]");
     var dadosOriginais = Array.isArray(data) ? data.slice() : [];
-    var filtrosSelecionados = {
-        tipo_frete: new Set(),
-        regiao_nome: new Set(),
-        cidade_nome: new Set(),
-    };
-
-    function paraTexto(valor) {
-        return String(valor || "").toLowerCase().trim();
-    }
-
-    function normalizarTexto(valor, vazioLabel) {
-        var texto = (valor || "").toString().trim();
-        return texto || vazioLabel;
-    }
-
-    function valoresUnicosOrdenados(campo, vazioLabel) {
-        var setValores = new Set();
-        dadosOriginais.forEach(function (item) {
-            setValores.add(normalizarTexto(item[campo], vazioLabel));
-        });
-        return Array.from(setValores).sort(function (a, b) {
-            return a.localeCompare(b, "pt-BR");
-        });
-    }
-
-    function criarBotaoFiltro(valor, onToggle) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "carteira-filtro-btn";
-        btn.textContent = valor;
-        btn.setAttribute("aria-pressed", "false");
-        btn.addEventListener("click", function () {
-            btn.classList.toggle("is-active");
-            var ativo = btn.classList.contains("is-active");
-            btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-            onToggle(ativo, valor);
-            aplicarFiltrosExibicao();
-        });
-        return btn;
-    }
-
-    function montarGrupoFiltros(container, valores, chaveEstado) {
-        if (!container) return;
-        container.innerHTML = "";
-        valores.forEach(function (valor) {
-            var btn = criarBotaoFiltro(valor, function (ativo, valorToggle) {
-                if (ativo) filtrosSelecionados[chaveEstado].add(valorToggle);
-                else filtrosSelecionados[chaveEstado].delete(valorToggle);
-            });
-            container.appendChild(btn);
-        });
-    }
-
-    var table = window.TabulatorDefaults.create("#fretes-tabulator", {
-        data: dadosOriginais,
-        columns: [
+    var colunas = [
             { title: "ID", field: "id", width: 80, hozAlign: "center" },
             { title: "Cidade Código", field: "cidade_codigo" },
             { title: "Cidade Nome", field: "cidade_nome" },
@@ -171,50 +111,14 @@
             { title: "Valor Frete por KM", field: "valor_frete_por_km", hozAlign: "right" },
             { title: "Valor Taxa Entrada", field: "valor_taxa_entrada", hozAlign: "right" },
             { title: "Venda Mínima", field: "venda_minima", hozAlign: "right" },
-            {
-                title: "Acoes",
-                field: "editar_url",
-                formatter: function (cell) {
-                    var url = cell.getValue();
-                    return url ? '<a class="btn-primary" href="' + url + '">Editar</a>' : "";
-                },
-                hozAlign: "center"
-            }
-        ]
+        ];
+
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
+
+    var table = window.TabulatorDefaults.create("#fretes-tabulator", {
+        data: dadosOriginais,
+        columns: colunas
     });
-
-    function aplicarFiltrosExibicao() {
-        table.setFilter(function (dataItem) {
-            var tipoFreteValor = normalizarTexto(dataItem.tipo_frete, "<SEM TIPO>");
-            var regiaoNomeValor = normalizarTexto(dataItem.regiao_nome, "<SEM REGIAO>");
-            var cidadeNomeValor = normalizarTexto(dataItem.cidade_nome, "<SEM CIDADE>");
-
-            if (filtrosSelecionados.tipo_frete.size && !filtrosSelecionados.tipo_frete.has(tipoFreteValor)) return false;
-            if (filtrosSelecionados.regiao_nome.size && !filtrosSelecionados.regiao_nome.has(regiaoNomeValor)) return false;
-            if (filtrosSelecionados.cidade_nome.size && !filtrosSelecionados.cidade_nome.has(cidadeNomeValor)) return false;
-            return true;
-        });
-    }
-
-    montarGrupoFiltros(tipoFreteContainer, valoresUnicosOrdenados("tipo_frete", "<SEM TIPO>"), "tipo_frete");
-    montarGrupoFiltros(regiaoNomeContainer, valoresUnicosOrdenados("regiao_nome", "<SEM REGIAO>"), "regiao_nome");
-    montarGrupoFiltros(cidadeNomeContainer, valoresUnicosOrdenados("cidade_nome", "<SEM CIDADE>"), "cidade_nome");
-
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener("click", function () {
-            filtrosSelecionados = {
-                tipo_frete: new Set(),
-                regiao_nome: new Set(),
-                cidade_nome: new Set(),
-            };
-            document.querySelectorAll(".carteira-filtro-btn.is-active").forEach(function (btn) {
-                btn.classList.remove("is-active");
-                btn.setAttribute("aria-pressed", "false");
-            });
-            table.clearFilter(true);
-            table.clearHeaderFilter();
-        });
-    }
 
     table.setLocale("pt-br");
 })();

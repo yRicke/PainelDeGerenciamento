@@ -906,9 +906,17 @@ def _orcamentos_realizados_qs_para_tabulator(empresa):
             "valor_baixa_num",
             "valor_liquido_num",
             "valor_desdobramento_num",
+            "titulo_id",
+            "natureza_id",
+            "centro_resultado_id",
+            "operacao_id",
+            "parceiro_id",
+            "titulo__tipo_titulo_codigo",
             "titulo__descricao",
+            "natureza__codigo",
             "natureza__descricao",
             "centro_resultado__descricao",
+            "operacao__tipo_operacao_codigo",
             "operacao__descricao_receita_despesa",
             "parceiro__codigo",
             "parceiro__nome",
@@ -938,6 +946,11 @@ def _orcamentos_planejados_qs_para_tabulator(empresa):
             "id",
             "nome_empresa",
             "ano",
+            "natureza_id",
+            "centro_resultado_id",
+            "natureza__codigo",
+            "natureza__descricao",
+            "centro_resultado__descricao",
             "janeiro_num",
             "fevereiro_num",
             "marco_num",
@@ -1022,14 +1035,35 @@ def orcamentos_realizados(request, empresa_id):
 
     orcamentos_realizados_qs = _orcamentos_realizados_qs_para_tabulator(empresa)
 
+    titulos_qs = Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo")
+    naturezas_qs = Natureza.objects.filter(empresa=empresa).order_by("codigo")
+    operacoes_qs = Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo")
+    parceiros_qs = Parceiro.objects.filter(empresa=empresa).order_by("nome")
+    centros_resultado_qs = CentroResultado.objects.filter(empresa=empresa).order_by("descricao")
+
     contexto = {
         "empresa": empresa,
         "orcamento_tabulator": build_orcamento_tabulator(orcamentos_realizados_qs, empresa.id),
-        "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
-        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
-        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
-        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
-        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+        "titulos": titulos_qs,
+        "naturezas": naturezas_qs,
+        "operacoes": operacoes_qs,
+        "parceiros": parceiros_qs,
+        "centros_resultado": centros_resultado_qs,
+        "orcamento_titulos_js": list(
+            titulos_qs.values("id", "tipo_titulo_codigo", "descricao")
+        ),
+        "orcamento_naturezas_js": list(
+            naturezas_qs.values("id", "codigo", "descricao")
+        ),
+        "orcamento_operacoes_js": list(
+            operacoes_qs.values("id", "tipo_operacao_codigo", "descricao_receita_despesa")
+        ),
+        "orcamento_parceiros_js": list(
+            parceiros_qs.values("id", "codigo", "nome")
+        ),
+        "orcamento_centros_resultado_js": list(
+            centros_resultado_qs.values("id", "descricao")
+        ),
     }
     return render(request, "administrativo/orcamentos_realizados.html", contexto)
 
@@ -1054,11 +1088,20 @@ def orcamentos(request, empresa_id):
 
     orcamentos_qs = _orcamentos_planejados_qs_para_tabulator(empresa)
 
+    naturezas_qs = Natureza.objects.filter(empresa=empresa).order_by("codigo")
+    centros_resultado_qs = CentroResultado.objects.filter(empresa=empresa).order_by("descricao")
+
     contexto = {
         "empresa": empresa,
         "orcamentos_tabulator": build_orcamentos_planejados_tabulator(orcamentos_qs, empresa.id),
-        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("codigo"),
-        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+        "naturezas": naturezas_qs,
+        "centros_resultado": centros_resultado_qs,
+        "orcamento_planejado_naturezas_js": list(
+            naturezas_qs.values("id", "codigo", "descricao")
+        ),
+        "orcamento_planejado_centros_resultado_js": list(
+            centros_resultado_qs.values("id", "descricao")
+        ),
     }
     return render(request, "administrativo/orcamentos.html", contexto)
 

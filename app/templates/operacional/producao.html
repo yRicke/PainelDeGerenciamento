@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static %}
 
 {% block title %}Produção{% endblock %}
@@ -200,30 +200,6 @@
                 <p>REAL: <strong id="real-total">0</strong> <span id="pct-total">0,00%</span></p>
             </div>
         </article>
-    </div>
-
-    <div class="filter-grid">
-        <div>
-            <label for="filtro-situacao-producao">Situação</label>
-            <select id="filtro-situacao-producao">
-                <option value="">Todas</option>
-            </select>
-        </div>
-        <div>
-            <label for="filtro-ano-producao">Ano</label>
-            <select id="filtro-ano-producao">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div>
-            <label for="filtro-mes-producao">Mês</label>
-            <select id="filtro-mes-producao">
-                <option value="">Todos</option>
-            </select>
-        </div>
-    </div>
-    <div class="module-actions">
-        <button type="button" id="limpar-filtros-producao" class="btn-light">Limpar filtros</button>
     </div>
     <div class="table-wrapper">
         <div id="producao-tabulator"></div>

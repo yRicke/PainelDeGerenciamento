@@ -4,7 +4,6 @@
 {% block title %}DFC{% endblock %}
 
 {% block extra_css %}
-<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
 <link rel="stylesheet" href="{% static 'css/financeiro/dfc-page.css' %}">
 {% endblock %}
@@ -21,7 +20,6 @@
         {% endif %}
         <a href="#sec-importacao">Importacao</a>
         <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualizacao</a>
     </nav>
 </section>
 
@@ -119,46 +117,9 @@
         </article>
     </div>
 </section>
-
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Dados DFC</h2>
-    <div class="filter-grid">
-        <div>
-            <label>Receita/Despesa</label>
-            <select id="filtro-dfc-receita-despesa"><option value="">Todos</option></select>
-        </div>
-        <div>
-            <label>Ano</label>
-            <select id="filtro-dfc-ano"><option value="">Todos</option></select>
-        </div>
-        <div>
-            <label>Mes</label>
-            <select id="filtro-dfc-mes"><option value="">Todos</option></select>
-        </div>
-        <div>
-            <label>Tipo de titulo</label>
-            <select id="filtro-dfc-titulo"><option value="">Todos</option></select>
-        </div>
-        <div>
-            <label>Centro de resultado</label>
-            <select id="filtro-dfc-centro-resultado"><option value="">Todos</option></select>
-        </div>
-        <div>
-            <label>Tipo de operacao</label>
-            <select id="filtro-dfc-tipo-operacao"><option value="">Todos</option></select>
-        </div>
-        <div>
-            <label>Tipo de movimento</label>
-            <select id="filtro-dfc-tipo-movimento"><option value="">Todos</option></select>
-        </div>
-    </div>
-    <button type="button" class="btn-light" id="limpar-filtros-dfc">Limpar filtros</button>
-    <div class="table-wrapper"><div id="dfc-tabulator"></div></div>
-</section>
 {% endblock %}
 
 {% block extra_js %}
 {{ dfc_tabulator|json_script:"dfc-tabulator-data" }}
-<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
 {% endblock %}
