@@ -96,7 +96,6 @@
     var data = JSON.parse(dataElement.textContent || "[]");
     var dadosOriginais = Array.isArray(data) ? data.slice() : [];
     var colunas = [
-            { title: "ID", field: "id", width: 80, hozAlign: "center" },
             { title: "Cidade Código", field: "cidade_codigo" },
             { title: "Cidade Nome", field: "cidade_nome" },
             { title: "UF Código", field: "unidade_federativa_codigo" },

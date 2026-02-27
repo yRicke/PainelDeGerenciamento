@@ -150,6 +150,15 @@
         });
     }
 
+    function formatNumeroPtBr(valor, casasDecimais) {
+        var numero = Number(valor || 0);
+        if (!Number.isFinite(numero)) return "-";
+        return numero.toLocaleString("pt-BR", {
+            minimumFractionDigits: casasDecimais,
+            maximumFractionDigits: casasDecimais,
+        });
+    }
+
     function formatDataIsoParaBr(iso) {
         if (!iso) return "-";
         var p = String(iso).split("-");
@@ -158,9 +167,8 @@
     }
 
     var colunas = [
-            {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {
-                title: "Nome Origem",
+                title: "Origem",
                 field: "nome_origem",
                 sorter: function (a, b, aRow, bRow) {
                     var aIso = (aRow.getData().nome_origem_iso || "");
@@ -169,7 +177,7 @@
                 },
             },
             {
-                title: "Dt. Contagem",
+                title: "Data de Contagem",
                 field: "data_contagem",
                 sorter: function (a, b, aRow, bRow) {
                     var aIso = (aRow.getData().data_contagem_iso || "");
@@ -178,28 +186,28 @@
                 },
             },
             {title: "Status", field: "status"},
-            {title: "Cod. Empresa", field: "codigo_empresa"},
-            {title: "Cod. Produto", field: "produto_codigo"},
-            {title: "Desc. Produto", field: "produto_descricao"},
-            {title: "Qtd. Estoque", field: "qtd_estoque", hozAlign: "right"},
-            {title: "Giro Mensal", field: "giro_mensal", hozAlign: "right"},
-            {title: "Lead Time Fornecimento", field: "lead_time_fornecimento", hozAlign: "right"},
-            {title: "Cod. Volume", field: "codigo_voume"},
-            {title: "Custo Total", field: "custo_total", hozAlign: "right"},
-            {title: "Reservado", field: "reservado", hozAlign: "right"},
-            {title: "Pacote por Fardo", field: "pacote_por_fardo", hozAlign: "right"},
-            {title: "SubTotal (Est-Pen)", field: "sub_total_est_pen", hozAlign: "right"},
-            {title: "Estoque Minimo", field: "estoque_minimo", hozAlign: "right"},
+            {title: "Código da Empresa", field: "codigo_empresa"},
+            {title: "Código do Produto", field: "produto_codigo"},
+            {title: "Descrição do Produto", field: "produto_descricao"},
+            {title: "Quantidade em Estoque", field: "qtd_estoque", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "Giro Mensal", field: "giro_mensal", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "Lead Time de Fornecimento", field: "lead_time_fornecimento", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "Código da Unidade de Volume", field: "codigo_volume"},
+            {title: "Custo Total", field: "custo_total", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "Reservado", field: "reservado", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "Pacote por Fardo", field: "pacote_por_fardo", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "SubTotal", field: "sub_total_est_pen", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+            {title: "Estoque Mínimo", field: "estoque_minimo", hozAlign: "right", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
             {
                 title: "PCP",
                 cssClass: "pcp-group",
                 headerHozAlign: "center",
                 columns: [
-                    {title: "Producao por Dia (FD)", field: "producao_por_dia_fd", hozAlign: "right", cssClass: "pcp-col"},
-                    {title: "Total PCP Pacote", field: "total_pcp_pacote", hozAlign: "right", cssClass: "pcp-col"},
-                    {title: "Total PCP Fardo", field: "total_pcp_fardo", hozAlign: "right", cssClass: "pcp-col"},
-                    {title: "Dia de Producao", field: "dia_de_producao", hozAlign: "right", cssClass: "pcp-col"},
-                    {title: "Cod. Local", field: "codigo_local", cssClass: "pcp-col"},
+                    {title: "Produção por Dia (FD)", field: "producao_por_dia_fd", hozAlign: "right", cssClass: "pcp-col", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+                    {title: "Total PCP Pacote", field: "total_pcp_pacote", hozAlign: "right", cssClass: "pcp-col", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+                    {title: "Total PCP Fardo", field: "total_pcp_fardo", hozAlign: "right", cssClass: "pcp-col", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 3); }},
+                    {title: "Dia de Produção", field: "dia_de_producao", hozAlign: "right", cssClass: "pcp-col", formatter: function (cell) { return formatNumeroPtBr(cell.getValue(), 6); }},
+                    {title: "Código do Local", field: "codigo_local", cssClass: "pcp-col"},
                 ],
             },
         ];

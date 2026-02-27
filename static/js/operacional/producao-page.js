@@ -204,20 +204,20 @@
     }
 
     var colunas = [
-        { title: "Data Origem", field: "data_origem" },
-        { title: "N. Operacao", field: "numero_operacao", hozAlign: "right" },
-        { title: "Situacao", field: "situacao" },
-        { title: "Cod. Produto", field: "produto_codigo" },
-        { title: "Desc. Produto", field: "produto_descricao" },
-        { title: "Tamanho Lote", field: "tamanho_lote" },
-        { title: "Numero Lote", field: "numero_lote" },
-        { title: "Entrada Atividade", field: "data_hora_entrada_atividade" },
-        { title: "Aceite Atividade", field: "data_hora_aceite_atividade" },
-        { title: "Inicio Atividade", field: "data_hora_inicio_atividade" },
-        { title: "Fim Atividade", field: "data_hora_fim_atividade" },
-        { title: "Kg", field: "kg", hozAlign: "right" },
-        { title: "Producao Dia (FD)", field: "producao_por_dia", hozAlign: "right" },
-        { title: "Kg por Lote", field: "kg_por_lote", hozAlign: "right" }
+        { title: "Origem", field: "data_origem" },
+        { title: "Número da OP", field: "numero_operacao", hozAlign: "right" },
+        { title: "Situação", field: "situacao" },
+        { title: "Código do Produto", field: "produto_codigo" },
+        { title: "Descrição do Produto", field: "produto_descricao" },
+        { title: "Tamanho do Lote", field: "tamanho_lote" },
+        { title: "Número do Lote", field: "numero_lote" },
+        { title: "Data e Hora de Entrada da Atividade", field: "data_hora_entrada_atividade" },
+        { title: "Data e Hora de Aceite da Atividade", field: "data_hora_aceite_atividade" },
+        { title: "Data e Hora de Início da Atividade", field: "data_hora_inicio_atividade" },
+        { title: "Data e Hora de Fim da Atividade", field: "data_hora_fim_atividade" },
+        { title: "KG", field: "kg", hozAlign: "right" },
+        { title: "Produção por Dia (FD)", field: "producao_por_dia", hozAlign: "right" },
+        { title: "KG por Lote", field: "kg_por_lote", hozAlign: "right" }
     ];
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);

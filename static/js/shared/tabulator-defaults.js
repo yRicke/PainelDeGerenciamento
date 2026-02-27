@@ -1,6 +1,6 @@
 (function () {
     var DEFAULT_MAX_ROWS_PER_PAGE = 100;
-    var DEFAULT_FROZEN_LEADING_COLUMNS = 4;
+    var DEFAULT_FROZEN_LEADING_COLUMNS = 2;
     var AUTO_FROZEN_MARKER = "__tabulatorDefaultsAutoFrozen";
     var FREEZE_STORAGE_PREFIX = "tabulator-frozen-columns::v1::";
     var TABLE_STICKY_TOP_GAP = 10;

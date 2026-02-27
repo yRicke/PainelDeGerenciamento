@@ -79,11 +79,11 @@
                 <input type="text" name="custo_total" value="{{ estoque_item.custo_total }}">
             </div>
             <div>
-                <label>Código volume</label>
-                <select name="codigo_voume">
+                <label>Código da Unidade de Volume</label>
+                <select name="codigo_volume">
                     <option value="">Selecione</option>
-                    {% for codigo_voume in codigos_voume_estoque %}
-                    <option value="{{ codigo_voume }}" {% if estoque_item.codigo_voume == codigo_voume %}selected{% endif %}>{{ codigo_voume }}</option>
+                    {% for codigo_volume in codigos_volume_estoque %}
+                    <option value="{{ codigo_volume }}" {% if estoque_item.codigo_volume == codigo_volume %}selected{% endif %}>{{ codigo_volume }}</option>
                     {% endfor %}
                 </select>
             </div>

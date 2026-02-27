@@ -1711,7 +1711,9 @@ def _dados_estoque_from_post(post_data, empresa):
         "qtd_estoque": qtd_estoque,
         "giro_mensal": _parse_decimal_ou_zero(post_data.get("giro_mensal")),
         "lead_time_fornecimento": _parse_decimal_ou_zero(post_data.get("lead_time_fornecimento")),
-        "codigo_voume": (post_data.get("codigo_voume") or "").strip(),
+        "codigo_volume": (
+            (post_data.get("codigo_volume") or post_data.get("codigo_voume") or "").strip()
+        ),
         "custo_total": _parse_decimal_ou_zero(post_data.get("custo_total")),
         "reservado": reservado,
         "pacote_por_fardo": pacote_por_fardo,

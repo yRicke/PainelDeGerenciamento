@@ -449,7 +449,7 @@ def importar_estoque_do_diretorio(
                     "data_contagem": "dtcontagem",
                     "codigo_empresa": "codempresa",
                     "codigo_produto": "codproduto",
-                    "codigo_voume": "codvoume",
+                    "codigo_volume": "codvoume",
                     "codigo_local": "codlocal",
                     "custo_total": "custototal",
                 },
@@ -472,7 +472,7 @@ def importar_estoque_do_diretorio(
                 qtd_estoque = _to_decimal(_valor_por_indice(linha, indices, "qtd_estoque"))
                 custo_total = _to_decimal(_valor_por_indice(linha, indices, "custo_total"))
                 data_contagem = _excel_date(_valor_por_indice(linha, indices, "data_contagem")) or data_nome_arquivo
-                codigo_voume = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_voume"))
+                codigo_volume = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_volume"))
                 chave = (data_contagem, codigo_empresa, codigo_local, codigo_produto)
 
                 atual = posicoes.get(chave)
@@ -482,7 +482,7 @@ def importar_estoque_do_diretorio(
                         "qtd_estoque": qtd_estoque,
                         "custo_total": custo_total,
                         "data_contagem": data_contagem,
-                        "codigo_voume": codigo_voume,
+                        "codigo_volume": codigo_volume,
                         "nome_origem": data_nome_arquivo,
                     }
                 else:
@@ -490,8 +490,8 @@ def importar_estoque_do_diretorio(
                     atual["custo_total"] += custo_total
                     if not atual["descricao_produto"] and descricao_produto:
                         atual["descricao_produto"] = descricao_produto
-                    if not atual["codigo_voume"] and codigo_voume:
-                        atual["codigo_voume"] = codigo_voume
+                    if not atual["codigo_volume"] and codigo_volume:
+                        atual["codigo_volume"] = codigo_volume
                 total_linhas += 1
 
         elif tipo_layout == "reservado":
@@ -574,7 +574,7 @@ def importar_estoque_do_diretorio(
         custo_total = posicao.get("custo_total", _decimal_zero())
         nome_origem = posicao.get("nome_origem") or reservado_item.get("nome_origem") or timezone.localdate()
         data_contagem = posicao.get("data_contagem") or nome_origem
-        codigo_voume = posicao.get("codigo_voume", "")
+        codigo_volume = posicao.get("codigo_volume", "")
 
         pacote_por_fardo = _to_decimal(produto.pacote_por_fardo if produto else 0)
         if pacote_por_fardo < 0:
@@ -632,7 +632,7 @@ def importar_estoque_do_diretorio(
                 qtd_estoque=qtd_estoque,
                 giro_mensal=giro_mensal,
                 lead_time_fornecimento=lead_time_fornecimento,
-                codigo_voume=codigo_voume,
+                codigo_volume=codigo_volume,
                 custo_total=custo_total,
                 reservado=reservado,
                 pacote_por_fardo=pacote_por_fardo,
@@ -658,7 +658,7 @@ def importar_estoque_do_diretorio(
                 "qtd_estoque",
                 "giro_mensal",
                 "lead_time_fornecimento",
-                "codigo_voume",
+                "codigo_volume",
                 "custo_total",
                 "reservado",
                 "pacote_por_fardo",
@@ -869,7 +869,8 @@ def importar_cargas_do_diretorio(
                 "nomeparceiromotoristadoveiculo",
                 "nomeparceiromotorista",
             ],
-            "nome_fantasia_empresa": ["nomefantasiaempresa", "nomefantasia", "empresa", "cliente"],
+            "empresa_codigo": ["empresa", "codempresa", "codigoempresa"],
+            "nome_fantasia_empresa": ["nomefantasiaempresa", "nomefantasia", "cliente"],
             "regiao_codigo": ["codigoregiao", "codregiao", "regiao"],
             "regiao_nome": ["nomeregiao", "descricaoregiao", "regiaonome", "nome"],
             "prazo_maximo_dias": ["prazomaximodias", "prazomaximo", "prazodias"],
@@ -924,6 +925,13 @@ def importar_cargas_do_diretorio(
                 ),
             )
 
+            empresa_codigo = _normalizar_codigo(registro["empresa_codigo"])
+            nome_fantasia = _normalizar_texto(registro["nome_fantasia_empresa"])
+            if empresa_codigo and nome_fantasia:
+                nome_fantasia_empresa = f"{empresa_codigo} - {nome_fantasia}"
+            else:
+                nome_fantasia_empresa = nome_fantasia or empresa_codigo or "-"
+
             objetos.append(
                 Cargas(
                     empresa=empresa,
@@ -934,7 +942,7 @@ def importar_cargas_do_diretorio(
                     data_chegada=data_chegada,
                     data_finalizacao=data_finalizacao,
                     nome_motorista=_normalizar_texto(registro["nome_motorista"]),
-                    nome_fantasia_empresa=_normalizar_texto(registro["nome_fantasia_empresa"]) or "-",
+                    nome_fantasia_empresa=nome_fantasia_empresa,
                     regiao=regiao,
                     prazo_maximo_dias=(
                         10

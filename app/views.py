@@ -3681,10 +3681,10 @@ def estoque_pcp(request, empresa_id):
         .select_related("produto")
         .order_by("-data_contagem", "-id")
     )
-    codigos_voume = sorted(
+    codigos_volume = sorted(
         {
             str(valor).strip()
-            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_voume", flat=True)
+            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_volume", flat=True)
             if str(valor).strip()
         }
     )
@@ -3712,7 +3712,7 @@ def estoque_pcp(request, empresa_id):
         "tem_arquivo_existente": tem_arquivo_existente,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
         "status_opcoes_estoque": ["Ativo", "Inativo", "Pendente"],
-        "codigos_voume_estoque": codigos_voume,
+        "codigos_volume_estoque": codigos_volume,
         "codigos_local_estoque": codigos_local,
         "estoque_tabulator": build_estoque_tabulator(
             estoque_qs,
@@ -3745,10 +3745,10 @@ def editar_estoque_modulo(request, empresa_id, estoque_id):
         messages.success(request, "Registro de estoque atualizado com sucesso.")
         return redirect("estoque_pcp", empresa_id=empresa.id)
 
-    codigos_voume = sorted(
+    codigos_volume = sorted(
         {
             str(valor).strip()
-            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_voume", flat=True)
+            for valor in Estoque.objects.filter(empresa=empresa).values_list("codigo_volume", flat=True)
             if str(valor).strip()
         }
     )
@@ -3759,9 +3759,9 @@ def editar_estoque_modulo(request, empresa_id, estoque_id):
             if str(valor).strip()
         }
     )
-    if estoque_item.codigo_voume and estoque_item.codigo_voume not in codigos_voume:
-        codigos_voume.append(estoque_item.codigo_voume)
-        codigos_voume.sort()
+    if estoque_item.codigo_volume and estoque_item.codigo_volume not in codigos_volume:
+        codigos_volume.append(estoque_item.codigo_volume)
+        codigos_volume.sort()
     if estoque_item.codigo_local and estoque_item.codigo_local not in codigos_local:
         codigos_local.append(estoque_item.codigo_local)
         codigos_local.sort()
@@ -3771,7 +3771,7 @@ def editar_estoque_modulo(request, empresa_id, estoque_id):
         "estoque_item": estoque_item,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
         "status_opcoes_estoque": ["Ativo", "Inativo", "Pendente"],
-        "codigos_voume_estoque": codigos_voume,
+        "codigos_volume_estoque": codigos_volume,
         "codigos_local_estoque": codigos_local,
     }
     return render(request, "operacional/estoque_pcp_editar.html", contexto)

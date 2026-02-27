@@ -119,23 +119,55 @@ def build_carteiras_tabulator(carteiras_qs, empresa_id: int, permitir_edicao: bo
 
 
 def build_vendas_tabulator(vendas_qs, empresa_id: int, permitir_edicao: bool = True):
+    from .models import Produto
+
+    vendas = list(vendas_qs)
+    codigos = {
+        (item.get("codigo") or "").strip()
+        for item in vendas
+        if (item.get("codigo") or "").strip()
+    }
+    produtos_por_codigo = {}
+    if codigos:
+        produtos_por_codigo = {
+            item["codigo_produto"]: {
+                "kg": float(item.get("kg") or 0),
+                "remuneracao_por_fardo": float(item.get("remuneracao_por_fardo") or 0),
+            }
+            for item in Produto.objects.filter(
+                empresa_id=empresa_id,
+                codigo_produto__in=codigos,
+            ).values("codigo_produto", "kg", "remuneracao_por_fardo")
+        }
+
     resultado = []
-    for venda in vendas_qs:
+    for venda in vendas:
+        codigo = (venda.get("codigo") or "").strip()
+        produto = produtos_por_codigo.get(codigo) or {}
+        kg = float(produto.get("kg") or 0)
+        remuneracao_por_fardo = float(produto.get("remuneracao_por_fardo") or 0)
+        peso_liquido = float(venda.get("peso_liquido_num") or 0)
+        quantidade_fardos = (peso_liquido / kg) if kg > 0 else 0
+        remuneracao_total = quantidade_fardos * remuneracao_por_fardo
         data_venda = venda.get("data_venda")
         margem_num = float(venda.get("margem_num") or 0)
         resultado.append(
             {
                 "id": venda.get("id"),
-                "codigo": venda.get("codigo") or "",
+                "codigo": codigo,
                 "descricao": venda.get("descricao") or "",
                 "valor_venda": float(venda.get("valor_venda_num") or 0),
                 "qtd_notas": venda.get("qtd_notas") or 0,
                 "custo_medio_icms_cmv": float(venda.get("custo_medio_icms_cmv_num") or 0),
                 "lucro": float(venda.get("lucro_num") or 0),
                 "peso_bruto": float(venda.get("peso_bruto_num") or 0),
-                "peso_liquido": float(venda.get("peso_liquido_num") or 0),
+                "peso_liquido": peso_liquido,
                 "margem": margem_num,
                 "margem_situacao": _situacao_margem(margem_num),
+                "kg": kg,
+                "remuneracao_por_fardo": remuneracao_por_fardo,
+                "quantidade_fardos": quantidade_fardos,
+                "remuneracao_total": remuneracao_total,
                 "data_venda": _fmt_date_br(data_venda),
                 "data_venda_iso": data_venda.strftime("%Y-%m-%d") if data_venda else "",
                 "ano_venda": data_venda.year if data_venda else "",
@@ -267,12 +299,28 @@ def build_controle_margem_tabulator(controles_qs, empresa_id: int, permitir_edic
 
 
 def build_cargas_tabulator(cargas_qs, empresa_id: int, permitir_edicao: bool = True):
+    def _normalizar_status(valor):
+        texto = (str(valor or "")).strip().lower()
+        if texto in {"aberta", "em aberto"}:
+            return "aberta"
+        if texto in {"fechada", "encerrada"}:
+            return "fechada"
+        return texto
+
     resultado = []
     for carga in cargas_qs:
+        status = "Fechada" if carga.data_finalizacao else "Aberta"
+        situacao = carga.situacao or ""
+        verificacao_texto = (
+            "Ok"
+            if _normalizar_status(status) == _normalizar_status(situacao)
+            else "Verificar"
+        )
         resultado.append(
             {
                 "id": carga.id,
-                "situacao": carga.situacao or "",
+                "situacao": situacao,
+                "status": status,
                 "ordem_de_carga_codigo": carga.ordem_de_carga_codigo or "",
                 "data_inicio": _fmt_date_br(carga.data_inicio),
                 "data_prevista_saida": _fmt_date_br(carga.data_prevista_saida),
@@ -285,6 +333,7 @@ def build_cargas_tabulator(cargas_qs, empresa_id: int, permitir_edicao: bool = T
                 "prazo_maximo_dias": carga.prazo_maximo_dias or 0,
                 "idade_dias": carga.idade_dias or 0,
                 "verificacao": bool(carga.verificacao),
+                "verificacao_texto": verificacao_texto,
                 "critica": carga.critica,
             }
         )
@@ -621,7 +670,7 @@ def build_estoque_tabulator(estoques_qs, empresa_id: int, permitir_edicao: bool 
                 "qtd_estoque": float(item.qtd_estoque or 0),
                 "giro_mensal": float(item.giro_mensal or 0),
                 "lead_time_fornecimento": float(item.lead_time_fornecimento or 0),
-                "codigo_voume": item.codigo_voume or "",
+                "codigo_volume": item.codigo_volume or "",
                 "custo_total": float(item.custo_total or 0),
                 "reservado": float(item.reservado or 0),
                 "pacote_por_fardo": float(item.pacote_por_fardo or 0),

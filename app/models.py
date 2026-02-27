@@ -1788,7 +1788,7 @@ class Estoque(models.Model):
     qtd_estoque = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     giro_mensal = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     lead_time_fornecimento = models.DecimalField(max_digits=18, decimal_places=3, default=0)
-    codigo_voume = models.CharField(max_length=20, blank=True, default="")
+    codigo_volume = models.CharField(max_length=20, blank=True, default="", db_column="codigo_voume")
     custo_total = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     reservado = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     pacote_por_fardo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
@@ -1828,7 +1828,7 @@ class Estoque(models.Model):
         qtd_estoque=0,
         giro_mensal=0,
         lead_time_fornecimento=0,
-        codigo_voume="",
+        codigo_volume="",
         custo_total=0,
         reservado=0,
         pacote_por_fardo=0,
@@ -1850,7 +1850,7 @@ class Estoque(models.Model):
             qtd_estoque=qtd_estoque,
             giro_mensal=giro_mensal,
             lead_time_fornecimento=lead_time_fornecimento,
-            codigo_voume=codigo_voume,
+            codigo_volume=codigo_volume,
             custo_total=custo_total,
             reservado=reservado,
             pacote_por_fardo=pacote_por_fardo,
@@ -1875,7 +1875,7 @@ class Estoque(models.Model):
         qtd_estoque=UNSET,
         giro_mensal=UNSET,
         lead_time_fornecimento=UNSET,
-        codigo_voume=UNSET,
+        codigo_volume=UNSET,
         custo_total=UNSET,
         reservado=UNSET,
         pacote_por_fardo=UNSET,
@@ -1903,8 +1903,8 @@ class Estoque(models.Model):
             self.giro_mensal = giro_mensal
         if lead_time_fornecimento is not UNSET:
             self.lead_time_fornecimento = lead_time_fornecimento
-        if codigo_voume is not UNSET:
-            self.codigo_voume = codigo_voume
+        if codigo_volume is not UNSET:
+            self.codigo_volume = codigo_volume
         if custo_total is not UNSET:
             self.custo_total = custo_total
         if reservado is not UNSET:
@@ -1929,6 +1929,14 @@ class Estoque(models.Model):
 
     def excluir_estoque(self):
         self.delete()
+
+    @property
+    def codigo_voume(self):
+        return self.codigo_volume
+
+    @codigo_voume.setter
+    def codigo_voume(self, value):
+        self.codigo_volume = value
 
 
 class Titulo(models.Model):

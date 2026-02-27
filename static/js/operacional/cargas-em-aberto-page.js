@@ -169,26 +169,28 @@
     }
 
     var colunas = [
-            { title: "Ordem Carga", field: "ordem_de_carga_codigo", headerFilter: "input" },
-            { title: "Situação", field: "situacao", headerFilter: "input" },
-            { title: "Empresa", field: "nome_fantasia_empresa", headerFilter: "input" },
-            { title: "Motorista", field: "nome_motorista", headerFilter: "input" },
-            { title: "Região", field: "regiao_nome", headerFilter: "input" },
-            { title: "Início", field: "data_inicio", hozAlign: "center" },
-            { title: "Prev. Saída", field: "data_prevista_saida", hozAlign: "center" },
-            { title: "Chegada", field: "data_chegada", hozAlign: "center" },
-            { title: "Finalização", field: "data_finalizacao", hozAlign: "center" },
-            { title: "Prazo Max. (dias)", field: "prazo_maximo_dias", hozAlign: "right" },
-            { title: "Idade (dias)", field: "idade_dias", hozAlign: "right" },
+            { title: "Ordem de Carga", field: "ordem_de_carga_codigo", headerFilter: "input" },
             {
-                title: "Verificação",
-                field: "verificacao",
+                title: "Status Crítico",
+                field: "critica",
                 hozAlign: "center",
                 formatter: function (cell) {
-                    return cell.getValue() ? "Verificar" : "Ok";
+                    return Number(cell.getValue() || 0) > 0 ? "Fora do Prazo" : "No Prazo";
                 }
             },
-            { title: "Critica", field: "critica", hozAlign: "center" }
+            { title: "Situação", field: "situacao", headerFilter: "input" },
+            { title: "Status", field: "status", headerFilter: "input", hozAlign: "center" },
+            { title: "Verificação", field: "verificacao_texto", headerFilter: "input", hozAlign: "center" },
+            { title: "Prazo Máximo", field: "prazo_maximo_dias", hozAlign: "right" },
+            { title: "Idade", field: "idade_dias", hozAlign: "right" },
+            { title: "Criticidade", field: "critica", hozAlign: "center" },
+            { title: "Nome do Parceiro (Motorista)", field: "nome_motorista", headerFilter: "input" },
+            { title: "Data de Início", field: "data_inicio", hozAlign: "center" },
+            { title: "Data Prevista para Saída", field: "data_prevista_saida", hozAlign: "center" },
+            { title: "Data de Chegada", field: "data_chegada", hozAlign: "center" },
+            { title: "Data de Finalização", field: "data_finalizacao", hozAlign: "center" },
+            { title: "Nome Fantasia (Empresa)", field: "nome_fantasia_empresa", headerFilter: "input" },
+            { title: "Nome Região", field: "regiao_nome", headerFilter: "input" }
         ];
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);

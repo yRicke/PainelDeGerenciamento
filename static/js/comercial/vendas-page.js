@@ -507,48 +507,35 @@
     }
 
     var colunas = [
-        {title: "Codigo", field: "codigo", headerFilter: "input"},
-        {title: "Descricao", field: "descricao", headerFilter: "input"},
         {
-            title: "Valor venda",
+            title: "Data da Venda",
+            field: "data_venda",
+            headerFilter: "input",
+            sorter: function (a, b, aRow, bRow) {
+                var dataA = aRow.getData().data_venda_iso || "";
+                var dataB = bRow.getData().data_venda_iso || "";
+                if (dataA === dataB) return 0;
+                return dataA > dataB ? 1 : -1;
+            }
+        },
+        {title: "Código", field: "codigo", headerFilter: "input"},
+        {title: "Descrição", field: "descricao", headerFilter: "input"},
+        {
+            title: "Valor de Vendas",
             field: "valor_venda",
             hozAlign: "right",
             headerFilter: "input",
             formatter: "money",
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
         },
-        {title: "Qtd notas", field: "qtd_notas", hozAlign: "center", headerFilter: "input"},
+        {title: "Quantidade de Notas", field: "qtd_notas", hozAlign: "center", headerFilter: "input"},
         {
-            title: "Custo medio ICMS CMV",
+            title: "Custo Médio com ICMS (CMV)",
             field: "custo_medio_icms_cmv",
             hozAlign: "right",
             headerFilter: "input",
             formatter: "money",
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
-        },
-        {
-            title: "Lucro",
-            field: "lucro",
-            hozAlign: "right",
-            headerFilter: "input",
-            formatter: "money",
-            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
-        },
-        {
-            title: "Peso bruto",
-            field: "peso_bruto",
-            hozAlign: "right",
-            headerFilter: "input",
-            formatter: "money",
-            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
-        },
-        {
-            title: "Peso liquido",
-            field: "peso_liquido",
-            hozAlign: "right",
-            headerFilter: "input",
-            formatter: "money",
-            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
         },
         {
             title: "Margem",
@@ -568,18 +555,53 @@
                 return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:' + cor + ';color:#fff;font-weight:600;">' + valorFormatado + "</span>";
             }
         },
-        {title: "Ano venda", field: "ano_venda", hozAlign: "center", headerFilter: "input"},
-        {title: "Mes venda", field: "mes_venda", hozAlign: "center", headerFilter: "input"},
         {
-            title: "Data venda",
-            field: "data_venda",
+            title: "Peso Bruto",
+            field: "peso_bruto",
+            hozAlign: "right",
             headerFilter: "input",
-            sorter: function (a, b, aRow, bRow) {
-                var dataA = aRow.getData().data_venda_iso || "";
-                var dataB = bRow.getData().data_venda_iso || "";
-                if (dataA === dataB) return 0;
-                return dataA > dataB ? 1 : -1;
-            }
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
+        },
+        {
+            title: "Peso Líquido",
+            field: "peso_liquido",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 2}
+        },
+        {
+            title: "KG",
+            field: "kg",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 3}
+        },
+        {
+            title: "Remuneração por Fardo",
+            field: "remuneracao_por_fardo",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 3}
+        },
+        {
+            title: "Quantidade de Fardos",
+            field: "quantidade_fardos",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "", symbolAfter: false, precision: 3}
+        },
+        {
+            title: "Remuneração Total",
+            field: "remuneracao_total",
+            hozAlign: "right",
+            headerFilter: "input",
+            formatter: "money",
+            formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
         },
     ];
 
