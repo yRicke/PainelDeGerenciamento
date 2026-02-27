@@ -240,11 +240,18 @@
         return title.indexOf("valor ") === 0 || title.indexOf("vlr") === 0;
     }
 
+    function titleContainsActionWord(title) {
+        var normalizedTitle = normalizeForComparison(title);
+        if (!normalizedTitle) return false;
+
+        var tokens = normalizedTitle.split(/[^a-z0-9_]+/).filter(Boolean);
+        return tokens.indexOf("acao") >= 0 || tokens.indexOf("acoes") >= 0;
+    }
+
     function isActionColumn(column) {
-        var title = normalizeForComparison(column.title || "");
+        var title = String(column.title || "");
         var field = String(column.field || "").toLowerCase();
-        return title.indexOf("acoes") >= 0
-            || title.indexOf("acao") >= 0
+        return titleContainsActionWord(title)
             || field.indexOf("editar_url") >= 0
             || field.indexOf("excluir_url") >= 0
             || field.indexOf("deletar_url") >= 0;
