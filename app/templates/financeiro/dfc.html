@@ -4,6 +4,7 @@
 {% block title %}DFC{% endblock %}
 
 {% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
 <link rel="stylesheet" href="{% static 'css/financeiro/dfc-page.css' %}">
 {% endblock %}
@@ -20,6 +21,7 @@
         {% endif %}
         <a href="#sec-importacao">Importacao</a>
         <a href="#sec-dashboard">Dashboard</a>
+        <a href="#sec-visualizacao">Visualizacao</a>
     </nav>
 </section>
 
@@ -117,9 +119,17 @@
         </article>
     </div>
 </section>
+
+<section id="sec-visualizacao" class="panel module-section">
+    <h2>Dados de DFC</h2>
+    <div class="table-wrapper">
+        <div id="dfc-tabulator"></div>
+    </div>
+</section>
 {% endblock %}
 
 {% block extra_js %}
 {{ dfc_tabulator|json_script:"dfc-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
 {% endblock %}

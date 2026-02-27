@@ -764,6 +764,8 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
         resultado.append(
             {
                 "id": dfc_item.get("id"),
+                "empresa_id": dfc_item.get("empresa_id") or "",
+                "empresa_nome": dfc_item.get("empresa__nome") or "",
                 "data_negociacao": _fmt_date_br(dfc_item.get("data_negociacao")),
                 "data_negociacao_iso": (
                     dfc_item.get("data_negociacao").strftime("%Y-%m-%d")
@@ -788,14 +790,19 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
                 ),
                 "valor_liquido": float(dfc_item.get("valor_liquido_num") or 0),
                 "numero_nota": dfc_item.get("numero_nota") or "",
+                "titulo_id": dfc_item.get("titulo_id") or "",
                 "titulo_codigo": dfc_item.get("titulo__tipo_titulo_codigo") or "",
                 "titulo_descricao": dfc_item.get("titulo__descricao") or "",
+                "centro_resultado_id": dfc_item.get("centro_resultado_id") or "",
                 "centro_resultado_descricao": dfc_item.get("centro_resultado__descricao") or "",
+                "natureza_id": dfc_item.get("natureza_id") or "",
                 "natureza_codigo": dfc_item.get("natureza__codigo") or "",
                 "natureza_descricao": dfc_item.get("natureza__descricao") or "",
                 "historico": dfc_item.get("historico") or "",
+                "parceiro_id": dfc_item.get("parceiro_id") or "",
                 "parceiro_codigo": dfc_item.get("parceiro__codigo") or "",
                 "parceiro_nome": dfc_item.get("parceiro__nome") or "",
+                "operacao_id": dfc_item.get("operacao_id") or "",
                 "operacao_codigo": dfc_item.get("operacao__tipo_operacao_codigo") or "",
                 "operacao_descricao": dfc_item.get("operacao__descricao_receita_despesa") or "",
                 "tipo_movimento": dfc_item.get("tipo_movimento") or "",

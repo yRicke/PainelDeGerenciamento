@@ -108,6 +108,7 @@
     if (!dataElement) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
+    var tabelaTarget = document.getElementById("dfc-tabulator");
     var receitaEl = document.getElementById("dfc-kpi-receita");
     var despesaEl = document.getElementById("dfc-kpi-despesa");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
@@ -117,23 +118,93 @@
         if (valor > 0) return "receita";
         if (valor < 0) return "despesa";
 
+        var tipoMovimento = (item.tipo_movimento || "").toLowerCase();
+        if (tipoMovimento.includes("receita")) return "receita";
+        if (tipoMovimento.includes("despesa")) return "despesa";
+
         var tipo = (item.operacao_descricao || "").toLowerCase();
         if (tipo.includes("receita")) return "receita";
         if (tipo.includes("despesa")) return "despesa";
         return "";
     }
 
-    var totalReceita = 0;
-    var totalDespesa = 0;
-    data.forEach(function (item) {
-        var valor = Number(item.valor_liquido || 0);
-        var tipo = normalizarTipo(item);
-        if (tipo === "receita") totalReceita += valor;
-        if (tipo === "despesa") totalDespesa += valor;
+    function atualizarDashboard(linhas) {
+        var totalReceita = 0;
+        var totalDespesa = 0;
+
+        (linhas || []).forEach(function (item) {
+            var valor = Number(item.valor_liquido || 0);
+            var tipo = normalizarTipo(item);
+            if (tipo === "receita") totalReceita += valor;
+            if (tipo === "despesa") totalDespesa += valor;
+        });
+
+        if (receitaEl) receitaEl.textContent = totalReceita ? formatadorMoeda.format(totalReceita) : "R$ -";
+        if (despesaEl) despesaEl.textContent = totalDespesa ? formatadorMoeda.format(Math.abs(totalDespesa)) : "R$ -";
+    }
+
+    if (!tabelaTarget || !window.Tabulator || !window.TabulatorDefaults) {
+        atualizarDashboard(data);
+        return;
+    }
+
+    var colunas = [
+        {title: "ID", field: "id", width: 90, hozAlign: "center"},
+        {title: "Empresa ID", field: "empresa_id", width: 120, hozAlign: "center"},
+        {title: "Empresa", field: "empresa_nome"},
+        {title: "Data negociacao", field: "data_negociacao"},
+        {title: "Data vencimento", field: "data_vencimento"},
+        {title: "Valor liquido", field: "valor_liquido"},
+        {title: "Numero nota", field: "numero_nota"},
+        {title: "Titulo ID", field: "titulo_id", hozAlign: "center"},
+        {title: "Titulo cod", field: "titulo_codigo"},
+        {title: "Titulo descricao", field: "titulo_descricao"},
+        {title: "Centro resultado ID", field: "centro_resultado_id", hozAlign: "center"},
+        {title: "Centro resultado", field: "centro_resultado_descricao"},
+        {title: "Natureza ID", field: "natureza_id", hozAlign: "center"},
+        {title: "Natureza cod", field: "natureza_codigo"},
+        {title: "Natureza descricao", field: "natureza_descricao"},
+        {title: "Historico", field: "historico"},
+        {title: "Parceiro ID", field: "parceiro_id", hozAlign: "center"},
+        {title: "Parceiro cod", field: "parceiro_codigo"},
+        {title: "Parceiro nome", field: "parceiro_nome"},
+        {title: "Operacao ID", field: "operacao_id", hozAlign: "center"},
+        {title: "Operacao cod", field: "operacao_codigo"},
+        {title: "Operacao descricao", field: "operacao_descricao"},
+        {title: "Tipo movimento", field: "tipo_movimento"},
+    ];
+
+    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data, {
+        width: 110,
+        formatter: function (cell) {
+            var url = cell.getValue();
+            if (!url) return "";
+            return '<button type="button" class="btn-primary js-editar-dfc">Editar</button>';
+        },
+        cellClick: function (e, cell) {
+            var row = cell.getRow().getData();
+            var target = e.target && e.target.closest ? e.target.closest(".js-editar-dfc") : null;
+            if (!target || !row.editar_url) return;
+            window.location.href = row.editar_url;
+        },
     });
 
-    if (receitaEl) receitaEl.textContent = totalReceita ? formatadorMoeda.format(totalReceita) : "R$ -";
-    if (despesaEl) despesaEl.textContent = totalDespesa ? formatadorMoeda.format(Math.abs(totalDespesa)) : "R$ -";
+    var tabela = window.TabulatorDefaults.create("#dfc-tabulator", {
+        data: data,
+        columns: colunas,
+    });
+
+    function atualizarDashboardComTabela() {
+        var linhasAtivas = tabela.getData("active");
+        if (!Array.isArray(linhasAtivas)) linhasAtivas = tabela.getData() || [];
+        atualizarDashboard(linhasAtivas);
+    }
+
+    tabela.on("tableBuilt", atualizarDashboardComTabela);
+    tabela.on("dataLoaded", atualizarDashboardComTabela);
+    tabela.on("dataFiltered", atualizarDashboardComTabela);
+    tabela.on("renderComplete", atualizarDashboardComTabela);
+    setTimeout(atualizarDashboardComTabela, 0);
 })();
 
 
