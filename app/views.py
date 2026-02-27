@@ -287,6 +287,10 @@ def _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, re
     return None
 
 
+def _usuario_pode_gerenciar_atividade(usuario, atividade):
+    return atividade.pode_ser_editada_por(usuario)
+
+
 @login_required(login_url="entrar")
 def index(request):
     return render(request, "index.html")
@@ -456,7 +460,7 @@ def tofu_lista_de_atividades(request, empresa_id):
     # 2) Query
     atividades_qs = (
         Atividade.objects.filter(projeto__empresa=empresa)
-        .select_related("projeto", "gestor", "responsavel")
+        .select_related("projeto", "gestor", "responsavel", "usuario")
         .order_by("-id")
     )
     projetos = Projeto.objects.filter(empresa=empresa).order_by("nome")
@@ -468,6 +472,7 @@ def tofu_lista_de_atividades(request, empresa_id):
         atividades_qs=atividades_qs,
         projetos=projetos,
         colaboradores=colaboradores,
+        usuario_logado=request.user,
     )
 
     # 4) Render
@@ -485,7 +490,7 @@ def criar_atividade_tofu(request, empresa_id):
     if request.method != "POST":
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
-    erro = criar_atividade_por_post(request.POST, empresa)
+    erro = criar_atividade_por_post(request.POST, empresa, usuario=request.user)
     if erro:
         messages.error(request, erro)
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
@@ -502,6 +507,9 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
     atividade = Atividade.objects.filter(id=atividade_id, projeto__empresa=empresa).first()
     if not atividade:
         messages.error(request, "Atividade nao encontrada.")
+        return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
+    if not _usuario_pode_gerenciar_atividade(request.user, atividade):
+        messages.error(request, "Voce nao pode editar esta atividade.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -537,6 +545,9 @@ def excluir_atividade_tofu(request, empresa_id, atividade_id):
     atividade = Atividade.objects.filter(id=atividade_id, projeto__empresa=empresa).first()
     if not atividade:
         messages.error(request, "Atividade nao encontrada.")
+        return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
+    if not _usuario_pode_gerenciar_atividade(request.user, atividade):
+        messages.error(request, "Voce nao pode excluir esta atividade.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     atividade.excluir_atividade()

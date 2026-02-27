@@ -349,8 +349,8 @@
     }
 
     function normalizeFreezeOptions(target, config) {
-        var raw = isPlainObject(config && config.freezeUX) ? config.freezeUX : null;
-        if (!raw || raw.enabled !== true) return null;
+        var raw = isPlainObject(config && config.freezeUX) ? config.freezeUX : {};
+        if (raw.enabled === false) return null;
 
         var persist = raw.persist !== false;
         var resolvedId = resolveTargetId(target);

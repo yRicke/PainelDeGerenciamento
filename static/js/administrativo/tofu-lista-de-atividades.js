@@ -7,6 +7,7 @@
         {title: "ID", field: "id", width: 70, hozAlign: "center"},
         {title: "Projeto", field: "projeto"},
         {title: "CÃ³digo", field: "codigo_projeto"},
+        {title: "Criada por", field: "criada_por"},
         {title: "Gestor", field: "gestor"},
         {title: "ResponsÃ¡vel", field: "responsavel"},
         {title: "Interlocutor", field: "interlocutor"},

@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.test import override_settings
 from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -163,11 +164,17 @@ class ProjetoModelTest(TestCase):
 class AtividadeModelTest(TestCase):
     def setUp(self):
         self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
+        self.usuario = Usuario.criar_usuario(
+            username="usuario_atividade",
+            password="senha123",
+            empresa=self.empresa,
+        )
         self.projeto = Projeto.criar_projeto(empresa=self.empresa, nome="Projeto Teste", codigo="PRJ")
         self.colaborador1 = Colaborador.criar_colaborador(empresa=self.empresa, nome="Colaborador 1")
         self.colaborador2 = Colaborador.criar_colaborador(empresa=self.empresa, nome="Colaborador 2")
         self.atividade = Atividade.criar_atividade(
             projeto=self.projeto,
+            usuario=self.usuario,
             gestor=self.colaborador1,
             responsavel=self.colaborador2,
             interlocutor="Interlocutor Teste",
@@ -188,6 +195,7 @@ class AtividadeModelTest(TestCase):
         self.assertEqual(self.atividade.semana_de_prazo, 27)
         self.assertEqual(str(self.atividade.data_previsao_inicio), "2024-07-01")
         self.assertEqual(str(self.atividade.data_previsao_termino), "2024-07-31")
+        self.assertEqual(self.atividade.usuario, self.usuario)
         self.assertIsNone(self.atividade.data_finalizada)
         self.assertEqual(self.atividade.historico, "")
         self.assertEqual(self.atividade.tarefa, "Tarefa Teste")
@@ -275,6 +283,129 @@ class AtividadeModelTest(TestCase):
 
         self.atividade.atualizar_atividade(data_finalizada=None, progresso=80)
         self.assertIsNone(self.atividade.data_finalizada)
+
+    def test_pode_ser_editada_por_apenas_criador_ou_admin(self):
+        outro_usuario = Usuario.criar_usuario(
+            username="outro_usuario_atividade",
+            password="senha123",
+            empresa=self.empresa,
+        )
+        admin = Usuario.criar_usuario(
+            username="admin_atividade",
+            password="senha123",
+            empresa=self.empresa,
+        )
+        admin.is_staff = True
+        admin.save(update_fields=["is_staff"])
+
+        self.assertTrue(self.atividade.pode_ser_editada_por(self.usuario))
+        self.assertFalse(self.atividade.pode_ser_editada_por(outro_usuario))
+        self.assertTrue(self.atividade.pode_ser_editada_por(admin))
+
+
+class TofuAtividadePermissaoViewTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa TOFU")
+        self.permissao_tofu = Permissao.objects.create(nome="TOFU Lista de Atividades")
+        self.projeto = Projeto.criar_projeto(empresa=self.empresa, nome="Projeto TOFU", codigo="TOFU")
+
+        self.criador = Usuario.criar_usuario(
+            username="criador_tofu",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao_tofu],
+        )
+        self.outro_usuario = Usuario.criar_usuario(
+            username="outro_tofu",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao_tofu],
+        )
+        self.admin = Usuario.criar_usuario(
+            username="admin_tofu",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao_tofu],
+        )
+        self.admin.is_staff = True
+        self.admin.save(update_fields=["is_staff"])
+
+        self.atividade = Atividade.criar_atividade(
+            projeto=self.projeto,
+            usuario=self.criador,
+            tarefa="Atividade do criador",
+            progresso=10,
+        )
+
+        self.lista_url = reverse("tofu_lista_de_atividades", kwargs={"empresa_id": self.empresa.id})
+        self.criar_url = reverse("criar_atividade_tofu", kwargs={"empresa_id": self.empresa.id})
+        self.editar_url = reverse(
+            "editar_atividade_tofu",
+            kwargs={"empresa_id": self.empresa.id, "atividade_id": self.atividade.id},
+        )
+        self.excluir_url = reverse(
+            "excluir_atividade_tofu",
+            kwargs={"empresa_id": self.empresa.id, "atividade_id": self.atividade.id},
+        )
+
+    def test_criacao_define_usuario_logado_como_criador(self):
+        self.client.login(username=self.criador.username, password="senha123")
+
+        response = self.client.post(
+            self.criar_url,
+            {"projeto_id": self.projeto.id, "progresso": "0", "tarefa": "Nova atividade"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        nova_atividade = Atividade.objects.exclude(id=self.atividade.id).latest("id")
+        self.assertEqual(nova_atividade.usuario, self.criador)
+
+    def test_outro_usuario_nao_pode_editar_atividade(self):
+        self.client.login(username=self.outro_usuario.username, password="senha123")
+
+        response = self.client.post(
+            self.editar_url,
+            {"projeto_id": self.projeto.id, "progresso": "77", "tarefa": "Tentativa indevida"},
+        )
+
+        self.assertRedirects(response, self.lista_url)
+        self.atividade.refresh_from_db()
+        self.assertNotEqual(self.atividade.progresso, 77)
+
+    def test_outro_usuario_nao_pode_excluir_atividade(self):
+        self.client.login(username=self.outro_usuario.username, password="senha123")
+
+        response = self.client.post(self.excluir_url)
+
+        self.assertRedirects(response, self.lista_url)
+        self.assertTrue(Atividade.objects.filter(id=self.atividade.id).exists())
+
+    def test_admin_pode_editar_e_excluir_atividade(self):
+        self.client.login(username=self.admin.username, password="senha123")
+
+        response_editar = self.client.post(
+            self.editar_url,
+            {"projeto_id": self.projeto.id, "progresso": "88", "tarefa": "Atualizado por admin"},
+        )
+        self.assertRedirects(response_editar, self.lista_url)
+
+        self.atividade.refresh_from_db()
+        self.assertEqual(self.atividade.progresso, 88)
+
+        response_excluir = self.client.post(self.excluir_url)
+        self.assertRedirects(response_excluir, self.lista_url)
+        self.assertFalse(Atividade.objects.filter(id=self.atividade.id).exists())
+
+    def test_lista_oculta_edicao_no_front_para_atividade_de_outro_usuario(self):
+        self.client.login(username=self.outro_usuario.username, password="senha123")
+
+        response = self.client.get(self.lista_url)
+
+        self.assertEqual(response.status_code, 200)
+        atividade_item = next(
+            item for item in response.context["atividades_tabulator"] if item["id"] == self.atividade.id
+        )
+        self.assertNotIn("editar_url", atividade_item)
 
 
 class CidadeModelTest(TestCase):

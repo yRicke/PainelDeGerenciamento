@@ -1965,10 +1965,12 @@ def _dados_atividade_from_post(post_data, empresa):
     return dados, ""
 
 
-def criar_atividade_por_post(post_data, empresa):
+def criar_atividade_por_post(post_data, empresa, usuario=None):
     dados, erro = _dados_atividade_from_post(post_data, empresa)
     if erro:
         return erro
+    if usuario is not None:
+        dados["usuario"] = usuario
     try:
         Atividade.criar_atividade(**dados)
     except ValidationError as exc:

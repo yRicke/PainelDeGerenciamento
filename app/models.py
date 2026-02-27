@@ -149,6 +149,13 @@ class Atividade(models.Model):
         on_delete=models.CASCADE,
         related_name="atividades",
     )
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="atividades_criadas",
+    )
 
     # Pelo seu DER: Atividade tem 2 relacionamentos com Colaborador
     gestor = models.ForeignKey(
@@ -190,6 +197,13 @@ class Atividade(models.Model):
                 {"data_finalizada": "A data finalizada so pode ser preenchida quando o progresso for 100%."}
             )
 
+    def pode_ser_editada_por(self, usuario):
+        if not usuario:
+            return False
+        if getattr(usuario, "is_staff", False) or getattr(usuario, "is_superuser", False):
+            return True
+        return bool(self.usuario_id and self.usuario_id == getattr(usuario, "id", None))
+
     @property
     def indicador(self):
         hoje = timezone.localdate()
@@ -217,6 +231,7 @@ class Atividade(models.Model):
     def criar_atividade(
         cls,
         projeto,
+        usuario=None,
         gestor=None,
         responsavel=None,
         interlocutor="",
@@ -230,6 +245,7 @@ class Atividade(models.Model):
     ):
         atividade = cls(
             projeto=projeto,
+            usuario=usuario,
             gestor=gestor,
             responsavel=responsavel,
             interlocutor=interlocutor,

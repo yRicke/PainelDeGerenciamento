@@ -52,12 +52,14 @@ def _situacao_margem(margem):
     return "Verde"
 
 
-def build_atividades_tabulator(atividades_qs, empresa_id: int):
-    return [
-        {
+def build_atividades_tabulator(atividades_qs, empresa_id: int, usuario_logado=None):
+    resultado = []
+    for atividade in atividades_qs:
+        item = {
             "id": atividade.id,
             "projeto": atividade.projeto.nome,
             "codigo_projeto": atividade.projeto.codigo or "-",
+            "criada_por": atividade.usuario.username if atividade.usuario else "-",
             "gestor": atividade.gestor.nome if atividade.gestor else "-",
             "responsavel": atividade.responsavel.nome if atividade.responsavel else "-",
             "interlocutor": atividade.interlocutor,
@@ -69,13 +71,14 @@ def build_atividades_tabulator(atividades_qs, empresa_id: int):
             "historico": atividade.historico,
             "tarefa": atividade.tarefa,
             "progresso": atividade.progresso,
-            "editar_url": reverse(
+        }
+        if atividade.pode_ser_editada_por(usuario_logado):
+            item["editar_url"] = reverse(
                 "editar_atividade_tofu",
                 kwargs={"empresa_id": empresa_id, "atividade_id": atividade.id},
-            ),
-        }
-        for atividade in atividades_qs
-    ]
+            )
+        resultado.append(item)
+    return resultado
 
 
 def build_carteiras_tabulator(carteiras_qs, empresa_id: int, permitir_edicao: bool = True):
