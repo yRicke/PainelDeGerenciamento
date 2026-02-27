@@ -368,6 +368,17 @@
         };
     }
 
+    function normalizeFieldList(values) {
+        if (!Array.isArray(values)) return [];
+        return Array.from(
+            new Set(
+                values
+                    .map(function (value) { return String(value || ""); })
+                    .filter(Boolean)
+            )
+        );
+    }
+
     function readPersistedFrozenState(freezeOptions) {
         if (!freezeOptions || !freezeOptions.persist || !freezeOptions.storageKey) return null;
         if (!window.localStorage) return null;
@@ -405,11 +416,9 @@
         var persisted = readPersistedFrozenState(freezeOptions);
         if (!persisted || !Array.isArray(persisted.frozenFields)) return false;
 
-        var persistedOrder = persisted.frozenFields
-            .map(function (value) { return String(value || ""); })
-            .filter(Boolean);
+        var persistedOrder = normalizeFieldList(persisted.frozenFields);
         if (freezeOptions) {
-            freezeOptions.initialFrozenOrder = Array.from(new Set(persistedOrder));
+            freezeOptions.initialFrozenOrder = persistedOrder.slice();
         }
         var persistedFields = new Set(persistedOrder);
 
@@ -635,9 +644,7 @@
     function normalizeFrozenOrderForTable(table, frozenOrder) {
         if (!table || typeof table.getColumns !== "function") return [];
 
-        var desiredOrder = Array.isArray(frozenOrder)
-            ? frozenOrder.map(function (item) { return String(item || ""); }).filter(Boolean)
-            : [];
+        var desiredOrder = normalizeFieldList(frozenOrder);
 
         var leafColumns = collectLeafColumnComponents(table.getColumns(), []);
         if (!leafColumns.length || !desiredOrder.length) return [];
@@ -650,7 +657,7 @@
             existingFields.add(field);
         });
 
-        return Array.from(new Set(desiredOrder)).filter(function (field) {
+        return desiredOrder.filter(function (field) {
             return existingFields.has(field);
         });
     }
@@ -762,6 +769,7 @@
         var renderedCount = getRenderedHeaderFilterInputCount(table);
         if (renderedCount > 0) return;
 
+        // Rebuild header only when filters disappear after freeze/unfreeze transitions.
         var definitions = table.getColumnDefinitions();
         var result = table.setColumns(definitions);
         runAfterColumnMutation(result, function () {
@@ -862,16 +870,11 @@
         return Boolean(definition && definition.frozen);
     }
 
-    function captureFrozenFields(table) {
-        if (!table) return [];
-        return getOrderedFrozenFields(table);
-    }
-
     function persistFrozenFields(table, freezeOptions) {
         if (!freezeOptions || !freezeOptions.persist) return;
         var frozenFields = Array.isArray(freezeOptions.runtimeFrozenOrder)
             ? freezeOptions.runtimeFrozenOrder.slice()
-            : captureFrozenFields(table);
+            : getOrderedFrozenFields(table);
         writePersistedFrozenState(freezeOptions, frozenFields);
     }
 
@@ -908,6 +911,7 @@
                 ? freezeOptions.initialFrozenOrder.slice()
                 : getOrderedFrozenFields(table);
             applyDeterministicFrozenLayout(table, initialOrder, freezeOptions);
+            // Second pass keeps sticky offsets stable on first paint for wide tables.
             setTimeout(function () {
                 applyDeterministicFrozenLayout(table, initialOrder, freezeOptions);
             }, 0);
