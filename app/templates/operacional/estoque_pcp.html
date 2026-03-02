@@ -135,12 +135,31 @@
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Estoque</h2>
-    <p>Selecione a pasta <code>ESTOQUE</code> completa, contendo as subpastas <code>1 - Posição Estoque</code> e <code>2 - Estoque Reservado</code>. O sistema vai ler todos os <code>.xls</code> das subpastas automaticamente. O nome de origem será extraído da data presente no nome do arquivo.</p>
 
-    {% if arquivo_existente %}
-    <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+    {% if resumo_importacao.tem_arquivos %}
+
+    <div class="importacao-resumo">
+
+        <p class="file-status">
+
+            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+
+            <span class="importacao-resumo-sep">|</span>
+
+            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+
+        </p>
+
+        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+
+    </div>
+
     {% else %}
+
     <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+
     {% endif %}
 
     <form id="upload-estoque-form" class="upload-form" action="{% url 'estoque_pcp' empresa.id %}" method="post" enctype="multipart/form-data">

@@ -1,3 +1,7 @@
+import json
+import re
+from datetime import datetime
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
@@ -184,6 +188,21 @@ from .tabulator import (
     build_producao_tabulator,
 )
 
+IMPORTACAO_METADATA_FILE = "_ultimo_import.json"
+TIPO_IMPORTACAO_POR_MODULO = {
+    "carteira": "Arquivo .xlsx (selecao unica).",
+    "pedidos_pendentes": "Arquivo .xlsx (selecao unica).",
+    "controle_de_margem": "Arquivo .xls ou .xlsx (selecao unica).",
+    "vendas_por_categoria": "Pasta com arquivos .xls no padrao dd.mm.aaaa.xls.",
+    "contas_a_receber": "Pasta com arquivos .xls.",
+    "dfc": "Arquivo .xls (selecao unica).",
+    "orcamento": "Pasta com arquivos .xls.",
+    "cargas_em_aberto": "Arquivo .xls (selecao unica).",
+    "producao": "Pasta com arquivos .xls.",
+    "tabela_de_fretes": "Arquivo .xls (selecao unica).",
+    "estoque_pcp": "Pasta ESTOQUE com subpastas contendo arquivos .xls.",
+}
+
 
 def _obter_modulo(area, nome):
     return next(m for m in MODULOS_POR_AREA[area] if m["nome"] == nome)
@@ -200,6 +219,120 @@ def _resumir_arquivos_existentes(arquivos, limite=8):
         )
         return texto, True
     return ", ".join(arquivos_ordenados), True
+
+
+def _ler_metadados_importacao(diretorio_subscritos, modulo):
+    caminho_metadados = diretorio_subscritos / IMPORTACAO_METADATA_FILE
+    if not caminho_metadados.exists():
+        return {}
+    try:
+        payload = json.loads(caminho_metadados.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    if str(payload.get("modulo") or "").strip() != str(modulo or "").strip():
+        return {}
+    return payload
+
+
+def _datas_no_nome_arquivo(nome_arquivo):
+    texto = str(nome_arquivo or "").strip()
+    if not texto:
+        return []
+    datas = []
+    for correspondencia in re.finditer(r"(\d{2})[.\-_/](\d{2})[.\-_/](\d{4})", texto):
+        dia, mes, ano = correspondencia.groups()
+        try:
+            datas.append(datetime(int(ano), int(mes), int(dia)).date())
+        except ValueError:
+            continue
+    return datas
+
+
+def _data_referencia_arquivo_ou_none(arquivo):
+    datas_no_nome = _datas_no_nome_arquivo(getattr(arquivo, "name", ""))
+    if datas_no_nome:
+        return max(datas_no_nome)
+    try:
+        return datetime.fromtimestamp(arquivo.stat().st_mtime).date()
+    except (OSError, OverflowError, ValueError):
+        return None
+
+
+def _listar_arquivos_importacao(diretorio_importacao, diretorio_subscritos, extensoes=None):
+    extensoes_norm = {
+        str(extensao or "").strip().lower()
+        for extensao in (extensoes or [])
+        if str(extensao or "").strip()
+    }
+    return sorted(
+        [
+            arquivo
+            for arquivo in diretorio_importacao.rglob("*")
+            if arquivo.is_file()
+            and diretorio_subscritos not in arquivo.parents
+            and (
+                not extensoes_norm
+                or arquivo.suffix.lower() in extensoes_norm
+            )
+        ]
+    )
+
+
+def _data_metadados_importacao_ou_none(metadados):
+    valor_iso = str(metadados.get("registrado_em_iso") or "").strip()
+    if not valor_iso:
+        return None
+    try:
+        return datetime.fromisoformat(valor_iso).date()
+    except ValueError:
+        return None
+
+
+def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo, extensoes=None):
+    arquivos_atuais = _listar_arquivos_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        extensoes=extensoes,
+    )
+    if not arquivos_atuais:
+        return {
+            "tem_arquivos": False,
+            "data_referencia": "",
+            "usuario": "",
+            "quantidade_arquivos": 0,
+        }
+
+    metadados = _ler_metadados_importacao(
+        diretorio_subscritos=diretorio_subscritos,
+        modulo=modulo,
+    )
+    data_referencia_metadado = _data_metadados_importacao_ou_none(metadados)
+
+    datas_arquivos = []
+    for arquivo in arquivos_atuais:
+        data_arquivo = _data_referencia_arquivo_ou_none(arquivo)
+        if data_arquivo:
+            datas_arquivos.append(data_arquivo)
+    data_referencia_arquivos = max(datas_arquivos) if datas_arquivos else None
+    data_referencia = data_referencia_metadado or data_referencia_arquivos
+    data_referencia_texto = data_referencia.strftime("%d/%m/%Y") if data_referencia else "-"
+
+    quantidade_arquivos = len(arquivos_atuais)
+    if quantidade_arquivos > 1:
+        data_referencia_texto = f"{data_referencia_texto} +{quantidade_arquivos - 1}"
+
+    usuario_importacao = str(metadados.get("usuario") or "").strip()
+    if not usuario_importacao:
+        usuario_importacao = "Nao identificado"
+
+    return {
+        "tem_arquivos": True,
+        "data_referencia": data_referencia_texto,
+        "usuario": usuario_importacao,
+        "quantidade_arquivos": quantidade_arquivos,
+    }
 
 
 def _normalizar_numero_unico_texto(valor):
@@ -751,6 +884,7 @@ def contas_a_receber(request, empresa_id):
                 arquivos=arquivos,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -795,10 +929,18 @@ def contas_a_receber(request, empresa_id):
         ]
     )
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="contas_a_receber",
+        extensoes={".xls"},
+    )
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["contas_a_receber"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
@@ -848,6 +990,7 @@ def dfc(request, empresa_id):
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -888,10 +1031,18 @@ def dfc(request, empresa_id):
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="dfc",
+        extensoes={".xls"},
+    )
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["dfc"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "titulos": Titulo.objects.filter(empresa=empresa).order_by("tipo_titulo_codigo"),
@@ -1006,6 +1157,7 @@ def orcamento(request, empresa_id):
                 arquivos=arquivos,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -1020,9 +1172,17 @@ def orcamento(request, empresa_id):
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="orcamento",
+        extensoes={".xls"},
+    )
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["orcamento"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "orcamento_x_realizado_tabulator": build_orcamento_x_realizado_tabulator(
@@ -2270,6 +2430,7 @@ def carteira(request, empresa_id):
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -2318,6 +2479,12 @@ def carteira(request, empresa_id):
     regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
     parceiros = Parceiro.objects.filter(empresa=empresa).order_by("nome")
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="carteira",
+        extensoes={".xlsx"},
+    )
 
     # 3) Transformacao
     contexto = montar_contexto_carteira(
@@ -2333,6 +2500,8 @@ def carteira(request, empresa_id):
         permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
     )
     contexto["bloquear_cadastro_edicao_importacao"] = _empresa_bloqueia_cadastro_edicao_importacao(empresa)
+    contexto["tipo_importacao_texto"] = TIPO_IMPORTACAO_POR_MODULO["carteira"]
+    contexto["resumo_importacao"] = resumo_importacao
 
     # 4) Render
     return render(request, modulo["template"], contexto)
@@ -2659,6 +2828,7 @@ def pedidos_pendentes(request, empresa_id):
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -2715,6 +2885,12 @@ def pedidos_pendentes(request, empresa_id):
 
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="pedidos_pendentes",
+        extensoes={".xlsx"},
+    )
     pedidos_tabulator = build_pedidos_pendentes_tabulator(
         pedidos_qs,
         empresa.id,
@@ -2730,6 +2906,8 @@ def pedidos_pendentes(request, empresa_id):
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["pedidos_pendentes"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "rotas": Rota.objects.filter(empresa=empresa).order_by("codigo_rota", "nome"),
@@ -2925,6 +3103,7 @@ def vendas_por_categoria(request, empresa_id):
                 arquivos=arquivos,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -2964,6 +3143,12 @@ def vendas_por_categoria(request, empresa_id):
         [f.name for f in diretorio_importacao.iterdir() if f.is_file() and f.suffix.lower() == ".xls"]
     )
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="vendas_por_categoria",
+        extensoes={".xls"},
+    )
 
     contexto = montar_contexto_vendas(
         empresa=empresa,
@@ -2974,6 +3159,8 @@ def vendas_por_categoria(request, empresa_id):
         permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
     )
     contexto["bloquear_cadastro_edicao_importacao"] = _empresa_bloqueia_cadastro_edicao_importacao(empresa)
+    contexto["tipo_importacao_texto"] = TIPO_IMPORTACAO_POR_MODULO["vendas_por_categoria"]
+    contexto["resumo_importacao"] = resumo_importacao
     return render(request, modulo["template"], contexto)
 
 
@@ -3064,6 +3251,7 @@ def controle_de_margem(request, empresa_id):
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -3150,6 +3338,12 @@ def controle_de_margem(request, empresa_id):
 
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="controle_de_margem",
+        extensoes={".xls", ".xlsx"},
+    )
     controles_tabulator = build_controle_margem_tabulator(
         controles_qs,
         empresa.id,
@@ -3159,6 +3353,8 @@ def controle_de_margem(request, empresa_id):
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["controle_de_margem"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome"),
@@ -3261,6 +3457,7 @@ def cargas_em_aberto(request, empresa_id):
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -3279,11 +3476,19 @@ def cargas_em_aberto(request, empresa_id):
     dashboard_no_prazo = dashboard_total_cargas - dashboard_fora_prazo
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="cargas_em_aberto",
+        extensoes={".xls"},
+    )
 
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["cargas_em_aberto"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "regioes": Regiao.objects.filter(empresa=empresa).order_by("nome"),
@@ -3379,6 +3584,7 @@ def producao(request, empresa_id):
                 arquivos=arquivos,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -3405,10 +3611,18 @@ def producao(request, empresa_id):
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="producao",
+        extensoes={".xls"},
+    )
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["producao"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),
@@ -3524,6 +3738,7 @@ def tabela_de_fretes(request, empresa_id):
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -3547,11 +3762,19 @@ def tabela_de_fretes(request, empresa_id):
         tipos_frete.insert(0, "CTRC")
     arquivos_existentes = [f.name for f in diretorio_importacao.iterdir() if f.is_file()]
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="tabela_de_fretes",
+        extensoes={".xls"},
+    )
 
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["tabela_de_fretes"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "cidades": Cidade.objects.filter(empresa=empresa).order_by("nome"),
@@ -3667,6 +3890,7 @@ def estoque_pcp(request, empresa_id):
                 arquivos=arquivos,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
             )
             if ok:
                 messages.success(request, mensagem)
@@ -3703,11 +3927,19 @@ def estoque_pcp(request, empresa_id):
         ]
     )
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="estoque_pcp",
+        extensoes={".xls"},
+    )
 
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["estoque_pcp"],
+        "resumo_importacao": resumo_importacao,
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "produtos": Produto.objects.filter(empresa=empresa).order_by("codigo_produto"),

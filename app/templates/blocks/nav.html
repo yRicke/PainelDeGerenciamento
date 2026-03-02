@@ -1,20 +1,32 @@
 <div class="nav-shell">
     <a class="brand" href="{% url 'index' %}">Painel Gerenciamento</a>
 
-    {% if user.is_authenticated %}
-    <nav class="nav-links" aria-label="Navegação principal">
-        <a class="{% if request.path == '/' %}is-active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %} href="{% url 'index' %}">Início</a>
-        <a class="{% if request.path|slice:':11' == '/financeiro/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/financeiro/' %}aria-current="page"{% endif %} href="{% url 'financeiro' %}">Financeiro</a>
-        <a class="{% if request.path|slice:':15' == '/administrativo/' %}is-active{% endif %}" {% if request.path|slice:':15' == '/administrativo/' %}aria-current="page"{% endif %} href="{% url 'administrativo' %}">Administrativo</a>
-        <a class="{% if request.path|slice:':11' == '/comercial/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/comercial/' %}aria-current="page"{% endif %} href="{% url 'comercial' %}">Comercial</a>
-        <a class="{% if request.path|slice:':13' == '/operacional/' %}is-active{% endif %}" {% if request.path|slice:':13' == '/operacional/' %}aria-current="page"{% endif %} href="{% url 'operacional' %}">Operacional</a>
-        <a class="{% if request.path|slice:':12' == '/parametros/' %}is-active{% endif %}" {% if request.path|slice:':12' == '/parametros/' %}aria-current="page"{% endif %} href="{% url 'parametros' %}">Parâmetros</a>
-        {% if user.is_staff %}
-        <a {% if request.path|slice:':7' == '/admin/' %}aria-current="page"{% endif %} href="{% url 'painel_admin' %}">Admin</a>
+    <button
+        type="button"
+        class="nav-toggle"
+        aria-expanded="false"
+        aria-controls="site-nav-panel"
+        aria-label="Abrir menu principal"
+    >
+        <span aria-hidden="true">&#9776;</span>
+    </button>
+
+    <div class="nav-panel" id="site-nav-panel">
+        {% if user.is_authenticated %}
+        <nav class="nav-links" aria-label="Navegação principal">
+            <a class="{% if request.path == '/' %}is-active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %} href="{% url 'index' %}">Início</a>
+            <a class="{% if request.path|slice:':11' == '/financeiro/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/financeiro/' %}aria-current="page"{% endif %} href="{% url 'financeiro' %}">Financeiro</a>
+            <a class="{% if request.path|slice:':15' == '/administrativo/' %}is-active{% endif %}" {% if request.path|slice:':15' == '/administrativo/' %}aria-current="page"{% endif %} href="{% url 'administrativo' %}">Administrativo</a>
+            <a class="{% if request.path|slice:':11' == '/comercial/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/comercial/' %}aria-current="page"{% endif %} href="{% url 'comercial' %}">Comercial</a>
+            <a class="{% if request.path|slice:':13' == '/operacional/' %}is-active{% endif %}" {% if request.path|slice:':13' == '/operacional/' %}aria-current="page"{% endif %} href="{% url 'operacional' %}">Operacional</a>
+            <a class="{% if request.path|slice:':12' == '/parametros/' %}is-active{% endif %}" {% if request.path|slice:':12' == '/parametros/' %}aria-current="page"{% endif %} href="{% url 'parametros' %}">Parâmetros</a>
+            {% if user.is_staff %}
+            <a class="{% if request.path|slice:':7' == '/admin/' %}is-active{% endif %}" {% if request.path|slice:':7' == '/admin/' %}aria-current="page"{% endif %} href="{% url 'painel_admin' %}">Admin</a>
+            {% endif %}
+        </nav>
+        <a class="logout-link nav-auth-link" href="{% url 'sair' %}">Sair</a>
+        {% else %}
+        <a class="login-link nav-auth-link" href="{% url 'entrar' %}">Entrar</a>
         {% endif %}
-    </nav>
-    <a class="logout-link" href="{% url 'sair' %}">Sair</a>
-    {% else %}
-    <a class="login-link" href="{% url 'entrar' %}">Entrar</a>
-    {% endif %}
+    </div>
 </div>

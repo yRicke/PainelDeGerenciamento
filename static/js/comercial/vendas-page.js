@@ -6,6 +6,7 @@
     var input = document.getElementById("arquivos-vendas-input");
     var statusArquivos = document.getElementById("nome-arquivos-vendas-selecionados");
     var loadingStatus = document.getElementById("vendas-loading-status");
+    if (!dropzone || !input) return;
     var frontendText = window.FrontendText || {};
     var uploadText = frontendText.upload || {};
     var arquivoXlsLabel = ".xls";
@@ -26,7 +27,7 @@
 
     function iniciarCarregamento() {
         form.classList.add("is-loading");
-        loadingStatus.classList.add("is-visible");
+        if (loadingStatus) loadingStatus.classList.add("is-visible");
     }
 
     function coletarArquivosXls(files) {
@@ -37,6 +38,7 @@
     }
 
     function atualizarStatus(filesXls) {
+        if (!statusArquivos) return;
         if (!filesXls.length) {
             statusArquivos.textContent = "";
             return;
@@ -98,26 +100,26 @@
 
 (function () {
     var dataElement = document.getElementById("vendas-tabulator-data");
-    if (!dataElement || !window.ApexCharts) return;
+    if (!dataElement) return;
+    if (!window.Tabulator || !window.TabulatorDefaults) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
-    if (!data.length) return;
-
-    var anosContainer = document.getElementById("dashboard-vendas-ano-container");
-    var mesesContainer = document.getElementById("dashboard-vendas-mes-container");
-    var diasContainer = document.getElementById("dashboard-vendas-dia-container");
-    var limparFiltrosDashboardBtn = document.getElementById("dashboard-vendas-limpar-filtros");
-    if (!anosContainer || !mesesContainer || !diasContainer) return;
+    if (!document.getElementById("vendas-tabulator")) return;
 
     var kpiVendasEl = document.getElementById("dashboard-kpi-vendas");
     var kpiCmvEl = document.getElementById("dashboard-kpi-cmv");
     var kpiLucroEl = document.getElementById("dashboard-kpi-lucro");
     var kpiMargemEl = document.getElementById("dashboard-kpi-margem");
 
+    var limparFiltrosBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
+    var limparFiltrosSidebarBtn = document.getElementById("vendas-limpar-filtros-sidebar");
+    var filtroColunaEsquerda = document.getElementById("vendas-filtros-coluna-esquerda");
+    var filtroColunaDireita = document.getElementById("vendas-filtros-coluna-direita");
+
     var nomeMes = {
         1: "Janeiro",
         2: "Fevereiro",
-        3: "Marco",
+        3: "Março",
         4: "Abril",
         5: "Maio",
         6: "Junho",
@@ -127,12 +129,6 @@
         10: "Outubro",
         11: "Novembro",
         12: "Dezembro"
-    };
-
-    var estado = {
-        anoSelecionado: null,
-        mesesSelecionados: [],
-        diasSelecionados: []
     };
 
     function fmtMoeda(valor) {
@@ -155,153 +151,131 @@
         return fmtNumero(valor) + "%";
     }
 
-    function obterAnosDisponiveis() {
-        return Array.from(new Set(data.map(function (item) { return item.ano_venda; }).filter(Boolean))).sort(function (a, b) { return b - a; });
+    function normalizarSituacaoMargem(valor) {
+        return String(valor || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
     }
 
-    function obterMesesDoAno(ano) {
-        if (ano === null || ano === undefined || ano === "") {
-            return Array.from(
-                new Set(
-                    data
-                        .map(function (item) { return item.mes_venda; })
-                        .filter(Boolean)
-                )
-            ).sort(function (a, b) { return a - b; });
-        }
-        return Array.from(
-            new Set(
-                data
-                    .filter(function (item) { return Number(item.ano_venda) === Number(ano); })
-                    .map(function (item) { return item.mes_venda; })
-                    .filter(Boolean)
-            )
-        ).sort(function (a, b) { return a - b; });
+    function obterCorMargemPorSituacao(situacaoMargem) {
+        var situacao = normalizarSituacaoMargem(situacaoMargem);
+        if (situacao === "roxo") return "#8e24aa";
+        if (situacao === "vermelho") return "#e74c3c";
+        if (situacao === "amarelo") return "#b37f00";
+        if (situacao === "verde") return "#2f9e44";
+        return "";
     }
 
-    function obterDiasFiltrados(ano, mesesSelecionados) {
-        var conjuntoMes = new Set(mesesSelecionados.map(Number));
-        return Array.from(
-            new Set(
-                data
-                    .filter(function (item) {
-                        var bateAno = (ano === null || ano === undefined || ano === "")
-                            ? true
-                            : Number(item.ano_venda) === Number(ano);
-                        return bateAno && conjuntoMes.has(Number(item.mes_venda));
-                    })
-                    .map(function (item) { return item.data_venda_iso || ""; })
-                    .filter(Boolean)
-            )
-        ).sort();
+    function isoParaDataBr(iso) {
+        var texto = String(iso || "").trim();
+        if (!texto) return "(Vazio)";
+        var partes = texto.split("-");
+        if (partes.length !== 3) return texto;
+        return partes[2] + "/" + partes[1] + "/" + partes[0];
     }
 
-    function criarChip(label, ativo, onClick) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "dashboard-chip" + (ativo ? " is-active" : "");
-        btn.textContent = label;
-        btn.setAttribute("aria-pressed", ativo ? "true" : "false");
-        btn.addEventListener("click", onClick);
-        return btn;
+    function removerTagsHtml(valor) {
+        return String(valor || "").replace(/<[^>]+>/g, "").trim();
     }
 
-    function renderAnos() {
-        var anos = obterAnosDisponiveis();
-        if (!anos.length) return;
+    function isCurrencyField(field) {
+        return (
+            field.indexOf("valor_") === 0
+            || field.indexOf("custo_") === 0
+            || field.indexOf("remuneracao") === 0
+            || field === "lucro"
+        );
+    }
 
-        if (estado.anoSelecionado !== null && anos.indexOf(Number(estado.anoSelecionado)) < 0) {
-            estado.anoSelecionado = null;
+    function isPercentField(field) {
+        return field === "margem";
+    }
+
+    function formatarFiltroPorCampo(field, value) {
+        if (value === null || value === undefined || value === "") return "(Vazio)";
+
+        if (field === "mes_venda") {
+            var mesNumero = Number(value || 0);
+            return nomeMes[mesNumero] || String(value);
         }
 
-        anosContainer.innerHTML = "";
-        anosContainer.appendChild(criarChip("Todos", estado.anoSelecionado === null, function () {
-            estado.anoSelecionado = null;
-            estado.mesesSelecionados = obterMesesDoAno(estado.anoSelecionado);
-            estado.diasSelecionados = obterDiasFiltrados(estado.anoSelecionado, estado.mesesSelecionados);
-            renderTudo();
-        }));
+        if (field === "data_venda_iso") {
+            return isoParaDataBr(value);
+        }
 
-        anos.forEach(function (ano) {
-            anosContainer.appendChild(criarChip(String(ano), Number(estado.anoSelecionado) === Number(ano), function () {
-                estado.anoSelecionado = ano;
-                var mesesAno = obterMesesDoAno(estado.anoSelecionado);
-                estado.mesesSelecionados = mesesAno.slice();
-                var dias = obterDiasFiltrados(estado.anoSelecionado, estado.mesesSelecionados);
-                estado.diasSelecionados = dias.slice();
-                renderTudo();
-            }));
-        });
+        if (field === "ano_venda") {
+            return String(value);
+        }
+
+        if (typeof value === "number" && Number.isFinite(value)) {
+            if (isPercentField(field)) return fmtPercent(value);
+            if (isCurrencyField(field)) return fmtMoeda(value);
+            return fmtNumero(value);
+        }
+
+        return String(value);
     }
 
-    function renderMeses() {
-        var mesesAno = obterMesesDoAno(estado.anoSelecionado);
-        if (!estado.mesesSelecionados.length) {
-            estado.mesesSelecionados = mesesAno.slice();
-        }
-        estado.mesesSelecionados = estado.mesesSelecionados.filter(function (mes) { return mesesAno.indexOf(Number(mes)) >= 0; });
-        if (!estado.mesesSelecionados.length && mesesAno.length) {
-            estado.mesesSelecionados = mesesAno.slice();
-        }
-
-        mesesContainer.innerHTML = "";
-        mesesAno.forEach(function (mes) {
-            var ativo = estado.mesesSelecionados.indexOf(Number(mes)) >= 0;
-            mesesContainer.appendChild(criarChip(nomeMes[mes] || String(mes), ativo, function () {
-                if (ativo && estado.mesesSelecionados.length > 1) {
-                    estado.mesesSelecionados = estado.mesesSelecionados.filter(function (m) { return Number(m) !== Number(mes); });
-                } else if (!ativo) {
-                    estado.mesesSelecionados.push(Number(mes));
-                    estado.mesesSelecionados.sort(function (a, b) { return a - b; });
+    function criarDefinicoesFiltro(colunasTabulator) {
+        var definicoes = [
+            {
+                key: "ano_venda",
+                label: "Ano da Venda",
+                formatValue: function (value) {
+                    return formatarFiltroPorCampo("ano_venda", value);
+                },
+                sortOptions: function (a, b) {
+                    return Number(b.value || 0) - Number(a.value || 0);
                 }
-                var diasAtualizados = obterDiasFiltrados(estado.anoSelecionado, estado.mesesSelecionados);
-                estado.diasSelecionados = estado.diasSelecionados.filter(function (dia) { return diasAtualizados.indexOf(dia) >= 0; });
-                if (!estado.diasSelecionados.length) {
-                    estado.diasSelecionados = diasAtualizados.slice();
+            },
+            {
+                key: "mes_venda",
+                label: "Mês da Venda",
+                formatValue: function (value) {
+                    return formatarFiltroPorCampo("mes_venda", value);
+                },
+                sortOptions: function (a, b) {
+                    return Number(a.value || 0) - Number(b.value || 0);
                 }
-                renderTudo();
-            }));
-        });
-    }
-
-    function renderDias() {
-        var diasDisponiveis = obterDiasFiltrados(estado.anoSelecionado, estado.mesesSelecionados);
-        if (!estado.diasSelecionados.length) {
-            estado.diasSelecionados = diasDisponiveis.slice();
-        }
-        estado.diasSelecionados = estado.diasSelecionados.filter(function (dia) { return diasDisponiveis.indexOf(dia) >= 0; });
-        if (!estado.diasSelecionados.length && diasDisponiveis.length) {
-            estado.diasSelecionados = diasDisponiveis.slice();
-        }
-
-        diasContainer.innerHTML = "";
-        diasDisponiveis.forEach(function (diaIso) {
-            var partes = diaIso.split("-");
-            var rotulo = (partes[2] || "") + "/" + (partes[1] || "");
-            var ativo = estado.diasSelecionados.indexOf(diaIso) >= 0;
-            diasContainer.appendChild(criarChip(rotulo, ativo, function () {
-                if (ativo && estado.diasSelecionados.length > 1) {
-                    estado.diasSelecionados = estado.diasSelecionados.filter(function (dia) { return dia !== diaIso; });
-                } else if (!ativo) {
-                    estado.diasSelecionados.push(diaIso);
-                    estado.diasSelecionados.sort();
+            },
+            {
+                key: "data_venda_iso",
+                label: "Data da Venda",
+                formatValue: function (value) {
+                    return formatarFiltroPorCampo("data_venda_iso", value);
                 }
-                renderTudo();
-            }));
-        });
-    }
+            },
+            {
+                key: "margem_situacao",
+                label: "Situação da Margem",
+                formatValue: function (value) {
+                    return formatarFiltroPorCampo("margem_situacao", value);
+                }
+            }
+        ];
 
-    function filtrarRegistros() {
-        var conjuntoMes = new Set(estado.mesesSelecionados.map(Number));
-        var conjuntoDia = new Set(estado.diasSelecionados);
-        return data.filter(function (item) {
-            var bateAno = (estado.anoSelecionado === null || estado.anoSelecionado === undefined || estado.anoSelecionado === "")
-                ? true
-                : Number(item.ano_venda) === Number(estado.anoSelecionado);
-            return bateAno
-                && conjuntoMes.has(Number(item.mes_venda))
-                && conjuntoDia.has(item.data_venda_iso || "");
+        var camposJaIncluidos = new Set(definicoes.map(function (definicao) { return definicao.key; }));
+
+        (colunasTabulator || []).forEach(function (coluna) {
+            if (!coluna || !coluna.field) return;
+            var field = String(coluna.field || "").trim();
+            if (!field || field.indexOf("_url") >= 0) return;
+            if (camposJaIncluidos.has(field)) return;
+
+            var titulo = removerTagsHtml(coluna.title || field);
+            definicoes.push({
+                key: field,
+                label: titulo || field,
+                formatValue: function (value) {
+                    return formatarFiltroPorCampo(field, value);
+                }
+            });
+            camposJaIncluidos.add(field);
         });
+
+        return definicoes;
     }
 
     function agruparPorDia(registros) {
@@ -316,6 +290,7 @@
             mapa[dia].cmv += Number(item.custo_medio_icms_cmv || 0);
             mapa[dia].lucro += Number(item.lucro || 0);
         });
+
         var dias = Object.keys(mapa).sort();
         return {
             categorias: dias.map(function (iso) {
@@ -337,6 +312,7 @@
             if (!mapa[mes]) mapa[mes] = 0;
             mapa[mes] += Number(item.valor_venda || 0);
         });
+
         var meses = Object.keys(mapa).map(Number).sort(function (a, b) { return a - b; });
         return {
             categorias: meses.map(function (mes) { return nomeMes[mes] || String(mes); }),
@@ -347,13 +323,18 @@
     function top10Produtos(registros) {
         var mapa = {};
         registros.forEach(function (item) {
-            var desc = (item.descricao || "").trim() || ("Codigo " + (item.codigo || "-"));
+            var desc = (item.descricao || "").trim() || ("Código " + (item.codigo || "-"));
             if (!mapa[desc]) mapa[desc] = 0;
             mapa[desc] += Number(item.valor_venda || 0);
         });
-        var ranking = Object.keys(mapa).map(function (nome) {
-            return {nome: nome, valor: mapa[nome]};
-        }).sort(function (a, b) { return b.valor - a.valor; }).slice(0, 10);
+
+        var ranking = Object.keys(mapa)
+            .map(function (nome) {
+                return {nome: nome, valor: mapa[nome]};
+            })
+            .sort(function (a, b) { return b.valor - a.valor; })
+            .slice(0, 10);
+
         return {
             categorias: ranking.map(function (item) { return item.nome; }),
             valores: ranking.map(function (item) { return Number(item.valor.toFixed(2)); })
@@ -370,140 +351,6 @@
             else contagem.Verde += 1;
         });
         return [contagem.Amarelo, contagem.Roxo, contagem.Verde, contagem.Vermelho];
-    }
-
-    var chartDia = new ApexCharts(document.getElementById("dashboard-vendas-dia-chart"), {
-        chart: {type: "line", height: 320, toolbar: {show: true}},
-        series: [],
-        stroke: {curve: "smooth", width: [3, 3, 3, 2]},
-        colors: ["#176087", "#ef8636", "#2f9e44", "#748ffc"],
-        xaxis: {categories: []},
-        yaxis: {labels: {formatter: function (v) { return fmtMoeda(v); }}},
-        tooltip: {shared: true, intersect: false, y: {formatter: function (v) { return fmtMoeda(v); }}}
-    });
-    chartDia.render();
-
-    var chartMes = new ApexCharts(document.getElementById("dashboard-vendas-mes-chart"), {
-        chart: {type: "bar", height: 300, toolbar: {show: false}},
-        series: [{name: "Vendas", data: []}],
-        plotOptions: {bar: {borderRadius: 6, columnWidth: "48%"}},
-        colors: ["#176087"],
-        dataLabels: {
-            enabled: true,
-            formatter: function (v) { return fmtMoeda(v); },
-            style: {fontSize: "11px"}
-        },
-        xaxis: {categories: []},
-        yaxis: {labels: {formatter: function (v) { return fmtMoeda(v); }}},
-        tooltip: {y: {formatter: function (v) { return fmtMoeda(v); }}}
-    });
-    chartMes.render();
-
-    var chartTop10 = new ApexCharts(document.getElementById("dashboard-vendas-top10-chart"), {
-        chart: {type: "bar", height: 360, toolbar: {show: false}},
-        series: [{name: "Vendas", data: []}],
-        plotOptions: {bar: {horizontal: true, borderRadius: 4}},
-        colors: ["#0b7285"],
-        dataLabels: {
-            enabled: true,
-            formatter: function (v) { return fmtMoeda(v); },
-            style: {fontSize: "11px"}
-        },
-        xaxis: {labels: {formatter: function (v) { return fmtMoeda(v); }}},
-        tooltip: {y: {formatter: function (v) { return fmtMoeda(v); }}}
-    });
-    chartTop10.render();
-
-    var chartMargens = new ApexCharts(document.getElementById("dashboard-vendas-margens-chart"), {
-        chart: {type: "donut", height: 320},
-        series: [0, 0, 0, 0],
-        labels: ["Amarelo (12-13,99%)", "Roxo (< 10%)", "Verde (>= 14%)", "Vermelho (10-11,99%)"],
-        colors: ["#f4b000", "#8e24aa", "#2f9e44", "#e74c3c"],
-        legend: {position: "bottom"},
-        tooltip: {y: {formatter: function (v) { return String(v) + " registros"; }}}
-    });
-    chartMargens.render();
-
-    function atualizarDashboard() {
-        var registros = filtrarRegistros();
-
-        var totalVendas = registros.reduce(function (acc, item) { return acc + Number(item.valor_venda || 0); }, 0);
-        var totalCmv = registros.reduce(function (acc, item) { return acc + Number(item.custo_medio_icms_cmv || 0); }, 0);
-        var totalLucro = registros.reduce(function (acc, item) { return acc + Number(item.lucro || 0); }, 0);
-        var margemGeral = totalVendas > 0 ? (totalLucro / totalVendas) * 100 : 0;
-
-        kpiVendasEl.textContent = fmtMoeda(totalVendas);
-        kpiCmvEl.textContent = fmtMoeda(totalCmv);
-        kpiLucroEl.textContent = fmtMoeda(totalLucro);
-        kpiMargemEl.textContent = fmtPercent(margemGeral);
-
-        var dia = agruparPorDia(registros);
-        chartDia.updateOptions({xaxis: {categories: dia.categorias}});
-        chartDia.updateSeries([
-            {name: "Vlr Vendas", data: dia.vendas},
-            {name: "Vlr Custo Med Com ICMS (CMV)", data: dia.cmv},
-            {name: "Vlr Lucro Bruto", data: dia.lucro},
-            {name: "Linha de Meta", data: dia.meta}
-        ]);
-
-        var mes = agruparPorMes(registros);
-        chartMes.updateOptions({xaxis: {categories: mes.categorias}});
-        chartMes.updateSeries([{name: "Vendas", data: mes.valores}]);
-
-        var top10 = top10Produtos(registros);
-        chartTop10.updateOptions({xaxis: {categories: top10.categorias}});
-        chartTop10.updateSeries([{name: "Vendas", data: top10.valores}]);
-
-        chartMargens.updateSeries(distribuicaoMargens(registros));
-    }
-
-    function renderTudo() {
-        renderAnos();
-        renderMeses();
-        renderDias();
-        atualizarDashboard();
-    }
-
-    function resetarFiltrosDashboard() {
-        estado.anoSelecionado = null;
-        estado.mesesSelecionados = obterMesesDoAno(estado.anoSelecionado);
-        estado.diasSelecionados = obterDiasFiltrados(estado.anoSelecionado, estado.mesesSelecionados);
-        renderTudo();
-    }
-
-    if (limparFiltrosDashboardBtn) {
-        limparFiltrosDashboardBtn.addEventListener("click", function () {
-            resetarFiltrosDashboard();
-        });
-    }
-
-    estado.anoSelecionado = null;
-    estado.mesesSelecionados = obterMesesDoAno(estado.anoSelecionado);
-    estado.diasSelecionados = obterDiasFiltrados(estado.anoSelecionado, estado.mesesSelecionados);
-    renderTudo();
-})();
-
-(function () {
-    var dataElement = document.getElementById("vendas-tabulator-data");
-    if (!dataElement || !window.Tabulator) return;
-
-    var data = JSON.parse(dataElement.textContent || "[]");
-
-    function normalizarSituacaoMargem(valor) {
-        return String(valor || "")
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .trim();
-    }
-
-    function obterCorMargemPorSituacao(situacaoMargem) {
-        var situacao = normalizarSituacaoMargem(situacaoMargem);
-        if (situacao === "roxo") return "#8e24aa";
-        if (situacao === "vermelho") return "#e74c3c";
-        if (situacao === "amarelo") return "#b37f00";
-        if (situacao === "verde") return "#2f9e44";
-        return "";
     }
 
     var colunas = [
@@ -547,9 +394,8 @@
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }) + "%";
-                var situacaoMargem = cell.getRow() && cell.getRow().getData()
-                    ? cell.getRow().getData().margem_situacao
-                    : "";
+                var rowData = cell.getRow() ? cell.getRow().getData() : null;
+                var situacaoMargem = rowData ? rowData.margem_situacao : "";
                 var cor = obterCorMargemPorSituacao(situacaoMargem);
                 if (!cor) return valorFormatado;
                 return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:' + cor + ';color:#fff;font-weight:600;">' + valorFormatado + "</span>";
@@ -602,7 +448,7 @@
             headerFilter: "input",
             formatter: "money",
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2}
-        },
+        }
     ];
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
@@ -611,8 +457,155 @@
         data: data,
         columns: colunas
     });
+
+    var filtrosExternos = null;
+    if (window.ModuleFilterCore && filtroColunaEsquerda && filtroColunaDireita) {
+        var definicoesFiltro = criarDefinicoesFiltro(colunas);
+        filtrosExternos = window.ModuleFilterCore.create({
+            data: data,
+            definitions: definicoesFiltro,
+            leftColumn: filtroColunaEsquerda,
+            rightColumn: filtroColunaDireita,
+            onChange: function () {
+                if (typeof tabela.refreshFilter === "function") {
+                    tabela.refreshFilter();
+                }
+                atualizarDashboardComTabela();
+            }
+        });
+
+        tabela.addFilter(function (rowData) {
+            return filtrosExternos.matchesRecord(rowData);
+        });
+    }
+
+    var chartDia = null;
+    var chartMes = null;
+    var chartTop10 = null;
+    var chartMargens = null;
+
+    if (window.ApexCharts) {
+        chartDia = new ApexCharts(document.getElementById("dashboard-vendas-dia-chart"), {
+            chart: {type: "line", height: 320, toolbar: {show: true}},
+            series: [],
+            stroke: {curve: "smooth", width: [3, 3, 3, 2]},
+            colors: ["#176087", "#ef8636", "#2f9e44", "#748ffc"],
+            xaxis: {categories: []},
+            yaxis: {labels: {formatter: function (v) { return fmtMoeda(v); }}},
+            tooltip: {shared: true, intersect: false, y: {formatter: function (v) { return fmtMoeda(v); }}}
+        });
+        chartDia.render();
+
+        chartMes = new ApexCharts(document.getElementById("dashboard-vendas-mes-chart"), {
+            chart: {type: "bar", height: 300, toolbar: {show: false}},
+            series: [{name: "Vendas", data: []}],
+            plotOptions: {bar: {borderRadius: 6, columnWidth: "48%"}},
+            colors: ["#176087"],
+            dataLabels: {
+                enabled: true,
+                formatter: function (v) { return fmtMoeda(v); },
+                style: {fontSize: "11px"}
+            },
+            xaxis: {categories: []},
+            yaxis: {labels: {formatter: function (v) { return fmtMoeda(v); }}},
+            tooltip: {y: {formatter: function (v) { return fmtMoeda(v); }}}
+        });
+        chartMes.render();
+
+        chartTop10 = new ApexCharts(document.getElementById("dashboard-vendas-top10-chart"), {
+            chart: {type: "bar", height: 360, toolbar: {show: false}},
+            series: [{name: "Vendas", data: []}],
+            plotOptions: {bar: {horizontal: true, borderRadius: 4}},
+            colors: ["#0b7285"],
+            dataLabels: {
+                enabled: true,
+                formatter: function (v) { return fmtMoeda(v); },
+                style: {fontSize: "11px"}
+            },
+            xaxis: {labels: {formatter: function (v) { return fmtMoeda(v); }}},
+            tooltip: {y: {formatter: function (v) { return fmtMoeda(v); }}}
+        });
+        chartTop10.render();
+
+        chartMargens = new ApexCharts(document.getElementById("dashboard-vendas-margens-chart"), {
+            chart: {type: "donut", height: 320},
+            series: [0, 0, 0, 0],
+            labels: ["Amarelo (12-13,99%)", "Roxo (< 10%)", "Verde (>= 14%)", "Vermelho (10-11,99%)"],
+            colors: ["#f4b000", "#8e24aa", "#2f9e44", "#e74c3c"],
+            legend: {position: "bottom"},
+            tooltip: {y: {formatter: function (v) { return String(v) + " registros"; }}}
+        });
+        chartMargens.render();
+    }
+
+    function obterRegistrosAtivos() {
+        var linhas = tabela.getData("active");
+        if (!Array.isArray(linhas) || !linhas.length) {
+            linhas = tabela.getData() || [];
+        }
+        return linhas;
+    }
+
+    function atualizarDashboardComTabela() {
+        var registros = obterRegistrosAtivos();
+
+        var totalVendas = registros.reduce(function (acc, item) { return acc + Number(item.valor_venda || 0); }, 0);
+        var totalCmv = registros.reduce(function (acc, item) { return acc + Number(item.custo_medio_icms_cmv || 0); }, 0);
+        var totalLucro = registros.reduce(function (acc, item) { return acc + Number(item.lucro || 0); }, 0);
+        var margemGeral = totalVendas > 0 ? (totalLucro / totalVendas) * 100 : 0;
+
+        if (kpiVendasEl) kpiVendasEl.textContent = fmtMoeda(totalVendas);
+        if (kpiCmvEl) kpiCmvEl.textContent = fmtMoeda(totalCmv);
+        if (kpiLucroEl) kpiLucroEl.textContent = fmtMoeda(totalLucro);
+        if (kpiMargemEl) kpiMargemEl.textContent = fmtPercent(margemGeral);
+
+        var dia = agruparPorDia(registros);
+        if (chartDia) {
+            chartDia.updateOptions({xaxis: {categories: dia.categorias}});
+            chartDia.updateSeries([
+                {name: "Valor de Vendas", data: dia.vendas},
+                {name: "Valor de CMV (Custo Médio com ICMS)", data: dia.cmv},
+                {name: "Valor de Lucro Bruto", data: dia.lucro},
+                {name: "Linha de Meta", data: dia.meta}
+            ]);
+        }
+
+        var mes = agruparPorMes(registros);
+        if (chartMes) {
+            chartMes.updateOptions({xaxis: {categories: mes.categorias}});
+            chartMes.updateSeries([{name: "Vendas", data: mes.valores}]);
+        }
+
+        var top10 = top10Produtos(registros);
+        if (chartTop10) {
+            chartTop10.updateOptions({xaxis: {categories: top10.categorias}});
+            chartTop10.updateSeries([{name: "Vendas", data: top10.valores}]);
+        }
+
+        if (chartMargens) {
+            chartMargens.updateSeries(distribuicaoMargens(registros));
+        }
+    }
+
+    function limparTodosFiltrosExternos() {
+        if (!filtrosExternos) return;
+        filtrosExternos.clearAllFilters();
+        if (typeof tabela.refreshFilter === "function") {
+            tabela.refreshFilter();
+        }
+        atualizarDashboardComTabela();
+    }
+
+    if (limparFiltrosBtn) {
+        limparFiltrosBtn.addEventListener("click", limparTodosFiltrosExternos);
+    }
+    if (limparFiltrosSidebarBtn) {
+        limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltrosExternos);
+    }
+
+    tabela.on("tableBuilt", atualizarDashboardComTabela);
+    tabela.on("dataLoaded", atualizarDashboardComTabela);
+    tabela.on("renderComplete", atualizarDashboardComTabela);
+    tabela.on("dataFiltered", atualizarDashboardComTabela);
+    setTimeout(atualizarDashboardComTabela, 0);
 })();
-
-
-
-

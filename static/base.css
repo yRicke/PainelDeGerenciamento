@@ -10,6 +10,7 @@
     --danger: #a03535;
     --success: #276749;
     --info: #2a4365;
+    --site-header-height: 68px;
 }
 
 * {
@@ -29,6 +30,7 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
 }
 
 .container {
@@ -67,7 +69,8 @@ body {
     min-height: 68px;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.9rem;
+    position: relative;
 }
 
 .brand {
@@ -75,24 +78,53 @@ body {
     font-weight: 700;
     text-decoration: none;
     white-space: nowrap;
+    min-width: 0;
+    max-width: min(48vw, 380px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-toggle {
+    display: none;
+    margin-left: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    min-width: 42px;
+    min-height: 40px;
+    background: #ffffff;
+    color: #2f4157;
+    cursor: pointer;
+}
+
+.nav-panel {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
 }
 
 .nav-links {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
-    margin-left: auto;
+    margin-left: 0;
+    min-width: 0;
 }
 
 .nav-links a,
 .login-link,
 .logout-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid transparent;
     color: var(--muted);
     text-decoration: none;
     padding: 0.45rem 0.7rem;
     border-radius: 8px;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .nav-links a:hover,
@@ -111,7 +143,7 @@ body {
 
 .logout-link,
 .login-link {
-    margin-left: 0.4rem;
+    margin-left: 0;
     border-color: var(--line);
 }
 
@@ -126,7 +158,7 @@ textarea:focus-visible {
 
 .site-main {
     flex: 1;
-    padding: 1.8rem 0;
+    padding: 1.35rem 0;
 }
 
 .page-hero,
@@ -239,12 +271,12 @@ textarea:focus-visible {
     accent-color: var(--primary);
 }
 
-.form-grid > div {
+.form-grid>div {
     min-width: 0;
 }
 
 /* Harmoniza o alinhamento visual dos blocos de filtros entre módulos. */
-.filter-grid > div {
+.filter-grid>div {
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -252,17 +284,17 @@ textarea:focus-visible {
     justify-content: flex-end;
 }
 
-.filter-grid > div > .btn-light,
-.filter-grid > div > .btn-primary,
-.filter-grid > div > .btn-danger {
+.filter-grid>div>.btn-light,
+.filter-grid>div>.btn-primary,
+.filter-grid>div>.btn-danger {
     width: 100%;
     min-height: 40px;
     margin-top: auto;
 }
 
-.filter-grid > div > a.btn-light,
-.filter-grid > div > a.btn-primary,
-.filter-grid > div > a.btn-danger {
+.filter-grid>div>a.btn-light,
+.filter-grid>div>a.btn-primary,
+.filter-grid>div>a.btn-danger {
     text-align: center;
 }
 
@@ -462,20 +494,77 @@ textarea:focus-visible {
     font-size: 0.88rem;
 }
 
-@media (max-width: 780px) {
+@media (max-width: 1100px) {
+
+    .site-main {
+        padding: 1rem 0 1.2rem;
+    }
+
     .nav-shell {
-        padding: 0.8rem 0;
-        align-items: flex-start;
+        min-height: 60px;
+        padding: 0.6rem 0;
+    }
+
+    .brand {
+        max-width: calc(100% - 56px);
+    }
+
+    .nav-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .nav-panel {
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        left: 0;
+        right: 0;
+        z-index: 120;
+        margin-left: 0;
+        display: none;
         flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+        padding: 0.65rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 14px 24px rgba(15, 23, 42, 0.14);
+        max-height: min(70vh, calc(100dvh - var(--site-header-height, 68px) - 16px));
+        overflow-y: auto;
+    }
+
+    .nav-shell.is-menu-open .nav-panel {
+        display: flex;
     }
 
     .nav-links {
-        margin-left: 0;
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.35rem;
+    }
+
+    .nav-links a,
+    .nav-auth-link {
+        width: 100%;
+        justify-content: flex-start;
+        min-height: 40px;
+        border-color: #d5dfeb;
+        background: #f9fbff;
+    }
+
+    .nav-links a.is-active,
+    .nav-links a[aria-current="page"] {
+        border-color: #a9c0dc;
+        background: #eaf2fc;
     }
 
     .logout-link,
     .login-link {
-        margin-left: 0;
+        border-color: #c8d6e6;
+        background: #f4f8fd;
     }
 
     .footer-shell {
@@ -483,6 +572,31 @@ textarea:focus-visible {
         flex-direction: column;
         justify-content: center;
         padding: 0.8rem 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .container {
+        width: min(1720px, 95vw);
+    }
+
+    .site-main {
+        padding: 0.85rem 0 1.05rem;
+    }
+
+    .page-hero,
+    .panel,
+    .auth-card {
+        border-radius: 12px;
+    }
+
+    .page-hero,
+    .panel {
+        padding: 1rem;
+    }
+
+    .page-hero h1 {
+        font-size: 1.35rem;
     }
 }
 

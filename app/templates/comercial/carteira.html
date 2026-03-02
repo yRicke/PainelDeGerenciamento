@@ -109,12 +109,31 @@
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importacao de Carteira</h2>
-    <p>Arraste um arquivo <code>.xlsx</code> para importar. Apenas um arquivo permanece na pasta.</p>
 
-    {% if arquivo_existente %}
-    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+    {% if resumo_importacao.tem_arquivos %}
+
+    <div class="importacao-resumo">
+
+        <p class="file-status">
+
+            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+
+            <span class="importacao-resumo-sep">|</span>
+
+            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+
+        </p>
+
+        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+
+    </div>
+
     {% else %}
+
     <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+
     {% endif %}
 
     <form
@@ -147,14 +166,6 @@
 <section id="sec-dashboard" class="panel module-section">
     <div class="dashboard-header">
         <h2>Grafico da Carteira</h2>
-        <div>
-            <label for="filtro-ano-dashboard-carteira">Ano</label>
-            <select id="filtro-ano-dashboard-carteira">
-                {% for ano in dashboard_carteira_anos_disponiveis %}
-                <option value="{{ ano }}" {% if ano == dashboard_carteira_ano_inicial %}selected{% endif %}>{{ ano }}</option>
-                {% endfor %}
-            </select>
-        </div>
     </div>
     <div id="carteira-dashboard-chart"></div>
 </section>
@@ -201,11 +212,6 @@
 {% endblock %}
 
 {% block extra_js %}
-{{ dashboard_carteira_anos_disponiveis|json_script:"dashboard-carteira-anos-disponiveis" }}
-{{ dashboard_carteira_agregados_por_ano_mes|json_script:"dashboard-carteira-agregados-ano-mes" }}
-{{ dashboard_carteira_ano_inicial|json_script:"dashboard-carteira-ano-inicial" }}
-{{ dashboard_carteira_ano_atual|json_script:"dashboard-carteira-ano-atual" }}
-{{ dashboard_carteira_mes_atual|json_script:"dashboard-carteira-mes-atual" }}
 {{ carteiras_tabulator|json_script:"carteira-tabulator-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>

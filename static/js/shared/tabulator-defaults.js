@@ -4,6 +4,8 @@
     var AUTO_FROZEN_MARKER = "__tabulatorDefaultsAutoFrozen";
     var FREEZE_STORAGE_PREFIX = "tabulator-frozen-columns::v1::";
     var TABLE_STICKY_TOP_GAP = 10;
+    var TABULATOR_TABLE_REGISTRY = [];
+    var TABULATOR_TABLE_CREATE_LISTENERS = [];
     var DEFAULT_MONEY_FORMATTER_PARAMS = {
         decimal: ",",
         thousand: ".",
@@ -346,6 +348,164 @@
         }
         if (target && target.id) return String(target.id);
         return "";
+    }
+
+    function resolveTargetElement(target, resolvedTargetId) {
+        if (!target) return null;
+        if (target.nodeType === 1) return target;
+
+        if (typeof target === "string") {
+            var trimmed = target.trim();
+            if (!trimmed) return null;
+            try {
+                var selected = document.querySelector(trimmed);
+                if (selected && selected.nodeType === 1) return selected;
+            } catch (_err) {
+                if (resolvedTargetId) {
+                    return document.getElementById(resolvedTargetId);
+                }
+                return null;
+            }
+            if (resolvedTargetId) {
+                return document.getElementById(resolvedTargetId);
+            }
+            return null;
+        }
+
+        if (resolvedTargetId) {
+            return document.getElementById(resolvedTargetId);
+        }
+
+        return null;
+    }
+
+    function safeNotifyTableCreated(entry) {
+        TABULATOR_TABLE_CREATE_LISTENERS.forEach(function (listener) {
+            try {
+                listener(entry);
+            } catch (_err) {
+                // Listener failures should not break table rendering.
+            }
+        });
+    }
+
+    function registerCreatedTable(target, table, enhancedConfig, sourceConfig) {
+        if (!table) return null;
+
+        var targetId = resolveTargetId(target);
+        var targetElement = resolveTargetElement(target, targetId);
+
+        if (!targetElement && typeof table.getElement === "function") {
+            targetElement = table.getElement();
+            if (!targetId && targetElement && targetElement.id) {
+                targetId = String(targetElement.id);
+            }
+        }
+
+        for (var i = TABULATOR_TABLE_REGISTRY.length - 1; i >= 0; i -= 1) {
+            var existing = TABULATOR_TABLE_REGISTRY[i];
+            if (!existing) continue;
+            if (existing.table === table) {
+                TABULATOR_TABLE_REGISTRY.splice(i, 1);
+                continue;
+            }
+            if (targetElement && existing.element && existing.element === targetElement) {
+                TABULATOR_TABLE_REGISTRY.splice(i, 1);
+                continue;
+            }
+            if (targetId && existing.id === targetId) {
+                TABULATOR_TABLE_REGISTRY.splice(i, 1);
+            }
+        }
+
+        var entry = {
+            id: targetId || "",
+            element: targetElement || null,
+            table: table,
+            config: enhancedConfig || {},
+            sourceConfig: sourceConfig || {},
+        };
+        TABULATOR_TABLE_REGISTRY.push(entry);
+        safeNotifyTableCreated(entry);
+        return entry;
+    }
+
+    function getCreatedTables() {
+        return TABULATOR_TABLE_REGISTRY.slice();
+    }
+
+    function findCreatedTable(reference) {
+        if (!TABULATOR_TABLE_REGISTRY.length) return null;
+        if (!reference) return TABULATOR_TABLE_REGISTRY[TABULATOR_TABLE_REGISTRY.length - 1] || null;
+
+        for (var directIndex = 0; directIndex < TABULATOR_TABLE_REGISTRY.length; directIndex += 1) {
+            var directEntry = TABULATOR_TABLE_REGISTRY[directIndex];
+            if (directEntry && directEntry.table === reference) {
+                return directEntry;
+            }
+        }
+
+        if (reference && reference.table) {
+            for (var i = 0; i < TABULATOR_TABLE_REGISTRY.length; i += 1) {
+                var entryByTable = TABULATOR_TABLE_REGISTRY[i];
+                if (entryByTable && entryByTable.table === reference.table) {
+                    return entryByTable;
+                }
+            }
+        }
+
+        if (reference && reference.nodeType === 1) {
+            for (var j = 0; j < TABULATOR_TABLE_REGISTRY.length; j += 1) {
+                var entryByElement = TABULATOR_TABLE_REGISTRY[j];
+                if (entryByElement && entryByElement.element === reference) {
+                    return entryByElement;
+                }
+            }
+            if (reference.id) {
+                return findCreatedTable(reference.id);
+            }
+            return null;
+        }
+
+        if (typeof reference === "string") {
+            var resolved = resolveTargetId(reference);
+            var token = resolved || String(reference).trim();
+            if (!token) return null;
+            for (var k = 0; k < TABULATOR_TABLE_REGISTRY.length; k += 1) {
+                var entryById = TABULATOR_TABLE_REGISTRY[k];
+                if (!entryById) continue;
+                if (entryById.id === token) return entryById;
+                if (entryById.element && entryById.element.id === token) return entryById;
+            }
+        }
+
+        return null;
+    }
+
+    function onTableCreated(listener, options) {
+        if (typeof listener !== "function") {
+            return function () {};
+        }
+        TABULATOR_TABLE_CREATE_LISTENERS.push(listener);
+
+        var cfg = isPlainObject(options) ? options : {};
+        if (cfg.emitExisting !== false) {
+            getCreatedTables().forEach(function (entry) {
+                try {
+                    listener(entry);
+                } catch (_err) {
+                    // Listener failures should not break other listeners.
+                }
+            });
+        }
+
+        return function unsubscribe() {
+            for (var i = TABULATOR_TABLE_CREATE_LISTENERS.length - 1; i >= 0; i -= 1) {
+                if (TABULATOR_TABLE_CREATE_LISTENERS[i] === listener) {
+                    TABULATOR_TABLE_CREATE_LISTENERS.splice(i, 1);
+                }
+            }
+        };
     }
 
     function normalizeFreezeOptions(target, config) {
@@ -1282,6 +1442,7 @@
         if (freezeOptions) {
             installInitialFrozenLayoutNormalization(table, freezeOptions);
         }
+        registerCreatedTable(target, table, enhancedConfig, config);
         return table;
     }
 
@@ -1522,6 +1683,9 @@
         buildEditActionColumn: buildEditActionColumn,
         addEditActionColumnIfAny: addEditActionColumnIfAny,
         buildSaveDeleteActionColumn: buildSaveDeleteActionColumn,
+        getCreatedTables: getCreatedTables,
+        findCreatedTable: findCreatedTable,
+        onTableCreated: onTableCreated,
     };
 
     installGlobalDomStickyWatcher();

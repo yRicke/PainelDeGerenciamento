@@ -1,0 +1,129 @@
+.module-filter-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.module-filter-column {
+    display: grid;
+    align-content: flex-start;
+    gap: 0.6rem;
+}
+
+.module-filter-card {
+    border: 1px solid #d7e0ea;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 40%);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+    padding: 0.55rem;
+    min-height: 214px;
+    max-height: 214px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.module-filter-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+}
+
+.module-filter-card-head h3 {
+    margin: 0;
+    font-size: 0.84rem;
+    color: #42566b;
+    line-height: 1.2;
+}
+
+.module-filter-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.module-filter-card-actions button {
+    border: 1px solid #d4deea;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #35536d;
+    font-size: 0.68rem;
+    padding: 0.2rem 0.4rem;
+    cursor: pointer;
+}
+
+.module-filter-card-actions button:hover {
+    background: #edf4ff;
+}
+
+.module-filter-card-meta {
+    font-size: 0.72rem;
+    color: #6b7b8b;
+    line-height: 1.2;
+}
+
+.module-filter-card-options {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 0.3rem;
+    align-content: flex-start;
+    padding-right: 2px;
+}
+
+.module-filter-card-options::-webkit-scrollbar {
+    width: 7px;
+}
+
+.module-filter-card-options::-webkit-scrollbar-thumb {
+    background: #c5d3e4;
+    border-radius: 999px;
+}
+
+.module-filter-chip {
+    border: 1px solid #d3dfe9;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f384f;
+    min-height: 30px;
+    padding: 0.3rem 0.45rem;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.76rem;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.module-filter-chip:hover {
+    border-color: #adbed1;
+    background: #eef4ff;
+}
+
+.module-filter-chip.is-active {
+    border-color: #175cd3;
+    background: #175cd3;
+    color: #ffffff;
+}
+
+@media (max-width: 940px) {
+    .module-filter-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .module-filter-card {
+        min-height: 192px;
+        max-height: 192px;
+        padding: 0.5rem;
+    }
+
+    .module-filter-card-head h3 {
+        font-size: 0.8rem;
+    }
+}

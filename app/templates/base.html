@@ -7,6 +7,8 @@
     <title>{% block title %}Gerenciamento{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'base.css' %}">
     <link rel="stylesheet" href="{% static 'css/shared/system-table-theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/shared/module-shell.css' %}">
+    <link rel="stylesheet" href="{% static 'css/shared/module-filter-core.css' %}">
     {% block extra_css %}{% endblock %}
     <link rel="stylesheet" href="{% static 'css/shared/filter-ux.css' %}">
 </head>
@@ -33,6 +35,10 @@
 
     <script src="{% static 'js/shared/frontend-texts.js' %}"></script>
     <script src="{% static 'js/shared/tabulator-defaults.js' %}"></script>
+    <script src="{% static 'js/shared/module-filter-core.js' %}"></script>
+    <script src="{% static 'js/shared/site-nav.js' %}"></script>
+    <script src="{% static 'js/shared/module-shell-upgrade.js' %}"></script>
+    <script src="{% static 'js/shared/module-external-filters-auto.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

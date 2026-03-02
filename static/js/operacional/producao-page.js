@@ -144,6 +144,20 @@
         x6x5: "6x5",
         total: "total",
     };
+    var NOME_MES = {
+        1: "Janeiro",
+        2: "Fevereiro",
+        3: "Março",
+        4: "Abril",
+        5: "Maio",
+        6: "Junho",
+        7: "Julho",
+        8: "Agosto",
+        9: "Setembro",
+        10: "Outubro",
+        11: "Novembro",
+        12: "Dezembro",
+    };
 
     function formatNumero(valor) {
         var numero = Number(valor || 0);
@@ -203,6 +217,60 @@
         return dt;
     }
 
+    function extrairAnoEntrada(item) {
+        var dt = extrairDataEntrada(item);
+        return dt ? dt.getFullYear() : "";
+    }
+
+    function extrairMesEntrada(item) {
+        var dt = extrairDataEntrada(item);
+        return dt ? (dt.getMonth() + 1) : "";
+    }
+
+    function formatarMes(valor) {
+        var mes = Number(valor || 0);
+        if (!mes) return "(Vazio)";
+        return NOME_MES[mes] || String(mes);
+    }
+
+    function ensureFilterColumns(section) {
+        if (!section) return null;
+
+        var left = section.querySelector('[data-module-filter-column="left"]')
+            || section.querySelector("#producao-filtros-coluna-esquerda");
+        var right = section.querySelector('[data-module-filter-column="right"]')
+            || section.querySelector("#producao-filtros-coluna-direita");
+
+        if (left && right) {
+            return {left: left, right: right};
+        }
+
+        var wrapper = section.querySelector(".module-filter-columns");
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.className = "module-filter-columns";
+            section.appendChild(wrapper);
+        }
+
+        if (!left) {
+            left = document.createElement("div");
+            left.className = "module-filter-column";
+            left.setAttribute("data-module-filter-column", "left");
+            left.id = "producao-filtros-coluna-esquerda";
+            wrapper.appendChild(left);
+        }
+
+        if (!right) {
+            right = document.createElement("div");
+            right.className = "module-filter-column";
+            right.setAttribute("data-module-filter-column", "right");
+            right.id = "producao-filtros-coluna-direita";
+            wrapper.appendChild(right);
+        }
+
+        return {left: left, right: right};
+    }
+
     var colunas = [
         { title: "Origem", field: "data_origem" },
         { title: "Número da OP", field: "numero_operacao", hozAlign: "right" },
@@ -222,10 +290,126 @@
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
 
+    var secFiltros = document.getElementById("sec-filtros");
+    if (secFiltros) {
+        secFiltros.dataset.moduleFiltersAuto = "off";
+    }
+
     var tabela = window.TabulatorDefaults.create("#producao-tabulator", {
         data: dadosOriginais,
         columns: colunas,
     });
+    var filtrosExternos = null;
+
+    if (window.ModuleFilterCore && secFiltros) {
+        secFiltros.dataset.moduleFiltersManual = "true";
+        var placeholderFiltros = secFiltros.querySelector(".module-filters-placeholder");
+        if (placeholderFiltros) placeholderFiltros.remove();
+
+        var filtroColumns = ensureFilterColumns(secFiltros);
+        if (filtroColumns && filtroColumns.left && filtroColumns.right) {
+            filtrosExternos = window.ModuleFilterCore.create({
+                data: dadosOriginais,
+                definitions: [
+                    {
+                        key: "situacao",
+                        label: "Situação",
+                        extractValue: function (rowData) {
+                            return rowData ? rowData.situacao : "";
+                        },
+                        formatValue: function (valor) {
+                            return String(valor || "").trim() || "(Vazio)";
+                        },
+                    },
+                    {
+                        key: "ano_entrada_atividade",
+                        label: "Ano",
+                        singleSelect: true,
+                        extractValue: function (rowData) {
+                            return extrairAnoEntrada(rowData);
+                        },
+                        formatValue: function (valor) {
+                            return String(valor || "").trim() || "(Vazio)";
+                        },
+                        sortOptions: function (a, b) {
+                            return Number(b.value || 0) - Number(a.value || 0);
+                        },
+                    },
+                    {
+                        key: "mes_entrada_atividade",
+                        label: "Mês",
+                        singleSelect: true,
+                        extractValue: function (rowData) {
+                            return extrairMesEntrada(rowData);
+                        },
+                        formatValue: function (valor) {
+                            return formatarMes(valor);
+                        },
+                        sortOptions: function (a, b) {
+                            return Number(a.value || 0) - Number(b.value || 0);
+                        },
+                    },
+                ],
+                leftColumn: filtroColumns.left,
+                rightColumn: filtroColumns.right,
+                onChange: function () {
+                    if (typeof tabela.refreshFilter === "function") {
+                        tabela.refreshFilter();
+                    }
+                },
+            });
+
+            tabela.addFilter(function (rowData) {
+                return filtrosExternos.matchesRecord(rowData);
+            });
+        }
+    }
+
+    function limparTodosFiltros() {
+        if (filtrosExternos && typeof filtrosExternos.clearAllFilters === "function") {
+            filtrosExternos.clearAllFilters();
+        }
+        if (typeof tabela.clearHeaderFilter === "function") {
+            tabela.clearHeaderFilter();
+        }
+        if (typeof tabela.refreshFilter === "function") {
+            tabela.refreshFilter();
+        }
+    }
+
+    var limparFiltrosSidebarBtn = secFiltros ? secFiltros.querySelector(".module-filters-clear-all") : null;
+    var limparFiltrosToolbarBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
+    if (limparFiltrosSidebarBtn) {
+        limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltros);
+    }
+    if (limparFiltrosToolbarBtn) {
+        limparFiltrosToolbarBtn.addEventListener("click", limparTodosFiltros);
+    }
+
+    function possuiFiltroExternoAtivo() {
+        if (!filtrosExternos || !Array.isArray(filtrosExternos.definitions)) return false;
+        if (typeof filtrosExternos.getSelectedCount !== "function") return false;
+        return filtrosExternos.definitions.some(function (definition) {
+            return filtrosExternos.getSelectedCount(definition.key) > 0;
+        });
+    }
+
+    function possuiFiltroCabecalhoAtivo() {
+        if (!tabela || typeof tabela.getHeaderFilters !== "function") return false;
+        var headerFilters = tabela.getHeaderFilters();
+        if (!Array.isArray(headerFilters) || !headerFilters.length) return false;
+        return headerFilters.some(function (item) {
+            if (!item) return false;
+            var value = item.value;
+            if (value === null || value === undefined) return false;
+            if (typeof value === "string") return value.trim() !== "";
+            return true;
+        });
+    }
+
+    function semFiltrosSelecionados() {
+        return !possuiFiltroExternoAtivo() && !possuiFiltroCabecalhoAtivo();
+    }
 
     function obterCategoriaProduto(desc) {
         var texto = paraTexto(desc).replace(/\s+/g, "");
@@ -266,11 +450,13 @@
         el.style.transform = "rotate(" + angulo + "deg)";
     }
 
-    function atualizarCard(chave, valores) {
+    function atualizarCard(chave, valores, semFiltrosAtivos) {
         var sufixo = CHAVES_RELOGINHO[chave];
         if (!sufixo) return;
 
+        var metaMes = Number(valores.meta_mes || 0);
         var metaAcum = Number(valores.meta_acumulada || 0);
+        var metaAndamento = Number(valores.meta_andamento || 0);
         var real = Number(valores.realizado || 0);
         var pct = metaAcum > 0 ? (real / metaAcum) * 100 : 0;
 
@@ -283,8 +469,16 @@
         if (pctEl) pctEl.textContent = pct.toFixed(2).replace(".", ",") + "%";
 
         var referenciaEscala = metaAcum > 0 ? metaAcum : Math.max(real, 1);
-        setRotacaoPonteiro("ponteiro-meta-" + sufixo, valorParaAngulo(referenciaEscala, referenciaEscala));
-        setRotacaoPonteiro("ponteiro-real-" + sufixo, valorParaAngulo(real, referenciaEscala));
+        var referenciaEscalaMetaMes = metaMes > 0 ? metaMes : referenciaEscala;
+        var realPonteiro = real;
+        if (semFiltrosAtivos) {
+            realPonteiro = referenciaEscalaMetaMes * (pct / 100);
+        }
+        setRotacaoPonteiro("ponteiro-meta-" + sufixo, valorParaAngulo(metaAndamento, referenciaEscalaMetaMes));
+        if (chave === "total") {
+            setRotacaoPonteiro("ponteiro-meta80-total", valorParaAngulo(metaAndamento * 0.8, referenciaEscalaMetaMes));
+        }
+        setRotacaoPonteiro("ponteiro-real-" + sufixo, valorParaAngulo(realPonteiro, referenciaEscalaMetaMes));
     }
 
     function calcularDashboard(dados) {
@@ -367,10 +561,16 @@
 
     function atualizarDashboard(dados) {
         var metricas = calcularDashboard(dados);
-        atualizarCard("x30x1", metricas.x30x1);
-        atualizarCard("x15x2", metricas.x15x2);
-        atualizarCard("x6x5", metricas.x6x5);
-        atualizarCard("total", metricas.total);
+        var semFiltrosAtivos = semFiltrosSelecionados();
+        if (semFiltrosAtivos) {
+            ["x30x1", "x15x2", "x6x5", "total"].forEach(function (chave) {
+                metricas[chave].meta_andamento = metricas[chave].meta_mes;
+            });
+        }
+        atualizarCard("x30x1", metricas.x30x1, semFiltrosAtivos);
+        atualizarCard("x15x2", metricas.x15x2, semFiltrosAtivos);
+        atualizarCard("x6x5", metricas.x6x5, semFiltrosAtivos);
+        atualizarCard("total", metricas.total, semFiltrosAtivos);
     }
 
     tabela.on("dataFiltered", function (_filters, rows) {

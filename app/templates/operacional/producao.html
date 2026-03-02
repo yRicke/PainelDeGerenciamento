@@ -96,12 +96,31 @@
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Produção por Pasta</h2>
-    <p>Arraste uma pasta com arquivos <code>.xls</code> ou clique para selecionar a pasta. O conteúdo atual da pasta será movido para <code>subscritos</code>.</p>
 
-    {% if arquivo_existente %}
-    <p class="file-status">Arquivos atuais na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+    {% if resumo_importacao.tem_arquivos %}
+
+    <div class="importacao-resumo">
+
+        <p class="file-status">
+
+            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+
+            <span class="importacao-resumo-sep">|</span>
+
+            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+
+        </p>
+
+        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+
+    </div>
+
     {% else %}
+
     <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+
     {% endif %}
 
     <form id="upload-producao-form" class="upload-form" action="{% url 'producao' empresa.id %}" method="post" enctype="multipart/form-data">
@@ -191,6 +210,7 @@
                 <div class="reloginho-dial">
                     <div class="reloginho-face"></div>
                     <div id="ponteiro-meta-total" class="ponteiro ponteiro-meta"></div>
+                    <div id="ponteiro-meta80-total" class="ponteiro ponteiro-meta80"></div>
                     <div id="ponteiro-real-total" class="ponteiro ponteiro-real"></div>
                     <div class="reloginho-pivo"></div>
                 </div>

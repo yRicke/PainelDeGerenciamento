@@ -2,11 +2,7 @@
 @import url("../shared/module-crud.css");
 
 .filter-grid {
-    display: grid;
     grid-template-columns: repeat(3, minmax(170px, 1fr));
-    gap: 0.6rem;
-    margin-bottom: 0.8rem;
-    align-items: end;
 }
 
 .cargas-dashboard-grid {
@@ -47,10 +43,6 @@
 }
 
 @media (max-width: 980px) {
-    .filter-grid {
-        grid-template-columns: 1fr;
-    }
-
     .cargas-dashboard-grid {
         grid-template-columns: 1fr;
     }

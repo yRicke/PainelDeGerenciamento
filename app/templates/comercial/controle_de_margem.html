@@ -71,10 +71,16 @@
 
 <section id="sec-importacao" class="panel module-section">
     <h2>Importação de Controle de Margem</h2>
-    <p>Selecione o arquivo padrão utilizado no módulo Pedidos Pendentes (mesmo layout).</p>
-    <p>A planilha obrigatória para leitura é <code>new sheet</code>.</p>
-    {% if arquivo_existente %}
-    <p class="file-status">Arquivo atual na pasta: <strong>{{ arquivo_existente }}</strong></p>
+    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+    {% if resumo_importacao.tem_arquivos %}
+    <div class="importacao-resumo">
+        <p class="file-status">
+            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+            <span class="importacao-resumo-sep">|</span>
+            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+        </p>
+        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+    </div>
     {% else %}
     <p class="file-status">Nenhum arquivo carregado na pasta.</p>
     {% endif %}

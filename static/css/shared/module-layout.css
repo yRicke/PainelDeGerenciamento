@@ -25,7 +25,7 @@
 
 .module-section {
     margin-bottom: 1rem;
-    scroll-margin-top: 88px;
+    scroll-margin-top: calc(var(--site-header-height, 68px) + 20px);
 }
 
 .module-section:last-of-type {

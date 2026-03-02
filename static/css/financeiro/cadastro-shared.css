@@ -1,3 +1,5 @@
+@import url("../shared/module-crud.css");
+
 .inline-form {
     display: grid;
     grid-template-columns: 180px 1fr auto;
@@ -10,62 +12,8 @@
     grid-template-columns: 1fr 170px auto;
 }
 
-.btn-primary,
-.btn-danger {
-    color: #fff;
-    border: 0;
-}
-
-.btn-primary,
-.btn-danger,
-.btn-light {
-    padding: 0.45rem 0.6rem;
-    cursor: pointer;
-}
-
-.btn-danger {
-    background: #b42318;
-}
-
-.btn-primary {
-    background: #175cd3;
-}
-
-.btn-light {
-    background: #f3f5f7;
-    color: #111;
-    border: 1px solid #d8dee4;
-    text-decoration: none;
-    display: inline-block;
-}
-
 .filter-grid {
-    display: grid;
     grid-template-columns: repeat(2, minmax(220px, 1fr)) 120px;
-    gap: 0.6rem;
-    margin-bottom: 0.8rem;
-    align-items: end;
-}
-
-
-.filter-grid > div {
-    border: 1px solid #d8dee4;
-    border-radius: 8px;
-    background: #fff;
-    padding: 0.55rem;
-    min-width: 0;
-}
-
-.filter-grid > div label {
-    display: block;
-    margin-bottom: 0.45rem;
-    font-size: 0.85rem;
-    color: #1f2937;
-}
-
-.filter-grid input,
-.filter-grid select {
-    width: 100%;
 }
 
 @media (max-width: 900px) {

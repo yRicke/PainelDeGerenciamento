@@ -2,12 +2,6 @@
     var chartContainer = document.getElementById("carteira-dashboard-chart");
     if (!chartContainer || !window.ApexCharts) return;
 
-    var anoSelect = document.getElementById("filtro-ano-dashboard-carteira");
-    var anosDisponiveis = JSON.parse(document.getElementById("dashboard-carteira-anos-disponiveis").textContent || "[]");
-    var agregados = JSON.parse(document.getElementById("dashboard-carteira-agregados-ano-mes").textContent || "{}");
-    var anoInicial = parseInt(JSON.parse(document.getElementById("dashboard-carteira-ano-inicial").textContent || "0"), 10);
-    var anoAtual = parseInt(JSON.parse(document.getElementById("dashboard-carteira-ano-atual").textContent || "0"), 10);
-    var mesAtual = parseInt(JSON.parse(document.getElementById("dashboard-carteira-mes-atual").textContent || "1"), 10);
     var nomesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {
         style: "currency",
@@ -16,19 +10,43 @@
         maximumFractionDigits: 2,
     });
 
-    function montarSeriesPorAno(anoSelecionado) {
-        var limiteMeses = anoSelecionado < anoAtual ? 12 : (anoSelecionado === anoAtual ? mesAtual : 0);
+    function parseDataCadastroBr(value) {
+        var raw = String(value || "").trim();
+        if (!raw) return null;
+        var match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (!match) return null;
+        var mes = parseInt(match[2], 10);
+        var ano = parseInt(match[3], 10);
+        if (!ano || mes < 1 || mes > 12) return null;
+        return {mes: mes, ano: ano};
+    }
+
+    function montarSeriesPorRegistros(registros) {
+        var mapa = {};
+
+        (Array.isArray(registros) ? registros : []).forEach(function (item) {
+            var dataParts = parseDataCadastroBr(item && item.data_cadastro);
+            if (!dataParts) return;
+
+            var chave = String(dataParts.ano) + "-" + String(dataParts.mes).padStart(2, "0");
+            if (!mapa[chave]) {
+                mapa[chave] = {ano: dataParts.ano, mes: dataParts.mes, qtd: 0, valor: 0};
+            }
+            mapa[chave].qtd += 1;
+            mapa[chave].valor += Number(item && item.valor_faturado || 0);
+        });
+
+        var chaves = Object.keys(mapa).sort();
         var categorias = [];
         var qtdCadastramentos = [];
         var valorFaturado = [];
 
-        for (var mes = 1; mes <= limiteMeses; mes++) {
-            categorias.push(nomesMeses[mes - 1]);
-            var chave = String(anoSelecionado) + "-" + String(mes).padStart(2, "0");
-            var agregado = agregados[chave] || {qtd: 0, valor: 0};
-            qtdCadastramentos.push(parseInt(agregado.qtd || 0, 10));
-            valorFaturado.push(Number(agregado.valor || 0));
-        }
+        chaves.forEach(function (chave) {
+            var item = mapa[chave];
+            categorias.push(nomesMeses[item.mes - 1] + "/" + String(item.ano));
+            qtdCadastramentos.push(parseInt(item.qtd || 0, 10));
+            valorFaturado.push(Number(item.valor || 0));
+        });
 
         var yMaxQtd = Math.max.apply(null, qtdCadastramentos.concat([0]));
         var yMaxValor = Math.max.apply(null, valorFaturado.concat([0]));
@@ -44,14 +62,43 @@
         };
     }
 
-    if (anoSelect && anosDisponiveis.length && !anoSelect.value) {
-        anoSelect.value = String(anoInicial || anosDisponiveis[anosDisponiveis.length - 1]);
+    function buildYAxis(yMaxQtd, yMaxValor) {
+        return [
+            {
+                seriesName: "Qtd Cadastramentos",
+                min: 0,
+                max: yMaxQtd,
+                tickAmount: 6,
+                forceNiceScale: true,
+                labels: {
+                    formatter: function (value) {
+                        return Math.round(Number(value || 0));
+                    },
+                },
+                title: {
+                    text: "Qtd Cadastramentos",
+                },
+            },
+            {
+                seriesName: "Valor Faturado",
+                opposite: true,
+                min: 0,
+                max: yMaxValor,
+                tickAmount: 6,
+                forceNiceScale: true,
+                labels: {
+                    formatter: function (value) {
+                        return formatadorMoeda.format(Number(value || 0));
+                    },
+                },
+                title: {
+                    text: "Valor Faturado",
+                },
+            },
+        ];
     }
 
-    var anoSelecionadoInicial = anoSelect && anoSelect.value
-        ? parseInt(anoSelect.value, 10)
-        : (anoInicial || anoAtual);
-    var dadosIniciais = montarSeriesPorAno(anoSelecionadoInicial);
+    var dadosIniciais = montarSeriesPorRegistros([]);
 
     var chart = new ApexCharts(chartContainer, {
         chart: {
@@ -94,39 +141,7 @@
         xaxis: {
             categories: dadosIniciais.categorias,
         },
-        yaxis: [
-            {
-                seriesName: "Qtd Cadastramentos",
-                min: 0,
-                max: dadosIniciais.yMaxQtd,
-                tickAmount: 6,
-                forceNiceScale: true,
-                labels: {
-                    formatter: function (value) {
-                        return Math.round(Number(value || 0));
-                    },
-                },
-                title: {
-                    text: "Qtd Cadastramentos",
-                },
-            },
-            {
-                seriesName: "Valor Faturado",
-                opposite: true,
-                min: 0,
-                max: dadosIniciais.yMaxValor,
-                tickAmount: 6,
-                forceNiceScale: true,
-                labels: {
-                    formatter: function (value) {
-                        return formatadorMoeda.format(Number(value || 0));
-                    },
-                },
-                title: {
-                    text: "Valor Faturado",
-                },
-            },
-        ],
+        yaxis: buildYAxis(dadosIniciais.yMaxQtd, dadosIniciais.yMaxValor),
         tooltip: {
             shared: true,
             intersect: false,
@@ -141,55 +156,23 @@
         },
     });
 
-    chart.render();
-
-    if (anoSelect) {
-        anoSelect.addEventListener("change", function () {
-            var anoSelecionado = parseInt(anoSelect.value, 10);
-            var dados = montarSeriesPorAno(anoSelecionado);
-            chart.updateOptions({
-                labels: dados.categorias,
-                xaxis: {categories: dados.categorias},
-                yaxis: [
-                    {
-                        seriesName: "Qtd Cadastramentos",
-                        min: 0,
-                        max: dados.yMaxQtd,
-                        tickAmount: 6,
-                        forceNiceScale: true,
-                        labels: {
-                            formatter: function (value) {
-                                return Math.round(Number(value || 0));
-                            },
-                        },
-                        title: {
-                            text: "Qtd Cadastramentos",
-                        },
-                    },
-                    {
-                        seriesName: "Valor Faturado",
-                        opposite: true,
-                        min: 0,
-                        max: dados.yMaxValor,
-                        tickAmount: 6,
-                        forceNiceScale: true,
-                        labels: {
-                            formatter: function (value) {
-                                return formatadorMoeda.format(Number(value || 0));
-                            },
-                        },
-                        title: {
-                            text: "Valor Faturado",
-                        },
-                    },
-                ],
-            });
-            chart.updateSeries([
-                {name: "Qtd Cadastramentos", type: "column", data: dados.qtdCadastramentos},
-                {name: "Valor Faturado", type: "line", data: dados.valorFaturado},
-            ]);
+    function atualizarGraficoPorRegistros(registros) {
+        var dados = montarSeriesPorRegistros(registros);
+        chart.updateOptions({
+            labels: dados.categorias,
+            xaxis: {categories: dados.categorias},
+            yaxis: buildYAxis(dados.yMaxQtd, dados.yMaxValor),
         });
+        chart.updateSeries([
+            {name: "Qtd Cadastramentos", type: "column", data: dados.qtdCadastramentos},
+            {name: "Valor Faturado", type: "line", data: dados.valorFaturado},
+        ]);
     }
+
+    chart.render();
+    window.CarteiraDashboardChart = {
+        atualizarPorRegistros: atualizarGraficoPorRegistros,
+    };
 })();
 
 (function () {
@@ -253,7 +236,7 @@
             return true;
         }
 
-        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Já existe um arquivo na pasta. Deseja substituir o arquivo atual?";
+        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Ja existe um arquivo na pasta. Deseja substituir o arquivo atual?";
         var confirmou = window.confirm(replaceCurrentFileMessage);
         if (!confirmou) {
             return false;
@@ -382,14 +365,19 @@
         return numerador / denominador;
     }
 
-    function atualizarDashboardComDadosVisiveis() {
+    function obterLinhasAtivasTabela() {
         var linhasAtivas = tabela.getData("active");
-        if (!linhasAtivas || !linhasAtivas.length) {
+        if (!Array.isArray(linhasAtivas)) {
             linhasAtivas = tabela.getData();
         }
-        if (!linhasAtivas || !linhasAtivas.length) {
+        if (!Array.isArray(linhasAtivas)) {
             linhasAtivas = data;
         }
+        return linhasAtivas;
+    }
+
+    function atualizarDashboardComDadosVisiveis() {
+        var linhasAtivas = obterLinhasAtivasTabela();
         var qtdTotal = linhasAtivas.length;
         var limiteTotal = 0;
         var faturamentoTotal = 0;
@@ -434,11 +422,17 @@
         kpiEls.totalReal.media.textContent = formatMoeda(mediaLimiteReal);
         kpiEls.totalReal.mediaFaturamento.textContent = formatNumero(mediaFaturamentoReal, 2);
         kpiEls.totalReal.pulga.textContent = formatPercentual(pulgaReal);
+        if (
+            window.CarteiraDashboardChart
+            && typeof window.CarteiraDashboardChart.atualizarPorRegistros === "function"
+        ) {
+            window.CarteiraDashboardChart.atualizarPorRegistros(linhasAtivas);
+        }
     }
 
     var colunas = [
-        {title: "Região", field: "regiao_codigo", headerFilter: "input"},
-        {title: "Nome da Região", field: "regiao_nome", headerFilter: "input"},
+        {title: "Regiao", field: "regiao_codigo", headerFilter: "input"},
+        {title: "Nome da Regiao", field: "regiao_nome", headerFilter: "input"},
         {title: "Nome da Cidade", field: "cidade_nome", headerFilter: "input"},
         {
             title: "Valor Faturado",
@@ -449,26 +443,33 @@
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
         },
         {
-            title: "Limite de Crédito",
+            title: "Limite de Credito",
             field: "limite_credito",
             hozAlign: "right",
             headerFilter: "input",
             formatter: "money",
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
         },
-        {title: "Última Venda", field: "ultima_venda", headerFilter: "input"},
+        {title: "Ultima Venda", field: "ultima_venda", headerFilter: "input"},
         {title: "Dias sem Venda", field: "qtd_dias_sem_venda", hozAlign: "center", headerFilter: "input"},
         {title: "Intervalo", field: "intervalo"},
+        {
+            title: "Ano de Cadastro",
+            field: "ano_cadastro",
+            headerFilter: "input",
+            visible: false,
+            externalFilter: true,
+        },
         {title: "Data de Cadastro", field: "data_cadastro", headerFilter: "input"},
         {title: "Gerente", field: "gerente", headerFilter: "input"},
         {title: "Apelido (Vendedor)", field: "vendedor", headerFilter: "input"},
-        {title: "Descrição do Perfil", field: "descricao_perfil", headerFilter: "input"},
+        {title: "Descricao do Perfil", field: "descricao_perfil", headerFilter: "input"},
         {title: "Nome do Parceiro", field: "nome_parceiro", headerFilter: "input"},
         {title: "Ativo", field: "ativo_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
         {title: "Cliente", field: "cliente_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
         {title: "Fornecedor", field: "fornecedor_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
         {title: "Transportadora", field: "transporte_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-        {title: "Código da Cidade", field: "cidade_codigo", headerFilter: "input"},
+        {title: "Codigo da Cidade", field: "cidade_codigo", headerFilter: "input"},
     ];
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
@@ -478,13 +479,8 @@
         columns: colunas,
     });
 
-    tabela.on("tableBuilt", atualizarDashboardComDadosVisiveis);
-    tabela.on("dataLoaded", atualizarDashboardComDadosVisiveis);
-    tabela.on("renderComplete", atualizarDashboardComDadosVisiveis);
-    tabela.on("dataFiltered", atualizarDashboardComDadosVisiveis);
+    ["tableBuilt", "dataLoaded", "renderComplete", "dataFiltered"].forEach(function (eventName) {
+        tabela.on(eventName, atualizarDashboardComDadosVisiveis);
+    });
     setTimeout(atualizarDashboardComDadosVisiveis, 0);
 })();
-
-
-
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+import json
 import shutil
 import re
 
@@ -74,6 +75,35 @@ from .utils.operacional_importacao import (
     importar_fretes_do_diretorio,
     importar_producao_do_diretorio,
 )
+
+IMPORTACAO_METADATA_FILE = "_ultimo_import.json"
+
+
+def _registrar_metadados_importacao(
+    *,
+    diretorio_subscritos,
+    modulo,
+    usuario,
+    arquivos,
+):
+    caminho_metadados = Path(diretorio_subscritos) / IMPORTACAO_METADATA_FILE
+    nomes_arquivos = [
+        Path(nome_arquivo).name
+        for nome_arquivo in (arquivos or [])
+        if str(nome_arquivo or "").strip()
+    ]
+    payload = {
+        "modulo": str(modulo or "").strip(),
+        "usuario": getattr(usuario, "username", "") if usuario else "",
+        "registrado_em_iso": timezone.localtime().isoformat(timespec="seconds"),
+        "quantidade_arquivos": len(nomes_arquivos),
+        "arquivos": nomes_arquivos,
+    }
+    caminho_metadados.parent.mkdir(parents=True, exist_ok=True)
+    caminho_metadados.write_text(
+        json.dumps(payload, ensure_ascii=True, indent=2),
+        encoding="utf-8",
+    )
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -2006,7 +2036,15 @@ def preparar_diretorios_carteira():
     return diretorio_importacao, diretorio_subscritos
 
 
-def importar_upload_carteira(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+def importar_upload_carteira(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     if not arquivo:
         return False, "Selecione um arquivo .xlsx para importar."
 
@@ -2038,6 +2076,15 @@ def importar_upload_carteira(*, empresa, arquivo, confirmar_substituicao, direto
         )
     except Exception as exc:
         return False, f"Falha ao importar carteira: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="carteira",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2096,7 +2143,14 @@ def preparar_diretorios_orcamento():
     return diretorio_importacao, diretorio_subscritos
 
 
-def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+def importar_upload_vendas(
+    *,
+    empresa,
+    arquivos,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     arquivos_xls = []
     for arquivo in arquivos or []:
         nome_arquivo = Path(arquivo.name).name
@@ -2127,6 +2181,16 @@ def importar_upload_vendas(*, empresa, arquivos, diretorio_importacao, diretorio
         )
     except Exception as exc:
         return False, f"Falha ao importar vendas: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="vendas_por_categoria",
+            usuario=usuario,
+            arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
+        )
+    except Exception:
+        # Falha de metadado nao deve invalidar importacao ja concluida.
+        pass
 
     return (
         True,
@@ -2144,6 +2208,7 @@ def importar_upload_pedidos_pendentes(
     confirmar_substituicao,
     diretorio_importacao,
     diretorio_subscritos,
+    usuario=None,
 ):
     if not arquivo:
         return False, "Selecione um arquivo .xlsx para importar."
@@ -2176,6 +2241,15 @@ def importar_upload_pedidos_pendentes(
         )
     except Exception as exc:
         return False, f"Falha ao importar Pedidos Pendentes: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="pedidos_pendentes",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2195,6 +2269,7 @@ def importar_upload_controle_margem(
     confirmar_substituicao,
     diretorio_importacao,
     diretorio_subscritos,
+    usuario=None,
 ):
     if not arquivo:
         return False, "Selecione um arquivo .xls ou .xlsx para importar."
@@ -2228,6 +2303,15 @@ def importar_upload_controle_margem(
         )
     except Exception as exc:
         return False, f"Falha ao importar Controle de Margem: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="controle_de_margem",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2240,7 +2324,15 @@ def importar_upload_controle_margem(
     )
 
 
-def importar_upload_dfc(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+def importar_upload_dfc(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     if not arquivo:
         return False, "Selecione um arquivo .xls para importar."
 
@@ -2272,6 +2364,15 @@ def importar_upload_dfc(*, empresa, arquivo, confirmar_substituicao, diretorio_i
         )
     except Exception as exc:
         return False, f"Falha ao importar DFC: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="dfc",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2282,7 +2383,14 @@ def importar_upload_dfc(*, empresa, arquivo, confirmar_substituicao, diretorio_i
     )
 
 
-def importar_upload_contas_a_receber(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+def importar_upload_contas_a_receber(
+    *,
+    empresa,
+    arquivos,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     arquivos_xls = []
     for arquivo in arquivos or []:
         nome_arquivo = Path(arquivo.name).name
@@ -2313,6 +2421,15 @@ def importar_upload_contas_a_receber(*, empresa, arquivos, diretorio_importacao,
         )
     except Exception as exc:
         return False, f"Falha ao importar Contas a Receber: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="contas_a_receber",
+            usuario=usuario,
+            arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2323,7 +2440,14 @@ def importar_upload_contas_a_receber(*, empresa, arquivos, diretorio_importacao,
     )
 
 
-def importar_upload_orcamento(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+def importar_upload_orcamento(
+    *,
+    empresa,
+    arquivos,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     arquivos_xls = []
     for arquivo in arquivos or []:
         nome_arquivo = Path(arquivo.name).name
@@ -2354,6 +2478,15 @@ def importar_upload_orcamento(*, empresa, arquivos, diretorio_importacao, direto
         )
     except Exception as exc:
         return False, f"Falha ao importar Orcamento: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="orcamento",
+            usuario=usuario,
+            arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2397,7 +2530,15 @@ def preparar_diretorios_estoque():
     return diretorio_importacao, diretorio_subscritos
 
 
-def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+def importar_upload_cargas(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     if not arquivo:
         return False, "Selecione um arquivo .xls para importar."
 
@@ -2429,6 +2570,15 @@ def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretori
         )
     except Exception as exc:
         return False, f"Falha ao importar cargas: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="cargas_em_aberto",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2439,7 +2589,15 @@ def importar_upload_cargas(*, empresa, arquivo, confirmar_substituicao, diretori
     )
 
 
-def importar_upload_fretes(*, empresa, arquivo, confirmar_substituicao, diretorio_importacao, diretorio_subscritos):
+def importar_upload_fretes(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     if not arquivo:
         return False, "Selecione um arquivo .xls para importar."
 
@@ -2471,6 +2629,15 @@ def importar_upload_fretes(*, empresa, arquivo, confirmar_substituicao, diretori
         )
     except Exception as exc:
         return False, f"Falha ao importar fretes: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="tabela_de_fretes",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2556,7 +2723,14 @@ def _arquivar_arquivos_estoque(diretorio_importacao, diretorio_subscritos):
             pasta.rmdir()
 
 
-def importar_upload_estoque(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+def importar_upload_estoque(
+    *,
+    empresa,
+    arquivos,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     arquivos_xls = []
     for arquivo in arquivos or []:
         caminho_relativo = _normalizar_relpath_upload_estoque(arquivo.name)
@@ -2595,6 +2769,15 @@ def importar_upload_estoque(*, empresa, arquivos, diretorio_importacao, diretori
                 f"reservado: {resultado['arquivos_reservado']}."
             ),
         )
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="estoque_pcp",
+            usuario=usuario,
+            arquivos=[str(caminho_relativo).replace("\\", "/") for _, caminho_relativo in arquivos_xls],
+        )
+    except Exception:
+        pass
 
     return (
         True,
@@ -2606,7 +2789,14 @@ def importar_upload_estoque(*, empresa, arquivos, diretorio_importacao, diretori
     )
 
 
-def importar_upload_producao(*, empresa, arquivos, diretorio_importacao, diretorio_subscritos):
+def importar_upload_producao(
+    *,
+    empresa,
+    arquivos,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
     arquivos_xls = []
     for arquivo in arquivos or []:
         nome_arquivo = Path(arquivo.name).name
@@ -2637,6 +2827,15 @@ def importar_upload_producao(*, empresa, arquivos, diretorio_importacao, diretor
         )
     except Exception as exc:
         return False, f"Falha ao importar producao: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="producao",
+            usuario=usuario,
+            arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
+        )
+    except Exception:
+        pass
 
     return (
         True,
