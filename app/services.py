@@ -107,6 +107,22 @@ def _registrar_metadados_importacao(
     )
 
 
+def _detalhe_erro_importacao(resultado, chave, descricao, valor=None):
+    if not isinstance(resultado, dict):
+        return None
+    if valor is None:
+        valor = resultado.get(chave, 0)
+    try:
+        numeric = int(valor)
+    except (TypeError, ValueError):
+        numeric = valor if isinstance(valor, int) else 0
+    if numeric and numeric > 0:
+        return None
+    avisos = resultado.get("avisos") or []
+    detalhe = avisos[0] if avisos else "nenhum registro compatível encontrado"
+    return f"Importacao nao trouxe {descricao}. Motivo: {detalhe}"
+
+
 def calcular_dashboard_tofu(atividades_qs):
     hoje = timezone.localdate()
     inicio_semana_atual = hoje - timedelta(days=hoje.isoweekday() - 1)
@@ -2103,6 +2119,10 @@ def importar_upload_carteira(
     except Exception:
         pass
 
+    detalhe = _detalhe_erro_importacao(resultado, "carteiras", "carteiras importadas")
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2209,6 +2229,10 @@ def importar_upload_vendas(
         # Falha de metadado nao deve invalidar importacao ja concluida.
         pass
 
+    detalhe = _detalhe_erro_importacao(resultado, "vendas", "vendas importadas")
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2268,6 +2292,10 @@ def importar_upload_pedidos_pendentes(
     except Exception:
         pass
 
+    detalhe = _detalhe_erro_importacao(resultado, "pedidos_pendentes", "pedidos pendentes importados")
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2316,7 +2344,7 @@ def importar_upload_controle_margem(
         resultado = importar_controle_margem_do_diretorio(
             empresa=empresa,
             diretorio=str(diretorio_importacao),
-            limpar_antes=False,
+            limpar_antes=True,
         )
     except Exception as exc:
         return False, f"Falha ao importar Controle de Margem: {exc}"
@@ -2329,6 +2357,16 @@ def importar_upload_controle_margem(
         )
     except Exception:
         pass
+
+    total_controle = resultado.get("criados", 0) + resultado.get("atualizados", 0)
+    detalhe = _detalhe_erro_importacao(
+        resultado,
+        "linhas",
+        "registros de controle de margem importados",
+        valor=total_controle,
+    )
+    if detalhe:
+        return False, detalhe
 
     return (
         True,
@@ -2391,6 +2429,10 @@ def importar_upload_dfc(
     except Exception:
         pass
 
+    detalhe = _detalhe_erro_importacao(resultado, "dfc", "entradas de DFC importadas")
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2448,6 +2490,14 @@ def importar_upload_contas_a_receber(
     except Exception:
         pass
 
+    detalhe = _detalhe_erro_importacao(
+        resultado,
+        "contas_a_receber",
+        "contas a receber importadas",
+    )
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2504,6 +2554,14 @@ def importar_upload_orcamento(
         )
     except Exception:
         pass
+
+    detalhe = _detalhe_erro_importacao(
+        resultado_realizados,
+        "orcamentos",
+        "orcamentos importados",
+    )
+    if detalhe:
+        return False, detalhe
 
     return (
         True,
@@ -2597,6 +2655,10 @@ def importar_upload_cargas(
     except Exception:
         pass
 
+    detalhe = _detalhe_erro_importacao(resultado, "cargas", "cargas importadas")
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2655,6 +2717,10 @@ def importar_upload_fretes(
         )
     except Exception:
         pass
+
+    detalhe = _detalhe_erro_importacao(resultado, "fretes", "fretes importados")
+    if detalhe:
+        return False, detalhe
 
     return (
         True,
@@ -2796,6 +2862,10 @@ def importar_upload_estoque(
     except Exception:
         pass
 
+    detalhe = _detalhe_erro_importacao(resultado, "estoques", "registros de estoque importados")
+    if detalhe:
+        return False, detalhe
+
     return (
         True,
         (
@@ -2853,6 +2923,14 @@ def importar_upload_producao(
         )
     except Exception:
         pass
+
+    detalhe = _detalhe_erro_importacao(
+        resultado,
+        "producoes",
+        "producoes importadas",
+    )
+    if detalhe:
+        return False, detalhe
 
     return (
         True,

@@ -360,6 +360,47 @@ def _parceiro_por_codigo_nome(empresa, codigo: str, nome: str):
     return Parceiro.obter_ou_criar_por_codigo_nome(empresa=empresa, codigo=codigo, nome=nome)
 
 
+def _rotulo_coluna(coluna) -> str:
+    texto = _normalizar_texto(coluna)
+    if "_" in texto:
+        texto = texto.replace("_", " ")
+    return texto
+
+
+def _colunas_nao_identificadas(indices: dict | None, colunas_esperadas) -> list[str]:
+    if not indices:
+        return [str(coluna) for coluna in colunas_esperadas]
+    return [str(coluna) for coluna in colunas_esperadas if indices.get(coluna) is None]
+
+
+def _registrar_aviso_colunas(
+    avisos: list[str],
+    *,
+    nome_arquivo: str,
+    faltantes: list[str],
+    obrigatorias=None,
+):
+    if not faltantes:
+        return
+
+    obrigatorias_set = set(obrigatorias or [])
+    obrigatorias_faltantes = [coluna for coluna in faltantes if coluna in obrigatorias_set]
+    opcionais_faltantes = [coluna for coluna in faltantes if coluna not in obrigatorias_set]
+
+    partes = []
+    if obrigatorias_faltantes:
+        obrigatorias_fmt = ", ".join(_rotulo_coluna(coluna) for coluna in obrigatorias_faltantes)
+        partes.append(f"obrigatorias: {obrigatorias_fmt}")
+    if opcionais_faltantes:
+        opcionais_fmt = ", ".join(_rotulo_coluna(coluna) for coluna in opcionais_faltantes)
+        partes.append(f"opcionais: {opcionais_fmt}")
+
+    detalhe = "; ".join(partes)
+    mensagem = f"Arquivo '{nome_arquivo}': colunas nao identificadas ({detalhe})."
+    if mensagem not in avisos:
+        avisos.append(mensagem)
+
+
 @transaction.atomic
 def importar_carteira_do_diretorio(
     empresa,
@@ -369,7 +410,7 @@ def importar_carteira_do_diretorio(
     base = Path(diretorio)
     arquivos = sorted(base.glob("*.xlsx"))
     if not arquivos:
-        return {"arquivos": 0, "linhas": 0, "carteiras": 0, "cidades": 0, "regioes": 0}
+        return {"arquivos": 0, "linhas": 0, "carteiras": 0, "cidades": 0, "regioes": 0, "avisos": []}
 
     if limpar_antes:
         Carteira.objects.filter(empresa=empresa).delete()
@@ -378,16 +419,47 @@ def importar_carteira_do_diretorio(
     cache_regioes: dict[str, Regiao] = {}
     total_linhas = 0
     total_carteiras = 0
+    avisos: list[str] = []
 
     objetos: list[Carteira] = []
     colunas_obrigatorias = {"Cód. Parceiro", "Nome Parceiro", "Cód. Cidade", "Região", "Nome (Cidade)", "Nome (Região)"}
+    colunas_opcionais = {
+        "Vlr. Faturado",
+        "Limite de crédito",
+        "Gerente",
+        "Apelido (Vendedor)",
+        "Descrição (Perfil)",
+        "Ativo",
+        "Cliente",
+        "Fornecedor",
+        "Transportadora",
+        "Última venda [SAFIA]",
+    }
+    aliases_data_cadastro = {
+        "Data de cadastramento",
+        "Data Cadastramento",
+        "Data cadastramento",
+        "Data de cadastro",
+        "Data Cadastro",
+        "Cadastro",
+    }
 
     for arquivo in arquivos:
         cabecalho = None
+        cabecalho_set = set()
         for linha in _iterar_linhas_xlsx(arquivo):
             if cabecalho is None:
                 if colunas_obrigatorias.issubset(set(linha)):
                     cabecalho = linha
+                    cabecalho_set = {str(col).strip() for col in cabecalho if str(col).strip()}
+                    faltantes_opcionais = [col for col in sorted(colunas_opcionais) if col not in cabecalho_set]
+                    if not aliases_data_cadastro.intersection(cabecalho_set):
+                        faltantes_opcionais.append("Data de cadastramento")
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes_opcionais,
+                    )
                 continue
 
             if not any(linha):
@@ -459,6 +531,14 @@ def importar_carteira_do_diretorio(
                 total_carteiras += len(objetos)
                 objetos = []
 
+        if cabecalho is None:
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=sorted(colunas_obrigatorias),
+                obrigatorias=colunas_obrigatorias,
+            )
+
     if objetos:
         Carteira.objects.bulk_create(objetos, batch_size=1000)
         total_carteiras += len(objetos)
@@ -469,6 +549,7 @@ def importar_carteira_do_diretorio(
         "carteiras": total_carteiras,
         "cidades": len(cache_cidades),
         "regioes": len(cache_regioes),
+        "avisos": avisos,
     }
 
 
@@ -481,7 +562,7 @@ def importar_vendas_do_diretorio(
     base = Path(diretorio)
     arquivos = sorted(base.glob("*.xls"))
     if not arquivos:
-        return {"arquivos": 0, "linhas": 0, "vendas": 0}
+        return {"arquivos": 0, "linhas": 0, "vendas": 0, "avisos": []}
 
     if limpar_antes:
         Venda.objects.filter(empresa=empresa).delete()
@@ -489,6 +570,7 @@ def importar_vendas_do_diretorio(
     total_linhas = 0
     total_vendas = 0
     objetos: list[Venda] = []
+    avisos: list[str] = []
 
     mapeamento_colunas = {
         "codigo": ["codigo", "codigoproduto", "cod"],
@@ -504,6 +586,9 @@ def importar_vendas_do_diretorio(
         data_venda = _extrair_data_venda_do_nome_arquivo(arquivo)
         cabecalho = None
         indices = None
+        melhor_idx_map = None
+        melhor_score = -1
+        obrigatorias = {"codigo", "valor_venda"}
 
         for linha in _iterar_linhas_xls(arquivo):
             if not any(_normalizar_texto(v) for v in linha):
@@ -515,9 +600,20 @@ def importar_vendas_do_diretorio(
                 for chave, aliases in mapeamento_colunas.items():
                     idx = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
                     idx_map[chave] = idx
+                score = sum(1 for idx in idx_map.values() if idx is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
                 if idx_map["codigo"] is not None and idx_map["valor_venda"] is not None:
                     cabecalho = linha
                     indices = idx_map
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
                 continue
 
             if indices is None:
@@ -566,6 +662,15 @@ def importar_vendas_do_diretorio(
                 total_vendas += len(objetos)
                 objetos = []
 
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias,
+            )
+
     if objetos:
         Venda.objects.bulk_create(objetos, batch_size=1000)
         total_vendas += len(objetos)
@@ -574,6 +679,7 @@ def importar_vendas_do_diretorio(
         "arquivos": len(arquivos),
         "linhas": total_linhas,
         "vendas": total_vendas,
+        "avisos": avisos,
     }
 
 
@@ -639,6 +745,7 @@ def importar_pedidos_pendentes_do_diretorio(
             "rotas": 0,
             "regioes": 0,
             "parceiros": 0,
+            "avisos": [],
         }
 
     if limpar_antes:
@@ -649,6 +756,7 @@ def importar_pedidos_pendentes_do_diretorio(
     rotas_criadas = 0
     regioes_criadas = 0
     parceiros_criados = 0
+    avisos: list[str] = []
 
     cache_rotas: dict[str, Rota] = {}
     cache_regioes: dict[str, Regiao] = {}
@@ -827,6 +935,7 @@ def importar_pedidos_pendentes_do_diretorio(
         "rotas": rotas_criadas,
         "regioes": regioes_criadas,
         "parceiros": parceiros_criados,
+        "avisos": avisos,
     }
 
 
@@ -851,6 +960,7 @@ def importar_controle_margem_do_diretorio(
             "atualizados": 0,
             "parceiros_criados": 0,
             "erros": 0,
+            "avisos": [],
         }
 
     if limpar_antes:
@@ -861,6 +971,7 @@ def importar_controle_margem_do_diretorio(
     total_atualizados = 0
     total_erros = 0
     parceiros_criados = 0
+    avisos: list[str] = []
 
     cache_parceiros: dict[str, Parceiro] = {}
     cache_carteiras: dict[int, Carteira | None] = {}
@@ -873,6 +984,15 @@ def importar_controle_margem_do_diretorio(
         "Vlr. Nota",
         "Custo Total do Produto",
         "Peso bruto",
+    }
+    titulos_opcionais = {
+        "Empresa",
+        "Nome Fantasia (Empresa)",
+        "Dt. Neg.",
+        "Previsão de entrega",
+        "Tipo da Venda",
+        "Apelido (Vendedor)",
+        "Valor Tonelada Frete[SAFIA]",
     }
 
     for arquivo in arquivos:
@@ -893,6 +1013,12 @@ def importar_controle_margem_do_diretorio(
                         "Titulos obrigatorios ausentes no arquivo "
                         f"'{arquivo.name}': {', '.join(faltantes)}"
                     )
+                faltantes_opcionais = [col for col in sorted(titulos_opcionais) if col not in cabecalho_set]
+                _registrar_aviso_colunas(
+                    avisos,
+                    nome_arquivo=arquivo.name,
+                    faltantes=faltantes_opcionais,
+                )
                 continue
 
             if not any(_normalizar_texto(v) for v in linha):
@@ -1025,4 +1151,5 @@ def importar_controle_margem_do_diretorio(
         "atualizados": total_atualizados,
         "parceiros_criados": parceiros_criados,
         "erros": total_erros,
+        "avisos": avisos,
     }

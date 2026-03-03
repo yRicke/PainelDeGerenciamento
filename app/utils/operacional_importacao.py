@@ -401,6 +401,47 @@ def _valor_por_indice(linha, indices, chave):
     return linha[idx]
 
 
+def _rotulo_coluna(coluna) -> str:
+    texto = _normalizar_texto(coluna)
+    if "_" in texto:
+        texto = texto.replace("_", " ")
+    return texto
+
+
+def _colunas_nao_identificadas(indices: dict | None, colunas_esperadas) -> list[str]:
+    if not indices:
+        return [str(coluna) for coluna in colunas_esperadas]
+    return [str(coluna) for coluna in colunas_esperadas if indices.get(coluna) is None]
+
+
+def _registrar_aviso_colunas(
+    avisos: list[str],
+    *,
+    nome_arquivo: str,
+    faltantes: list[str],
+    obrigatorias=None,
+):
+    if not faltantes:
+        return
+
+    obrigatorias_set = set(obrigatorias or [])
+    obrigatorias_faltantes = [coluna for coluna in faltantes if coluna in obrigatorias_set]
+    opcionais_faltantes = [coluna for coluna in faltantes if coluna not in obrigatorias_set]
+
+    partes = []
+    if obrigatorias_faltantes:
+        obrigatorias_fmt = ", ".join(_rotulo_coluna(coluna) for coluna in obrigatorias_faltantes)
+        partes.append(f"obrigatorias: {obrigatorias_fmt}")
+    if opcionais_faltantes:
+        opcionais_fmt = ", ".join(_rotulo_coluna(coluna) for coluna in opcionais_faltantes)
+        partes.append(f"opcionais: {opcionais_fmt}")
+
+    detalhe = "; ".join(partes)
+    mensagem = f"Arquivo '{nome_arquivo}': colunas nao identificadas ({detalhe})."
+    if mensagem not in avisos:
+        avisos.append(mensagem)
+
+
 @transaction.atomic
 def importar_estoque_do_diretorio(
     empresa,
@@ -423,6 +464,7 @@ def importar_estoque_do_diretorio(
             "arquivos_reservado": 0,
             "linhas": 0,
             "estoques": 0,
+            "avisos": [],
         }
 
     posicoes = {}
@@ -430,6 +472,7 @@ def importar_estoque_do_diretorio(
     total_linhas = 0
     total_arquivos_posicao = 0
     total_arquivos_reservado = 0
+    avisos: list[str] = []
 
     for arquivo in arquivos:
         linhas = list(_iterar_linhas_xls(arquivo))
@@ -441,22 +484,36 @@ def importar_estoque_do_diretorio(
 
         if tipo_layout == "posicao":
             total_arquivos_posicao += 1
+            mapeamento_posicao = {
+                "descricao_produto": "descrprod",
+                "qtd_estoque": "qtdestoque",
+                "data_contagem": "dtcontagem",
+                "codigo_empresa": "codempresa",
+                "codigo_produto": "codproduto",
+                "codigo_volume": "codvoume",
+                "codigo_local": "codlocal",
+                "custo_total": "custototal",
+            }
+            obrigatorias_posicao = {"codigo_produto", "codigo_empresa", "codigo_local", "qtd_estoque"}
             indices = _detectar_indices_colunas_exatas(
                 linhas[:20],
-                {
-                    "descricao_produto": "descrprod",
-                    "qtd_estoque": "qtdestoque",
-                    "data_contagem": "dtcontagem",
-                    "codigo_empresa": "codempresa",
-                    "codigo_produto": "codproduto",
-                    "codigo_volume": "codvoume",
-                    "codigo_local": "codlocal",
-                    "custo_total": "custototal",
-                },
-                obrigatorias=["codigo_produto", "codigo_empresa", "codigo_local", "qtd_estoque"],
+                mapeamento_posicao,
+                obrigatorias=list(obrigatorias_posicao),
             )
             if not indices:
+                _registrar_aviso_colunas(
+                    avisos,
+                    nome_arquivo=arquivo.name,
+                    faltantes=list(mapeamento_posicao.keys()),
+                    obrigatorias=obrigatorias_posicao,
+                )
                 continue
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=_colunas_nao_identificadas(indices, mapeamento_posicao.keys()),
+                obrigatorias=obrigatorias_posicao,
+            )
 
             for linha in linhas:
                 codigo_produto = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_produto"))
@@ -496,20 +553,34 @@ def importar_estoque_do_diretorio(
 
         elif tipo_layout == "reservado":
             total_arquivos_reservado += 1
+            mapeamento_reservado = {
+                "codigo_empresa": "empresa",
+                "codigo_local": "local",
+                "codigo_produto": "codproduto",
+                "descricao_produto": "descricaoproduto",
+                "reservado": "reservado",
+                "estoque": "estoque",
+            }
+            obrigatorias_reservado = {"codigo_produto", "codigo_empresa", "reservado"}
             indices = _detectar_indices_colunas_exatas(
                 linhas[:20],
-                {
-                    "codigo_empresa": "empresa",
-                    "codigo_local": "local",
-                    "codigo_produto": "codproduto",
-                    "descricao_produto": "descricaoproduto",
-                    "reservado": "reservado",
-                    "estoque": "estoque",
-                },
-                obrigatorias=["codigo_produto", "codigo_empresa", "reservado"],
+                mapeamento_reservado,
+                obrigatorias=list(obrigatorias_reservado),
             )
             if not indices:
+                _registrar_aviso_colunas(
+                    avisos,
+                    nome_arquivo=arquivo.name,
+                    faltantes=list(mapeamento_reservado.keys()),
+                    obrigatorias=obrigatorias_reservado,
+                )
                 continue
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=_colunas_nao_identificadas(indices, mapeamento_reservado.keys()),
+                obrigatorias=obrigatorias_reservado,
+            )
 
             for linha in linhas:
                 codigo_produto = _normalizar_codigo(_valor_por_indice(linha, indices, "codigo_produto"))
@@ -540,6 +611,10 @@ def importar_estoque_do_diretorio(
                     if not atual["descricao_produto"] and descricao_produto:
                         atual["descricao_produto"] = descricao_produto
                 total_linhas += 1
+        else:
+            avisos.append(
+                f"Arquivo '{arquivo.name}': nao foi possivel identificar o layout esperado (posicao/reservado)."
+            )
 
     if total_arquivos_posicao == 0 or total_arquivos_reservado == 0:
         return {
@@ -548,6 +623,7 @@ def importar_estoque_do_diretorio(
             "arquivos_reservado": total_arquivos_reservado,
             "linhas": total_linhas,
             "estoques": 0,
+            "avisos": avisos,
         }
 
     if limpar_antes:
@@ -679,6 +755,7 @@ def importar_estoque_do_diretorio(
         "arquivos_reservado": total_arquivos_reservado,
         "linhas": total_linhas,
         "estoques": total_estoques,
+        "avisos": avisos,
     }
 
 
@@ -698,6 +775,7 @@ def importar_fretes_do_diretorio(
             "cidades": 0,
             "regioes": 0,
             "unidades_federativas": 0,
+            "avisos": [],
         }
 
     if limpar_antes:
@@ -709,6 +787,7 @@ def importar_fretes_do_diretorio(
     regioes_codigos = set()
     ufs_codigos = set()
     objetos: list[Frete] = []
+    avisos: list[str] = []
 
     for arquivo in arquivos:
         linhas = list(_iterar_linhas_xls(arquivo))
@@ -717,7 +796,52 @@ def importar_fretes_do_diretorio(
 
         indices = _detectar_indices_colunas_frete(linhas[:30])
         if indices is None:
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=[
+                    "cidade_codigo",
+                    "cidade_nome",
+                    "sigla_uf",
+                    "codigo_uf",
+                    "valor_frete_comercial",
+                    "regiao_codigo",
+                    "regiao_nome",
+                    "data_hora_alteracao",
+                    "valor_frete_minimo",
+                    "valor_frete_tonelada",
+                    "tipo_frete",
+                    "valor_frete_por_km",
+                    "valor_taxa_entrada",
+                    "venda_minima",
+                ],
+                obrigatorias={"cidade_codigo", "codigo_uf", "regiao_codigo"},
+            )
             continue
+        _registrar_aviso_colunas(
+            avisos,
+            nome_arquivo=arquivo.name,
+            faltantes=_colunas_nao_identificadas(
+                indices,
+                [
+                    "cidade_codigo",
+                    "cidade_nome",
+                    "sigla_uf",
+                    "codigo_uf",
+                    "valor_frete_comercial",
+                    "regiao_codigo",
+                    "regiao_nome",
+                    "data_hora_alteracao",
+                    "valor_frete_minimo",
+                    "valor_frete_tonelada",
+                    "tipo_frete",
+                    "valor_frete_por_km",
+                    "valor_taxa_entrada",
+                    "venda_minima",
+                ],
+            ),
+            obrigatorias={"cidade_codigo", "codigo_uf", "regiao_codigo"},
+        )
 
         for linha in linhas:
             if not any(_normalizar_texto(v) for v in linha):
@@ -825,6 +949,7 @@ def importar_fretes_do_diretorio(
         "cidades": len(cidades_codigos),
         "regioes": len(regioes_codigos),
         "unidades_federativas": len(ufs_codigos),
+        "avisos": avisos,
     }
 
 
@@ -837,7 +962,7 @@ def importar_cargas_do_diretorio(
     base = Path(diretorio)
     arquivos = sorted(base.glob("*.xls"))
     if not arquivos:
-        return {"arquivos": 0, "linhas": 0, "cargas": 0}
+        return {"arquivos": 0, "linhas": 0, "cargas": 0, "avisos": []}
 
     if limpar_antes:
         Cargas.objects.filter(empresa=empresa).delete()
@@ -845,6 +970,7 @@ def importar_cargas_do_diretorio(
     total_linhas = 0
     total_cargas = 0
     objetos: list[Cargas] = []
+    avisos: list[str] = []
 
     for arquivo in arquivos:
         linhas = list(_iterar_linhas_xls(arquivo))
@@ -882,7 +1008,19 @@ def importar_cargas_do_diretorio(
             obrigatorias=["ordem_de_carga_codigo"],
         )
         if indices is None:
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=list(mapeamento_colunas.keys()),
+                obrigatorias={"ordem_de_carga_codigo"},
+            )
             continue
+        _registrar_aviso_colunas(
+            avisos,
+            nome_arquivo=arquivo.name,
+            faltantes=_colunas_nao_identificadas(indices, mapeamento_colunas.keys()),
+            obrigatorias={"ordem_de_carga_codigo"},
+        )
 
         for linha in linhas:
             if not any(_normalizar_texto(v) for v in linha):
@@ -966,6 +1104,7 @@ def importar_cargas_do_diretorio(
         "arquivos": len(arquivos),
         "linhas": total_linhas,
         "cargas": total_cargas,
+        "avisos": avisos,
     }
 
 
@@ -978,7 +1117,7 @@ def importar_producao_do_diretorio(
     base = Path(diretorio)
     arquivos = sorted(base.glob("*.xls"))
     if not arquivos:
-        return {"arquivos": 0, "linhas": 0, "producoes": 0, "produtos": 0}
+        return {"arquivos": 0, "linhas": 0, "producoes": 0, "produtos": 0, "avisos": []}
 
     if limpar_antes:
         Producao.objects.filter(empresa=empresa).delete()
@@ -987,6 +1126,7 @@ def importar_producao_do_diretorio(
     total_producoes = 0
     produtos_codigos = set()
     objetos: list[Producao] = []
+    avisos: list[str] = []
 
     mapeamento_colunas = {
         "numero_operacao": ["numerooperacao", "noperacao", "numoperacao", "operacao", "nroop", "nop"],
@@ -1045,7 +1185,19 @@ def importar_producao_do_diretorio(
             obrigatorias=["numero_operacao", "codigo_produto"],
         )
         if indices is None:
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=list(mapeamento_colunas.keys()),
+                obrigatorias={"numero_operacao", "codigo_produto"},
+            )
             continue
+        _registrar_aviso_colunas(
+            avisos,
+            nome_arquivo=arquivo.name,
+            faltantes=_colunas_nao_identificadas(indices, mapeamento_colunas.keys()),
+            obrigatorias={"numero_operacao", "codigo_produto"},
+        )
 
         for linha in linhas:
             if not any(_normalizar_texto(v) for v in linha):
@@ -1139,4 +1291,5 @@ def importar_producao_do_diretorio(
         "linhas": total_linhas,
         "producoes": total_producoes,
         "produtos": len(produtos_codigos),
+        "avisos": avisos,
     }

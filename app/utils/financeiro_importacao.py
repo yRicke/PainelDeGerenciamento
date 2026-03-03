@@ -107,6 +107,47 @@ def _normalizar_nome_coluna(valor: str) -> str:
     return "".join(ch for ch in texto if ch.isalnum())
 
 
+def _rotulo_coluna(coluna) -> str:
+    texto = _normalizar_texto(coluna)
+    if "_" in texto:
+        texto = texto.replace("_", " ")
+    return texto
+
+
+def _colunas_nao_identificadas(indices: dict | None, colunas_esperadas) -> list[str]:
+    if not indices:
+        return [str(coluna) for coluna in colunas_esperadas]
+    return [str(coluna) for coluna in colunas_esperadas if indices.get(coluna) is None]
+
+
+def _registrar_aviso_colunas(
+    avisos: list[str],
+    *,
+    nome_arquivo: str,
+    faltantes: list[str],
+    obrigatorias=None,
+):
+    if not faltantes:
+        return
+
+    obrigatorias_set = set(obrigatorias or [])
+    obrigatorias_faltantes = [coluna for coluna in faltantes if coluna in obrigatorias_set]
+    opcionais_faltantes = [coluna for coluna in faltantes if coluna not in obrigatorias_set]
+
+    partes = []
+    if obrigatorias_faltantes:
+        obrigatorias_fmt = ", ".join(_rotulo_coluna(coluna) for coluna in obrigatorias_faltantes)
+        partes.append(f"obrigatorias: {obrigatorias_fmt}")
+    if opcionais_faltantes:
+        opcionais_fmt = ", ".join(_rotulo_coluna(coluna) for coluna in opcionais_faltantes)
+        partes.append(f"opcionais: {opcionais_fmt}")
+
+    detalhe = "; ".join(partes)
+    mensagem = f"Arquivo '{nome_arquivo}': colunas nao identificadas ({detalhe})."
+    if mensagem not in avisos:
+        avisos.append(mensagem)
+
+
 MESES_PT_TO_FIELD = {
     "janeiro": "janeiro",
     "fevereiro": "fevereiro",
@@ -205,6 +246,7 @@ def importar_dfc_do_diretorio(
             "operacoes": 0,
             "parceiros": 0,
             "centros_resultado": 0,
+            "avisos": [],
         }
 
     if limpar_antes:
@@ -219,6 +261,7 @@ def importar_dfc_do_diretorio(
     cache_operacoes: dict[str, Operacao] = {}
     cache_parceiros: dict[str, Parceiro] = {}
     cache_centros: dict[str, CentroResultado] = {}
+    avisos: list[str] = []
 
     mapeamento_colunas = {
         "data_negociacao": ["dtnegociacao"],
@@ -240,6 +283,9 @@ def importar_dfc_do_diretorio(
 
     for arquivo in arquivos:
         indices = None
+        melhor_idx_map = None
+        melhor_score = -1
+        obrigatorias = {"data_negociacao", "data_vencimento", "valor_liquido"}
         for linha in _iterar_linhas_xls(arquivo):
             if not any(_normalizar_texto(v) for v in linha):
                 continue
@@ -249,12 +295,23 @@ def importar_dfc_do_diretorio(
                 idx_map = {}
                 for chave, aliases in mapeamento_colunas.items():
                     idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                score = sum(1 for idx in idx_map.values() if idx is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
                 if (
                     idx_map["data_negociacao"] is not None
                     and idx_map["data_vencimento"] is not None
                     and idx_map["valor_liquido"] is not None
                 ):
                     indices = idx_map
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
                 continue
 
             if indices is None:
@@ -361,6 +418,15 @@ def importar_dfc_do_diretorio(
                 total_fluxos += len(objetos)
                 objetos = []
 
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias,
+            )
+
     if objetos:
         FluxoDeCaixaDFC.objects.bulk_create(objetos, batch_size=1000)
         total_fluxos += len(objetos)
@@ -374,6 +440,7 @@ def importar_dfc_do_diretorio(
         "operacoes": len(cache_operacoes),
         "parceiros": len(cache_parceiros),
         "centros_resultado": len(cache_centros),
+        "avisos": avisos,
     }
 
 
@@ -395,6 +462,7 @@ def importar_contas_a_receber_do_diretorio(
             "operacoes": 0,
             "parceiros": 0,
             "centros_resultado": 0,
+            "avisos": [],
         }
 
     if limpar_antes:
@@ -409,6 +477,7 @@ def importar_contas_a_receber_do_diretorio(
     cache_operacoes: dict[str, Operacao] = {}
     cache_parceiros: dict[str, Parceiro] = {}
     cache_centros: dict[str, CentroResultado] = {}
+    avisos: list[str] = []
 
     mapeamento_colunas = {
         "data_negociacao": ["dtnegociacao"],
@@ -431,6 +500,9 @@ def importar_contas_a_receber_do_diretorio(
 
     for arquivo in arquivos:
         indices = None
+        melhor_idx_map = None
+        melhor_score = -1
+        obrigatorias = {"data_negociacao", "data_vencimento"}
         data_arquivo = _data_arquivo_nao_nula(arquivo)
 
         for linha in _iterar_linhas_xls(arquivo):
@@ -442,12 +514,23 @@ def importar_contas_a_receber_do_diretorio(
                 idx_map = {}
                 for chave, aliases in mapeamento_colunas.items():
                     idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                score = sum(1 for idx in idx_map.values() if idx is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
                 if (
                     idx_map["data_negociacao"] is not None
                     and idx_map["data_vencimento"] is not None
                     and (idx_map["valor_desdobramento"] is not None or idx_map["valor_liquido"] is not None)
                 ):
                     indices = idx_map
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
                 continue
 
             if indices is None:
@@ -561,6 +644,25 @@ def importar_contas_a_receber_do_diretorio(
                 total_contas += len(objetos)
                 objetos = []
 
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            obrigatorias_dinamicas = set(obrigatorias)
+            if (
+                melhor_idx_map is None
+                or (
+                    melhor_idx_map.get("valor_desdobramento") is None
+                    and melhor_idx_map.get("valor_liquido") is None
+                )
+            ):
+                faltantes.append("valor_desdobramento/valor_liquido")
+                obrigatorias_dinamicas.add("valor_desdobramento/valor_liquido")
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias_dinamicas,
+            )
+
     if objetos:
         ContasAReceber.objects.bulk_create(objetos, batch_size=1000)
         total_contas += len(objetos)
@@ -574,6 +676,7 @@ def importar_contas_a_receber_do_diretorio(
         "operacoes": len(cache_operacoes),
         "parceiros": len(cache_parceiros),
         "centros_resultado": len(cache_centros),
+        "avisos": avisos,
     }
 
 
@@ -595,6 +698,7 @@ def importar_orcamento_do_diretorio(
             "operacoes": 0,
             "parceiros": 0,
             "centros_resultado": 0,
+            "avisos": [],
         }
 
     if limpar_antes:
@@ -609,6 +713,7 @@ def importar_orcamento_do_diretorio(
     cache_operacoes: dict[str, Operacao] = {}
     cache_parceiros: dict[str, Parceiro] = {}
     cache_centros: dict[str, CentroResultado] = {}
+    avisos: list[str] = []
 
     mapeamento_colunas = {
         "empresa_codigo": ["empresa"],
@@ -631,6 +736,9 @@ def importar_orcamento_do_diretorio(
 
     for arquivo in arquivos:
         indices = None
+        melhor_idx_map = None
+        melhor_score = -1
+        obrigatorias = {"data_vencimento", "data_baixa", "valor_baixa"}
         for linha in _iterar_linhas_xls(arquivo):
             if not any(_normalizar_texto(v) for v in linha):
                 continue
@@ -640,12 +748,23 @@ def importar_orcamento_do_diretorio(
                 idx_map = {}
                 for chave, aliases in mapeamento_colunas.items():
                     idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                score = sum(1 for idx in idx_map.values() if idx is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
                 if (
                     idx_map["data_vencimento"] is not None
                     and idx_map["data_baixa"] is not None
                     and idx_map["valor_baixa"] is not None
                 ):
                     indices = idx_map
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
                 continue
 
             if indices is None:
@@ -774,6 +893,15 @@ def importar_orcamento_do_diretorio(
                 total_orcamentos += len(objetos)
                 objetos = []
 
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias,
+            )
+
     if objetos:
         Orcamento.objects.bulk_create(objetos, batch_size=1000)
         total_orcamentos += len(objetos)
@@ -787,6 +915,7 @@ def importar_orcamento_do_diretorio(
         "operacoes": len(cache_operacoes),
         "parceiros": len(cache_parceiros),
         "centros_resultado": len(cache_centros),
+        "avisos": avisos,
     }
 
 
@@ -805,6 +934,7 @@ def importar_orcamento_planejado_do_diretorio(
             "orcamentos_planejados": 0,
             "naturezas": 0,
             "centros_resultado": 0,
+            "avisos": [],
         }
 
     total_linhas = 0
@@ -815,6 +945,7 @@ def importar_orcamento_planejado_do_diretorio(
     layout_mensal_detectado = False
     base_limpa = False
     fallback_gerado = False
+    avisos: list[str] = []
 
     mapeamento_colunas = {
         "centro_resultado_descricao": ["descricaocentroderesultado", "centroresultado"],
@@ -837,6 +968,9 @@ def importar_orcamento_planejado_do_diretorio(
 
     for arquivo in arquivos:
         indices = None
+        melhor_idx_map = None
+        melhor_score = -1
+        obrigatorias = {"centro_resultado_descricao", "natureza_descricao", "ano"}
         for linha in _iterar_linhas_xls(arquivo):
             if not any(_normalizar_texto(v) for v in linha):
                 continue
@@ -846,6 +980,10 @@ def importar_orcamento_planejado_do_diretorio(
                 idx_map = {}
                 for chave, aliases in mapeamento_colunas.items():
                     idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                score = sum(1 for idx in idx_map.values() if idx is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
                 if (
                     idx_map["centro_resultado_descricao"] is not None
                     and idx_map["natureza_descricao"] is not None
@@ -853,6 +991,13 @@ def importar_orcamento_planejado_do_diretorio(
                 ):
                     indices = idx_map
                     layout_mensal_detectado = True
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
                     if limpar_antes and not base_limpa:
                         OrcamentoPlanejado.objects.filter(empresa=empresa).delete()
                         base_limpa = True
@@ -917,6 +1062,15 @@ def importar_orcamento_planejado_do_diretorio(
                 OrcamentoPlanejado.objects.bulk_create(objetos, batch_size=1000)
                 total_orcamentos += len(objetos)
                 objetos = []
+
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias,
+            )
 
     if objetos:
         OrcamentoPlanejado.objects.bulk_create(objetos, batch_size=1000)
@@ -1011,4 +1165,5 @@ def importar_orcamento_planejado_do_diretorio(
         "centros_resultado": len(cache_centros),
         "layout_mensal_detectado": layout_mensal_detectado,
         "fallback_gerado": fallback_gerado,
+        "avisos": avisos,
     }
