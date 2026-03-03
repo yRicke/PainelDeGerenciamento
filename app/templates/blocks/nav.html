@@ -1,5 +1,17 @@
 <div class="nav-shell">
     <a class="brand" href="{% url 'index' %}">Painel Gerenciamento</a>
+    {% if user.is_authenticated %}
+    {% if nav_current_category or nav_current_module %}
+    <div class="nav-context nav-context--brand" aria-label="Contexto da pagina">
+        {% if nav_current_category %}
+        <span class="nav-context-chip nav-context-chip--category">Categoria: {{ nav_current_category }}</span>
+        {% endif %}
+        {% if nav_current_module %}
+        <span class="nav-context-chip nav-context-chip--module">M&oacute;dulo: {{ nav_current_module }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
 
     <button
         type="button"
@@ -13,17 +25,27 @@
 
     <div class="nav-panel" id="site-nav-panel">
         {% if user.is_authenticated %}
-        <nav class="nav-links" aria-label="Navegação principal">
-            <a class="{% if request.path == '/' %}is-active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %} href="{% url 'index' %}">Início</a>
-            <a class="{% if request.path|slice:':11' == '/financeiro/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/financeiro/' %}aria-current="page"{% endif %} href="{% url 'financeiro' %}">Financeiro</a>
-            <a class="{% if request.path|slice:':15' == '/administrativo/' %}is-active{% endif %}" {% if request.path|slice:':15' == '/administrativo/' %}aria-current="page"{% endif %} href="{% url 'administrativo' %}">Administrativo</a>
-            <a class="{% if request.path|slice:':11' == '/comercial/' %}is-active{% endif %}" {% if request.path|slice:':11' == '/comercial/' %}aria-current="page"{% endif %} href="{% url 'comercial' %}">Comercial</a>
-            <a class="{% if request.path|slice:':13' == '/operacional/' %}is-active{% endif %}" {% if request.path|slice:':13' == '/operacional/' %}aria-current="page"{% endif %} href="{% url 'operacional' %}">Operacional</a>
-            <a class="{% if request.path|slice:':12' == '/parametros/' %}is-active{% endif %}" {% if request.path|slice:':12' == '/parametros/' %}aria-current="page"{% endif %} href="{% url 'parametros' %}">Parâmetros</a>
+        <nav class="nav-links" aria-label="Navegacao principal">
+            <a class="{% if nav_active_category == 'index' %}is-active{% endif %}" {% if nav_active_category == 'index' %}aria-current="page"{% endif %} href="{% url 'index' %}">In&iacute;cio</a>
+            <a class="{% if nav_active_category == 'financeiro' %}is-active{% endif %}" {% if nav_active_category == 'financeiro' %}aria-current="page"{% endif %} href="{% url 'financeiro' %}">Financeiro</a>
+            <a class="{% if nav_active_category == 'administrativo' %}is-active{% endif %}" {% if nav_active_category == 'administrativo' %}aria-current="page"{% endif %} href="{% url 'administrativo' %}">Administrativo</a>
+            <a class="{% if nav_active_category == 'comercial' %}is-active{% endif %}" {% if nav_active_category == 'comercial' %}aria-current="page"{% endif %} href="{% url 'comercial' %}">Comercial</a>
+            <a class="{% if nav_active_category == 'operacional' %}is-active{% endif %}" {% if nav_active_category == 'operacional' %}aria-current="page"{% endif %} href="{% url 'operacional' %}">Operacional</a>
+            <a class="{% if nav_active_category == 'parametros' %}is-active{% endif %}" {% if nav_active_category == 'parametros' %}aria-current="page"{% endif %} href="{% url 'parametros' %}">Par&acirc;metros</a>
             {% if user.is_staff %}
-            <a class="{% if request.path|slice:':7' == '/admin/' %}is-active{% endif %}" {% if request.path|slice:':7' == '/admin/' %}aria-current="page"{% endif %} href="{% url 'painel_admin' %}">Admin</a>
+            <a class="{% if nav_active_category == 'admin' %}is-active{% endif %}" {% if nav_active_category == 'admin' %}aria-current="page"{% endif %} href="{% url 'painel_admin' %}">Admin</a>
             {% endif %}
         </nav>
+        {% if nav_current_category or nav_current_module %}
+        <div class="nav-context nav-context--menu" aria-label="Contexto da pagina">
+            {% if nav_current_category %}
+            <span class="nav-context-chip nav-context-chip--category">Categoria: {{ nav_current_category }}</span>
+            {% endif %}
+            {% if nav_current_module %}
+            <span class="nav-context-chip nav-context-chip--module">M&oacute;dulo: {{ nav_current_module }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
         <span class="nav-user-info" title="Usuario logado">Logado como: {{ user.username }}</span>
         <a class="logout-link nav-auth-link" href="{% url 'sair' %}">Sair</a>
         {% else %}

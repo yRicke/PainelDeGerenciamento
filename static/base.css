@@ -139,6 +139,47 @@ body {
     font-size: 0.92rem;
 }
 
+.nav-context {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.nav-context-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    border: 1px solid #c9d8ec;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.84rem;
+    color: #24415f;
+    background: #f2f7ff;
+    white-space: nowrap;
+}
+
+.nav-context--brand {
+    margin-left: 0.35rem;
+}
+
+.nav-context--menu {
+    display: none;
+}
+
+.nav-context-chip--category {
+    border-color: #b9cde6;
+    background: #e8f1ff;
+    color: #1c3f68;
+}
+
+.nav-context-chip--module {
+    border-color: #d1dbeb;
+    background: #f8fbff;
+    color: #314b69;
+}
+
 .nav-links a:hover,
 .login-link:hover,
 .logout-link:hover {
@@ -566,6 +607,26 @@ textarea:focus-visible {
         min-height: 40px;
         border-color: #d5dfeb;
         background: #f9fbff;
+    }
+
+    .nav-context--menu {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.35rem;
+    }
+
+    .nav-context--menu .nav-context-chip {
+        width: 100%;
+        border-radius: 8px;
+        justify-content: flex-start;
+        min-height: 36px;
+        padding: 0.45rem 0.7rem;
+    }
+
+    .nav-context--brand {
+        display: none;
     }
 
     .nav-links a.is-active,
