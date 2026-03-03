@@ -110,6 +110,7 @@
     var kpiCmvEl = document.getElementById("dashboard-kpi-cmv");
     var kpiLucroEl = document.getElementById("dashboard-kpi-lucro");
     var kpiMargemEl = document.getElementById("dashboard-kpi-margem");
+    var secFiltros = document.getElementById("sec-filtros");
 
     var limparFiltrosBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
     var limparFiltrosSidebarBtn = document.getElementById("vendas-limpar-filtros-sidebar");
@@ -168,16 +169,42 @@
         return "";
     }
 
-    function isoParaDataBr(iso) {
+    function isoParaDataBr(iso, usarAnoCurto) {
         var texto = String(iso || "").trim();
         if (!texto) return "(Vazio)";
         var partes = texto.split("-");
         if (partes.length !== 3) return texto;
-        return partes[2] + "/" + partes[1] + "/" + partes[0];
+        var ano = usarAnoCurto ? partes[0].slice(-2) : partes[0];
+        return partes[2] + "/" + partes[1] + "/" + ano;
     }
 
-    function removerTagsHtml(valor) {
-        return String(valor || "").replace(/<[^>]+>/g, "").trim();
+    function formatarMesAnoVenda(valor) {
+        var texto = String(valor || "").trim();
+        if (!texto) return "(Vazio)";
+        var partes = texto.split("-");
+        if (partes.length !== 2) return texto;
+        var ano = partes[0];
+        var mes = Number(partes[1] || 0);
+        if (!mes) return texto;
+        return (nomeMes[mes] || String(mes).padStart(2, "0")) + "/" + String(ano).slice(-2);
+    }
+
+    function extrairMesAnoVenda(rowData) {
+        if (!rowData) return "";
+        var ano = Number(rowData.ano_venda || 0);
+        var mes = Number(rowData.mes_venda || 0);
+        if (ano > 0 && mes > 0) {
+            return String(ano) + "-" + String(mes).padStart(2, "0");
+        }
+        var iso = rowData.data_venda_iso ? String(rowData.data_venda_iso).trim() : "";
+        if (!iso || iso.split("-").length !== 3) return "";
+        return iso.slice(0, 7);
+    }
+
+    function extrairDiaVenda(rowData) {
+        var iso = rowData && rowData.data_venda_iso ? String(rowData.data_venda_iso).trim() : "";
+        if (!iso) return "";
+        return iso.split("-").length === 3 ? iso : "";
     }
 
     function isCurrencyField(field) {
@@ -205,6 +232,14 @@
             return isoParaDataBr(value);
         }
 
+        if (field === "dia_venda") {
+            return isoParaDataBr(value, true);
+        }
+
+        if (field === "mes_ano_venda") {
+            return formatarMesAnoVenda(value);
+        }
+
         if (field === "ano_venda") {
             return String(value);
         }
@@ -218,11 +253,12 @@
         return String(value);
     }
 
-    function criarDefinicoesFiltro(colunasTabulator) {
-        var definicoes = [
+    function criarDefinicoesFiltro() {
+        return [
             {
                 key: "ano_venda",
-                label: "Ano da Venda",
+                label: "Ano",
+                singleSelect: true,
                 formatValue: function (value) {
                     return formatarFiltroPorCampo("ano_venda", value);
                 },
@@ -231,51 +267,42 @@
                 }
             },
             {
-                key: "mes_venda",
-                label: "Mês da Venda",
+                key: "mes_ano_venda",
+                label: "Mes",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return extrairMesAnoVenda(rowData);
+                },
                 formatValue: function (value) {
-                    return formatarFiltroPorCampo("mes_venda", value);
+                    return formatarFiltroPorCampo("mes_ano_venda", value);
                 },
                 sortOptions: function (a, b) {
-                    return Number(a.value || 0) - Number(b.value || 0);
+                    return String(b.value || "").localeCompare(String(a.value || ""));
                 }
             },
             {
-                key: "data_venda_iso",
-                label: "Data da Venda",
+                key: "dia_venda",
+                label: "Dia",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return extrairDiaVenda(rowData);
+                },
                 formatValue: function (value) {
-                    return formatarFiltroPorCampo("data_venda_iso", value);
+                    return formatarFiltroPorCampo("dia_venda", value);
+                },
+                sortOptions: function (a, b) {
+                    return String(b.value || "").localeCompare(String(a.value || ""));
                 }
             },
             {
                 key: "margem_situacao",
-                label: "Situação da Margem",
+                label: "Situacao",
+                singleSelect: false,
                 formatValue: function (value) {
                     return formatarFiltroPorCampo("margem_situacao", value);
                 }
             }
         ];
-
-        var camposJaIncluidos = new Set(definicoes.map(function (definicao) { return definicao.key; }));
-
-        (colunasTabulator || []).forEach(function (coluna) {
-            if (!coluna || !coluna.field) return;
-            var field = String(coluna.field || "").trim();
-            if (!field || field.indexOf("_url") >= 0) return;
-            if (camposJaIncluidos.has(field)) return;
-
-            var titulo = removerTagsHtml(coluna.title || field);
-            definicoes.push({
-                key: field,
-                label: titulo || field,
-                formatValue: function (value) {
-                    return formatarFiltroPorCampo(field, value);
-                }
-            });
-            camposJaIncluidos.add(field);
-        });
-
-        return definicoes;
     }
 
     function agruparPorDia(registros) {
@@ -294,8 +321,7 @@
         var dias = Object.keys(mapa).sort();
         return {
             categorias: dias.map(function (iso) {
-                var p = iso.split("-");
-                return (p[2] || "") + "/" + (p[1] || "");
+                return isoParaDataBr(iso, true);
             }),
             vendas: dias.map(function (iso) { return Number(mapa[iso].vendas.toFixed(2)); }),
             cmv: dias.map(function (iso) { return Number(mapa[iso].cmv.toFixed(2)); }),
@@ -307,16 +333,16 @@
     function agruparPorMes(registros) {
         var mapa = {};
         registros.forEach(function (item) {
-            var mes = Number(item.mes_venda || 0);
-            if (!mes) return;
-            if (!mapa[mes]) mapa[mes] = 0;
-            mapa[mes] += Number(item.valor_venda || 0);
+            var mesAno = extrairMesAnoVenda(item);
+            if (!mesAno) return;
+            if (!mapa[mesAno]) mapa[mesAno] = 0;
+            mapa[mesAno] += Number(item.valor_venda || 0);
         });
 
-        var meses = Object.keys(mapa).map(Number).sort(function (a, b) { return a - b; });
+        var meses = Object.keys(mapa).sort();
         return {
-            categorias: meses.map(function (mes) { return nomeMes[mes] || String(mes); }),
-            valores: meses.map(function (mes) { return Number(mapa[mes].toFixed(2)); })
+            categorias: meses.map(function (mesAno) { return formatarMesAnoVenda(mesAno); }),
+            valores: meses.map(function (mesAno) { return Number(mapa[mesAno].toFixed(2)); })
         };
     }
 
@@ -453,6 +479,10 @@
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
 
+    if (secFiltros) {
+        secFiltros.dataset.moduleFiltersAuto = "off";
+    }
+
     var tabela = window.TabulatorDefaults.create("#vendas-tabulator", {
         data: data,
         columns: colunas
@@ -460,7 +490,7 @@
 
     var filtrosExternos = null;
     if (window.ModuleFilterCore && filtroColunaEsquerda && filtroColunaDireita) {
-        var definicoesFiltro = criarDefinicoesFiltro(colunas);
+        var definicoesFiltro = criarDefinicoesFiltro();
         filtrosExternos = window.ModuleFilterCore.create({
             data: data,
             definitions: definicoesFiltro,
@@ -590,6 +620,9 @@
     function limparTodosFiltrosExternos() {
         if (!filtrosExternos) return;
         filtrosExternos.clearAllFilters();
+        if (typeof tabela.clearHeaderFilter === "function") {
+            tabela.clearHeaderFilter();
+        }
         if (typeof tabela.refreshFilter === "function") {
             tabela.refreshFilter();
         }

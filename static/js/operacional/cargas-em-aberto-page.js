@@ -168,6 +168,169 @@
         kpiNoPrazo.textContent = String(total - foraPrazo);
     }
 
+    function ensureFilterColumns(section) {
+        if (!section) return null;
+
+        var left = section.querySelector('[data-module-filter-column="left"]');
+        var right = section.querySelector('[data-module-filter-column="right"]');
+        if (left && right) {
+            return { left: left, right: right };
+        }
+
+        var wrapper = section.querySelector(".module-filter-columns");
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.className = "module-filter-columns";
+            section.appendChild(wrapper);
+        }
+
+        if (!left) {
+            left = document.createElement("div");
+            left.className = "module-filter-column";
+            left.setAttribute("data-module-filter-column", "left");
+            left.id = "cargas-filtros-coluna-esquerda";
+            wrapper.appendChild(left);
+        }
+
+        if (!right) {
+            right = document.createElement("div");
+            right.className = "module-filter-column";
+            right.setAttribute("data-module-filter-column", "right");
+            right.id = "cargas-filtros-coluna-direita";
+            wrapper.appendChild(right);
+        }
+
+        return { left: left, right: right };
+    }
+
+    function formatTextoOuVazio(valor) {
+        var texto = String(valor === null || valor === undefined ? "" : valor).trim();
+        return texto || "(Vazio)";
+    }
+
+    function ordenarTexto(a, b) {
+        return String(a.label || "").localeCompare(String(b.label || ""), "pt-BR", {
+            sensitivity: "base",
+            numeric: true,
+        });
+    }
+
+    function obterStatusCritico(rowData) {
+        return Number((rowData && rowData.critica) || 0) > 0 ? "Fora do Prazo" : "No Prazo";
+    }
+
+    function criarDefinicoesFiltrosCargas() {
+        return [
+            {
+                key: "situacao",
+                label: "Situa\u00e7\u00e3o",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.situacao : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "status",
+                label: "Status",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.status : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "verificacao_texto",
+                label: "Verifica\u00e7\u00e3o",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.verificacao_texto : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "status_critico",
+                label: "Status Cr\u00edtico",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return obterStatusCritico(rowData);
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "nome_fantasia_empresa",
+                label: "Nome Empresa",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.nome_fantasia_empresa : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+        ];
+    }
+
+    function configurarFiltrosExternos(tabelaRef, registros, secFiltros) {
+        if (!secFiltros || !window.ModuleFilterCore) return null;
+
+        secFiltros.dataset.moduleFiltersManual = "true";
+        var placeholderFiltros = secFiltros.querySelector(".module-filters-placeholder");
+        if (placeholderFiltros) placeholderFiltros.remove();
+
+        var filtroColumns = ensureFilterColumns(secFiltros);
+        if (!filtroColumns || !filtroColumns.left || !filtroColumns.right) return null;
+
+        var filtrosExternos = window.ModuleFilterCore.create({
+            data: registros,
+            definitions: criarDefinicoesFiltrosCargas(),
+            leftColumn: filtroColumns.left,
+            rightColumn: filtroColumns.right,
+            onChange: function () {
+                if (typeof tabelaRef.refreshFilter === "function") {
+                    tabelaRef.refreshFilter();
+                }
+            },
+        });
+
+        tabelaRef.addFilter(function (rowData) {
+            return filtrosExternos.matchesRecord(rowData);
+        });
+
+        return {
+            secFiltros: secFiltros,
+            filtrosExternos: filtrosExternos,
+        };
+    }
+
+    function registrarAcaoLimparFiltros(tabelaRef, secFiltros, filtrosExternos) {
+        if (!secFiltros || !filtrosExternos) return;
+
+        function limparTodosFiltros() {
+            if (typeof filtrosExternos.clearAllFilters === "function") {
+                filtrosExternos.clearAllFilters();
+            }
+            if (typeof tabelaRef.clearHeaderFilter === "function") {
+                tabelaRef.clearHeaderFilter();
+            }
+            if (typeof tabelaRef.refreshFilter === "function") {
+                tabelaRef.refreshFilter();
+            }
+        }
+
+        var limparFiltrosSidebarBtn = secFiltros.querySelector(".module-filters-clear-all");
+        var limparFiltrosToolbarBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
+        if (limparFiltrosSidebarBtn) {
+            limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltros);
+        }
+        if (limparFiltrosToolbarBtn) {
+            limparFiltrosToolbarBtn.addEventListener("click", limparTodosFiltros);
+        }
+    }
+
     var colunas = [
             { title: "Ordem de Carga", field: "ordem_de_carga_codigo", headerFilter: "input" },
             {
@@ -194,11 +357,19 @@
         ];
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
+    var secFiltros = document.getElementById("sec-filtros");
+    if (secFiltros) {
+        secFiltros.dataset.moduleFiltersAuto = "off";
+    }
 
     var table = window.TabulatorDefaults.create("#cargas-tabulator", {
         data: dadosOriginais,
         columns: colunas
     });
+    var configFiltros = configurarFiltrosExternos(table, dadosOriginais, secFiltros);
+    if (configFiltros) {
+        registrarAcaoLimparFiltros(table, configFiltros.secFiltros, configFiltros.filtrosExternos);
+    }
 
     table.on("dataFiltered", function (_filters, rows) {
         var dadosFiltrados = rows.map(function (row) {

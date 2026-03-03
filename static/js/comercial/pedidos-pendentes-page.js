@@ -197,6 +197,169 @@
         refs.valorNota.textContent = formatarMoeda(bucket.valorNota);
     }
 
+    function formatTextoOuVazio(valor) {
+        var texto = String(valor || "").trim();
+        return texto || "(Vazio)";
+    }
+
+    function ordenarTexto(a, b) {
+        return String(a.label || "").localeCompare(String(b.label || ""), "pt-BR", {
+            sensitivity: "base",
+            numeric: true,
+        });
+    }
+
+    function ensureFilterColumns(section) {
+        if (!section) return null;
+
+        var left = section.querySelector('[data-module-filter-column="left"]')
+            || section.querySelector("#pedidos-pendentes-filtros-coluna-esquerda");
+        var right = section.querySelector('[data-module-filter-column="right"]')
+            || section.querySelector("#pedidos-pendentes-filtros-coluna-direita");
+
+        if (left && right) {
+            return {left: left, right: right};
+        }
+
+        var wrapper = section.querySelector(".module-filter-columns");
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.className = "module-filter-columns";
+            section.appendChild(wrapper);
+        }
+
+        if (!left) {
+            left = document.createElement("div");
+            left.className = "module-filter-column";
+            left.setAttribute("data-module-filter-column", "left");
+            left.id = "pedidos-pendentes-filtros-coluna-esquerda";
+            wrapper.appendChild(left);
+        }
+
+        if (!right) {
+            right = document.createElement("div");
+            right.className = "module-filter-column";
+            right.setAttribute("data-module-filter-column", "right");
+            right.id = "pedidos-pendentes-filtros-coluna-direita";
+            wrapper.appendChild(right);
+        }
+
+        return {left: left, right: right};
+    }
+
+    function criarDefinicoesFiltrosPedidos() {
+        return [
+            {
+                key: "rota",
+                label: "Rota",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.rota : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "regiao",
+                label: "Regiao",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.regiao : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "tipo_venda",
+                label: "Tipo de Venda",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.tipo_venda : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "status",
+                label: "Status",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.status : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "gerente",
+                label: "Gerente",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.gerente : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+        ];
+    }
+
+    function configurarFiltrosExternos(tabelaRef, registros) {
+        var secFiltros = document.getElementById("sec-filtros");
+        if (secFiltros) {
+            secFiltros.dataset.moduleFiltersAuto = "off";
+        }
+        if (!secFiltros || !window.ModuleFilterCore) return null;
+
+        secFiltros.dataset.moduleFiltersManual = "true";
+        var placeholderFiltros = secFiltros.querySelector(".module-filters-placeholder");
+        if (placeholderFiltros) placeholderFiltros.remove();
+
+        var filtroColumns = ensureFilterColumns(secFiltros);
+        if (!filtroColumns || !filtroColumns.left || !filtroColumns.right) return null;
+
+        var filtrosExternos = window.ModuleFilterCore.create({
+            data: registros,
+            definitions: criarDefinicoesFiltrosPedidos(),
+            leftColumn: filtroColumns.left,
+            rightColumn: filtroColumns.right,
+            onChange: function () {
+                if (typeof tabelaRef.refreshFilter === "function") {
+                    tabelaRef.refreshFilter();
+                }
+            },
+        });
+
+        tabelaRef.addFilter(function (rowData) {
+            return filtrosExternos.matchesRecord(rowData);
+        });
+
+        return {secFiltros: secFiltros, filtrosExternos: filtrosExternos};
+    }
+
+    function registrarAcaoLimparFiltros(tabelaRef, secFiltros, filtrosExternos) {
+        if (!secFiltros || !filtrosExternos) return;
+
+        function limparTodosFiltros() {
+            if (typeof filtrosExternos.clearAllFilters === "function") {
+                filtrosExternos.clearAllFilters();
+            }
+            if (typeof tabelaRef.clearHeaderFilter === "function") {
+                tabelaRef.clearHeaderFilter();
+            }
+            if (typeof tabelaRef.refreshFilter === "function") {
+                tabelaRef.refreshFilter();
+            }
+        }
+
+        var limparFiltrosSidebarBtn = secFiltros.querySelector(".module-filters-clear-all");
+        var limparFiltrosToolbarBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
+        if (limparFiltrosSidebarBtn) {
+            limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltros);
+        }
+        if (limparFiltrosToolbarBtn) {
+            limparFiltrosToolbarBtn.addEventListener("click", limparTodosFiltros);
+        }
+    }
+
     var statusChart = null;
     if (chartContainer && window.ApexCharts) {
         statusChart = new window.ApexCharts(chartContainer, {
@@ -285,6 +448,11 @@
             },
         ],
     });
+
+    var filtrosConfig = configurarFiltrosExternos(tabela, data);
+    if (filtrosConfig) {
+        registrarAcaoLimparFiltros(tabela, filtrosConfig.secFiltros, filtrosConfig.filtrosExternos);
+    }
 
     function atualizarDashboard() {
         var linhas = tabela.getData("active");
