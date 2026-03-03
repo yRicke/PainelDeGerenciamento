@@ -122,6 +122,46 @@
     var dashboardCmv = document.getElementById("dashboard-cmv");
     var dashboardLucro = document.getElementById("dashboard-lucro");
     var dashboardMargem = document.getElementById("dashboard-margem");
+    var dashboardTotalSetores = document.getElementById("dashboard-total-setores");
+    var dashboardLucroLiquido = document.getElementById("dashboard-lucro-liquido");
+    var dashboardMargemLiquida = document.getElementById("dashboard-margem-liquida");
+    var dashboardSetores = {
+        vendas: {
+            valor: document.getElementById("dashboard-setor-vendas-valor"),
+            percentual: document.getElementById("dashboard-setor-vendas-percentual"),
+            bar: document.getElementById("dashboard-setor-vendas-bar"),
+        },
+        producao: {
+            valor: document.getElementById("dashboard-setor-producao-valor"),
+            percentual: document.getElementById("dashboard-setor-producao-percentual"),
+            bar: document.getElementById("dashboard-setor-producao-bar"),
+        },
+        logistica: {
+            valor: document.getElementById("dashboard-setor-logistica-valor"),
+            percentual: document.getElementById("dashboard-setor-logistica-percentual"),
+            bar: document.getElementById("dashboard-setor-logistica-bar"),
+        },
+        administracao: {
+            valor: document.getElementById("dashboard-setor-administracao-valor"),
+            percentual: document.getElementById("dashboard-setor-administracao-percentual"),
+            bar: document.getElementById("dashboard-setor-administracao-bar"),
+        },
+        financeiro: {
+            valor: document.getElementById("dashboard-setor-financeiro-valor"),
+            percentual: document.getElementById("dashboard-setor-financeiro-percentual"),
+            bar: document.getElementById("dashboard-setor-financeiro-bar"),
+        },
+        operador: {
+            valor: document.getElementById("dashboard-setor-operador-valor"),
+            percentual: document.getElementById("dashboard-setor-operador-percentual"),
+            bar: document.getElementById("dashboard-setor-operador-bar"),
+        },
+        frete: {
+            valor: document.getElementById("dashboard-setor-frete-valor"),
+            percentual: document.getElementById("dashboard-setor-frete-percentual"),
+            bar: document.getElementById("dashboard-setor-frete-bar"),
+        },
+    };
 
     function fmtMoeda(valor) {
         return Number(valor || 0).toLocaleString("pt-BR", {
@@ -138,6 +178,38 @@
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });
+    }
+
+    function fmtPercentualInteiroRatio(valor) {
+        return Number(valor || 0).toLocaleString("pt-BR", {
+            style: "percent",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        });
+    }
+
+    function aplicarClasseSinal(elemento, valor) {
+        if (!elemento) return;
+        elemento.classList.remove("is-positive", "is-negative", "is-neutral");
+        if (valor > 0) {
+            elemento.classList.add("is-positive");
+            return;
+        }
+        if (valor < 0) {
+            elemento.classList.add("is-negative");
+            return;
+        }
+        elemento.classList.add("is-neutral");
+    }
+
+    function atualizarLinhaSetor(chave, valor, base) {
+        var itens = dashboardSetores[chave];
+        if (!itens) return;
+        var ratio = base === 0 ? 0 : (Number(valor || 0) / Number(base || 0));
+        var largura = Math.max(0, Math.min(100, ratio * 100));
+        if (itens.valor) itens.valor.textContent = fmtMoeda(valor);
+        if (itens.percentual) itens.percentual.textContent = fmtPercentualInteiroRatio(ratio);
+        if (itens.bar) itens.bar.style.width = largura.toFixed(2) + "%";
     }
 
     function normalizarSituacao(valor) {
@@ -260,17 +332,46 @@
 
         var pedido = 0;
         var cmv = 0;
+        var vendas = 0;
+        var producao = 0;
+        var operadorLogistica = 0;
+        var freteDistribuicao = 0;
+        var administracao = 0;
+        var financeiro = 0;
         linhas.forEach(function (item) {
             pedido += Number(item.vlr_nota || 0);
             cmv += Number(item.custo_total_produto || 0);
+            vendas += Number(item.vendas || 0);
+            producao += Number(item.producao || 0);
+            operadorLogistica += Number(item.operador_logistica || 0);
+            freteDistribuicao += Number(item.frete_distribuicao || 0);
+            administracao += Number(item.administracao || 0);
+            financeiro += Number(item.financeiro || 0);
         });
         var lucro = pedido - cmv;
+        var logisticaSetor = operadorLogistica + freteDistribuicao;
+        var totalSetores = vendas + producao + logisticaSetor + administracao + financeiro;
+        var valorLiquido = lucro - totalSetores;
         var margem = pedido === 0 ? 0 : (lucro / pedido);
+        var margemLiquida = pedido === 0 ? 0 : (valorLiquido / pedido);
 
         if (dashboardPedido) dashboardPedido.textContent = fmtMoeda(pedido);
         if (dashboardCmv) dashboardCmv.textContent = fmtMoeda(cmv);
         if (dashboardLucro) dashboardLucro.textContent = fmtMoeda(lucro);
         if (dashboardMargem) dashboardMargem.textContent = fmtPercentualRatio(margem);
+        if (dashboardTotalSetores) dashboardTotalSetores.textContent = fmtMoeda(totalSetores);
+        if (dashboardLucroLiquido) dashboardLucroLiquido.textContent = fmtMoeda(valorLiquido);
+        if (dashboardMargemLiquida) dashboardMargemLiquida.textContent = fmtPercentualRatio(margemLiquida);
+        aplicarClasseSinal(dashboardLucroLiquido, valorLiquido);
+        aplicarClasseSinal(dashboardMargemLiquida, margemLiquida);
+
+        atualizarLinhaSetor("vendas", vendas, totalSetores);
+        atualizarLinhaSetor("producao", producao, totalSetores);
+        atualizarLinhaSetor("logistica", logisticaSetor, totalSetores);
+        atualizarLinhaSetor("administracao", administracao, totalSetores);
+        atualizarLinhaSetor("financeiro", financeiro, totalSetores);
+        atualizarLinhaSetor("operador", operadorLogistica, totalSetores);
+        atualizarLinhaSetor("frete", freteDistribuicao, totalSetores);
     }
 
     var colunas = [

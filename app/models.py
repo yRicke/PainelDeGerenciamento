@@ -839,7 +839,7 @@ class ControleMargem(models.Model):
             return self.SITUACAO_ROXO
         if valor < Decimal("0.12"):
             return self.SITUACAO_VERMELHO
-        if valor < Decimal("0.18"):
+        if valor < Decimal("0.14"):
             return self.SITUACAO_AMARELO
         return self.SITUACAO_VERDE
 

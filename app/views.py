@@ -390,9 +390,9 @@ def _filtrar_controle_margem_por_situacao(qs, situacao):
     if situacao == ControleMargem.SITUACAO_VERMELHO:
         return qs.filter(margem_bruta__gte=0.10, margem_bruta__lt=0.12)
     if situacao == ControleMargem.SITUACAO_AMARELO:
-        return qs.filter(margem_bruta__gte=0.12, margem_bruta__lt=0.18)
+        return qs.filter(margem_bruta__gte=0.12, margem_bruta__lt=0.14)
     if situacao == ControleMargem.SITUACAO_VERDE:
-        return qs.filter(margem_bruta__gte=0.18)
+        return qs.filter(margem_bruta__gte=0.14)
     return qs.none()
 
 

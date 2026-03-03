@@ -56,8 +56,274 @@
     color: #3e4a59;
 }
 
+.dashboard-margem-analitico {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    align-items: stretch;
+}
+
+.dashboard-margem-setores,
+.dashboard-margem-logistica-split,
+.dashboard-margem-resumo-card {
+    border: 1px solid #d6e0ea;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f9fcff 0%, #eff5fb 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.dashboard-margem-setores,
+.dashboard-margem-logistica-split {
+    padding: 0.8rem;
+    height: 100%;
+}
+
+.dashboard-margem-setores h3,
+.dashboard-margem-logistica-split h3 {
+    margin: 0 0 0.55rem;
+    font-size: 0.86rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #5a6f84;
+}
+
+.setor-row {
+    display: grid;
+    grid-template-columns: minmax(104px, auto) minmax(140px, 1fr) minmax(128px, auto) minmax(46px, auto);
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.35rem;
+}
+
+.setor-row:last-child {
+    margin-bottom: 0;
+}
+
+.setor-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.setor-track {
+    height: 0.65rem;
+    border-radius: 999px;
+    border: 1px solid #ccd8e5;
+    background: #f1f4f8;
+    overflow: hidden;
+}
+
+.setor-fill {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.25s ease;
+}
+
+.setor-valor {
+    font-size: clamp(0.88rem, 0.78rem + 0.28vw, 0.98rem);
+    font-weight: 700;
+    color: #243445;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.setor-percentual {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1f2f3f;
+    text-align: right;
+}
+
+.setor-row--vendas .setor-label {
+    color: #0b4f85;
+}
+
+.setor-row--vendas .setor-fill {
+    background: linear-gradient(90deg, #8fd1ff 0%, #3a8bd2 100%);
+}
+
+.setor-row--producao .setor-label {
+    color: #0b7285;
+}
+
+.setor-row--producao .setor-fill {
+    background: linear-gradient(90deg, #99f6e4 0%, #14b8a6 100%);
+}
+
+.setor-row--logistica .setor-label {
+    color: #334155;
+}
+
+.setor-row--logistica .setor-fill {
+    background: linear-gradient(90deg, #cbd5e1 0%, #64748b 100%);
+}
+
+.setor-row--administracao .setor-label {
+    color: #9a3412;
+}
+
+.setor-row--administracao .setor-fill {
+    background: linear-gradient(90deg, #fed7aa 0%, #ea580c 100%);
+}
+
+.setor-row--financeiro .setor-label {
+    color: #1e3a8a;
+}
+
+.setor-row--financeiro .setor-fill {
+    background: linear-gradient(90deg, #bfdbfe 0%, #2563eb 100%);
+}
+
+.setor-row--operador .setor-label {
+    color: #7c2d12;
+}
+
+.setor-row--operador .setor-fill {
+    background: linear-gradient(90deg, #fdba74 0%, #c2410c 100%);
+}
+
+.setor-row--frete .setor-label {
+    color: #0c4a6e;
+}
+
+.setor-row--frete .setor-fill {
+    background: linear-gradient(90deg, #bae6fd 0%, #0284c7 100%);
+}
+
+.dashboard-margem-resumo {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.dashboard-margem-resumo-card {
+    padding: 0.65rem 0.75rem;
+}
+
+.dashboard-margem-resumo-card h3 {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #4f6275;
+}
+
+.dashboard-margem-resumo-card p {
+    margin: 0.15rem 0 0;
+    font-size: clamp(1.2rem, 1.45vw, 1.65rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #243445;
+}
+
+.dashboard-margem-resumo-card--total p {
+    color: #c15a06;
+}
+
+.dashboard-margem-resumo-card--lucro-liquido p.is-positive,
+.dashboard-margem-resumo-card--margem-liquida p.is-positive {
+    color: #127b47;
+}
+
+.dashboard-margem-resumo-card--lucro-liquido p.is-negative,
+.dashboard-margem-resumo-card--margem-liquida p.is-negative {
+    color: #b12c2c;
+}
+
+.dashboard-margem-resumo-card--lucro-liquido p.is-neutral,
+.dashboard-margem-resumo-card--margem-liquida p.is-neutral {
+    color: #4f6275;
+}
+
+@media (max-width: 1280px) {
+    .setor-row {
+        grid-template-columns: minmax(92px, auto) minmax(120px, 1fr) minmax(112px, auto) minmax(42px, auto);
+    }
+}
+
+@media (min-width: 1101px) {
+    .module-shell:not(.is-sidebar-collapsed) .dashboard-margem-analitico {
+        grid-template-columns: 1fr;
+    }
+
+    .module-shell:not(.is-sidebar-collapsed) .dashboard-margem-resumo {
+        grid-template-columns: repeat(3, minmax(160px, 1fr));
+    }
+
+    .module-shell:not(.is-sidebar-collapsed) .setor-row {
+        grid-template-columns: minmax(88px, auto) minmax(0, 1fr) minmax(106px, auto) minmax(42px, auto);
+        gap: 0.35rem;
+    }
+
+    .module-shell:not(.is-sidebar-collapsed) .setor-valor {
+        font-size: 0.9rem;
+    }
+
+    .module-shell:not(.is-sidebar-collapsed) .setor-percentual {
+        font-size: 0.8rem;
+    }
+
+    .module-shell:not(.is-sidebar-collapsed) .dashboard-margem-resumo-card p {
+        font-size: clamp(1.05rem, 0.95rem + 0.7vw, 1.35rem);
+    }
+}
+
+@media (min-width: 981px) and (max-width: 1420px) {
+    .dashboard-margem-analitico {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-margem-resumo {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .setor-row {
+        grid-template-columns: minmax(92px, auto) minmax(0, 1fr) minmax(110px, auto) minmax(42px, auto);
+    }
+}
+
 @media (max-width: 980px) {
     .dashboard-margem-grid {
         grid-template-columns: 1fr;
+    }
+
+    .dashboard-margem-analitico {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-margem-resumo {
+        grid-template-columns: 1fr;
+    }
+
+    .setor-row {
+        grid-template-columns: minmax(84px, auto) minmax(0, 1fr) minmax(88px, auto) minmax(42px, auto);
+    }
+}
+
+@media (max-width: 620px) {
+    .setor-row {
+        gap: 0.35rem;
+    }
+
+    .setor-label {
+        font-size: 0.7rem;
+    }
+
+    .setor-valor {
+        font-size: 0.86rem;
+    }
+
+    .setor-percentual {
+        font-size: 0.8rem;
+    }
+
+    .dashboard-margem-resumo-card p {
+        font-size: 1.4rem;
     }
 }
