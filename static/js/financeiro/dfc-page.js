@@ -112,20 +112,111 @@
     var receitaEl = document.getElementById("dfc-kpi-receita");
     var despesaEl = document.getElementById("dfc-kpi-despesa");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
+    var nomesMeses = [
+        "Janeiro", "Fevereiro", "Mar\u00e7o", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+    ];
+
+    function toText(valor) {
+        if (valor === null || valor === undefined) return "";
+        return String(valor).trim();
+    }
+
+    function normalizeText(valor) {
+        return toText(valor)
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function formatTextoOuVazio(valor) {
+        return toText(valor) || "(Vazio)";
+    }
+
+    function ordenarTexto(a, b) {
+        return String(a.label || "").localeCompare(String(b.label || ""), "pt-BR", {
+            sensitivity: "base",
+            numeric: true,
+        });
+    }
+
+    function ensureFilterColumns(section) {
+        if (!section) return null;
+
+        var left = section.querySelector('[data-module-filter-column="left"]')
+            || section.querySelector("#dfc-filtros-coluna-esquerda");
+        var right = section.querySelector('[data-module-filter-column="right"]')
+            || section.querySelector("#dfc-filtros-coluna-direita");
+
+        if (left && right) {
+            return {left: left, right: right};
+        }
+
+        var wrapper = section.querySelector(".module-filter-columns");
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.className = "module-filter-columns";
+            section.appendChild(wrapper);
+        }
+
+        if (!left) {
+            left = document.createElement("div");
+            left.className = "module-filter-column";
+            left.setAttribute("data-module-filter-column", "left");
+            left.id = "dfc-filtros-coluna-esquerda";
+            wrapper.appendChild(left);
+        }
+
+        if (!right) {
+            right = document.createElement("div");
+            right.className = "module-filter-column";
+            right.setAttribute("data-module-filter-column", "right");
+            right.id = "dfc-filtros-coluna-direita";
+            wrapper.appendChild(right);
+        }
+
+        return {left: left, right: right};
+    }
+
+    function mesLabel(valor) {
+        var mes = Number(valor || 0);
+        if (!mes || mes < 1 || mes > 12) return "(Vazio)";
+        return nomesMeses[mes - 1];
+    }
 
     function normalizarTipo(item) {
         var valor = Number(item.valor_liquido || 0);
         if (valor > 0) return "receita";
         if (valor < 0) return "despesa";
 
-        var tipoMovimento = (item.tipo_movimento || "").toLowerCase();
+        var tipoMovimento = normalizeText(item.tipo_movimento || "");
         if (tipoMovimento.includes("receita")) return "receita";
         if (tipoMovimento.includes("despesa")) return "despesa";
 
-        var tipo = (item.operacao_descricao || "").toLowerCase();
+        var tipo = normalizeText(item.operacao_descricao || "");
         if (tipo.includes("receita")) return "receita";
         if (tipo.includes("despesa")) return "despesa";
         return "";
+    }
+
+    function tipoLancamentoLabel(item) {
+        var tipo = normalizarTipo(item);
+        if (tipo === "receita") return "Receita";
+        if (tipo === "despesa") return "Despesa";
+        return "(Vazio)";
+    }
+
+    function tituloTipoLabel(item) {
+        var codigo = toText(item && item.titulo_codigo);
+        var descricao = toText(item && item.titulo_descricao);
+        if (codigo && descricao) return codigo + " - " + descricao;
+        return codigo || descricao || "";
+    }
+
+    function tipoOperacaoLabel(item) {
+        var descricao = toText(item && item.operacao_descricao);
+        var codigo = toText(item && item.operacao_codigo);
+        return descricao || codigo || "";
     }
 
     function atualizarDashboard(linhas) {
@@ -141,6 +232,155 @@
 
         if (receitaEl) receitaEl.textContent = totalReceita ? formatadorMoeda.format(totalReceita) : "R$ -";
         if (despesaEl) despesaEl.textContent = totalDespesa ? formatadorMoeda.format(Math.abs(totalDespesa)) : "R$ -";
+    }
+
+    function criarDefinicoesFiltrosDfc() {
+        return [
+            {
+                key: "receita_despesa",
+                label: "Receita/Despesa",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return tipoLancamentoLabel(rowData);
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: function (a, b) {
+                    var ordem = {"Receita": 0, "Despesa": 1, "(Vazio)": 2};
+                    var ordemA = Object.prototype.hasOwnProperty.call(ordem, a.label) ? ordem[a.label] : 99;
+                    var ordemB = Object.prototype.hasOwnProperty.call(ordem, b.label) ? ordem[b.label] : 99;
+                    if (ordemA !== ordemB) return ordemA - ordemB;
+                    return ordenarTexto(a, b);
+                },
+            },
+            {
+                key: "empresa_nome",
+                label: "Empresa",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.empresa_nome : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "ano_negociacao",
+                label: "Ano",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.ano_negociacao : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: function (a, b) {
+                    return Number(b.value || 0) - Number(a.value || 0);
+                },
+            },
+            {
+                key: "mes_negociacao",
+                label: "M\u00eas",
+                singleSelect: true,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.mes_negociacao : "";
+                },
+                formatValue: mesLabel,
+                sortOptions: function (a, b) {
+                    return Number(a.value || 0) - Number(b.value || 0);
+                },
+            },
+            {
+                key: "tipo_titulo",
+                label: "Tipo de T\u00edtulo",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return tituloTipoLabel(rowData);
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "centro_resultado",
+                label: "Centro de Resultado",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.centro_resultado_descricao : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "tipo_operacao",
+                label: "Tipo de Opera\u00e7\u00e3o",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return tipoOperacaoLabel(rowData);
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "tipo_movimento",
+                label: "Tipo de Movimento",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.tipo_movimento : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+        ];
+    }
+
+    function configurarFiltrosExternos(tabela, registros, secFiltros) {
+        if (!tabela || !secFiltros || !window.ModuleFilterCore) return null;
+
+        secFiltros.dataset.moduleFiltersManual = "true";
+        var placeholderFiltros = secFiltros.querySelector(".module-filters-placeholder");
+        if (placeholderFiltros) placeholderFiltros.remove();
+
+        var filtroColumns = ensureFilterColumns(secFiltros);
+        if (!filtroColumns || !filtroColumns.left || !filtroColumns.right) return null;
+
+        var filtrosExternos = window.ModuleFilterCore.create({
+            data: registros,
+            definitions: criarDefinicoesFiltrosDfc(),
+            leftColumn: filtroColumns.left,
+            rightColumn: filtroColumns.right,
+            onChange: function () {
+                if (typeof tabela.refreshFilter === "function") {
+                    tabela.refreshFilter();
+                }
+            },
+        });
+
+        tabela.addFilter(function (rowData) {
+            return filtrosExternos.matchesRecord(rowData);
+        });
+
+        return {secFiltros: secFiltros, filtrosExternos: filtrosExternos};
+    }
+
+    function registrarAcaoLimparFiltros(tabela, secFiltros, filtrosExternos) {
+        if (!tabela || !secFiltros || !filtrosExternos) return;
+
+        function limparTodosFiltros() {
+            if (typeof filtrosExternos.clearAllFilters === "function") {
+                filtrosExternos.clearAllFilters();
+            }
+            if (typeof tabela.clearHeaderFilter === "function") {
+                tabela.clearHeaderFilter();
+            }
+            if (typeof tabela.refreshFilter === "function") {
+                tabela.refreshFilter();
+            }
+        }
+
+        var limparFiltrosSidebarBtn = secFiltros.querySelector(".module-filters-clear-all");
+        var limparFiltrosToolbarBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
+        if (limparFiltrosSidebarBtn) {
+            limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltros);
+        }
+        if (limparFiltrosToolbarBtn) {
+            limparFiltrosToolbarBtn.addEventListener("click", limparTodosFiltros);
+        }
     }
 
     if (!tabelaTarget || !window.Tabulator || !window.TabulatorDefaults) {
@@ -183,6 +423,11 @@
         },
     });
 
+    var secFiltros = document.getElementById("sec-filtros");
+    if (secFiltros) {
+        secFiltros.dataset.moduleFiltersAuto = "off";
+    }
+
     var tabela = window.TabulatorDefaults.create("#dfc-tabulator", {
         data: data,
         columns: colunas,
@@ -190,6 +435,11 @@
             enabled: true,
         },
     });
+
+    var filtrosConfig = configurarFiltrosExternos(tabela, data, secFiltros);
+    if (filtrosConfig) {
+        registrarAcaoLimparFiltros(tabela, filtrosConfig.secFiltros, filtrosConfig.filtrosExternos);
+    }
 
     function atualizarDashboardComTabela() {
         var linhasAtivas = tabela.getData("active");

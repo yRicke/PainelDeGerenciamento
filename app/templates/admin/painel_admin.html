@@ -15,6 +15,7 @@
 <section class="panel admin-panel">
     <h2>Empresas</h2>
 
+    {% if pode_cadastrar_empresa %}
     <section class="panel admin-subpanel">
         <h3>Cadastrar Empresa</h3>
         <form
@@ -33,6 +34,7 @@
             <button type="submit" class="btn-primary">Cadastrar</button>
         </form>
     </section>
+    {% endif %}
 
     <section class="panel admin-subpanel">
         <h3>Empresas Cadastradas</h3>

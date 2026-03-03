@@ -113,6 +113,24 @@ class UsuarioModelTest(TestCase):
         )
         self.assertEqual(usuario.permissoes.count(), 0)
 
+    def test_criar_usuario_staff(self):
+        usuario = Usuario.criar_usuario(
+            username="usuario_staff",
+            password="senha123",
+            empresa=self.empresa,
+            is_staff=True,
+        )
+        self.assertTrue(usuario.is_staff)
+
+    def test_atualizar_usuario_is_staff(self):
+        self.assertFalse(self.usuario.is_staff)
+        self.usuario.atualizar_usuario(is_staff=True)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.is_staff)
+        self.usuario.atualizar_usuario(is_staff=False)
+        self.usuario.refresh_from_db()
+        self.assertFalse(self.usuario.is_staff)
+
 class ColaboradorModelTest(TestCase):
     def setUp(self):
         self.empresa = Empresa.criar_empresa(nome="Empresa Teste")
@@ -406,6 +424,145 @@ class TofuAtividadePermissaoViewTest(TestCase):
             item for item in response.context["atividades_tabulator"] if item["id"] == self.atividade.id
         )
         self.assertNotIn("editar_url", atividade_item)
+
+
+class AdminStaffIsolamentoEmpresaTest(TestCase):
+    def setUp(self):
+        self.empresa_a = Empresa.criar_empresa(nome="Empresa A")
+        self.empresa_b = Empresa.criar_empresa(nome="Empresa B")
+        self.permissao_a = Permissao.objects.create(nome="Permissao A")
+        self.permissao_b = Permissao.objects.create(nome="Permissao B")
+
+        self.staff_a = Usuario.criar_usuario(
+            username="staff_empresa_a",
+            password="senha123",
+            empresa=self.empresa_a,
+            is_staff=True,
+        )
+        self.usuario_b = Usuario.criar_usuario(
+            username="usuario_empresa_b",
+            password="senha123",
+            empresa=self.empresa_b,
+        )
+
+    def test_painel_admin_lista_apenas_empresa_do_staff(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(reverse("painel_admin"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Empresa A")
+        self.assertNotContains(response, "Empresa B")
+
+    def test_staff_nao_acessa_usuarios_permissoes_de_outra_empresa(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(
+            reverse("usuarios_permissoes", kwargs={"empresa_id": self.empresa_b.id})
+        )
+
+        self.assertRedirects(response, reverse("painel_admin"))
+
+    def test_staff_nao_edita_usuario_de_outra_empresa(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.post(
+            reverse("editar_usuario", kwargs={"usuario_id": self.usuario_b.id}),
+            {"nome": "novo_nome_invalido", "senha": "", "is_staff": "on"},
+        )
+
+        self.assertRedirects(response, reverse("painel_admin"))
+        self.usuario_b.refresh_from_db()
+        self.assertEqual(self.usuario_b.username, "usuario_empresa_b")
+        self.assertFalse(self.usuario_b.is_staff)
+
+    def test_staff_nao_exclui_usuario_de_outra_empresa(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(
+            reverse("excluir_usuario", kwargs={"usuario_id": self.usuario_b.id})
+        )
+
+        self.assertRedirects(response, reverse("painel_admin"))
+        self.assertTrue(Usuario.objects.filter(id=self.usuario_b.id).exists())
+
+    def test_staff_nao_acessa_modulo_de_outra_empresa(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(reverse("dre", kwargs={"empresa_id": self.empresa_b.id}))
+
+        self.assertRedirects(response, reverse("index"))
+
+    def test_staff_nao_remove_proprio_staff(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.post(
+            reverse("editar_usuario", kwargs={"usuario_id": self.staff_a.id}),
+            {"nome": self.staff_a.username, "senha": ""},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("usuarios_permissoes", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+        self.staff_a.refresh_from_db()
+        self.assertTrue(self.staff_a.is_staff)
+
+    def test_cadastro_staff_define_todas_permissoes(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+        permissoes_ids_existentes = set(Permissao.objects.values_list("id", flat=True))
+
+        response = self.client.post(
+            reverse("cadastrar_usuario", kwargs={"empresa_id": self.empresa_a.id}),
+            {
+                "nome": "novo_staff_empresa_a",
+                "senha": "senha123",
+                "is_staff": "on",
+                "permissoes": [str(self.permissao_a.id)],
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("usuarios_permissoes", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+        novo_staff = Usuario.objects.get(username="novo_staff_empresa_a")
+        self.assertTrue(novo_staff.is_staff)
+        self.assertSetEqual(
+            set(novo_staff.permissoes.values_list("id", flat=True)),
+            permissoes_ids_existentes,
+        )
+
+    def test_edicao_para_staff_define_todas_permissoes(self):
+        usuario_alvo = Usuario.criar_usuario(
+            username="alvo_empresa_a",
+            password="senha123",
+            empresa=self.empresa_a,
+            permissoes=[self.permissao_a],
+        )
+        self.client.login(username=self.staff_a.username, password="senha123")
+        permissoes_ids_existentes = set(Permissao.objects.values_list("id", flat=True))
+
+        response = self.client.post(
+            reverse("editar_usuario", kwargs={"usuario_id": usuario_alvo.id}),
+            {
+                "nome": usuario_alvo.username,
+                "senha": "",
+                "is_staff": "on",
+                "permissoes": [str(self.permissao_a.id)],
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("usuarios_permissoes", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+        usuario_alvo.refresh_from_db()
+        self.assertTrue(usuario_alvo.is_staff)
+        self.assertSetEqual(
+            set(usuario_alvo.permissoes.values_list("id", flat=True)),
+            permissoes_ids_existentes,
+        )
 
 
 class CidadeModelTest(TestCase):

@@ -292,7 +292,7 @@
             {
                 key: "gerente",
                 label: "Gerente",
-                singleSelect: true,
+                singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.gerente : "";
                 },

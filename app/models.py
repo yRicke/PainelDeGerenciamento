@@ -52,11 +52,12 @@ class Usuario(AbstractUser):
         return f"{self.username} ({self.empresa})"
 
     @classmethod
-    def criar_usuario(cls, username, password, empresa, permissoes=None):
+    def criar_usuario(cls, username, password, empresa, permissoes=None, is_staff=False):
         usuario = cls.objects.create_user(
             username=username,
             password=password,
             empresa=empresa,
+            is_staff=bool(is_staff),
         )
         if permissoes:
             usuario.permissoes.set(permissoes)
@@ -66,11 +67,13 @@ class Usuario(AbstractUser):
     def listar_usuarios_por_empresa(cls, empresa):
         return cls.objects.filter(empresa=empresa)
 
-    def atualizar_usuario(self, username=None, password=None, permissoes=None):
+    def atualizar_usuario(self, username=None, password=None, permissoes=None, is_staff=UNSET):
         if username:
             self.username = username
         if password:
             self.set_password(password)
+        if is_staff is not UNSET:
+            self.is_staff = bool(is_staff)
         self.save()
         if permissoes is not None:
             self.permissoes.set(permissoes)

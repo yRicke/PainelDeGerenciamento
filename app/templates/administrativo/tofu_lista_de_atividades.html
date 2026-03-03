@@ -102,42 +102,60 @@
 
 <section id="sec-dashboard" class="panel module-section">
     <h2>Dashboard</h2>
-    <p><strong>Total de atividades:</strong> {{ dashboard.total_atividades }}</p>
+    <div class="dashboard-total-card" role="status" aria-live="polite">
+        <p class="dashboard-total-label">Total de atividades</p>
+        <p class="dashboard-total-value" id="dashboard-total-atividades">{{ dashboard.total_atividades }}</p>
+    </div>
     <div class="dashboard-grid">
-        <article class="dashboard-card">
-            <h3><span class="dashboard-card-icon" aria-hidden="true">&#9888;</span> Atrasados</h3>
-            <p>Total: {{ dashboard.atrasados.total }}</p>
-            <p>Parados: {{ dashboard.atrasados.parados }}</p>
-            <p>Em andamento: {{ dashboard.atrasados.em_andamento }}</p>
-            <p>% do total: {{ dashboard.atrasados.percentual }}%</p>
+        <article class="dashboard-card dashboard-card--atrasados">
+            <div class="dashboard-card-head">
+                <h3><span class="dashboard-card-icon" aria-hidden="true">&#9888;</span> Atrasados</h3>
+                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-atrasados-percentual">{{ dashboard.atrasados.percentual }}%</strong></p>
+            </div>
+            <div class="dashboard-card-lines">
+                <p><span>Total</span><strong id="dashboard-atrasados-total">{{ dashboard.atrasados.total }}</strong></p>
+                <p><span>Parados</span><strong id="dashboard-atrasados-parados">{{ dashboard.atrasados.parados }}</strong></p>
+                <p><span>Em andamento</span><strong id="dashboard-atrasados-em-andamento">{{ dashboard.atrasados.em_andamento }}</strong></p>
+            </div>
         </article>
 
-        <article class="dashboard-card">
-            <h3><span class="dashboard-card-icon" aria-hidden="true">&#128276;</span> Alertas</h3>
-            <p>Total: {{ dashboard.alertas.total }}</p>
-            <p>Semana atual: {{ dashboard.alertas.semana_atual }}</p>
-            <p>Próxima semana: {{ dashboard.alertas.proxima_semana }}</p>
-            <p>% do total: {{ dashboard.alertas.percentual }}%</p>
+        <article class="dashboard-card dashboard-card--alertas">
+            <div class="dashboard-card-head">
+                <h3><span class="dashboard-card-icon" aria-hidden="true">&#128276;</span> Alertas</h3>
+                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-alertas-percentual">{{ dashboard.alertas.percentual }}%</strong></p>
+            </div>
+            <div class="dashboard-card-lines">
+                <p><span>Total</span><strong id="dashboard-alertas-total">{{ dashboard.alertas.total }}</strong></p>
+                <p><span>Semana atual</span><strong id="dashboard-alertas-semana-atual">{{ dashboard.alertas.semana_atual }}</strong></p>
+                <p><span>Pr&oacute;xima semana</span><strong id="dashboard-alertas-proxima-semana">{{ dashboard.alertas.proxima_semana }}</strong></p>
+            </div>
         </article>
 
-        <article class="dashboard-card">
-            <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Concluídos</h3>
-            <p>Total: {{ dashboard.concluidos.total }}</p>
-            <p>No prazo: {{ dashboard.concluidos.no_prazo }}</p>
-            <p>Fora do prazo: {{ dashboard.concluidos.fora_do_prazo }}</p>
-            <p>% do total: {{ dashboard.concluidos.percentual }}%</p>
+        <article class="dashboard-card dashboard-card--concluidos">
+            <div class="dashboard-card-head">
+                <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Conclu&iacute;dos</h3>
+                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-concluidos-percentual">{{ dashboard.concluidos.percentual }}%</strong></p>
+            </div>
+            <div class="dashboard-card-lines">
+                <p><span>Total</span><strong id="dashboard-concluidos-total">{{ dashboard.concluidos.total }}</strong></p>
+                <p><span>No prazo</span><strong id="dashboard-concluidos-no-prazo">{{ dashboard.concluidos.no_prazo }}</strong></p>
+                <p><span>Fora do prazo</span><strong id="dashboard-concluidos-fora-do-prazo">{{ dashboard.concluidos.fora_do_prazo }}</strong></p>
+            </div>
         </article>
 
-        <article class="dashboard-card">
-            <h3><span class="dashboard-card-icon" aria-hidden="true">&#9203;</span> A Fazer</h3>
-            <p>Total: {{ dashboard.a_fazer.total }}</p>
-            <p>Parados: {{ dashboard.a_fazer.parados }}</p>
-            <p>Em andamento: {{ dashboard.a_fazer.em_andamento }}</p>
-            <p>% do total: {{ dashboard.a_fazer.percentual }}%</p>
+        <article class="dashboard-card dashboard-card--a-fazer">
+            <div class="dashboard-card-head">
+                <h3><span class="dashboard-card-icon" aria-hidden="true">&#9203;</span> A Fazer</h3>
+                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-a-fazer-percentual">{{ dashboard.a_fazer.percentual }}%</strong></p>
+            </div>
+            <div class="dashboard-card-lines">
+                <p><span>Total</span><strong id="dashboard-a-fazer-total">{{ dashboard.a_fazer.total }}</strong></p>
+                <p><span>Parados</span><strong id="dashboard-a-fazer-parados">{{ dashboard.a_fazer.parados }}</strong></p>
+                <p><span>Em andamento</span><strong id="dashboard-a-fazer-em-andamento">{{ dashboard.a_fazer.em_andamento }}</strong></p>
+            </div>
         </article>
     </div>
 </section>
-
 <section id="sec-visualizacao" class="panel module-section">
     <h2>Atividades Cadastradas</h2>
 

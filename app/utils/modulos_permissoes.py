@@ -98,6 +98,14 @@ def _usuario_tem_permissao_modulo(usuario, nome_permissao):
     return _normalizar_nome_permissao(nome_permissao) in permissoes_usuario
 
 
+def _usuario_tem_acesso_empresa(usuario, empresa):
+    if not usuario or not empresa:
+        return False
+    if usuario.is_superuser:
+        return True
+    return bool(getattr(usuario, "empresa_id", None) and usuario.empresa_id == empresa.id)
+
+
 def _modulos_com_acesso(usuario, area):
     modulos = MODULOS_POR_AREA[area]
 
@@ -150,9 +158,15 @@ def _render_modulo_com_permissao(request, empresa_id, nome_permissao, template_p
         messages.error(request, "Empresa nao encontrada.")
         return redirect("index")
 
-    mesma_empresa = request.user.empresa_id == empresa.id
+    mesma_empresa = _usuario_tem_acesso_empresa(request.user, empresa)
     tem_permissao = _usuario_tem_permissao_modulo(request.user, nome_permissao)
-    if not ((mesma_empresa and tem_permissao) or request.user.is_staff or request.user.is_superuser):
+    if request.user.is_superuser:
+        autorizado = True
+    elif request.user.is_staff:
+        autorizado = mesma_empresa
+    else:
+        autorizado = mesma_empresa and tem_permissao
+    if not autorizado:
         messages.error(request, "Voce nao tem permissao para acessar esta pagina.")
         return redirect("index")
 
@@ -170,9 +184,15 @@ def _obter_empresa_e_validar_permissao_modulo(request, empresa_id, nome_permissa
         messages.error(request, "Empresa nao encontrada.")
         return None, False
 
-    mesma_empresa = request.user.empresa_id == empresa.id
+    mesma_empresa = _usuario_tem_acesso_empresa(request.user, empresa)
     tem_permissao = _usuario_tem_permissao_modulo(request.user, nome_permissao)
-    if not ((mesma_empresa and tem_permissao) or request.user.is_staff or request.user.is_superuser):
+    if request.user.is_superuser:
+        autorizado = True
+    elif request.user.is_staff:
+        autorizado = mesma_empresa
+    else:
+        autorizado = mesma_empresa and tem_permissao
+    if not autorizado:
         messages.error(request, "Voce nao tem permissao para acessar esta pagina.")
         return None, False
 

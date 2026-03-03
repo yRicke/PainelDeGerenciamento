@@ -31,6 +31,7 @@ from .models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    Permissao,
     ParametroMargemAdministracao,
     ParametroMargemFinanceiro,
     ParametroMargemLogistica,
@@ -220,23 +221,43 @@ def excluir_empresa_por_id(empresa_id):
     return True, "Empresa excluida com sucesso!"
 
 
+def _valor_checkbox_ativo(post_data, campo):
+    return str(post_data.get(campo, "")).strip().lower() in {"1", "true", "on", "sim", "yes"}
+
+
 def criar_usuario_por_post(empresa, post_data, permissoes):
     nome = post_data.get("nome")
     senha = post_data.get("senha")
+    is_staff = _valor_checkbox_ativo(post_data, "is_staff")
+    permissoes_usuario = list(Permissao.objects.all()) if is_staff else permissoes
     Usuario.criar_usuario(
         empresa=empresa,
         username=nome,
         password=senha,
-        permissoes=permissoes,
+        permissoes=permissoes_usuario,
+        is_staff=is_staff,
     )
 
 
-def atualizar_usuario_por_post(usuario, post_data, permissoes):
+def atualizar_usuario_por_post(usuario, post_data, permissoes, usuario_logado=None):
+    is_staff = _valor_checkbox_ativo(post_data, "is_staff")
+    if (
+        usuario_logado
+        and usuario_logado.id == usuario.id
+        and usuario_logado.is_staff
+        and not usuario_logado.is_superuser
+        and not is_staff
+    ):
+        return "Usuario staff nao pode remover o proprio acesso staff."
+
+    permissoes_usuario = list(Permissao.objects.all()) if is_staff else permissoes
     usuario.atualizar_usuario(
         username=post_data.get("nome"),
         password=post_data.get("senha"),
-        permissoes=permissoes,
+        permissoes=permissoes_usuario,
+        is_staff=is_staff,
     )
+    return ""
 
 
 def excluir_usuario_por_id(usuario_id):
@@ -244,7 +265,7 @@ def excluir_usuario_por_id(usuario_id):
         usuario = Usuario.objects.get(id=usuario_id)
     except Usuario.DoesNotExist as exc:
         return False, None, f"Usuario nao encontrado. {exc}"
-    empresa_id = usuario.empresa.id
+    empresa_id = usuario.empresa_id
     usuario.excluir_usuario()
     return True, empresa_id, "Usuario excluido com sucesso!"
 

@@ -127,6 +127,18 @@ body {
     white-space: nowrap;
 }
 
+.nav-user-info {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #d5dfeb;
+    border-radius: 8px;
+    padding: 0.45rem 0.7rem;
+    color: #44566c;
+    background: #f7faff;
+    white-space: nowrap;
+    font-size: 0.92rem;
+}
+
 .nav-links a:hover,
 .login-link:hover,
 .logout-link:hover {
@@ -547,7 +559,8 @@ textarea:focus-visible {
     }
 
     .nav-links a,
-    .nav-auth-link {
+    .nav-auth-link,
+    .nav-user-info {
         width: 100%;
         justify-content: flex-start;
         min-height: 40px;

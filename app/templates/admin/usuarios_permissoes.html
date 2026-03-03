@@ -20,6 +20,7 @@
         <form
             action="{% url 'cadastrar_usuario' empresa.id %}"
             method="POST"
+            class="js-user-form"
             data-confirm-submit
             data-confirm-message="Confirma o cadastro deste usuario?"
         >
@@ -29,8 +30,12 @@
                 <input type="text" name="nome" placeholder="Nome de Usuario" required>
                 <input type="password" name="senha" placeholder="Senha" required>
             </div>
+            <label class="permission-item">
+                <input type="checkbox" name="is_staff" class="js-staff-toggle">
+                <span>Usuario staff (acesso ao painel admin)</span>
+            </label>
 
-            <div class="permissions-grid">
+            <div class="permissions-grid js-permissions-grid">
                 {% for modulo, permissoes in permissoes_por_modulo %}
                 <fieldset class="permissions-card">
                     <legend>{{ modulo }}</legend>
@@ -60,7 +65,7 @@
                 <form
                     action="{% url 'editar_usuario' usuario.id %}"
                     method="POST"
-                    class="user-card"
+                    class="user-card js-user-form"
                     data-confirm-submit
                     data-confirm-message="Confirma salvar as alteracoes deste usuario?"
                 >
@@ -70,8 +75,12 @@
                         <input type="text" name="nome" value="{{ usuario.username }}" required>
                         <input type="password" name="senha" placeholder="Nova senha (opcional)">
                     </div>
+                    <label class="permission-item">
+                        <input type="checkbox" name="is_staff" class="js-staff-toggle" {% if usuario.is_staff %}checked{% endif %}>
+                        <span>Usuario staff (acesso ao painel admin)</span>
+                    </label>
 
-                    <div class="permissions-grid">
+                    <div class="permissions-grid js-permissions-grid">
                         {% for modulo, permissoes in permissoes_por_modulo %}
                         <fieldset class="permissions-card">
                             <legend>{{ modulo }}</legend>
@@ -114,4 +123,5 @@
 
 {% block extra_js %}
 <script src="{% static 'js/admin/admin-confirmacoes.js' %}"></script>
+<script src="{% static 'js/admin/usuarios-permissoes.js' %}"></script>
 {% endblock %}

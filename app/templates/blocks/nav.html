@@ -24,6 +24,7 @@
             <a class="{% if request.path|slice:':7' == '/admin/' %}is-active{% endif %}" {% if request.path|slice:':7' == '/admin/' %}aria-current="page"{% endif %} href="{% url 'painel_admin' %}">Admin</a>
             {% endif %}
         </nav>
+        <span class="nav-user-info" title="Usuario logado">Logado como: {{ user.username }}</span>
         <a class="logout-link nav-auth-link" href="{% url 'sair' %}">Sair</a>
         {% else %}
         <a class="login-link nav-auth-link" href="{% url 'entrar' %}">Entrar</a>
