@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import zipfile
@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 import unicodedata
 
 from django.db import transaction
+from django.utils import timezone
 
 from ..models import Carteira, Cidade, ControleMargem, PedidoPendente, Parceiro, Regiao, Rota, Venda
 from .controle_margem_regras import (
@@ -208,6 +209,39 @@ def _excel_date(valor):
     return (datetime(1899, 12, 30) + timedelta(days=serial)).date()
 
 
+def _normalizar_ultima_venda_carteira(valor):
+    data = _excel_date(valor)
+    if data == date(2000, 1, 1):
+        return None
+    return data
+
+
+def _dias_sem_venda_carteira(ultima_venda):
+    if not ultima_venda:
+        return 0
+    dias = (timezone.localdate() - ultima_venda).days
+    return max(0, int(dias))
+
+
+def _intervalo_carteira(ultima_venda):
+    if not ultima_venda:
+        return Carteira.INTERVALO_SEM_VENDA
+    dias = _dias_sem_venda_carteira(ultima_venda)
+    if dias <= 5:
+        return Carteira.INTERVALO_0_5
+    if dias <= 30:
+        return Carteira.INTERVALO_6_30
+    if dias <= 60:
+        return Carteira.INTERVALO_31_60
+    if dias <= 90:
+        return Carteira.INTERVALO_61_90
+    if dias <= 120:
+        return Carteira.INTERVALO_91_120
+    if dias <= 180:
+        return Carteira.INTERVALO_121_180
+    return Carteira.INTERVALO_180_MAIS
+
+
 def _normalizar_nome_coluna(valor: str) -> str:
     texto = _normalizar_texto(valor).lower()
     texto = unicodedata.normalize("NFKD", texto)
@@ -384,7 +418,6 @@ def importar_carteira_do_diretorio(
                     regiao = _regiao_por_codigo(empresa, codigo_regiao, nome_regiao)
                     cache_regioes[codigo_regiao] = regiao
 
-            intervalo_str = _normalizar_texto(registro.get("Intervalo p/ análise de crédito"))
             valor_data_cadastro = _obter_primeiro_valor(
                 registro,
                 [
@@ -397,6 +430,7 @@ def importar_carteira_do_diretorio(
                 ],
             )
             data_cadastro = _excel_date(valor_data_cadastro)
+            ultima_venda = _normalizar_ultima_venda_carteira(registro.get("Última venda [SAFIA]"))
             objetos.append(
                 Carteira(
                     empresa=empresa,
@@ -404,9 +438,9 @@ def importar_carteira_do_diretorio(
                     cidade=cidade,
                     valor_faturado=_to_decimal(registro.get("Vlr. Faturado")),
                     limite_credito=_to_decimal(registro.get("Limite de crédito")),
-                    ultima_venda=_excel_date(registro.get("Última venda [SAFIA]")),
-                    qtd_dias_sem_venda=_to_int(intervalo_str),
-                    intervalo=intervalo_str,
+                    ultima_venda=ultima_venda,
+                    qtd_dias_sem_venda=_dias_sem_venda_carteira(ultima_venda),
+                    intervalo=_intervalo_carteira(ultima_venda),
                     data_cadastro=data_cadastro or datetime.today().date(),
                     gerente=_normalizar_texto(registro.get("Gerente")),
                     vendedor=_normalizar_texto(registro.get("Apelido (Vendedor)")),

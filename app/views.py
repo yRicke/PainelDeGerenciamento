@@ -2454,8 +2454,6 @@ def carteira(request, empresa_id):
             "valor_faturado_num",
             "limite_credito_num",
             "ultima_venda",
-            "qtd_dias_sem_venda",
-            "intervalo",
             "descricao_perfil",
             "ativo_indicador",
             "cliente_indicador",

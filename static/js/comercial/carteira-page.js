@@ -365,6 +365,117 @@
         return numerador / denominador;
     }
 
+    function formatTextoOuVazio(valor) {
+        var texto = String(valor || "").trim();
+        return texto || "(Vazio)";
+    }
+
+    function formatBooleanOuVazio(valor) {
+        if (valor === true) return "Sim";
+        if (valor === false) return "Nao";
+        return "(Vazio)";
+    }
+
+    function ordenarTexto(a, b) {
+        return String(a.label || "").localeCompare(String(b.label || ""), "pt-BR", {
+            sensitivity: "base",
+            numeric: true,
+        });
+    }
+
+    function ordenarBooleanSimNao(a, b) {
+        var ordem = {"Sim": 0, "Nao": 1, "(Vazio)": 2};
+        var ordemA = Object.prototype.hasOwnProperty.call(ordem, a.label) ? ordem[a.label] : 99;
+        var ordemB = Object.prototype.hasOwnProperty.call(ordem, b.label) ? ordem[b.label] : 99;
+        if (ordemA !== ordemB) return ordemA - ordemB;
+        return ordenarTexto(a, b);
+    }
+
+    function classificarIntervaloDiasSemVenda(valorDias) {
+        if (typeof valorDias === "string") {
+            var texto = valorDias.trim().toLowerCase();
+            if (!texto) return "";
+            if (texto === "sem venda") return "Sem venda";
+            if (texto === "180+" || texto === "180 +" || texto === "180 ou mais") return "180+";
+            if (/^\d+\s*a\s*\d+$/.test(texto)) {
+                return texto.replace(/\s+/g, " ").replace("a", " a ").replace(/\s+/g, " ").trim();
+            }
+            var numeroTexto = Number(texto.replace(",", "."));
+            if (!Number.isNaN(numeroTexto)) {
+                valorDias = numeroTexto;
+            } else {
+                return "";
+            }
+        }
+
+        if (typeof valorDias !== "number" || !Number.isFinite(valorDias) || valorDias < 0) {
+            return "";
+        }
+        if (valorDias <= 5) return "0 a 5";
+        if (valorDias <= 30) return "6 a 30";
+        if (valorDias <= 60) return "31 a 60";
+        if (valorDias <= 90) return "61 a 90";
+        if (valorDias <= 120) return "91 a 120";
+        if (valorDias <= 180) return "121 a 180";
+        return "180+";
+    }
+
+    function ordenarIntervaloSemVenda(a, b) {
+        var ordem = {
+            "0 a 5": 0,
+            "6 a 30": 1,
+            "31 a 60": 2,
+            "61 a 90": 3,
+            "91 a 120": 4,
+            "121 a 180": 5,
+            "180+": 6,
+            "Sem venda": 7,
+            "(Vazio)": 8,
+        };
+        var ordemA = Object.prototype.hasOwnProperty.call(ordem, a.label) ? ordem[a.label] : 99;
+        var ordemB = Object.prototype.hasOwnProperty.call(ordem, b.label) ? ordem[b.label] : 99;
+        if (ordemA !== ordemB) return ordemA - ordemB;
+        return ordenarTexto(a, b);
+    }
+
+    function ensureFilterColumns(section) {
+        if (!section) return null;
+
+        var left = section.querySelector('[data-module-filter-column="left"]')
+            || section.querySelector("#carteira-filtros-coluna-esquerda");
+        var right = section.querySelector('[data-module-filter-column="right"]')
+            || section.querySelector("#carteira-filtros-coluna-direita");
+
+        if (left && right) {
+            return {left: left, right: right};
+        }
+
+        var wrapper = section.querySelector(".module-filter-columns");
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.className = "module-filter-columns";
+            section.appendChild(wrapper);
+        }
+
+        if (!left) {
+            left = document.createElement("div");
+            left.className = "module-filter-column";
+            left.setAttribute("data-module-filter-column", "left");
+            left.id = "carteira-filtros-coluna-esquerda";
+            wrapper.appendChild(left);
+        }
+
+        if (!right) {
+            right = document.createElement("div");
+            right.className = "module-filter-column";
+            right.setAttribute("data-module-filter-column", "right");
+            right.id = "carteira-filtros-coluna-direita";
+            wrapper.appendChild(right);
+        }
+
+        return {left: left, right: right};
+    }
+
     function obterLinhasAtivasTabela() {
         var linhasAtivas = tabela.getData("active");
         if (!Array.isArray(linhasAtivas)) {
@@ -474,10 +585,141 @@
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
 
+    var secFiltros = document.getElementById("sec-filtros");
+    if (secFiltros) {
+        secFiltros.dataset.moduleFiltersAuto = "off";
+    }
+
     var tabela = window.TabulatorDefaults.create("#carteira-tabulator", {
         data: data,
         columns: colunas,
     });
+    var filtrosExternos = null;
+
+    if (window.ModuleFilterCore && secFiltros) {
+        secFiltros.dataset.moduleFiltersManual = "true";
+        var placeholderFiltros = secFiltros.querySelector(".module-filters-placeholder");
+        if (placeholderFiltros) placeholderFiltros.remove();
+
+        var filtroColumns = ensureFilterColumns(secFiltros);
+        if (filtroColumns && filtroColumns.left && filtroColumns.right) {
+            filtrosExternos = window.ModuleFilterCore.create({
+                data: data,
+                definitions: [
+                    {
+                        key: "gerente",
+                        label: "Gerente",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.gerente : ""; },
+                        formatValue: formatTextoOuVazio,
+                        sortOptions: ordenarTexto,
+                    },
+                    {
+                        key: "vendedor",
+                        label: "Vendedor",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.vendedor : ""; },
+                        formatValue: formatTextoOuVazio,
+                        sortOptions: ordenarTexto,
+                    },
+                    {
+                        key: "ativo_indicador",
+                        label: "Ativo",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.ativo_indicador : ""; },
+                        formatValue: formatBooleanOuVazio,
+                        sortOptions: ordenarBooleanSimNao,
+                    },
+                    {
+                        key: "cliente_indicador",
+                        label: "Cliente",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.cliente_indicador : ""; },
+                        formatValue: formatBooleanOuVazio,
+                        sortOptions: ordenarBooleanSimNao,
+                    },
+                    {
+                        key: "fornecedor_indicador",
+                        label: "Fornecedor",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.fornecedor_indicador : ""; },
+                        formatValue: formatBooleanOuVazio,
+                        sortOptions: ordenarBooleanSimNao,
+                    },
+                    {
+                        key: "transporte_indicador",
+                        label: "Transportadora",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.transporte_indicador : ""; },
+                        formatValue: formatBooleanOuVazio,
+                        sortOptions: ordenarBooleanSimNao,
+                    },
+                    {
+                        key: "intervalo",
+                        label: "Intervalo",
+                        singleSelect: true,
+                        extractValue: function (rowData) {
+                            if (!rowData) return "";
+                            if (rowData.intervalo) return classificarIntervaloDiasSemVenda(rowData.intervalo);
+                            return classificarIntervaloDiasSemVenda(rowData.qtd_dias_sem_venda);
+                        },
+                        formatValue: formatTextoOuVazio,
+                        sortOptions: ordenarIntervaloSemVenda,
+                    },
+                    {
+                        key: "descricao_perfil",
+                        label: "Descricao (Perfil)",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.descricao_perfil : ""; },
+                        formatValue: formatTextoOuVazio,
+                        sortOptions: ordenarTexto,
+                    },
+                    {
+                        key: "ano_cadastro",
+                        label: "Ano Cadastro",
+                        singleSelect: true,
+                        extractValue: function (rowData) { return rowData ? rowData.ano_cadastro : ""; },
+                        formatValue: formatTextoOuVazio,
+                        sortOptions: function (a, b) {
+                            return Number(b.value || 0) - Number(a.value || 0);
+                        },
+                    },
+                ],
+                leftColumn: filtroColumns.left,
+                rightColumn: filtroColumns.right,
+                onChange: function () {
+                    if (typeof tabela.refreshFilter === "function") {
+                        tabela.refreshFilter();
+                    }
+                },
+            });
+
+            tabela.addFilter(function (rowData) {
+                return filtrosExternos.matchesRecord(rowData);
+            });
+        }
+    }
+
+    function limparTodosFiltros() {
+        if (filtrosExternos && typeof filtrosExternos.clearAllFilters === "function") {
+            filtrosExternos.clearAllFilters();
+        }
+        if (typeof tabela.clearHeaderFilter === "function") {
+            tabela.clearHeaderFilter();
+        }
+        if (typeof tabela.refreshFilter === "function") {
+            tabela.refreshFilter();
+        }
+    }
+
+    var limparFiltrosSidebarBtn = secFiltros ? secFiltros.querySelector(".module-filters-clear-all") : null;
+    var limparFiltrosToolbarBtn = document.querySelector(".module-shell-main-toolbar .module-shell-clear-filters");
+    if (limparFiltrosSidebarBtn) {
+        limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltros);
+    }
+    if (limparFiltrosToolbarBtn) {
+        limparFiltrosToolbarBtn.addEventListener("click", limparTodosFiltros);
+    }
 
     ["tableBuilt", "dataLoaded", "renderComplete", "dataFiltered"].forEach(function (eventName) {
         tabela.on(eventName, atualizarDashboardComDadosVisiveis);

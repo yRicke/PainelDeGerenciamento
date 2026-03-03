@@ -82,9 +82,45 @@ def build_atividades_tabulator(atividades_qs, empresa_id: int, usuario_logado=No
 
 
 def build_carteiras_tabulator(carteiras_qs, empresa_id: int, permitir_edicao: bool = True):
+    hoje = timezone.localdate()
+    intervalo_labels = {
+        "sem_venda": "Sem venda",
+        "0_5": "0 a 5",
+        "6_30": "6 a 30",
+        "31_60": "31 a 60",
+        "61_90": "61 a 90",
+        "91_120": "91 a 120",
+        "121_180": "121 a 180",
+        "180_mais": "180+",
+    }
+
+    def _dias_sem_venda(ultima_venda):
+        if not ultima_venda:
+            return intervalo_labels["sem_venda"]
+        dias = (hoje - ultima_venda).days
+        return max(0, int(dias))
+
+    def _intervalo_carteira(dias_sem_venda):
+        if isinstance(dias_sem_venda, str):
+            return intervalo_labels["sem_venda"]
+        if dias_sem_venda <= 5:
+            return intervalo_labels["0_5"]
+        if dias_sem_venda <= 30:
+            return intervalo_labels["6_30"]
+        if dias_sem_venda <= 60:
+            return intervalo_labels["31_60"]
+        if dias_sem_venda <= 90:
+            return intervalo_labels["61_90"]
+        if dias_sem_venda <= 120:
+            return intervalo_labels["91_120"]
+        if dias_sem_venda <= 180:
+            return intervalo_labels["121_180"]
+        return intervalo_labels["180_mais"]
+
     resultado = []
     for carteira_item in carteiras_qs:
         data_cadastro = carteira_item.get("data_cadastro")
+        dias_sem_venda = _dias_sem_venda(carteira_item.get("ultima_venda"))
         resultado.append(
             {
                 "id": carteira_item.get("id"),
@@ -95,8 +131,8 @@ def build_carteiras_tabulator(carteiras_qs, empresa_id: int, permitir_edicao: bo
                 "valor_faturado": float(carteira_item.get("valor_faturado_num") or 0),
                 "limite_credito": float(carteira_item.get("limite_credito_num") or 0),
                 "ultima_venda": _fmt_date_br(carteira_item.get("ultima_venda")),
-                "qtd_dias_sem_venda": carteira_item.get("qtd_dias_sem_venda") or 0,
-                "intervalo": carteira_item.get("intervalo") or "",
+                "qtd_dias_sem_venda": dias_sem_venda,
+                "intervalo": _intervalo_carteira(dias_sem_venda),
                 "descricao_perfil": carteira_item.get("descricao_perfil") or "",
                 "ativo_indicador": bool(carteira_item.get("ativo_indicador")),
                 "cliente_indicador": bool(carteira_item.get("cliente_indicador")),

@@ -507,6 +507,22 @@ class CarteiraModelTest(TestCase):
         self.carteira.excluir_carteira()
         self.assertFalse(Carteira.objects.filter(id=self.carteira.id).exists())
 
+    def test_dias_sem_venda_sem_ultima_venda(self):
+        self.carteira.ultima_venda = None
+        self.carteira.save()
+        self.assertEqual(self.carteira.dias_sem_venda, "Sem venda")
+        self.assertEqual(self.carteira.Intervalo, "Sem venda")
+        self.assertEqual(self.carteira.qtd_dias_sem_venda, 0)
+        self.assertEqual(self.carteira.intervalo, "Sem venda")
+
+    def test_intervalo_calculado_por_ultima_venda(self):
+        self.carteira.ultima_venda = timezone.localdate() - timedelta(days=45)
+        self.carteira.save()
+        self.assertEqual(self.carteira.dias_sem_venda, 45)
+        self.assertEqual(self.carteira.Intervalo, "31 a 60")
+        self.assertEqual(self.carteira.qtd_dias_sem_venda, 45)
+        self.assertEqual(self.carteira.intervalo, "31 a 60")
+
 
 class VendaModelTest(TestCase):
     def setUp(self):

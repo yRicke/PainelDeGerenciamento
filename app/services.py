@@ -1308,8 +1308,6 @@ def _dados_carteira_from_post(post_data, empresa):
         "valor_faturado": _parse_decimal_ou_zero(post_data.get("valor_faturado")),
         "limite_credito": _parse_decimal_ou_zero(post_data.get("limite_credito")),
         "ultima_venda": _parse_date_ou_none(post_data.get("ultima_venda")),
-        "qtd_dias_sem_venda": _parse_int_ou_zero(post_data.get("qtd_dias_sem_venda")),
-        "intervalo": (post_data.get("intervalo") or "").strip(),
         "data_cadastro": data_cadastro,
         "gerente": (post_data.get("gerente") or "").strip(),
         "vendedor": (post_data.get("vendedor") or "").strip(),
@@ -1741,9 +1739,7 @@ def _dados_estoque_from_post(post_data, empresa):
         "qtd_estoque": qtd_estoque,
         "giro_mensal": _parse_decimal_ou_zero(post_data.get("giro_mensal")),
         "lead_time_fornecimento": _parse_decimal_ou_zero(post_data.get("lead_time_fornecimento")),
-        "codigo_volume": (
-            (post_data.get("codigo_volume") or post_data.get("codigo_voume") or "").strip()
-        ),
+        "codigo_volume": (post_data.get("codigo_volume") or "").strip(),
         "custo_total": _parse_decimal_ou_zero(post_data.get("custo_total")),
         "reservado": reservado,
         "pacote_por_fardo": pacote_por_fardo,

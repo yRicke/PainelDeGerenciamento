@@ -90,6 +90,14 @@
                 <input type="date" name="ultima_venda" value="{% if carteira.ultima_venda %}{{ carteira.ultima_venda|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
+                <label>Dias sem venda (calculado)</label>
+                <input type="text" value="{{ carteira.dias_sem_venda }}" readonly>
+            </div>
+            <div>
+                <label>Intervalo (calculado)</label>
+                <input type="text" value="{{ carteira.Intervalo }}" readonly>
+            </div>
+            <div>
                 <label>Data de cadastramento</label>
                 <input type="date" name="data_cadastro" value="{{ carteira.data_cadastro|date:'Y-m-d' }}" required>
             </div>
@@ -100,14 +108,6 @@
             <div>
                 <label>Limite credito</label>
                 <input type="text" name="limite_credito" value="{{ carteira.limite_credito }}">
-            </div>
-            <div>
-                <label>Dias sem venda</label>
-                <input type="number" min="0" name="qtd_dias_sem_venda" value="{{ carteira.qtd_dias_sem_venda }}">
-            </div>
-            <div>
-                <label>Intervalo</label>
-                <input type="text" name="intervalo" value="{{ carteira.intervalo }}">
             </div>
             <div>
                 <label>Gerente</label>

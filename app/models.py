@@ -1111,9 +1111,57 @@ class Carteira(models.Model):
     fornecedor_indicador = models.BooleanField(default=False)
     transporte_indicador = models.BooleanField(default=False)
 
+    INTERVALO_0_5 = "0 a 5"
+    INTERVALO_6_30 = "6 a 30"
+    INTERVALO_31_60 = "31 a 60"
+    INTERVALO_61_90 = "61 a 90"
+    INTERVALO_91_120 = "91 a 120"
+    INTERVALO_121_180 = "121 a 180"
+    INTERVALO_180_MAIS = "180+"
+    INTERVALO_SEM_VENDA = "Sem venda"
+
     def __str__(self):
         parceiro_nome = self.parceiro.nome if self.parceiro else "Sem parceiro"
         return f"Carteira #{self.id} - {parceiro_nome}"
+
+    @property
+    def dias_sem_venda(self):
+        if not self.ultima_venda:
+            return self.INTERVALO_SEM_VENDA
+        dias = (timezone.localdate() - self.ultima_venda).days
+        return max(0, int(dias))
+
+    @property
+    def intervalo_calculado(self):
+        dias = self.dias_sem_venda
+        if isinstance(dias, str):
+            return self.INTERVALO_SEM_VENDA
+        if dias <= 5:
+            return self.INTERVALO_0_5
+        if dias <= 30:
+            return self.INTERVALO_6_30
+        if dias <= 60:
+            return self.INTERVALO_31_60
+        if dias <= 90:
+            return self.INTERVALO_61_90
+        if dias <= 120:
+            return self.INTERVALO_91_120
+        if dias <= 180:
+            return self.INTERVALO_121_180
+        return self.INTERVALO_180_MAIS
+
+    @property
+    def Intervalo(self):
+        return self.intervalo_calculado
+
+    def _sincronizar_campos_dias_intervalo(self):
+        dias = self.dias_sem_venda
+        self.qtd_dias_sem_venda = 0 if isinstance(dias, str) else int(dias)
+        self.intervalo = self.intervalo_calculado
+
+    def save(self, *args, **kwargs):
+        self._sincronizar_campos_dias_intervalo()
+        return super().save(*args, **kwargs)
     
     @classmethod
     def criar_carteira(
@@ -1788,7 +1836,7 @@ class Estoque(models.Model):
     qtd_estoque = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     giro_mensal = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     lead_time_fornecimento = models.DecimalField(max_digits=18, decimal_places=3, default=0)
-    codigo_volume = models.CharField(max_length=20, blank=True, default="", db_column="codigo_voume")
+    codigo_volume = models.CharField(max_length=20, blank=True, default="")
     custo_total = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     reservado = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     pacote_por_fardo = models.DecimalField(max_digits=18, decimal_places=3, default=0)
@@ -1929,15 +1977,6 @@ class Estoque(models.Model):
 
     def excluir_estoque(self):
         self.delete()
-
-    @property
-    def codigo_voume(self):
-        return self.codigo_volume
-
-    @codigo_voume.setter
-    def codigo_voume(self, value):
-        self.codigo_volume = value
-
 
 class Titulo(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="titulos")
