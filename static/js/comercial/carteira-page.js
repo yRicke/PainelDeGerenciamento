@@ -609,7 +609,7 @@
                     {
                         key: "gerente",
                         label: "Gerente",
-                        singleSelect: true,
+                        singleSelect: false,
                         extractValue: function (rowData) { return rowData ? rowData.gerente : ""; },
                         formatValue: formatTextoOuVazio,
                         sortOptions: ordenarTexto,
@@ -617,7 +617,7 @@
                     {
                         key: "vendedor",
                         label: "Vendedor",
-                        singleSelect: true,
+                        singleSelect: false,
                         extractValue: function (rowData) { return rowData ? rowData.vendedor : ""; },
                         formatValue: formatTextoOuVazio,
                         sortOptions: ordenarTexto,
@@ -657,7 +657,7 @@
                     {
                         key: "intervalo",
                         label: "Intervalo",
-                        singleSelect: true,
+                        singleSelect: false,
                         extractValue: function (rowData) {
                             if (!rowData) return "";
                             if (rowData.intervalo) return classificarIntervaloDiasSemVenda(rowData.intervalo);
@@ -669,7 +669,7 @@
                     {
                         key: "descricao_perfil",
                         label: "Descricao (Perfil)",
-                        singleSelect: true,
+                        singleSelect: false,
                         extractValue: function (rowData) { return rowData ? rowData.descricao_perfil : ""; },
                         formatValue: formatTextoOuVazio,
                         sortOptions: ordenarTexto,
