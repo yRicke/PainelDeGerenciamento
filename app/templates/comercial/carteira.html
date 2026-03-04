@@ -11,200 +11,234 @@
 
 {% block content %}
 {% now "Y-m-d" as hoje_iso %}
-<section class="page-hero">
-    <a href="{% url 'comercial' %}">Voltar</a>
-    <h1>Carteira</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegacao de secoes da Carteira">
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Comercial</span>
+            </div>
+            <h1>Carteira</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Carteira">
+            <div class="module-hero-import-head">
+                <h2>Importacao de Carteira</h2>
+                <span class="module-hero-import-badge">.xlsx</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form
+                id="upload-carteira-form"
+                class="upload-form"
+                method="post"
+                enctype="multipart/form-data"
+                data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
+            >
+                {% csrf_token %}
+                <input type="file" id="arquivo-carteira-input" name="arquivo_carteira" accept=".xlsx" hidden>
+                <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+
+                <div id="dropzone-carteira" class="dropzone">
+                    <strong>Arraste e solte o arquivo aqui</strong>
+                    <span>ou clique para selecionar um arquivo <code>.xlsx</code>.</span>
+                </div>
+
+                <div class="upload-actions">
+                    <button type="submit" class="upload-button">Enviar e importar</button>
+                    <span id="nome-arquivo-selecionado" class="file-status"></span>
+                </div>
+
+                <div id="carteira-loading-status" class="loading-status">
+                    Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+                </div>
+            </form>
+        </section>
+    </div>
+</section>
+
+<div id="carteira-module-shell" class="module-shell">
+    <aside id="carteira-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="carteira-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="carteira-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="carteira-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes da Carteira">
+                {% if not bloquear_cadastro_edicao_importacao %}
+                <a href="#sec-cadastro">Cadastro</a>
+                {% endif %}
+                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
         {% if not bloquear_cadastro_edicao_importacao %}
-        <a href="#sec-cadastro">Cadastro</a>
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Nova Carteira (Cadastro Manual)</h2>
+            <p class="form-note">Cadastre os dados principais da carteira e marque os indicadores aplicaveis.</p>
+            <form action="{% url 'carteira' empresa.id %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="criar_carteira">
+
+                <div class="form-grid">
+                    <div>
+                        <label>Parceiro</label>
+                        <select name="parceiro_id" required>
+                            <option value="">-</option>
+                            {% for parceiro in parceiros %}
+                            <option value="{{ parceiro.id }}">{{ parceiro.nome }} ({{ parceiro.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Regiao</label>
+                        <select name="regiao_id">
+                            <option value="">-</option>
+                            {% for regiao in regioes %}
+                            <option value="{{ regiao.id }}">{{ regiao.nome }} ({{ regiao.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Cidade</label>
+                        <select name="cidade_id">
+                            <option value="">-</option>
+                            {% for cidade in cidades %}
+                            <option value="{{ cidade.id }}">{{ cidade.nome }} ({{ cidade.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Ultima venda</label>
+                        <input type="date" name="ultima_venda">
+                    </div>
+                    <div>
+                        <label>Data de cadastramento</label>
+                        <input type="date" name="data_cadastro" value="{{ hoje_iso }}" required>
+                    </div>
+                    <div>
+                        <label>Valor faturado</label>
+                        <input type="text" name="valor_faturado" placeholder="0,00">
+                    </div>
+                    <div>
+                        <label>Limite credito</label>
+                        <input type="text" name="limite_credito" placeholder="0,00">
+                    </div>
+                    <div>
+                        <label>Gerente</label>
+                        <input type="text" name="gerente">
+                    </div>
+                    <div>
+                        <label>Vendedor</label>
+                        <input type="text" name="vendedor">
+                    </div>
+                    <div>
+                        <label>Descricao perfil</label>
+                        <input type="text" name="descricao_perfil">
+                    </div>
+                    <div class="checkbox-group indicadores-grid">
+                        <label><input type="checkbox" name="ativo_indicador" checked> Ativo</label>
+                        <label><input type="checkbox" name="cliente_indicador"> Cliente</label>
+                        <label><input type="checkbox" name="fornecedor_indicador"> Fornecedor</label>
+                        <label><input type="checkbox" name="transporte_indicador"> Transportadora</label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
         {% endif %}
-        <a href="#sec-importacao">Importacao</a>
-        <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualizacao</a>
-    </nav>
-</section>
 
-{% if not bloquear_cadastro_edicao_importacao %}
-<section id="sec-cadastro" class="panel module-section">
-    <h2>Nova Carteira (Cadastro Manual)</h2>
-    <p class="form-note">Cadastre os dados principais da carteira e marque os indicadores aplicaveis.</p>
-    <form action="{% url 'carteira' empresa.id %}" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="criar_carteira">
-
-        <div class="form-grid">
-            <div>
-                <label>Parceiro</label>
-                <select name="parceiro_id" required>
-                    <option value="">-</option>
-                    {% for parceiro in parceiros %}
-                    <option value="{{ parceiro.id }}">{{ parceiro.nome }} ({{ parceiro.codigo }})</option>
-                    {% endfor %}
-                </select>
+        <section id="sec-dashboard" class="panel module-section">
+            <div class="dashboard-header">
+                <h2>Grafico da Carteira</h2>
             </div>
-            <div>
-                <label>Regiao</label>
-                <select name="regiao_id">
-                    <option value="">-</option>
-                    {% for regiao in regioes %}
-                    <option value="{{ regiao.id }}">{{ regiao.nome }} ({{ regiao.codigo }})</option>
-                    {% endfor %}
-                </select>
+            <div id="carteira-dashboard-chart"></div>
+        </section>
+
+        <section class="panel module-section">
+            <h2>Resumo da Carteira</h2>
+            <div class="kpi-grid">
+                <article class="kpi-card">
+                    <h3>Total Carteira</h3>
+                    <dl class="kpi-list">
+                        <div><dt>Qtd. Total</dt><dd id="kpi-total-carteira-qtd-total">{{ dashboard_resumo_total_carteira.qtd_total }}</dd></div>
+                        <div><dt>Positivacao</dt><dd id="kpi-total-carteira-positivacao">{{ dashboard_resumo_total_carteira.positivacao }}</dd></div>
+                        <div><dt>Limite de Credito</dt><dd id="kpi-total-carteira-limite">{{ dashboard_resumo_total_carteira.limite_credito }}</dd></div>
+                        <div><dt>Total Faturamento</dt><dd id="kpi-total-carteira-faturamento">{{ dashboard_resumo_total_carteira.total_faturamento }}</dd></div>
+                        <div><dt>Media</dt><dd id="kpi-total-carteira-media">{{ dashboard_resumo_total_carteira.media_limite }}</dd></div>
+                        <div><dt>Media Faturamento</dt><dd id="kpi-total-carteira-media-faturamento">{{ dashboard_resumo_total_carteira.media_faturamento }}</dd></div>
+                        <div><dt>PULGA</dt><dd id="kpi-total-carteira-pulga">{{ dashboard_resumo_total_carteira.pulga }}</dd></div>
+                    </dl>
+                </article>
+                <article class="kpi-card">
+                    <h3>Total Real</h3>
+                    <dl class="kpi-list">
+                        <div><dt>Qtd. Total</dt><dd id="kpi-total-real-qtd-total">{{ dashboard_resumo_total_real.qtd_total }}</dd></div>
+                        <div><dt>Positivacao</dt><dd id="kpi-total-real-positivacao">{{ dashboard_resumo_total_real.positivacao }}</dd></div>
+                        <div><dt>Limite de Credito</dt><dd id="kpi-total-real-limite">{{ dashboard_resumo_total_real.limite_credito }}</dd></div>
+                        <div><dt>Total Faturamento</dt><dd id="kpi-total-real-faturamento">{{ dashboard_resumo_total_real.total_faturamento }}</dd></div>
+                        <div><dt>Media</dt><dd id="kpi-total-real-media">{{ dashboard_resumo_total_real.media_limite }}</dd></div>
+                        <div><dt>Media Faturamento</dt><dd id="kpi-total-real-media-faturamento">{{ dashboard_resumo_total_real.media_faturamento }}</dd></div>
+                        <div><dt>PULGA</dt><dd id="kpi-total-real-pulga">{{ dashboard_resumo_total_real.pulga }}</dd></div>
+                    </dl>
+                </article>
             </div>
-            <div>
-                <label>Cidade</label>
-                <select name="cidade_id">
-                    <option value="">-</option>
-                    {% for cidade in cidades %}
-                    <option value="{{ cidade.id }}">{{ cidade.nome }} ({{ cidade.codigo }})</option>
-                    {% endfor %}
-                </select>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Dados da Carteira</h2>
+            <div class="table-wrapper">
+                <div id="carteira-tabulator"></div>
             </div>
-            <div>
-                <label>Ultima venda</label>
-                <input type="date" name="ultima_venda">
-            </div>
-            <div>
-                <label>Data de cadastramento</label>
-                <input type="date" name="data_cadastro" value="{{ hoje_iso }}" required>
-            </div>
-            <div>
-                <label>Valor faturado</label>
-                <input type="text" name="valor_faturado" placeholder="0,00">
-            </div>
-            <div>
-                <label>Limite credito</label>
-                <input type="text" name="limite_credito" placeholder="0,00">
-            </div>
-            <div>
-                <label>Gerente</label>
-                <input type="text" name="gerente">
-            </div>
-            <div>
-                <label>Vendedor</label>
-                <input type="text" name="vendedor">
-            </div>
-            <div>
-                <label>Descricao perfil</label>
-                <input type="text" name="descricao_perfil">
-            </div>
-            <div class="checkbox-group indicadores-grid">
-                <label><input type="checkbox" name="ativo_indicador" checked> Ativo</label>
-                <label><input type="checkbox" name="cliente_indicador"> Cliente</label>
-                <label><input type="checkbox" name="fornecedor_indicador"> Fornecedor</label>
-                <label><input type="checkbox" name="transporte_indicador"> Transportadora</label>
-            </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Cadastrar</button>
-        </div>
-    </form>
-</section>
-{% endif %}
-
-<section id="sec-importacao" class="panel module-section">
-    <h2>Importacao de Carteira</h2>
-
-    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
-
-    {% if resumo_importacao.tem_arquivos %}
-
-    <div class="importacao-resumo">
-
-        <p class="file-status">
-
-            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
-
-            <span class="importacao-resumo-sep">|</span>
-
-            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
-
-        </p>
-
-        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
-
+        </section>
     </div>
-
-    {% else %}
-
-    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
-
-    {% endif %}
-
-    <form
-        id="upload-carteira-form"
-        class="upload-form"
-        method="post"
-        enctype="multipart/form-data"
-        data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
-    >
-        {% csrf_token %}
-        <input type="file" id="arquivo-carteira-input" name="arquivo_carteira" accept=".xlsx" hidden>
-        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
-
-        <div id="dropzone-carteira" class="dropzone">
-            <strong>Arraste e solte o arquivo aqui</strong>
-            <span>ou clique para selecionar um arquivo <code>.xlsx</code>.</span>
-        </div>
-
-        <div class="upload-actions">
-            <button type="submit" class="upload-button">Enviar e importar</button>
-            <span id="nome-arquivo-selecionado" class="file-status"></span>
-        </div>
-
-        <div id="carteira-loading-status" class="loading-status">
-            Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
-        </div>
-    </form>
-</section>
-
-<section id="sec-dashboard" class="panel module-section">
-    <div class="dashboard-header">
-        <h2>Grafico da Carteira</h2>
-    </div>
-    <div id="carteira-dashboard-chart"></div>
-</section>
-
-<section class="panel module-section">
-    <h2>Resumo da Carteira</h2>
-    <div class="kpi-grid">
-        <article class="kpi-card">
-            <h3>Total Carteira</h3>
-            <dl class="kpi-list">
-                <div><dt>Qtd. Total</dt><dd id="kpi-total-carteira-qtd-total">{{ dashboard_resumo_total_carteira.qtd_total }}</dd></div>
-                <div><dt>Positivacao</dt><dd id="kpi-total-carteira-positivacao">{{ dashboard_resumo_total_carteira.positivacao }}</dd></div>
-                <div><dt>Limite de Credito</dt><dd id="kpi-total-carteira-limite">{{ dashboard_resumo_total_carteira.limite_credito }}</dd></div>
-                <div><dt>Total Faturamento</dt><dd id="kpi-total-carteira-faturamento">{{ dashboard_resumo_total_carteira.total_faturamento }}</dd></div>
-                <div><dt>Media</dt><dd id="kpi-total-carteira-media">{{ dashboard_resumo_total_carteira.media_limite }}</dd></div>
-                <div><dt>Media Faturamento</dt><dd id="kpi-total-carteira-media-faturamento">{{ dashboard_resumo_total_carteira.media_faturamento }}</dd></div>
-                <div><dt>PULGA</dt><dd id="kpi-total-carteira-pulga">{{ dashboard_resumo_total_carteira.pulga }}</dd></div>
-            </dl>
-        </article>
-        <article class="kpi-card">
-            <h3>Total Real</h3>
-            <dl class="kpi-list">
-                <div><dt>Qtd. Total</dt><dd id="kpi-total-real-qtd-total">{{ dashboard_resumo_total_real.qtd_total }}</dd></div>
-                <div><dt>Positivacao</dt><dd id="kpi-total-real-positivacao">{{ dashboard_resumo_total_real.positivacao }}</dd></div>
-                <div><dt>Limite de Credito</dt><dd id="kpi-total-real-limite">{{ dashboard_resumo_total_real.limite_credito }}</dd></div>
-                <div><dt>Total Faturamento</dt><dd id="kpi-total-real-faturamento">{{ dashboard_resumo_total_real.total_faturamento }}</dd></div>
-                <div><dt>Media</dt><dd id="kpi-total-real-media">{{ dashboard_resumo_total_real.media_limite }}</dd></div>
-                <div><dt>Media Faturamento</dt><dd id="kpi-total-real-media-faturamento">{{ dashboard_resumo_total_real.media_faturamento }}</dd></div>
-                <div><dt>PULGA</dt><dd id="kpi-total-real-pulga">{{ dashboard_resumo_total_real.pulga }}</dd></div>
-            </dl>
-        </article>
-    </div>
-</section>
-
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Dados da Carteira</h2>
-
-
-
-    <div class="table-wrapper">
-        <div id="carteira-tabulator"></div>
-    </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -213,4 +247,3 @@
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/comercial/carteira-page.js' %}"></script>
 {% endblock %}
-

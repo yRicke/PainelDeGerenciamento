@@ -10,160 +10,206 @@
 {% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'administrativo' %}">Voltar</a>
-    <h1>TOFU Lista de Atividades</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegação de seções do TOFU">
-        <a href="#sec-cadastro">Cadastro</a>
-        <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualização</a>
-    </nav>
-</section>
-
-<section id="sec-cadastro" class="panel module-section">
-    <h2>Nova Atividade</h2>
-    <form action="{% url 'criar_atividade_tofu' empresa.id %}" method="POST" data-atividade-form>
-        {% csrf_token %}
-        <div class="form-grid">
-            <div>
-                <label>Projeto</label>
-                <select name="projeto_id" required>
-                    <option value="">Selecione</option>
-                    {% for projeto in projetos %}
-                    <option value="{{ projeto.id }}">{{ projeto.nome }} ({{ projeto.codigo|default:"-" }})</option>
-                    {% endfor %}
-                </select>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Administrativo</span>
             </div>
-
-            <div>
-                <label>Gestor</label>
-                <select name="gestor_id">
-                    <option value="">-</option>
-                    {% for colaborador in colaboradores %}
-                    <option value="{{ colaborador.id }}">{{ colaborador.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label>Responsável</label>
-                <select name="responsavel_id">
-                    <option value="">-</option>
-                    {% for colaborador in colaboradores %}
-                    <option value="{{ colaborador.id }}">{{ colaborador.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label>Interlocutor</label>
-                <input type="text" name="interlocutor">
-            </div>
-
-            <div>
-                <label>Prazo (semana)</label>
-                <input type="week" name="semana_de_prazo" data-semana-prazo>
-            </div>
-
-            <div>
-                <label>Prev. Início</label>
-                <input type="date" name="data_previsao_inicio" readonly data-data-previsao-inicio>
-            </div>
-
-            <div>
-                <label>Prev. Término</label>
-                <input type="date" name="data_previsao_termino" readonly data-data-previsao-termino>
-            </div>
-
-            <div>
-                <label>Data Finalizada</label>
-                <input type="date" name="data_finalizada" data-data-finalizada>
-            </div>
-
-            <div>
-                <label>Progresso (%)</label>
-                <input type="number" name="progresso" min="0" max="100" value="0" required data-progresso>
-            </div>
-
-            <div class="full">
-                <label>Histórico</label>
-                <textarea name="historico"></textarea>
-            </div>
-
-            <div class="full">
-                <label>Tarefa</label>
-                <textarea name="tarefa"></textarea>
-            </div>
+            <h1>TOFU Lista de Atividades</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
         </div>
-        <button type="submit" class="btn-primary">Criar atividade</button>
-    </form>
-</section>
-
-<section id="sec-dashboard" class="panel module-section">
-    <h2>Dashboard</h2>
-    <div class="dashboard-total-card" role="status" aria-live="polite">
-        <p class="dashboard-total-label">Total de atividades</p>
-        <p class="dashboard-total-value" id="dashboard-total-atividades">{{ dashboard.total_atividades }}</p>
-    </div>
-    <div class="dashboard-grid">
-        <article class="dashboard-card dashboard-card--atrasados">
-            <div class="dashboard-card-head">
-                <h3><span class="dashboard-card-icon" aria-hidden="true">&#9888;</span> Atrasados</h3>
-                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-atrasados-percentual">{{ dashboard.atrasados.percentual }}%</strong></p>
-            </div>
-            <div class="dashboard-card-lines">
-                <p><span>Total</span><strong id="dashboard-atrasados-total">{{ dashboard.atrasados.total }}</strong></p>
-                <p><span>Parados</span><strong id="dashboard-atrasados-parados">{{ dashboard.atrasados.parados }}</strong></p>
-                <p><span>Em andamento</span><strong id="dashboard-atrasados-em-andamento">{{ dashboard.atrasados.em_andamento }}</strong></p>
-            </div>
-        </article>
-
-        <article class="dashboard-card dashboard-card--alertas">
-            <div class="dashboard-card-head">
-                <h3><span class="dashboard-card-icon" aria-hidden="true">&#128276;</span> Alertas</h3>
-                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-alertas-percentual">{{ dashboard.alertas.percentual }}%</strong></p>
-            </div>
-            <div class="dashboard-card-lines">
-                <p><span>Total</span><strong id="dashboard-alertas-total">{{ dashboard.alertas.total }}</strong></p>
-                <p><span>Semana atual</span><strong id="dashboard-alertas-semana-atual">{{ dashboard.alertas.semana_atual }}</strong></p>
-                <p><span>Pr&oacute;xima semana</span><strong id="dashboard-alertas-proxima-semana">{{ dashboard.alertas.proxima_semana }}</strong></p>
-            </div>
-        </article>
-
-        <article class="dashboard-card dashboard-card--concluidos">
-            <div class="dashboard-card-head">
-                <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Conclu&iacute;dos</h3>
-                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-concluidos-percentual">{{ dashboard.concluidos.percentual }}%</strong></p>
-            </div>
-            <div class="dashboard-card-lines">
-                <p><span>Total</span><strong id="dashboard-concluidos-total">{{ dashboard.concluidos.total }}</strong></p>
-                <p><span>No prazo</span><strong id="dashboard-concluidos-no-prazo">{{ dashboard.concluidos.no_prazo }}</strong></p>
-                <p><span>Fora do prazo</span><strong id="dashboard-concluidos-fora-do-prazo">{{ dashboard.concluidos.fora_do_prazo }}</strong></p>
-            </div>
-        </article>
-
-        <article class="dashboard-card dashboard-card--a-fazer">
-            <div class="dashboard-card-head">
-                <h3><span class="dashboard-card-icon" aria-hidden="true">&#9203;</span> A Fazer</h3>
-                <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-a-fazer-percentual">{{ dashboard.a_fazer.percentual }}%</strong></p>
-            </div>
-            <div class="dashboard-card-lines">
-                <p><span>Total</span><strong id="dashboard-a-fazer-total">{{ dashboard.a_fazer.total }}</strong></p>
-                <p><span>Parados</span><strong id="dashboard-a-fazer-parados">{{ dashboard.a_fazer.parados }}</strong></p>
-                <p><span>Em andamento</span><strong id="dashboard-a-fazer-em-andamento">{{ dashboard.a_fazer.em_andamento }}</strong></p>
-            </div>
-        </article>
     </div>
 </section>
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Atividades Cadastradas</h2>
 
+<div id="tofu-module-shell" class="module-shell">
+    <aside id="tofu-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="tofu-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="tofu-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
 
-    <div class="table-wrapper">
-        <div id="atividades-tabulator"></div>
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="tofu-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes do TOFU">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Nova Atividade</h2>
+            <form action="{% url 'criar_atividade_tofu' empresa.id %}" method="POST" data-atividade-form>
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Projeto</label>
+                        <select name="projeto_id" required>
+                            <option value="">Selecione</option>
+                            {% for projeto in projetos %}
+                            <option value="{{ projeto.id }}">{{ projeto.nome }} ({{ projeto.codigo|default:"-" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Gestor</label>
+                        <select name="gestor_id">
+                            <option value="">-</option>
+                            {% for colaborador in colaboradores %}
+                            <option value="{{ colaborador.id }}">{{ colaborador.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Responsavel</label>
+                        <select name="responsavel_id">
+                            <option value="">-</option>
+                            {% for colaborador in colaboradores %}
+                            <option value="{{ colaborador.id }}">{{ colaborador.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Interlocutor</label>
+                        <input type="text" name="interlocutor">
+                    </div>
+
+                    <div>
+                        <label>Prazo (semana)</label>
+                        <input type="week" name="semana_de_prazo" data-semana-prazo>
+                    </div>
+
+                    <div>
+                        <label>Prev. Inicio</label>
+                        <input type="date" name="data_previsao_inicio" readonly data-data-previsao-inicio>
+                    </div>
+
+                    <div>
+                        <label>Prev. Termino</label>
+                        <input type="date" name="data_previsao_termino" readonly data-data-previsao-termino>
+                    </div>
+
+                    <div>
+                        <label>Data Finalizada</label>
+                        <input type="date" name="data_finalizada" data-data-finalizada>
+                    </div>
+
+                    <div>
+                        <label>Progresso (%)</label>
+                        <input type="number" name="progresso" min="0" max="100" value="0" required data-progresso>
+                    </div>
+
+                    <div class="full">
+                        <label>Historico</label>
+                        <textarea name="historico"></textarea>
+                    </div>
+
+                    <div class="full">
+                        <label>Tarefa</label>
+                        <textarea name="tarefa"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Criar atividade</button>
+            </form>
+        </section>
+
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard</h2>
+            <div class="dashboard-total-card" role="status" aria-live="polite">
+                <p class="dashboard-total-label">Total de atividades</p>
+                <p class="dashboard-total-value" id="dashboard-total-atividades">{{ dashboard.total_atividades }}</p>
+            </div>
+            <div class="dashboard-grid">
+                <article class="dashboard-card dashboard-card--atrasados">
+                    <div class="dashboard-card-head">
+                        <h3><span class="dashboard-card-icon" aria-hidden="true">&#9888;</span> Atrasados</h3>
+                        <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-atrasados-percentual">{{ dashboard.atrasados.percentual }}%</strong></p>
+                    </div>
+                    <div class="dashboard-card-lines">
+                        <p><span>Total</span><strong id="dashboard-atrasados-total">{{ dashboard.atrasados.total }}</strong></p>
+                        <p><span>Parados</span><strong id="dashboard-atrasados-parados">{{ dashboard.atrasados.parados }}</strong></p>
+                        <p><span>Em andamento</span><strong id="dashboard-atrasados-em-andamento">{{ dashboard.atrasados.em_andamento }}</strong></p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card dashboard-card--alertas">
+                    <div class="dashboard-card-head">
+                        <h3><span class="dashboard-card-icon" aria-hidden="true">&#128276;</span> Alertas</h3>
+                        <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-alertas-percentual">{{ dashboard.alertas.percentual }}%</strong></p>
+                    </div>
+                    <div class="dashboard-card-lines">
+                        <p><span>Total</span><strong id="dashboard-alertas-total">{{ dashboard.alertas.total }}</strong></p>
+                        <p><span>Semana atual</span><strong id="dashboard-alertas-semana-atual">{{ dashboard.alertas.semana_atual }}</strong></p>
+                        <p><span>Proxima semana</span><strong id="dashboard-alertas-proxima-semana">{{ dashboard.alertas.proxima_semana }}</strong></p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card dashboard-card--concluidos">
+                    <div class="dashboard-card-head">
+                        <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Concluidos</h3>
+                        <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-concluidos-percentual">{{ dashboard.concluidos.percentual }}%</strong></p>
+                    </div>
+                    <div class="dashboard-card-lines">
+                        <p><span>Total</span><strong id="dashboard-concluidos-total">{{ dashboard.concluidos.total }}</strong></p>
+                        <p><span>No prazo</span><strong id="dashboard-concluidos-no-prazo">{{ dashboard.concluidos.no_prazo }}</strong></p>
+                        <p><span>Fora do prazo</span><strong id="dashboard-concluidos-fora-do-prazo">{{ dashboard.concluidos.fora_do_prazo }}</strong></p>
+                    </div>
+                </article>
+
+                <article class="dashboard-card dashboard-card--a-fazer">
+                    <div class="dashboard-card-head">
+                        <h3><span class="dashboard-card-icon" aria-hidden="true">&#9203;</span> A Fazer</h3>
+                        <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-a-fazer-percentual">{{ dashboard.a_fazer.percentual }}%</strong></p>
+                    </div>
+                    <div class="dashboard-card-lines">
+                        <p><span>Total</span><strong id="dashboard-a-fazer-total">{{ dashboard.a_fazer.total }}</strong></p>
+                        <p><span>Parados</span><strong id="dashboard-a-fazer-parados">{{ dashboard.a_fazer.parados }}</strong></p>
+                        <p><span>Em andamento</span><strong id="dashboard-a-fazer-em-andamento">{{ dashboard.a_fazer.em_andamento }}</strong></p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Atividades Cadastradas</h2>
+            <div class="table-wrapper">
+                <div id="atividades-tabulator"></div>
+            </div>
+        </section>
     </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -172,4 +218,3 @@
 <script src="{% static 'js/administrativo/tofu-atividade-form.js' %}"></script>
 <script src="{% static 'js/administrativo/tofu-lista-de-atividades.js' %}"></script>
 {% endblock %}
-

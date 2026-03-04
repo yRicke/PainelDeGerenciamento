@@ -11,69 +11,114 @@
 
 {% block content %}
 {% now "Y-m-d" as hoje_iso %}
-<section class="page-hero">
-    <a href="{% url 'pedidos_pendentes' empresa.id %}">Voltar para Pedidos Pendentes</a>
-    <h1>Agenda</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegação de seções da agenda">
-        <a href="#sec-cadastro">Cadastro</a>
-        <a href="#sec-visualizacao">Visualização</a>
-    </nav>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'pedidos_pendentes' empresa.id %}" class="module-hero-back-link">Voltar para Pedidos Pendentes</a>
+                <span class="module-hero-pill">Modulo Comercial</span>
+            </div>
+            <h1>Agenda</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, filtros e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section id="sec-cadastro" class="panel module-section">
-    <h2>Novo Registro de Agenda</h2>
-    <p class="form-note">Cadastre os dados para organizar previsões de carregamento.</p>
-    <form action="{% url 'agenda' empresa.id %}" method="post">
-        {% csrf_token %}
-        <div class="form-grid">
-            <div>
-                <label>Data registro</label>
-                <input type="date" name="data_registro" value="{{ hoje_iso }}" readonly>
+<div id="agenda-module-shell" class="module-shell">
+    <aside id="agenda-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <div>
-                <label>Número único</label>
-                <input type="text" name="numero_unico" value="{{ numero_unico_prefill }}" required>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div class="module-filter-column" data-module-filter-column="left"></div>
+                <div class="module-filter-column" data-module-filter-column="right"></div>
             </div>
-            <div>
-                <label>Previsão de carregamento</label>
-                <input type="date" name="previsao_carregamento" required>
-            </div>
-            <div class="field-with-action">
-                <div>
-                    <label>Motorista</label>
-                    <select name="motorista_id" required>
-                        <option value="">-</option>
-                        {% for item in motoristas %}
-                        <option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo_motorista }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <a class="btn-light" href="{% url 'motoristas' empresa.id %}" target="_blank" rel="noopener">Cadastrar motorista</a>
-            </div>
-            <div class="field-with-action">
-                <div>
-                    <label>Transportadora</label>
-                    <select name="transportadora_id" required>
-                        <option value="">-</option>
-                        {% for item in transportadoras %}
-                        <option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo_transportadora }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <a class="btn-light" href="{% url 'transportadoras' empresa.id %}" target="_blank" rel="noopener">Cadastrar transportadora</a>
-            </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Cadastrar</button>
-        </div>
-    </form>
-</section>
+        </section>
+    </aside>
 
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Registros de Agenda</h2>
-    <div class="table-wrapper"><div id="agenda-tabulator"></div></div>
-</section>
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="agenda-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes da agenda">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro de Agenda</h2>
+            <p class="form-note">Cadastre os dados para organizar previsoes de carregamento.</p>
+            <form action="{% url 'agenda' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Data registro</label>
+                        <input type="date" name="data_registro" value="{{ hoje_iso }}" readonly>
+                    </div>
+                    <div>
+                        <label>Numero unico</label>
+                        <input type="text" name="numero_unico" value="{{ numero_unico_prefill }}" required>
+                    </div>
+                    <div>
+                        <label>Previsao de carregamento</label>
+                        <input type="date" name="previsao_carregamento" required>
+                    </div>
+                    <div class="field-with-action">
+                        <div>
+                            <label>Motorista</label>
+                            <select name="motorista_id" required>
+                                <option value="">-</option>
+                                {% for item in motoristas %}
+                                <option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo_motorista }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <a class="btn-light" href="{% url 'motoristas' empresa.id %}" target="_blank" rel="noopener">Cadastrar motorista</a>
+                    </div>
+                    <div class="field-with-action">
+                        <div>
+                            <label>Transportadora</label>
+                            <select name="transportadora_id" required>
+                                <option value="">-</option>
+                                {% for item in transportadoras %}
+                                <option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo_transportadora }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <a class="btn-light" href="{% url 'transportadoras' empresa.id %}" target="_blank" rel="noopener">Cadastrar transportadora</a>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Registros de Agenda</h2>
+            <div class="table-wrapper"><div id="agenda-tabulator"></div></div>
+        </section>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -82,4 +127,3 @@
 <script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
 <script src="{% static 'js/comercial/agenda-page.js' %}"></script>
 {% endblock %}
-

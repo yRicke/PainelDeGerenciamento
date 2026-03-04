@@ -11,167 +11,204 @@
 
 {% block content %}
 {% now "Y-m-d" as hoje_iso %}
-<section class="page-hero">
-    <a href="{% url 'operacional' %}">Voltar</a>
-    <h1>Cargas em Aberto</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegação de seções de Cargas em Aberto">
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'operacional' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Operacional</span>
+            </div>
+            <h1>Cargas em Aberto</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Cargas em Aberto">
+            <div class="module-hero-import-head">
+                <h2>Importacao de Cargas</h2>
+                <span class="module-hero-import-badge">.xls</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form
+                id="upload-cargas-form"
+                class="upload-form"
+                action="{% url 'cargas_em_aberto' empresa.id %}"
+                method="post"
+                enctype="multipart/form-data"
+                data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
+            >
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="importar_cargas">
+                <input type="file" id="arquivo-cargas-input" name="arquivo_cargas" accept=".xls" hidden>
+                <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+
+                <div id="dropzone-cargas" class="dropzone">
+                    <strong>Arraste e solte o arquivo aqui</strong>
+                    <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
+                </div>
+
+                <div class="upload-actions">
+                    <button type="submit" class="upload-button">Enviar e importar</button>
+                    <span id="nome-arquivo-cargas-selecionado" class="file-status"></span>
+                </div>
+
+                <div id="cargas-loading-status" class="loading-status">
+                    Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+                </div>
+            </form>
+        </section>
+    </div>
+</section>
+
+<div id="cargas-module-shell" class="module-shell">
+    <aside id="cargas-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="cargas-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="cargas-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="cargas-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Cargas em Aberto">
+                {% if not bloquear_cadastro_edicao_importacao %}
+                <a href="#sec-cadastro">Cadastro</a>
+                {% endif %}
+                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
         {% if not bloquear_cadastro_edicao_importacao %}
-        <a href="#sec-cadastro">Cadastro</a>
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Nova Carga (Cadastro Manual)</h2>
+            <p class="form-note">Informe os dados operacionais para acompanhar prazo, critica e verificacao.</p>
+            <form id="criar-carga-form" action="{% url 'cargas_em_aberto' empresa.id %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="criar_carga">
+
+                <div class="form-grid">
+                    <div>
+                        <label>Situacao</label>
+                        <select name="situacao" required>
+                            <option value="Aberta" selected>Aberta</option>
+                            <option value="Fechada">Fechada</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Ordem de carga</label>
+                        <input type="text" name="ordem_de_carga_codigo" required>
+                    </div>
+                    <div>
+                        <label>Data inicio</label>
+                        <input type="date" name="data_inicio" value="{{ hoje_iso }}" required>
+                    </div>
+                    <div>
+                        <label>Data prevista para saida</label>
+                        <input type="date" id="data-prevista-saida-criar" name="data_prevista_saida" value="{{ hoje_iso }}" required>
+                    </div>
+                    <div>
+                        <label>Data chegada</label>
+                        <input type="date" id="data-chegada-criar" name="data_chegada">
+                    </div>
+                    <div>
+                        <label>Data finalizacao</label>
+                        <input type="date" id="data-finalizacao-criar" name="data_finalizacao" disabled>
+                    </div>
+                    <div>
+                        <label>Nome motorista</label>
+                        <input type="text" name="nome_motorista">
+                    </div>
+                    <div>
+                        <label>Nome fantasia empresa</label>
+                        <input type="text" name="nome_fantasia_empresa" required>
+                    </div>
+                    <div>
+                        <label>Regiao</label>
+                        <select name="regiao_id">
+                            <option value="">-</option>
+                            {% for regiao in regioes %}
+                            <option value="{{ regiao.id }}">{{ regiao.nome }} ({{ regiao.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Prazo maximo (dias)</label>
+                        <input type="number" name="prazo_maximo_dias" min="0" value="10">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
         {% endif %}
-        <a href="#sec-importacao">Importação</a>
-        <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualização</a>
-    </nav>
-</section>
 
-{% if not bloquear_cadastro_edicao_importacao %}
-<section id="sec-cadastro" class="panel module-section">
-    <h2>Nova Carga (Cadastro Manual)</h2>
-    <p class="form-note">Informe os dados operacionais para acompanhar prazo, crítica e verificação.</p>
-    <form id="criar-carga-form" action="{% url 'cargas_em_aberto' empresa.id %}" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="criar_carga">
-
-        <div class="form-grid">
-            <div>
-                <label>Situação</label>
-                <select name="situacao" required>
-                    <option value="Aberta" selected>Aberta</option>
-                    <option value="Fechada">Fechada</option>
-                </select>
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Cargas Abertas</h2>
+            <div class="cargas-dashboard-grid">
+                <article class="cargas-kpi-card cargas-kpi-card--neutro">
+                    <h3>Cargas em Aberto</h3>
+                    <p id="kpi-cargas-em-aberto">{{ dashboard_total_cargas }}</p>
+                </article>
+                <article class="cargas-kpi-card cargas-kpi-card--ok">
+                    <h3>No Prazo</h3>
+                    <p id="kpi-cargas-no-prazo">{{ dashboard_no_prazo }}</p>
+                </article>
+                <article class="cargas-kpi-card cargas-kpi-card--alerta">
+                    <h3>Fora do Prazo</h3>
+                    <p id="kpi-cargas-fora-prazo">{{ dashboard_fora_prazo }}</p>
+                </article>
             </div>
-            <div>
-                <label>Ordem de carga</label>
-                <input type="text" name="ordem_de_carga_codigo" required>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Dados das Cargas</h2>
+            <div class="table-wrapper">
+                <div id="cargas-tabulator"></div>
             </div>
-            <div>
-                <label>Data início</label>
-                <input type="date" name="data_inicio" value="{{ hoje_iso }}" required>
-            </div>
-            <div>
-                <label>Data prevista para saida</label>
-                <input type="date" id="data-prevista-saida-criar" name="data_prevista_saida" value="{{ hoje_iso }}" required>
-            </div>
-            <div>
-                <label>Data chegada</label>
-                <input type="date" id="data-chegada-criar" name="data_chegada">
-            </div>
-            <div>
-                <label>Data finalização</label>
-                <input type="date" id="data-finalizacao-criar" name="data_finalizacao" disabled>
-            </div>
-            <div>
-                <label>Nome motorista</label>
-                <input type="text" name="nome_motorista">
-            </div>
-            <div>
-                <label>Nome fantasia empresa</label>
-                <input type="text" name="nome_fantasia_empresa" required>
-            </div>
-            <div>
-                <label>Região</label>
-                <select name="regiao_id">
-                    <option value="">-</option>
-                    {% for regiao in regioes %}
-                    <option value="{{ regiao.id }}">{{ regiao.nome }} ({{ regiao.codigo }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>Prazo máximo (dias)</label>
-                <input type="number" name="prazo_maximo_dias" min="0" value="10">
-            </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Cadastrar</button>
-        </div>
-    </form>
-</section>
-{% endif %}
-
-<section id="sec-importacao" class="panel module-section">
-    <h2>Importação de Cargas</h2>
-
-    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
-
-    {% if resumo_importacao.tem_arquivos %}
-
-    <div class="importacao-resumo">
-
-        <p class="file-status">
-
-            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
-
-            <span class="importacao-resumo-sep">|</span>
-
-            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
-
-        </p>
-
-        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
-
+        </section>
     </div>
-
-    {% else %}
-
-    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
-
-    {% endif %}
-
-    <form
-        id="upload-cargas-form"
-        class="upload-form"
-        action="{% url 'cargas_em_aberto' empresa.id %}"
-        method="post"
-        enctype="multipart/form-data"
-        data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
-    >
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="importar_cargas">
-        <input type="file" id="arquivo-cargas-input" name="arquivo_cargas" accept=".xls" hidden>
-        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
-
-        <div id="dropzone-cargas" class="dropzone">
-            <strong>Arraste e solte o arquivo aqui</strong>
-            <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
-        </div>
-
-        <div class="upload-actions">
-            <button type="submit" class="upload-button">Enviar e importar</button>
-            <span id="nome-arquivo-cargas-selecionado" class="file-status"></span>
-        </div>
-
-        <div id="cargas-loading-status" class="loading-status">
-            Carregamento em andamento. O arquivo está sendo enviado e a importação foi iniciada.
-        </div>
-    </form>
-</section>
-
-<section id="sec-dashboard" class="panel module-section">
-    <h2>Cargas Abertas</h2>
-    <div class="cargas-dashboard-grid">
-        <article class="cargas-kpi-card cargas-kpi-card--neutro">
-            <h3>Cargas em Aberto</h3>
-            <p id="kpi-cargas-em-aberto">{{ dashboard_total_cargas }}</p>
-        </article>
-        <article class="cargas-kpi-card cargas-kpi-card--ok">
-            <h3>No Prazo</h3>
-            <p id="kpi-cargas-no-prazo">{{ dashboard_no_prazo }}</p>
-        </article>
-        <article class="cargas-kpi-card cargas-kpi-card--alerta">
-            <h3>Fora do Prazo</h3>
-            <p id="kpi-cargas-fora-prazo">{{ dashboard_fora_prazo }}</p>
-        </article>
-    </div>
-</section>
-
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Dados das Cargas</h2>
-    <div class="table-wrapper">
-        <div id="cargas-tabulator"></div>
-    </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -179,4 +216,3 @@
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/operacional/cargas-em-aberto-page.js' %}"></script>
 {% endblock %}
-

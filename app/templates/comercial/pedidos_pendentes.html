@@ -10,228 +10,265 @@
 {% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'comercial' %}">Voltar</a>
-    <h1>Pedidos Pendentes</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegação de seções de pedidos pendentes">
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Comercial</span>
+            </div>
+            <h1>Pedidos Pendentes</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Pedidos Pendentes">
+            <div class="module-hero-import-head">
+                <h2>Importacao de Pedidos Pendentes</h2>
+                <span class="module-hero-import-badge">.xlsx</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form id="upload-pedidos-pendentes-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+                {% csrf_token %}
+                <input type="file" id="arquivo-pedidos-pendentes-input" name="arquivo_pedidos_pendentes" accept=".xlsx" hidden>
+                <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+                <div id="dropzone-pedidos-pendentes" class="dropzone">
+                    <strong>Arraste e solte o arquivo aqui</strong>
+                    <span>ou clique para selecionar um arquivo <code>.xlsx</code>.</span>
+                </div>
+                <div class="upload-actions">
+                    <button type="submit" class="upload-button">Enviar e importar</button>
+                    <span id="nome-arquivo-pedidos-pendentes-selecionado" class="file-status"></span>
+                </div>
+            </form>
+        </section>
+    </div>
+</section>
+
+<div id="pedidos-pendentes-module-shell" class="module-shell">
+    <aside id="pedidos-pendentes-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="pedidos-pendentes-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="pedidos-pendentes-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="pedidos-pendentes-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de pedidos pendentes">
+                {% if not bloquear_cadastro_edicao_importacao %}
+                <a href="#sec-cadastro">Cadastro</a>
+                {% endif %}
+                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
         {% if not bloquear_cadastro_edicao_importacao %}
-        <a href="#sec-cadastro">Cadastro</a>
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Pedido Pendente (Cadastro Manual)</h2>
+            <p class="form-note">Cadastre manualmente quando nao quiser usar importacao.</p>
+            <form action="{% url 'pedidos_pendentes' empresa.id %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="criar_pedido_pendente">
+                <div class="form-grid">
+                    <div>
+                        <label>Nro. Unico</label>
+                        <input type="text" name="numero_unico" required>
+                    </div>
+                    <div>
+                        <label>Rota (FK)</label>
+                        <select name="rota_id">
+                            <option value="">-</option>
+                            {% for rota in rotas %}
+                            <option value="{{ rota.id }}">{{ rota.codigo_rota }} - {{ rota.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Regiao (FK)</label>
+                        <select name="regiao_id">
+                            <option value="">-</option>
+                            {% for regiao in regioes %}
+                            <option value="{{ regiao.id }}">{{ regiao.codigo }} - {{ regiao.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Parceiro (FK)</label>
+                        <select name="parceiro_id">
+                            <option value="">-</option>
+                            {% for parceiro in parceiros %}
+                            <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Previsao de entrega</label>
+                        <input type="date" name="previsao_entrega">
+                    </div>
+                    <div>
+                        <label>Dt. Neg.</label>
+                        <input type="date" name="dt_neg">
+                    </div>
+                    <div>
+                        <label>Prazo Maximo</label>
+                        <input type="number" name="prazo_maximo" min="0" value="3">
+                    </div>
+                    <div>
+                        <label>Tipo da Venda</label>
+                        <input type="text" name="tipo_venda">
+                    </div>
+                    <div>
+                        <label>Nome Empresa</label>
+                        <input type="text" name="nome_empresa">
+                    </div>
+                    <div>
+                        <label>Vlr. Nota</label>
+                        <input type="text" name="vlr_nota" value="0">
+                    </div>
+                    <div>
+                        <label>Peso bruto</label>
+                        <input type="text" name="peso_bruto" value="0">
+                    </div>
+                    <div>
+                        <label>Peso</label>
+                        <input type="text" name="peso" value="0">
+                    </div>
+                    <div>
+                        <label>Peso liq. dos Itens</label>
+                        <input type="text" name="peso_liq_itens" value="0">
+                    </div>
+                    <div>
+                        <label>Apelido (Vendedor)</label>
+                        <input type="text" name="apelido_vendedor">
+                    </div>
+                    <div>
+                        <label>Gerente</label>
+                        <select name="gerente">
+                            <option value="">-</option>
+                            {% for gerente in gerentes_opcoes %}
+                            <option value="{{ gerente }}">{{ gerente }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Descricao (Tipo de Negociacao)</label>
+                        <input type="text" name="descricao_tipo_negociacao">
+                    </div>
+                    <div>
+                        <label>Nro. Nota</label>
+                        <input type="number" name="nro_nota" value="0">
+                    </div>
+                    <div>
+                        <label>Pendente</label>
+                        <select name="pendente">
+                            <option value="Sim" selected>Sim</option>
+                            <option value="Nao">Nao</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Valor Tonelada Frete[SAFIA]</label>
+                        <input type="text" name="valor_tonelada_frete_safia">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
         {% endif %}
-        <a href="#sec-importacao">Importação</a>
-        <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualização</a>
-    </nav>
-</section>
 
-{% if not bloquear_cadastro_edicao_importacao %}
-<section id="sec-cadastro" class="panel module-section">
-    <h2>Novo Pedido Pendente (Cadastro Manual)</h2>
-    <p class="form-note">Cadastre manualmente quando não quiser usar importação.</p>
-    <form action="{% url 'pedidos_pendentes' empresa.id %}" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="criar_pedido_pendente">
-        <div class="form-grid">
-            <div>
-                <label>Nro. Único</label>
-                <input type="text" name="numero_unico" required>
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard</h2>
+            <div class="dashboard-kpi-grid dashboard-kpi-grid--pedidos">
+                <article class="dashboard-kpi-card dashboard-kpi-card--entrega">
+                    <h3>Entrega Atrasada <span class="kpi-alert-x">X</span></h3>
+                    <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-entrega-peso-bruto">0</strong></div>
+                    <div class="kpi-line"><span>Qtd.</span><strong id="kpi-entrega-qtd">0</strong></div>
+                    <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-entrega-valor-nota">R$-</strong></div>
+                </article>
+                <article class="dashboard-kpi-card dashboard-kpi-card--venda-balcao">
+                    <h3>Venda Balcao Atrasada <span class="kpi-alert-x">X</span></h3>
+                    <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-venda-balcao-peso-bruto">0</strong></div>
+                    <div class="kpi-line"><span>Qtd.</span><strong id="kpi-venda-balcao-qtd">0</strong></div>
+                    <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-venda-balcao-valor-nota">R$-</strong></div>
+                </article>
+                <article class="dashboard-kpi-card dashboard-kpi-card--atencao">
+                    <h3>Atencao</h3>
+                    <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-atencao-peso-bruto">0</strong></div>
+                    <div class="kpi-line"><span>Qtd.</span><strong id="kpi-atencao-qtd">0</strong></div>
+                    <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-atencao-valor-nota">R$-</strong></div>
+                </article>
+                <article class="dashboard-kpi-card dashboard-kpi-card--no-prazo">
+                    <h3>No Prazo</h3>
+                    <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-no-prazo-peso-bruto">0</strong></div>
+                    <div class="kpi-line"><span>Qtd.</span><strong id="kpi-no-prazo-qtd">0</strong></div>
+                    <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-no-prazo-valor-nota">R$-</strong></div>
+                </article>
+                <article class="dashboard-kpi-card dashboard-kpi-card--total">
+                    <h3>Total Pedidos</h3>
+                    <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-total-pedidos-peso-bruto">{{ dashboard_total_pedidos }}</strong></div>
+                    <div class="kpi-line"><span>Qtd.</span><strong id="kpi-total-pedidos-qtd">{{ dashboard_total_pedidos }}</strong></div>
+                    <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-total-pedidos-valor-nota">R$-</strong></div>
+                </article>
             </div>
-            <div>
-                <label>Rota (FK)</label>
-                <select name="rota_id">
-                    <option value="">-</option>
-                    {% for rota in rotas %}
-                    <option value="{{ rota.id }}">{{ rota.codigo_rota }} - {{ rota.nome }}</option>
-                    {% endfor %}
-                </select>
+            <div class="dashboard-chart-card">
+                <h3>Status dos Pedidos</h3>
+                <div id="pedidos-status-chart"></div>
             </div>
-            <div>
-                <label>Região (FK)</label>
-                <select name="regiao_id">
-                    <option value="">-</option>
-                    {% for regiao in regioes %}
-                    <option value="{{ regiao.id }}">{{ regiao.codigo }} - {{ regiao.nome }}</option>
-                    {% endfor %}
-                </select>
+            <div class="dashboard-actions">
+                <a class="btn-light" href="{% url 'agenda' empresa.id %}">Abrir Agenda de Carregamento</a>
             </div>
-            <div>
-                <label>Parceiro (FK)</label>
-                <select name="parceiro_id">
-                    <option value="">-</option>
-                    {% for parceiro in parceiros %}
-                    <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>Previsão de entrega</label>
-                <input type="date" name="previsao_entrega">
-            </div>
-            <div>
-                <label>Dt. Neg.</label>
-                <input type="date" name="dt_neg">
-            </div>
-            <div>
-                <label>Prazo Máximo</label>
-                <input type="number" name="prazo_maximo" min="0" value="3">
-            </div>
-            <div>
-                <label>Tipo da Venda</label>
-                <input type="text" name="tipo_venda">
-            </div>
-            <div>
-                <label>Nome Empresa</label>
-                <input type="text" name="nome_empresa">
-            </div>
-            <div>
-                <label>Vlr. Nota</label>
-                <input type="text" name="vlr_nota" value="0">
-            </div>
-            <div>
-                <label>Peso bruto</label>
-                <input type="text" name="peso_bruto" value="0">
-            </div>
-            <div>
-                <label>Peso</label>
-                <input type="text" name="peso" value="0">
-            </div>
-            <div>
-                <label>Peso liq. dos Itens</label>
-                <input type="text" name="peso_liq_itens" value="0">
-            </div>
-            <div>
-                <label>Apelido (Vendedor)</label>
-                <input type="text" name="apelido_vendedor">
-            </div>
-            <div>
-                <label>Gerente</label>
-                <select name="gerente">
-                    <option value="">-</option>
-                    {% for gerente in gerentes_opcoes %}
-                    <option value="{{ gerente }}">{{ gerente }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>Descrição (Tipo de Negociação)</label>
-                <input type="text" name="descricao_tipo_negociacao">
-            </div>
-            <div>
-                <label>Nro. Nota</label>
-                <input type="number" name="nro_nota" value="0">
-            </div>
-            <div>
-                <label>Pendente</label>
-                <select name="pendente">
-                    <option value="Sim" selected>Sim</option>
-                    <option value="Não">Não</option>
-                </select>
-            </div>
-            <div>
-                <label>Valor Tonelada Frete[SAFIA]</label>
-                <input type="text" name="valor_tonelada_frete_safia">
-            </div>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Cadastrar</button>
-        </div>
-    </form>
-</section>
-{% endif %}
+        </section>
 
-<section id="sec-importacao" class="panel module-section">
-    <h2>Importação de Pedidos Pendentes</h2>
-
-    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
-
-    {% if resumo_importacao.tem_arquivos %}
-
-    <div class="importacao-resumo">
-
-        <p class="file-status">
-
-            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
-
-            <span class="importacao-resumo-sep">|</span>
-
-            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
-
-        </p>
-
-        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
-
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Dados de Pedidos Pendentes</h2>
+            <div class="table-wrapper">
+                <div id="pedidos-pendentes-tabulator"></div>
+            </div>
+        </section>
     </div>
-
-    {% else %}
-
-    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
-
-    {% endif %}
-
-    <form id="upload-pedidos-pendentes-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
-        {% csrf_token %}
-        <input type="file" id="arquivo-pedidos-pendentes-input" name="arquivo_pedidos_pendentes" accept=".xlsx" hidden>
-        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
-        <div id="dropzone-pedidos-pendentes" class="dropzone">
-            <strong>Arraste e solte o arquivo aqui</strong>
-            <span>ou clique para selecionar um arquivo <code>.xlsx</code>.</span>
-        </div>
-        <div class="upload-actions">
-            <button type="submit" class="upload-button">Enviar e importar</button>
-            <span id="nome-arquivo-pedidos-pendentes-selecionado" class="file-status"></span>
-        </div>
-    </form>
-</section>
-
-<section id="sec-dashboard" class="panel module-section">
-    <h2>Dashboard</h2>
-    <div class="dashboard-kpi-grid dashboard-kpi-grid--pedidos">
-        <article class="dashboard-kpi-card dashboard-kpi-card--entrega">
-            <h3>Entrega Atrasada <span class="kpi-alert-x">X</span></h3>
-            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-entrega-peso-bruto">0</strong></div>
-            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-entrega-qtd">0</strong></div>
-            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-entrega-valor-nota">R$-</strong></div>
-        </article>
-        <article class="dashboard-kpi-card dashboard-kpi-card--venda-balcao">
-            <h3>Venda Balcão Atrasada <span class="kpi-alert-x">X</span></h3>
-            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-venda-balcao-peso-bruto">0</strong></div>
-            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-venda-balcao-qtd">0</strong></div>
-            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-venda-balcao-valor-nota">R$-</strong></div>
-        </article>
-        <article class="dashboard-kpi-card dashboard-kpi-card--atencao">
-            <h3>Atenção</h3>
-            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-atencao-peso-bruto">0</strong></div>
-            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-atencao-qtd">0</strong></div>
-            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-atencao-valor-nota">R$-</strong></div>
-        </article>
-        <article class="dashboard-kpi-card dashboard-kpi-card--no-prazo">
-            <h3>No Prazo</h3>
-            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-no-prazo-peso-bruto">0</strong></div>
-            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-no-prazo-qtd">0</strong></div>
-            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-no-prazo-valor-nota">R$-</strong></div>
-        </article>
-        <article class="dashboard-kpi-card dashboard-kpi-card--total">
-            <h3>Total Pedidos</h3>
-            <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-total-pedidos-peso-bruto">{{ dashboard_total_pedidos }}</strong></div>
-            <div class="kpi-line"><span>Qtd.</span><strong id="kpi-total-pedidos-qtd">{{ dashboard_total_pedidos }}</strong></div>
-            <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-total-pedidos-valor-nota">R$-</strong></div>
-        </article>
-    </div>
-    <div class="dashboard-chart-card">
-        <h3>Status dos Pedidos</h3>
-        <div id="pedidos-status-chart"></div>
-    </div>
-    <div class="dashboard-actions">
-        <a class="btn-light" href="{% url 'agenda' empresa.id %}">Abrir Agenda de Carregamento</a>
-    </div>
-</section>
-
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Dados de Pedidos Pendentes</h2>
-    <div class="table-wrapper">
-        <div id="pedidos-pendentes-tabulator"></div>
-    </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -240,5 +277,3 @@
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/comercial/pedidos-pendentes-page.js' %}"></script>
 {% endblock %}
-
-

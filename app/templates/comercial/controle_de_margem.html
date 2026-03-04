@@ -10,190 +10,244 @@
 {% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'comercial' %}">Voltar</a>
-    <h1>Controle de Margem</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <nav class="module-sections-nav" aria-label="Navegação de seções de controle de margem">
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Comercial</span>
+            </div>
+            <h1>Controle de Margem</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Controle de Margem">
+            <div class="module-hero-import-head">
+                <h2>Importacao de Controle de Margem</h2>
+                <span class="module-hero-import-badge">.xls/.xlsx</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form id="upload-controle-margem-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+                {% csrf_token %}
+                <input type="file" id="arquivo-controle-margem-input" name="arquivo_controle_margem" accept=".xls,.xlsx" hidden>
+                <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+                <div id="dropzone-controle-margem" class="dropzone">
+                    <strong>Arraste e solte o arquivo aqui</strong>
+                    <span>ou clique para selecionar um arquivo <code>.xls</code> ou <code>.xlsx</code>.</span>
+                </div>
+
+                <div class="upload-actions">
+                    <button type="submit" class="upload-button">Enviar e importar</button>
+                    <span id="nome-arquivo-controle-margem-selecionado" class="file-status"></span>
+                </div>
+
+                <div id="controle-margem-loading-status" class="loading-status">
+                    Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+                </div>
+            </form>
+        </section>
+    </div>
+</section>
+
+<div id="controle-margem-module-shell" class="module-shell">
+    <aside id="controle-margem-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="controle-margem-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="controle-margem-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="controle-margem-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de controle de margem">
+                {% if not bloquear_cadastro_edicao_importacao %}
+                <a href="#sec-cadastro">Cadastro</a>
+                {% endif %}
+                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
         {% if not bloquear_cadastro_edicao_importacao %}
-        <a href="#sec-cadastro">Cadastro</a>
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Controle de Margem (Cadastro Manual)</h2>
+            <form action="{% url 'controle_de_margem' empresa.id %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="criar_controle_margem">
+                <input type="hidden" name="data_origem" value="MANUAL">
+                <div class="form-grid">
+                    <div><label>Nro. Unico</label><input type="number" name="nro_unico" min="1" required></div>
+                    <div><label>Nome empresa</label><input type="text" name="nome_empresa"></div>
+                    <div>
+                        <label>Parceiro (FK)</label>
+                        <select name="parceiro_id">
+                            <option value="">-</option>
+                            {% for parceiro in parceiros %}
+                            <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div><label>Descricao perfil</label><input type="text" name="descricao_perfil"></div>
+                    <div><label>Apelido vendedor</label><input type="text" name="apelido_vendedor"></div>
+                    <div><label>Gerente</label><input type="text" name="gerente"></div>
+                    <div><label>Dt. Neg.</label><input type="date" name="dt_neg"></div>
+                    <div><label>Previsao de entrega</label><input type="date" name="previsao_entrega"></div>
+                    <div><label>Tipo da venda</label><input type="text" name="tipo_venda"></div>
+                    <div><label>Vlr. Nota</label><input type="text" name="vlr_nota" value="0"></div>
+                    <div><label>Custo Total do Produto</label><input type="text" name="custo_total_produto" value="0"></div>
+                    <div><label>Valor Tonelada Frete[SAFIA]</label><input type="text" name="valor_tonelada_frete_safia" value="0"></div>
+                    <div><label>Peso bruto</label><input type="text" name="peso_bruto" value="0"></div>
+                    <div><label>Vendas</label><input type="text" name="vendas" value="0"></div>
+                    <div><label>Producao</label><input type="text" name="producao" value="0"></div>
+                    <div><label>Operador Logistica</label><input type="text" name="operador_logistica" value="0"></div>
+                    <div><label>Frete Distribuicao</label><input type="text" name="frete_distribuicao" value="0"></div>
+                    <div><label>Administracao</label><input type="text" name="administracao" value="0"></div>
+                    <div><label>Financeiro</label><input type="text" name="financeiro" value="0"></div>
+                    <div><label>Valor Liquido</label><input type="text" name="valor_liquido" value="0"></div>
+                    <div><label>Margem Liquida</label><input type="text" name="margem_liquida" placeholder="0,00%"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
         {% endif %}
-        <a href="#sec-importacao">Importação</a>
-        <a href="#sec-dashboard">Dashboard</a>
-        <a href="#sec-visualizacao">Visualização</a>
-    </nav>
-</section>
 
-{% if not bloquear_cadastro_edicao_importacao %}
-<section id="sec-cadastro" class="panel module-section">
-    <h2>Novo Controle de Margem (Cadastro Manual)</h2>
-    <form action="{% url 'controle_de_margem' empresa.id %}" method="post">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="criar_controle_margem">
-        <input type="hidden" name="data_origem" value="MANUAL">
-        <div class="form-grid">
-            <div><label>Nro. Unico</label><input type="number" name="nro_unico" min="1" required></div>
-            <div><label>Nome empresa</label><input type="text" name="nome_empresa"></div>
-            <div>
-                <label>Parceiro (FK)</label>
-                <select name="parceiro_id">
-                    <option value="">-</option>
-                    {% for parceiro in parceiros %}
-                    <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
-                    {% endfor %}
-                </select>
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard</h2>
+            <div class="dashboard-margem-grid">
+                <article class="dashboard-margem-card dashboard-margem-card--pedido">
+                    <h3>Pedido</h3>
+                    <p id="dashboard-pedido">R$ 0,00</p>
+                </article>
+                <article class="dashboard-margem-card dashboard-margem-card--cmv">
+                    <h3>CMV</h3>
+                    <p id="dashboard-cmv">R$ 0,00</p>
+                </article>
+                <article class="dashboard-margem-card dashboard-margem-card--lucro">
+                    <h3>Lucro</h3>
+                    <p id="dashboard-lucro">R$ 0,00</p>
+                </article>
+                <article class="dashboard-margem-card dashboard-margem-card--margem">
+                    <h3>Margem</h3>
+                    <p id="dashboard-margem">0,00%</p>
+                </article>
             </div>
-            <div><label>Descrição perfil</label><input type="text" name="descricao_perfil"></div>
-            <div><label>Apelido vendedor</label><input type="text" name="apelido_vendedor"></div>
-            <div><label>Gerente</label><input type="text" name="gerente"></div>
-            <div><label>Dt. Neg.</label><input type="date" name="dt_neg"></div>
-            <div><label>Previsão de entrega</label><input type="date" name="previsao_entrega"></div>
-            <div><label>Tipo da venda</label><input type="text" name="tipo_venda"></div>
-            <div><label>Vlr. Nota</label><input type="text" name="vlr_nota" value="0"></div>
-            <div><label>Custo Total do Produto</label><input type="text" name="custo_total_produto" value="0"></div>
-            <div><label>Valor Tonelada Frete[SAFIA]</label><input type="text" name="valor_tonelada_frete_safia" value="0"></div>
-            <div><label>Peso bruto</label><input type="text" name="peso_bruto" value="0"></div>
-            <div><label>Vendas</label><input type="text" name="vendas" value="0"></div>
-            <div><label>Produção</label><input type="text" name="producao" value="0"></div>
-            <div><label>Operador Logística</label><input type="text" name="operador_logistica" value="0"></div>
-            <div><label>Frete Distribuição</label><input type="text" name="frete_distribuicao" value="0"></div>
-            <div><label>Administração</label><input type="text" name="administracao" value="0"></div>
-            <div><label>Financeiro</label><input type="text" name="financeiro" value="0"></div>
-            <div><label>Valor Líquido</label><input type="text" name="valor_liquido" value="0"></div>
-            <div><label>Margem Líquida</label><input type="text" name="margem_liquida" placeholder="0,00%"></div>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Cadastrar</button>
-        </div>
-    </form>
-</section>
-{% endif %}
+            <div class="dashboard-margem-analitico">
+                <div class="dashboard-margem-setores">
+                    <h3>Setores</h3>
+                    <div class="setor-row setor-row--vendas">
+                        <span class="setor-label">Vendas</span>
+                        <div class="setor-track"><span id="dashboard-setor-vendas-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-vendas-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-vendas-percentual" class="setor-percentual">0%</span>
+                    </div>
+                    <div class="setor-row setor-row--producao">
+                        <span class="setor-label">Producao</span>
+                        <div class="setor-track"><span id="dashboard-setor-producao-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-producao-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-producao-percentual" class="setor-percentual">0%</span>
+                    </div>
+                    <div class="setor-row setor-row--logistica">
+                        <span class="setor-label">Logistica</span>
+                        <div class="setor-track"><span id="dashboard-setor-logistica-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-logistica-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-logistica-percentual" class="setor-percentual">0%</span>
+                    </div>
+                    <div class="setor-row setor-row--administracao">
+                        <span class="setor-label">Administracao</span>
+                        <div class="setor-track"><span id="dashboard-setor-administracao-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-administracao-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-administracao-percentual" class="setor-percentual">0%</span>
+                    </div>
+                    <div class="setor-row setor-row--financeiro">
+                        <span class="setor-label">Financeiro</span>
+                        <div class="setor-track"><span id="dashboard-setor-financeiro-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-financeiro-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-financeiro-percentual" class="setor-percentual">0%</span>
+                    </div>
+                </div>
+                <div class="dashboard-margem-logistica-split">
+                    <h3>Logistica detalhada</h3>
+                    <div class="setor-row setor-row--operador">
+                        <span class="setor-label">Oper. Logistico</span>
+                        <div class="setor-track"><span id="dashboard-setor-operador-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-operador-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-operador-percentual" class="setor-percentual">0%</span>
+                    </div>
+                    <div class="setor-row setor-row--frete">
+                        <span class="setor-label">Frete Dist.</span>
+                        <div class="setor-track"><span id="dashboard-setor-frete-bar" class="setor-fill"></span></div>
+                        <strong id="dashboard-setor-frete-valor" class="setor-valor">R$ 0,00</strong>
+                        <span id="dashboard-setor-frete-percentual" class="setor-percentual">0%</span>
+                    </div>
+                </div>
+                <div class="dashboard-margem-resumo">
+                    <article class="dashboard-margem-resumo-card dashboard-margem-resumo-card--total">
+                        <h3>Total Setores</h3>
+                        <p id="dashboard-total-setores">R$ 0,00</p>
+                    </article>
+                    <article class="dashboard-margem-resumo-card dashboard-margem-resumo-card--lucro-liquido">
+                        <h3>Lucro Liquido</h3>
+                        <p id="dashboard-lucro-liquido">R$ 0,00</p>
+                    </article>
+                    <article class="dashboard-margem-resumo-card dashboard-margem-resumo-card--margem-liquida">
+                        <h3>Margem Liquida</h3>
+                        <p id="dashboard-margem-liquida">0,00%</p>
+                    </article>
+                </div>
+            </div>
+        </section>
 
-<section id="sec-importacao" class="panel module-section">
-    <h2>Importação de Controle de Margem</h2>
-    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
-    {% if resumo_importacao.tem_arquivos %}
-    <div class="importacao-resumo">
-        <p class="file-status">
-            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
-            <span class="importacao-resumo-sep">|</span>
-            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
-        </p>
-        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Dados de Controle de Margem</h2>
+            <div class="table-wrapper">
+                <div id="controle-margem-tabulator"></div>
+            </div>
+        </section>
     </div>
-    {% else %}
-    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
-    {% endif %}
-    <form id="upload-controle-margem-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
-        {% csrf_token %}
-        <input type="file" id="arquivo-controle-margem-input" name="arquivo_controle_margem" accept=".xls,.xlsx" hidden>
-        <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
-        <div id="dropzone-controle-margem" class="dropzone">
-            <strong>Arraste e solte o arquivo aqui</strong>
-            <span>ou clique para selecionar um arquivo <code>.xls</code> ou <code>.xlsx</code>.</span>
-        </div>
-        <div class="upload-actions">
-            <button type="submit" class="upload-button">Enviar e importar</button>
-            <span id="nome-arquivo-controle-margem-selecionado" class="file-status"></span>
-        </div>
-        <div id="controle-margem-loading-status" class="loading-status">
-            Carregamento em andamento. O arquivo está sendo enviado e a importação foi iniciada.
-        </div>
-    </form>
-</section>
-
-<section id="sec-dashboard" class="panel module-section">
-    <h2>Dashboard</h2>
-    <div class="dashboard-margem-grid">
-        <article class="dashboard-margem-card dashboard-margem-card--pedido">
-            <h3>Pedido</h3>
-            <p id="dashboard-pedido">R$ 0,00</p>
-        </article>
-        <article class="dashboard-margem-card dashboard-margem-card--cmv">
-            <h3>CMV</h3>
-            <p id="dashboard-cmv">R$ 0,00</p>
-        </article>
-        <article class="dashboard-margem-card dashboard-margem-card--lucro">
-            <h3>Lucro</h3>
-            <p id="dashboard-lucro">R$ 0,00</p>
-        </article>
-        <article class="dashboard-margem-card dashboard-margem-card--margem">
-            <h3>Margem</h3>
-            <p id="dashboard-margem">0,00%</p>
-        </article>
-    </div>
-    <div class="dashboard-margem-analitico">
-        <div class="dashboard-margem-setores">
-            <h3>Setores</h3>
-            <div class="setor-row setor-row--vendas">
-                <span class="setor-label">Vendas</span>
-                <div class="setor-track"><span id="dashboard-setor-vendas-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-vendas-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-vendas-percentual" class="setor-percentual">0%</span>
-            </div>
-            <div class="setor-row setor-row--producao">
-                <span class="setor-label">Producao</span>
-                <div class="setor-track"><span id="dashboard-setor-producao-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-producao-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-producao-percentual" class="setor-percentual">0%</span>
-            </div>
-            <div class="setor-row setor-row--logistica">
-                <span class="setor-label">Logistica</span>
-                <div class="setor-track"><span id="dashboard-setor-logistica-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-logistica-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-logistica-percentual" class="setor-percentual">0%</span>
-            </div>
-            <div class="setor-row setor-row--administracao">
-                <span class="setor-label">Administracao</span>
-                <div class="setor-track"><span id="dashboard-setor-administracao-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-administracao-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-administracao-percentual" class="setor-percentual">0%</span>
-            </div>
-            <div class="setor-row setor-row--financeiro">
-                <span class="setor-label">Financeiro</span>
-                <div class="setor-track"><span id="dashboard-setor-financeiro-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-financeiro-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-financeiro-percentual" class="setor-percentual">0%</span>
-            </div>
-        </div>
-        <div class="dashboard-margem-logistica-split">
-            <h3>Logistica detalhada</h3>
-            <div class="setor-row setor-row--operador">
-                <span class="setor-label">Oper. Logistico</span>
-                <div class="setor-track"><span id="dashboard-setor-operador-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-operador-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-operador-percentual" class="setor-percentual">0%</span>
-            </div>
-            <div class="setor-row setor-row--frete">
-                <span class="setor-label">Frete Dist.</span>
-                <div class="setor-track"><span id="dashboard-setor-frete-bar" class="setor-fill"></span></div>
-                <strong id="dashboard-setor-frete-valor" class="setor-valor">R$ 0,00</strong>
-                <span id="dashboard-setor-frete-percentual" class="setor-percentual">0%</span>
-            </div>
-        </div>
-        <div class="dashboard-margem-resumo">
-            <article class="dashboard-margem-resumo-card dashboard-margem-resumo-card--total">
-                <h3>Total Setores</h3>
-                <p id="dashboard-total-setores">R$ 0,00</p>
-            </article>
-            <article class="dashboard-margem-resumo-card dashboard-margem-resumo-card--lucro-liquido">
-                <h3>Lucro Liquido</h3>
-                <p id="dashboard-lucro-liquido">R$ 0,00</p>
-            </article>
-            <article class="dashboard-margem-resumo-card dashboard-margem-resumo-card--margem-liquida">
-                <h3>Margem Liquida</h3>
-                <p id="dashboard-margem-liquida">0,00%</p>
-            </article>
-        </div>
-    </div>
-</section>
-
-<section id="sec-visualizacao" class="panel module-section">
-    <h2>Dados de Controle de Margem</h2>
-    <div class="table-wrapper">
-        <div id="controle-margem-tabulator"></div>
-    </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}

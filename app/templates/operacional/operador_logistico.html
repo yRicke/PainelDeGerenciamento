@@ -3,10 +3,23 @@
 {% block title %}Operador Logistico{% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'operacional' %}">Voltar</a>
-    <h1>Operador Logistico</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'operacional' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Operacional</span>
+            </div>
+            <h1>Operador Logistico</h1>
+            <p class="module-hero-subtitle">Modulo liberado e em desenvolvimento.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
 <section class="panel">

@@ -610,7 +610,23 @@
         return created;
     }
 
+    function isModuleShellUpgradeDisabled() {
+        var body = document.body;
+        if (body && body.hasAttribute("data-module-shell-upgrade-off")) {
+            return true;
+        }
+        return Boolean(document.querySelector(".page-hero[data-module-shell-upgrade-off]"));
+    }
+
     function upgradeModuleLayout() {
+        if (isModuleShellUpgradeDisabled()) {
+            if (document.querySelector(".module-shell")) {
+                bindSidebarToggles();
+                bindModuleShellToolbarSpacing();
+            }
+            return;
+        }
+
         enhanceImportSection(document.getElementById("sec-importacao"));
 
         if (document.querySelector(".module-shell")) {

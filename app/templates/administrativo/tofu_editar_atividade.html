@@ -4,6 +4,7 @@
 {% block title %}Editar Atividade TOFU{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
 <style>
     .form-grid {
         display: grid;
@@ -57,13 +58,26 @@
 {% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'tofu_lista_de_atividades' empresa.id %}">Voltar para lista</a>
-    <h1>Editar Atividade #{{ atividade.id }}</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'tofu_lista_de_atividades' empresa.id %}" class="module-hero-back-link">Voltar para lista</a>
+                <span class="module-hero-pill">Modulo Administrativo</span>
+            </div>
+            <h1>Editar Atividade #{{ atividade.id }}</h1>
+            <p class="module-hero-subtitle">Ajuste os dados da atividade e mantenha prazo e progresso atualizados.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
+<section class="panel module-section">
     <p class="form-note">Ajuste os dados da atividade e acompanhe prazo/progresso para manter o status correto.</p>
     <form action="{% url 'editar_atividade_tofu' empresa.id atividade.id %}" method="POST" data-atividade-form>
         {% csrf_token %}
@@ -163,4 +177,3 @@
 {% block extra_js %}
 <script src="{% static 'js/administrativo/tofu-atividade-form.js' %}"></script>
 {% endblock %}
-

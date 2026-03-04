@@ -1,15 +1,18 @@
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.db.models import FloatField
+from django.db.models import Case, DecimalField, F, FloatField, Q, Sum, Value, When
 from django.db.models.deletion import ProtectedError
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Coalesce
 
 from .models import (
     Agenda,
@@ -394,6 +397,410 @@ def _filtrar_controle_margem_por_situacao(qs, situacao):
     if situacao == ControleMargem.SITUACAO_VERDE:
         return qs.filter(margem_bruta__gte=0.14)
     return qs.none()
+
+
+def _coletar_param_json_lista(request, chaves):
+    for chave in chaves:
+        bruto = request.GET.get(chave)
+        if bruto is None:
+            continue
+        texto = str(bruto).strip()
+        if not texto:
+            continue
+        try:
+            valor = json.loads(texto)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(valor, list):
+            return [item for item in valor if isinstance(item, dict)]
+    return []
+
+
+def _parse_data_tabulator(valor):
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    for formato in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _fmt_date_br(valor):
+    if not valor:
+        return ""
+    return valor.strftime("%d/%m/%Y")
+
+
+def _parse_decimal_tabulator(valor):
+    texto = str(valor or "").strip().replace("R$", "").replace(" ", "")
+    if not texto:
+        return None
+    if "," in texto and "." in texto and texto.rfind(",") > texto.rfind("."):
+        texto = texto.replace(".", "").replace(",", ".")
+    elif "," in texto and "." not in texto:
+        texto = texto.replace(",", ".")
+    try:
+        return Decimal(texto)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _extrair_valores_filtro(valor_bruto):
+    if isinstance(valor_bruto, (list, tuple, set)):
+        return [str(v).strip() for v in valor_bruto if str(v).strip()]
+    texto = str(valor_bruto or "").strip()
+    if not texto:
+        return []
+    if "||" in texto:
+        return [item.strip() for item in texto.split("||") if item.strip()]
+    return [texto]
+
+
+def _intervalo_para_faixa_dias(intervalo_texto):
+    texto = str(intervalo_texto or "").strip().lower()
+    if not texto:
+        return None, None
+    if texto.startswith("+"):
+        limite = "".join(ch for ch in texto if ch.isdigit())
+        if not limite:
+            return None, None
+        return int(limite), None
+    match = re.search(r"(\d+)\s*-\s*(\d+)", texto)
+    if not match:
+        return None, None
+    inicio, fim = int(match.group(1)), int(match.group(2))
+    if inicio > fim:
+        inicio, fim = fim, inicio
+    return inicio, fim
+
+
+def _q_intervalo_contas(hoje, valor_intervalo):
+    inicio, fim = _intervalo_para_faixa_dias(valor_intervalo)
+    if inicio is None:
+        return Q()
+
+    if fim is None:
+        return (
+            Q(data_vencimento__lte=hoje - timedelta(days=inicio))
+            | Q(data_vencimento__gte=hoje + timedelta(days=inicio))
+        )
+
+    return (
+        Q(
+            data_vencimento__gte=hoje - timedelta(days=fim),
+            data_vencimento__lte=hoje - timedelta(days=inicio),
+        )
+        | Q(
+            data_vencimento__gte=hoje + timedelta(days=inicio),
+            data_vencimento__lte=hoje + timedelta(days=fim),
+        )
+    )
+
+
+def _filtrar_contas_a_receber_por_intervalo(qs, valor_intervalo):
+    hoje = datetime.now().date()
+    q_intervalo = _q_intervalo_contas(hoje, valor_intervalo)
+    if not q_intervalo:
+        return qs
+    return qs.filter(q_intervalo)
+
+
+def _datas_posicao_contas(qs):
+    datas = list(
+        qs.exclude(data_arquivo__isnull=True)
+        .order_by("-data_arquivo")
+        .values_list("data_arquivo", flat=True)
+        .distinct()[:2]
+    )
+    ultima = datas[0] if len(datas) >= 1 else None
+    penultima = datas[1] if len(datas) >= 2 else None
+    return ultima, penultima
+
+
+def _aplicar_filtros_contas_a_receber(qs, filtros):
+    hoje = datetime.now().date()
+    for filtro in filtros:
+        campo = str(filtro.get("field") or "").strip()
+        tipo = str(filtro.get("type") or "").strip().lower()
+        valores = _extrair_valores_filtro(filtro.get("value"))
+        if not campo or not valores:
+            continue
+
+        if campo == "status":
+            q_status = Q()
+            for valor in valores:
+                valor_lower = valor.lower()
+                if "vencido" in valor_lower:
+                    q_status |= Q(data_vencimento__lt=hoje)
+                elif "vencer" in valor_lower:
+                    q_status |= Q(data_vencimento__gte=hoje)
+            if q_status:
+                qs = qs.filter(q_status)
+            continue
+
+        if campo == "intervalo":
+            q_intervalos = Q()
+            for valor in valores:
+                q_intervalo = _q_intervalo_contas(hoje, valor)
+                if q_intervalo:
+                    q_intervalos |= q_intervalo
+            if q_intervalos:
+                qs = qs.filter(q_intervalos)
+            continue
+
+        if campo == "dias_diferenca":
+            q_dias = Q()
+            for valor in valores:
+                if re.fullmatch(r"-?\d+", valor):
+                    q_dias |= Q(data_vencimento=hoje - timedelta(days=int(valor)))
+            if q_dias:
+                qs = qs.filter(q_dias)
+            continue
+
+        if campo in {"data_negociacao", "data_vencimento", "data_arquivo"}:
+            q_datas = Q()
+            for valor in valores:
+                data = _parse_data_tabulator(valor)
+                if data:
+                    q_datas |= Q(**{campo: data})
+                elif valor.isdigit() and len(valor) == 4:
+                    q_datas |= Q(**{f"{campo}__year": int(valor)})
+            if q_datas:
+                qs = qs.filter(q_datas)
+            continue
+
+        if campo == "data_arquivo_iso":
+            q_data_arquivo = Q()
+            for valor in valores:
+                data_iso = _parse_data_tabulator(valor)
+                if data_iso:
+                    q_data_arquivo |= Q(data_arquivo=data_iso)
+            if q_data_arquivo:
+                qs = qs.filter(q_data_arquivo)
+            continue
+
+        if campo in {"valor_desdobramento", "valor_liquido"}:
+            q_valores = Q()
+            for valor in valores:
+                valor_decimal = _parse_decimal_tabulator(valor)
+                if valor_decimal is not None:
+                    q_valores |= Q(**{campo: valor_decimal})
+            if q_valores:
+                qs = qs.filter(q_valores)
+            continue
+
+        if campo == "posicao_contagem":
+            ultima_data, penultima_data = _datas_posicao_contas(qs)
+            q_posicao = Q()
+            for valor in valores:
+                token = str(valor or "").strip().lower()
+                if token == "ultima_posicao" and ultima_data:
+                    q_posicao |= Q(data_arquivo=ultima_data)
+                elif token == "penultima_posicao" and penultima_data:
+                    q_posicao |= Q(data_arquivo=penultima_data)
+                elif token == "anteriores_posicao":
+                    q_anteriores = Q()
+                    if ultima_data:
+                        q_anteriores &= ~Q(data_arquivo=ultima_data)
+                    if penultima_data:
+                        q_anteriores &= ~Q(data_arquivo=penultima_data)
+                    q_posicao |= q_anteriores
+            if q_posicao:
+                qs = qs.filter(q_posicao)
+            continue
+
+        filtros_texto = {
+            "nome_fantasia_empresa": "nome_fantasia_empresa__icontains",
+            "parceiro_nome": "parceiro__nome__icontains",
+            "numero_nota": "numero_nota__icontains",
+            "titulo_descricao": "titulo__descricao__icontains",
+            "natureza_descricao": "natureza__descricao__icontains",
+            "centro_resultado_descricao": "centro_resultado__descricao__icontains",
+            "vendedor": "vendedor__icontains",
+            "operacao_descricao": "operacao__descricao_receita_despesa__icontains",
+        }
+        lookup = filtros_texto.get(campo)
+        if lookup:
+            q_texto = Q()
+            if tipo == "in":
+                lookup_exato = lookup.replace("__icontains", "")
+                for valor in valores:
+                    q_texto |= Q(**{lookup_exato: valor})
+            else:
+                for valor in valores:
+                    q_texto |= Q(**{lookup: valor})
+            if q_texto:
+                qs = qs.filter(q_texto)
+
+    return qs
+
+
+def _ordenar_contas_a_receber(qs, sorters):
+    mapeamento = {
+        "id": "id",
+        "data_negociacao": "data_negociacao",
+        "data_vencimento": "data_vencimento",
+        "data_arquivo": "data_arquivo",
+        "nome_fantasia_empresa": "nome_fantasia_empresa",
+        "parceiro_nome": "parceiro__nome",
+        "numero_nota": "numero_nota",
+        "valor_desdobramento": "valor_desdobramento",
+        "valor_liquido": "valor_liquido",
+        "titulo_descricao": "titulo__descricao",
+        "natureza_descricao": "natureza__descricao",
+        "centro_resultado_descricao": "centro_resultado__descricao",
+        "vendedor": "vendedor",
+        "operacao_descricao": "operacao__descricao_receita_despesa",
+        "status": "data_vencimento",
+        "dias_diferenca": "data_vencimento",
+        "intervalo": "data_vencimento",
+    }
+
+    ordenacoes = []
+    for sorter in sorters:
+        campo = str(sorter.get("field") or "").strip()
+        direcao = str(sorter.get("dir") or "asc").strip().lower()
+        order_field = mapeamento.get(campo)
+        if not order_field:
+            continue
+        prefixo = "-" if direcao == "desc" else ""
+        ordenacoes.append(f"{prefixo}{order_field}")
+
+    if not ordenacoes:
+        ordenacoes = ["-id"]
+    elif not any(item.lstrip("-") == "id" for item in ordenacoes):
+        ordenacoes.append("-id")
+
+    return qs.order_by(*ordenacoes)
+
+
+def _resumo_contas_a_receber(qs, total_registros):
+    agregado = qs.aggregate(
+        valor_faturado=Coalesce(
+            Sum(
+                Case(
+                    When(
+                        operacao__descricao_receita_despesa__icontains="despesa",
+                        then=-F("valor_liquido"),
+                    ),
+                    default=F("valor_liquido"),
+                    output_field=DecimalField(max_digits=16, decimal_places=2),
+                )
+            ),
+            Value(Decimal("0.00"), output_field=DecimalField(max_digits=16, decimal_places=2)),
+        ),
+    )
+    return {
+        "quantidade": int(total_registros or 0),
+        "valor_faturado": float(agregado.get("valor_faturado") or 0),
+    }
+
+
+def _filtros_sem_campo(filtros, campo):
+    alvo = str(campo or "").strip()
+    if not alvo:
+        return list(filtros or [])
+    return [
+        filtro for filtro in (filtros or [])
+        if str((filtro or {}).get("field") or "").strip() != alvo
+    ]
+
+
+def _opcoes_texto_distintas_contas(qs, campo_lookup):
+    valores = (
+        qs.exclude(**{f"{campo_lookup}__isnull": True})
+        .exclude(**{campo_lookup: ""})
+        .order_by(campo_lookup)
+        .values_list(campo_lookup, flat=True)
+        .distinct()
+    )
+    return [
+        {"value": str(valor), "label": str(valor)}
+        for valor in valores
+        if str(valor or "").strip()
+    ]
+
+
+def _opcoes_data_arquivo_contas(qs):
+    datas = (
+        qs.exclude(data_arquivo__isnull=True)
+        .order_by("-data_arquivo")
+        .values_list("data_arquivo", flat=True)
+        .distinct()
+    )
+    return [
+        {"value": data.strftime("%Y-%m-%d"), "label": _fmt_date_br(data)}
+        for data in datas
+        if data
+    ]
+
+
+def _opcoes_externas_contas_a_receber(base_qs, filtros):
+    filtros_status = _filtros_sem_campo(filtros, "status")
+    filtros_intervalo = _filtros_sem_campo(filtros, "intervalo")
+    filtros_data_arquivo = _filtros_sem_campo(filtros, "data_arquivo_iso")
+    filtros_titulo = _filtros_sem_campo(filtros, "titulo_descricao")
+    filtros_nome = _filtros_sem_campo(filtros, "nome_fantasia_empresa")
+    filtros_natureza = _filtros_sem_campo(filtros, "natureza_descricao")
+    filtros_posicao = _filtros_sem_campo(filtros, "posicao_contagem")
+
+    qs_status = _aplicar_filtros_contas_a_receber(base_qs, filtros_status)
+    qs_intervalo = _aplicar_filtros_contas_a_receber(base_qs, filtros_intervalo)
+    qs_data_arquivo = _aplicar_filtros_contas_a_receber(base_qs, filtros_data_arquivo)
+    qs_titulo = _aplicar_filtros_contas_a_receber(base_qs, filtros_titulo)
+    qs_nome = _aplicar_filtros_contas_a_receber(base_qs, filtros_nome)
+    qs_natureza = _aplicar_filtros_contas_a_receber(base_qs, filtros_natureza)
+    qs_posicao = _aplicar_filtros_contas_a_receber(base_qs, filtros_posicao)
+
+    hoje = datetime.now().date()
+    opcoes_status = []
+    if qs_status.filter(data_vencimento__lt=hoje).exists():
+        opcoes_status.append({"value": "Vencido", "label": "Vencido"})
+    if qs_status.filter(data_vencimento__gte=hoje).exists():
+        opcoes_status.append({"value": "A Vencer", "label": "A Vencer"})
+
+    opcoes_intervalo = []
+    intervalos = [
+        "0-5 (CML)",
+        "6-20 (FIN)",
+        "21-30 (POL)",
+        "31-60 (POL)",
+        "61-90 (POL)",
+        "91-120 (JUR1)",
+        "121-180 (JUR1)",
+        "+180 (JUR2)",
+    ]
+    for item in intervalos:
+        if _filtrar_contas_a_receber_por_intervalo(qs_intervalo, item).exists():
+            opcoes_intervalo.append({"value": item, "label": item})
+
+    ultima_data, penultima_data = _datas_posicao_contas(qs_posicao)
+    opcoes_posicao = []
+    if ultima_data:
+        opcoes_posicao.append({"value": "ultima_posicao", "label": "Ultima Posicao"})
+    if penultima_data:
+        opcoes_posicao.append({"value": "penultima_posicao", "label": "Penultima Posicao"})
+
+    q_anteriores = Q()
+    if ultima_data:
+        q_anteriores &= ~Q(data_arquivo=ultima_data)
+    if penultima_data:
+        q_anteriores &= ~Q(data_arquivo=penultima_data)
+    if qs_posicao.filter(q_anteriores).exists():
+        opcoes_posicao.append({"value": "anteriores_posicao", "label": "Anteriores"})
+
+    return {
+        "status": opcoes_status,
+        "intervalo": opcoes_intervalo,
+        "data_arquivo_iso": _opcoes_data_arquivo_contas(qs_data_arquivo),
+        "titulo_descricao": _opcoes_texto_distintas_contas(qs_titulo, "titulo__descricao"),
+        "nome_fantasia_empresa": _opcoes_texto_distintas_contas(qs_nome, "nome_fantasia_empresa"),
+        "natureza_descricao": _opcoes_texto_distintas_contas(qs_natureza, "natureza__descricao"),
+        "posicao_contagem": opcoes_posicao,
+    }
 
 
 def _bloquear_criar_em_modulo_com_importacao_se_necessario(request, empresa, acao, acoes_criar):
@@ -968,35 +1375,6 @@ def contas_a_receber(request, empresa_id):
                 messages.error(request, mensagem)
         return redirect("contas_a_receber", empresa_id=empresa.id)
 
-    contas_qs = (
-        ContasAReceber.objects.filter(empresa=empresa)
-        .annotate(
-            valor_desdobramento_num=Cast("valor_desdobramento", FloatField()),
-            valor_liquido_num=Cast("valor_liquido", FloatField()),
-        )
-        .values(
-            "id",
-            "data_negociacao",
-            "data_vencimento",
-            "data_arquivo",
-            "nome_fantasia_empresa",
-            "numero_nota",
-            "vendedor",
-            "valor_desdobramento_num",
-            "valor_liquido_num",
-            "titulo__tipo_titulo_codigo",
-            "titulo__descricao",
-            "natureza__codigo",
-            "natureza__descricao",
-            "centro_resultado__descricao",
-            "parceiro__codigo",
-            "parceiro__nome",
-            "operacao__tipo_operacao_codigo",
-            "operacao__descricao_receita_despesa",
-        )
-        .order_by("-id")
-    )
-
     arquivos_existentes = sorted(
         [
             str(f.relative_to(diretorio_importacao)).replace("\\", "/")
@@ -1024,13 +1402,93 @@ def contas_a_receber(request, empresa_id):
         "operacoes": Operacao.objects.filter(empresa=empresa).order_by("tipo_operacao_codigo"),
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
-        "contas_tabulator": build_contas_a_receber_tabulator(
-            contas_qs,
-            empresa.id,
-            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
-        ),
+        "contas_tabulator_url": reverse("contas_a_receber_dados", kwargs={"empresa_id": empresa.id}),
     }
     return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def contas_a_receber_dados(request, empresa_id):
+    modulo = _obter_modulo("Financeiro", "Contas a Receber")
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return JsonResponse({"detail": "Acesso negado."}, status=403)
+
+    page_raw = str(request.GET.get("page") or "").strip()
+    size_raw = str(request.GET.get("size") or "").strip()
+    try:
+        page = int(page_raw) if page_raw else 1
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = int(size_raw) if size_raw else 100
+    except (TypeError, ValueError):
+        page_size = 100
+
+    page = max(page, 1)
+    page_size = max(1, min(page_size, 200))
+
+    filtros = _coletar_param_json_lista(request, ("filters", "filter"))
+    sorters = _coletar_param_json_lista(request, ("sorters", "sort"))
+
+    base_qs = ContasAReceber.objects.filter(empresa=empresa)
+    filtrado_qs = _aplicar_filtros_contas_a_receber(base_qs, filtros)
+    ordenado_qs = _ordenar_contas_a_receber(filtrado_qs, sorters)
+    filtros_externos = _opcoes_externas_contas_a_receber(base_qs, filtros)
+
+    total_registros = ordenado_qs.count()
+    total_paginas = max(1, (total_registros + page_size - 1) // page_size)
+    if page > total_paginas:
+        page = total_paginas
+
+    inicio = (page - 1) * page_size
+    fim = inicio + page_size
+
+    contas_pagina_qs = (
+        ordenado_qs
+        .annotate(
+            valor_desdobramento_num=Cast("valor_desdobramento", FloatField()),
+            valor_liquido_num=Cast("valor_liquido", FloatField()),
+        )
+        .values(
+            "id",
+            "data_negociacao",
+            "data_vencimento",
+            "data_arquivo",
+            "nome_fantasia_empresa",
+            "numero_nota",
+            "vendedor",
+            "valor_desdobramento_num",
+            "valor_liquido_num",
+            "titulo__tipo_titulo_codigo",
+            "titulo__descricao",
+            "natureza__codigo",
+            "natureza__descricao",
+            "centro_resultado__descricao",
+            "parceiro__codigo",
+            "parceiro__nome",
+            "operacao__tipo_operacao_codigo",
+            "operacao__descricao_receita_despesa",
+        )[inicio:fim]
+    )
+
+    permitir_edicao = not _empresa_bloqueia_cadastro_edicao_importacao(empresa)
+    dados = build_contas_a_receber_tabulator(
+        contas_pagina_qs,
+        empresa.id,
+        permitir_edicao=permitir_edicao,
+    )
+    resumo = _resumo_contas_a_receber(filtrado_qs, total_registros)
+
+    return JsonResponse(
+        {
+            "data": dados,
+            "last_page": total_paginas,
+            "last_row": total_registros,
+            "summary": resumo,
+            "external_filters": filtros_externos,
+        }
+    )
 
 
 @login_required(login_url="entrar")
