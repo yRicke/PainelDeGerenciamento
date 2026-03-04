@@ -107,6 +107,8 @@ urlpatterns = [
     path('orcamentos/<int:empresa_id>/editar/<int:orcamento_planejado_id>/', views.editar_orcamento_planejado_modulo, name='editar_orcamento_planejado_modulo'),
     path('orcamentos/<int:empresa_id>/excluir/<int:orcamento_planejado_id>/', views.excluir_orcamento_planejado_modulo, name='excluir_orcamento_planejado_modulo'),
     path('adiantamentos/<int:empresa_id>/', views.adiantamentos, name='adiantamentos'),
+    path('adiantamentos/<int:empresa_id>/editar/<int:adiantamento_id>/', views.editar_adiantamento_modulo, name='editar_adiantamento_modulo'),
+    path('adiantamentos/<int:empresa_id>/excluir/<int:adiantamento_id>/', views.excluir_adiantamento_modulo, name='excluir_adiantamento_modulo'),
     path('contratos_redes/<int:empresa_id>/', views.contratos_redes, name='contratos_redes'),
 
 

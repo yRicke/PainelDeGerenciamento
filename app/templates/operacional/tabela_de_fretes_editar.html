@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'tabela_de_fretes' empresa.id %}">Voltar para tabela de fretes</a>
+    <a href="{% url 'tabela_de_fretes' empresa.id %}" class="module-hero-back-link">Voltar para tabela de fretes</a>
     <h1>Editar Frete #{{ frete_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

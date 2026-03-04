@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'dfc' empresa.id %}">Voltar para DFC</a>
+    <a href="{% url 'dfc' empresa.id %}" class="module-hero-back-link">Voltar para DFC</a>
     <h1>Editar DFC #{{ dfc_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -85,4 +85,3 @@
     </div>
 </section>
 {% endblock %}
-

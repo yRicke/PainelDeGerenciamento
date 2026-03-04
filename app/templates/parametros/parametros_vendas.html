@@ -11,7 +11,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
     <h1>Parametros Vendas</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

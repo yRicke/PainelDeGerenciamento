@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'estoque_pcp' empresa.id %}">Voltar para estoque</a>
+    <a href="{% url 'estoque_pcp' empresa.id %}" class="module-hero-back-link">Voltar para estoque</a>
     <h1>Editar Estoque #{{ estoque_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

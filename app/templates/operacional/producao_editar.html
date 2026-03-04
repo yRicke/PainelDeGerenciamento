@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'producao' empresa.id %}">Voltar para produção</a>
+    <a href="{% url 'producao' empresa.id %}" class="module-hero-back-link">Voltar para produção</a>
     <h1>Editar Produção #{{ producao_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

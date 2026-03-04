@@ -904,6 +904,34 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     return resultado
 
 
+def build_adiantamentos_tabulator(adiantamentos_qs, empresa_id: int, permitir_edicao: bool = True):
+    resultado = []
+    for item in adiantamentos_qs:
+        resultado.append(
+            {
+                "id": item.get("id"),
+                "empresa_id": item.get("empresa_id") or "",
+                "empresa_nome": item.get("empresa__nome") or "",
+                "moeda": item.get("moeda") or "",
+                "saldo_banco_em_reais": float(item.get("saldo_banco_em_reais_num") or 0),
+                "saldo_real_em_reais": float(item.get("saldo_real_em_reais_num") or 0),
+                "saldo_real": float(item.get("saldo_real_num") or 0),
+                "conta_descricao": item.get("conta_descricao") or "",
+                "saldo_banco": int(item.get("saldo_banco") or 0),
+                "banco": item.get("banco") or "",
+                "agencia": item.get("agencia") or "",
+                "conta_bancaria": item.get("conta_bancaria") or "",
+                "empresa_descricao": item.get("empresa_descricao") or "",
+            }
+        )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_adiantamento_modulo",
+                kwargs={"empresa_id": empresa_id, "adiantamento_id": item.get("id")},
+            )
+    return resultado
+
+
 def build_contas_a_receber_tabulator(contas_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     hoje = timezone.localdate()

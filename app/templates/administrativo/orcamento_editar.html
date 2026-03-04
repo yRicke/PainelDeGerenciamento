@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'orcamentos_realizados' empresa.id %}">Voltar para Orcamentos Realizados</a>
+    <a href="{% url 'orcamentos_realizados' empresa.id %}" class="module-hero-back-link">Voltar para Orcamentos Realizados</a>
     <h1>Editar Orcamento Realizado #{{ orcamento_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

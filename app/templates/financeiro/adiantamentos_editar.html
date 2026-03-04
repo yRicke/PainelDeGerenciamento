@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Editar Adiantamentos{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/financeiro/adiantamentos-page.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'adiantamentos' empresa.id %}" class="module-hero-back-link">Voltar para Adiantamentos</a>
+    <h1>Editar Adiantamentos #{{ adiantamento_item.id }}</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <p class="form-note">Atualize os campos do registro e salve.</p>
+    <form action="{% url 'editar_adiantamento_modulo' empresa.id adiantamento_item.id %}" method="POST">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div><label>Moeda</label><input type="text" name="moeda" value="{{ adiantamento_item.moeda }}"></div>
+            <div><label>Saldo banco em reais</label><input type="text" name="saldo_banco_em_reais" value="{{ adiantamento_item.saldo_banco_em_reais }}"></div>
+            <div><label>Saldo real em reais</label><input type="text" name="saldo_real_em_reais" value="{{ adiantamento_item.saldo_real_em_reais }}"></div>
+            <div><label>Saldo real</label><input type="text" name="saldo_real" value="{{ adiantamento_item.saldo_real }}"></div>
+            <div><label>Conta Descri&ccedil;&atilde;o</label><input type="text" name="conta_descricao" value="{{ adiantamento_item.conta_descricao }}" required></div>
+            <div><label>Saldo banco</label><input type="text" name="saldo_banco" value="{{ adiantamento_item.saldo_banco }}"></div>
+            <div><label>Banco</label><input type="text" name="banco" value="{{ adiantamento_item.banco }}"></div>
+            <div><label>Ag&ecirc;ncia</label><input type="text" name="agencia" value="{{ adiantamento_item.agencia }}"></div>
+            <div><label>Conta Banc&aacute;ria</label><input type="text" name="conta_bancaria" value="{{ adiantamento_item.conta_bancaria }}"></div>
+            <div><label>Empresa</label><input type="text" name="empresa_descricao" value="{{ adiantamento_item.empresa_descricao }}"></div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+        </div>
+    </form>
+
+    <div class="danger-zone">
+        <p>Acao irreversivel: exclui este registro de Adiantamentos.</p>
+        <form action="{% url 'excluir_adiantamento_modulo' empresa.id adiantamento_item.id %}" method="POST" onsubmit="return confirm('Excluir registro de Adiantamentos {{ adiantamento_item.id }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Excluir registro de Adiantamentos</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

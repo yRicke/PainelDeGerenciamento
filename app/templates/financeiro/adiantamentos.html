@@ -1,16 +1,160 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Adiantamentos{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/adiantamentos-page.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'financeiro' %}">Voltar</a>
-    <h1>Adiantamentos</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Financeiro</span>
+            </div>
+            <h1>Adiantamentos</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Adiantamentos">
+            <div class="module-hero-import-head">
+                <h2>Importacao de Adiantamentos</h2>
+                <span class="module-hero-import-badge">.xls</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form id="upload-adiantamentos-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
+                {% csrf_token %}
+                <input type="file" id="arquivo-adiantamentos-input" name="arquivo_adiantamentos" accept=".xls" hidden>
+                <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+                <div id="dropzone-adiantamentos" class="dropzone">
+                    <strong>Arraste e solte o arquivo aqui</strong>
+                    <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
+                </div>
+                <div class="upload-actions">
+                    <button type="submit" class="btn-primary">Enviar e importar</button>
+                    <span id="nome-arquivo-adiantamentos-selecionado" class="file-status"></span>
+                </div>
+            </form>
+        </section>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Adiantamentos</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
-</section>
+<div id="adiantamentos-module-shell" class="module-shell">
+    <aside id="adiantamentos-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="adiantamentos-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="adiantamentos-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="adiantamentos-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Adiantamentos">
+                {% if not bloquear_cadastro_edicao_importacao %}
+                <a href="#sec-cadastro">Cadastro</a>
+                {% endif %}
+                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        {% if not bloquear_cadastro_edicao_importacao %}
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro de Adiantamentos (Cadastro Manual)</h2>
+            <p class="form-note">Preencha os dados essenciais e conclua o cadastro.</p>
+            <form action="{% url 'adiantamentos' empresa.id %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="criar_adiantamento">
+                <div class="form-grid">
+                    <div><label>Moeda</label><input type="text" name="moeda"></div>
+                    <div><label>Saldo banco em reais</label><input type="text" name="saldo_banco_em_reais" placeholder="0,00"></div>
+                    <div><label>Saldo real em reais</label><input type="text" name="saldo_real_em_reais" placeholder="0,00"></div>
+                    <div><label>Saldo real</label><input type="text" name="saldo_real" placeholder="0,00"></div>
+                    <div><label>Conta Descri&ccedil;&atilde;o</label><input type="text" name="conta_descricao" required></div>
+                    <div><label>Saldo banco</label><input type="text" name="saldo_banco" placeholder="0"></div>
+                    <div><label>Banco</label><input type="text" name="banco"></div>
+                    <div><label>Ag&ecirc;ncia</label><input type="text" name="agencia"></div>
+                    <div><label>Conta Banc&aacute;ria</label><input type="text" name="conta_bancaria"></div>
+                    <div><label>Empresa</label><input type="text" name="empresa_descricao"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
+        {% endif %}
+
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard Adiantamentos</h2>
+            <div class="dashboard-kpi-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Total Saldo Banco em Reais</h3>
+                    <p id="adiantamentos-kpi-saldo-banco-em-reais">R$ 0,00</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Total Saldo Real em Reais</h3>
+                    <p id="adiantamentos-kpi-saldo-real-em-reais">R$ 0,00</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Dados de Adiantamentos</h2>
+            <div class="table-wrapper">
+                <div id="adiantamentos-tabulator"></div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ adiantamentos_tabulator|json_script:"adiantamentos-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/adiantamentos-page.js' %}"></script>
 {% endblock %}

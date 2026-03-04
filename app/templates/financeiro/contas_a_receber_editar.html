@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'contas_a_receber' empresa.id %}">Voltar para Contas a Receber</a>
+    <a href="{% url 'contas_a_receber' empresa.id %}" class="module-hero-back-link">Voltar para Contas a Receber</a>
     <h1>Editar Registro #{{ conta_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

@@ -41,7 +41,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'carteira' empresa.id %}">Voltar para carteira</a>
+    <a href="{% url 'carteira' empresa.id %}" class="module-hero-back-link">Voltar para carteira</a>
     <h1>Editar Carteira #{{ carteira.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

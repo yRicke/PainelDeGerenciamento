@@ -11,7 +11,7 @@
 {% block content %}
 <div class="tabulator-cadastro-ux" style="--cadastro-inline-columns: 1fr 160px auto; --cadastro-filter-columns: repeat(2, minmax(220px, 1fr)) 120px;">
 <section class="page-hero">
-    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }">Voltar</a>
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
     <h1>Cidades</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -61,6 +61,5 @@
     })();
 </script>
 {% endblock %}
-
 
 

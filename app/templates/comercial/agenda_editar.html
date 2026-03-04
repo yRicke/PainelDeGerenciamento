@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'agenda' empresa.id %}">Voltar para Agenda</a>
+    <a href="{% url 'agenda' empresa.id %}" class="module-hero-back-link">Voltar para Agenda</a>
     <h1>Editar Agenda #{{ agenda_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -74,4 +74,3 @@
     </div>
 </section>
 {% endblock %}
-

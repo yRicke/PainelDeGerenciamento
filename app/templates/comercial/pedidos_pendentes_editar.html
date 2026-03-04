@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'pedidos_pendentes' empresa.id %}">Voltar para Pedidos Pendentes</a>
+    <a href="{% url 'pedidos_pendentes' empresa.id %}" class="module-hero-back-link">Voltar para Pedidos Pendentes</a>
     <h1>Editar Pedido Pendente #{{ pedido.numero_unico }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -139,4 +139,3 @@
     </div>
 </section>
 {% endblock %}
-

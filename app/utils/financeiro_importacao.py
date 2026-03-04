@@ -4,7 +4,7 @@ import os
 import re
 import unicodedata
 from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 from django.db import transaction
@@ -12,6 +12,7 @@ from django.db.models import Max
 from django.db.models.functions import ExtractMonth, ExtractYear
 
 from ..models import (
+    Adiantamento,
     CentroResultado,
     ContasAReceber,
     FluxoDeCaixaDFC,
@@ -77,6 +78,18 @@ def _to_decimal(valor, decimal_places: int = 2) -> Decimal:
     except InvalidOperation:
         return Decimal("0")
     return decimal_valor
+
+
+def _to_int64(valor) -> int:
+    decimal_valor = _to_decimal(valor, decimal_places=6)
+    try:
+        inteiro = decimal_valor.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return 0
+    try:
+        return int(inteiro)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _excel_date(valor):
@@ -440,6 +453,135 @@ def importar_dfc_do_diretorio(
         "operacoes": len(cache_operacoes),
         "parceiros": len(cache_parceiros),
         "centros_resultado": len(cache_centros),
+        "avisos": avisos,
+    }
+
+
+@transaction.atomic
+def importar_adiantamentos_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/financeiro/adiantamentos",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "adiantamentos": 0,
+            "avisos": [],
+        }
+
+    if limpar_antes:
+        Adiantamento.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_adiantamentos = 0
+    objetos: list[Adiantamento] = []
+    avisos: list[str] = []
+
+    mapeamento_colunas = {
+        "moeda": ["moeda"],
+        "saldo_banco_em_reais": ["saldobancoemreais"],
+        "saldo_real_em_reais": ["saldorealemreais"],
+        "conta_descricao": ["conta"],
+        "saldo_real": ["saldoreal"],
+        "saldo_banco": ["saldobanco"],
+        "banco": ["banco"],
+        "agencia": ["agencia"],
+        "conta_bancaria": ["contabancaria"],
+        "empresa_descricao": ["empresa"],
+    }
+    obrigatorias = set(mapeamento_colunas.keys())
+
+    for arquivo in arquivos:
+        if xlrd is None:
+            raise RuntimeError("Dependencia 'xlrd' nao encontrada. Instale com: pip install xlrd==2.0.1")
+
+        workbook = xlrd.open_workbook(str(arquivo))
+        if workbook.nsheets <= 0:
+            continue
+
+        planilha = None
+        for nome_planilha in workbook.sheet_names():
+            if _normalizar_nome_coluna(nome_planilha) == "newsheet":
+                planilha = workbook.sheet_by_name(nome_planilha)
+                break
+        if planilha is None:
+            planilha = workbook.sheet_by_index(0)
+
+        if planilha.nrows <= 2:
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=list(mapeamento_colunas.keys()),
+                obrigatorias=obrigatorias,
+            )
+            continue
+
+        cabecalho = planilha.row_values(2)
+        cabecalho_normalizado = [_normalizar_nome_coluna(coluna) for coluna in cabecalho]
+        indices = {}
+        for chave, aliases in mapeamento_colunas.items():
+            indices[chave] = next((i for i, token in enumerate(cabecalho_normalizado) if token in aliases), None)
+
+        faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+        _registrar_aviso_colunas(
+            avisos,
+            nome_arquivo=arquivo.name,
+            faltantes=faltantes,
+            obrigatorias=obrigatorias,
+        )
+        if any(indices.get(chave) is None for chave in obrigatorias):
+            continue
+
+        def _valor_por_indice(linha_valores, chave):
+            idx = indices.get(chave)
+            if idx is None or idx >= len(linha_valores):
+                return ""
+            return linha_valores[idx]
+
+        for row_idx in range(3, planilha.nrows):
+            linha = planilha.row_values(row_idx)
+            if not any(_normalizar_texto(valor) for valor in linha):
+                continue
+
+            conta_descricao = _normalizar_texto(_valor_por_indice(linha, "conta_descricao"))
+            # Power Query: filtra apenas linhas com "Conta" preenchida.
+            if not conta_descricao:
+                continue
+
+            objetos.append(
+                Adiantamento(
+                    empresa=empresa,
+                    moeda=_normalizar_texto(_valor_por_indice(linha, "moeda")),
+                    saldo_banco_em_reais=_to_decimal(_valor_por_indice(linha, "saldo_banco_em_reais")),
+                    saldo_real_em_reais=_to_decimal(_valor_por_indice(linha, "saldo_real_em_reais")),
+                    saldo_real=_to_decimal(_valor_por_indice(linha, "saldo_real")),
+                    conta_descricao=conta_descricao,
+                    saldo_banco=_to_int64(_valor_por_indice(linha, "saldo_banco")),
+                    banco=_normalizar_texto(_valor_por_indice(linha, "banco")),
+                    agencia=_normalizar_texto(_valor_por_indice(linha, "agencia")),
+                    conta_bancaria=_normalizar_texto(_valor_por_indice(linha, "conta_bancaria")),
+                    empresa_descricao=_normalizar_texto(_valor_por_indice(linha, "empresa_descricao")),
+                )
+            )
+            total_linhas += 1
+
+            if len(objetos) >= 1000:
+                Adiantamento.objects.bulk_create(objetos, batch_size=1000)
+                total_adiantamentos += len(objetos)
+                objetos = []
+
+    if objetos:
+        Adiantamento.objects.bulk_create(objetos, batch_size=1000)
+        total_adiantamentos += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "adiantamentos": total_adiantamentos,
         "avisos": avisos,
     }
 

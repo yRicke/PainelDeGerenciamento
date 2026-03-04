@@ -4,7 +4,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'vendas_por_categoria' empresa.id %}">Voltar para vendas</a>
+    <a href="{% url 'vendas_por_categoria' empresa.id %}" class="module-hero-back-link">Voltar para vendas</a>
     <h1>Editar Venda #{{ venda.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

@@ -9,7 +9,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'cargas_em_aberto' empresa.id %}">Voltar para cargas em aberto</a>
+    <a href="{% url 'cargas_em_aberto' empresa.id %}" class="module-hero-back-link">Voltar para cargas em aberto</a>
     <h1>Editar Carga #{{ carga.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -100,4 +100,3 @@
 {% block extra_js %}
 <script src="{% static 'js/operacional/cargas-em-aberto-editar-page.js' %}"></script>
 {% endblock %}
-

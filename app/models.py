@@ -2267,6 +2267,97 @@ class FluxoDeCaixaDFC(models.Model):
     def excluir_fluxo_de_caixa_dfc(self):
         self.delete()
 
+
+class Adiantamento(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="adiantamentos")
+    moeda = models.CharField(max_length=120, blank=True, default="")
+    saldo_banco_em_reais = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    saldo_real_em_reais = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    saldo_real = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    conta_descricao = models.CharField(max_length=255)
+    saldo_banco = models.BigIntegerField(default=0)
+    banco = models.CharField(max_length=255, blank=True, default="")
+    agencia = models.CharField(max_length=120, blank=True, default="")
+    conta_bancaria = models.CharField(max_length=255, blank=True, default="")
+    empresa_descricao = models.CharField(max_length=255, blank=True, default="")
+
+    def __str__(self):
+        return f"Adiantamento #{self.id} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_adiantamento(
+        cls,
+        empresa,
+        moeda="",
+        saldo_banco_em_reais=0,
+        saldo_real_em_reais=0,
+        saldo_real=0,
+        conta_descricao="",
+        saldo_banco=0,
+        banco="",
+        agencia="",
+        conta_bancaria="",
+        empresa_descricao="",
+    ):
+        item = cls(
+            empresa=empresa,
+            moeda=moeda,
+            saldo_banco_em_reais=saldo_banco_em_reais,
+            saldo_real_em_reais=saldo_real_em_reais,
+            saldo_real=saldo_real,
+            conta_descricao=conta_descricao,
+            saldo_banco=saldo_banco,
+            banco=banco,
+            agencia=agencia,
+            conta_bancaria=conta_bancaria,
+            empresa_descricao=empresa_descricao,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_adiantamentos_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_adiantamento(
+        self,
+        moeda=UNSET,
+        saldo_banco_em_reais=UNSET,
+        saldo_real_em_reais=UNSET,
+        saldo_real=UNSET,
+        conta_descricao=UNSET,
+        saldo_banco=UNSET,
+        banco=UNSET,
+        agencia=UNSET,
+        conta_bancaria=UNSET,
+        empresa_descricao=UNSET,
+    ):
+        if moeda is not UNSET:
+            self.moeda = moeda
+        if saldo_banco_em_reais is not UNSET:
+            self.saldo_banco_em_reais = saldo_banco_em_reais
+        if saldo_real_em_reais is not UNSET:
+            self.saldo_real_em_reais = saldo_real_em_reais
+        if saldo_real is not UNSET:
+            self.saldo_real = saldo_real
+        if conta_descricao is not UNSET:
+            self.conta_descricao = conta_descricao
+        if saldo_banco is not UNSET:
+            self.saldo_banco = saldo_banco
+        if banco is not UNSET:
+            self.banco = banco
+        if agencia is not UNSET:
+            self.agencia = agencia
+        if conta_bancaria is not UNSET:
+            self.conta_bancaria = conta_bancaria
+        if empresa_descricao is not UNSET:
+            self.empresa_descricao = empresa_descricao
+        self.save()
+
+    def excluir_adiantamento(self):
+        self.delete()
+
+
 class ContasAReceber(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="contas_a_receber")
     data_negociacao = models.DateField()

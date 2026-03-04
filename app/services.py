@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 import json
 import shutil
@@ -13,6 +13,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from .models import (
+    Adiantamento,
     Agenda,
     Atividade,
     CentroResultado,
@@ -66,6 +67,7 @@ from .utils.comercial_importacao import (
     importar_vendas_do_diretorio,
 )
 from .utils.financeiro_importacao import (
+    importar_adiantamentos_do_diretorio,
     importar_contas_a_receber_do_diretorio,
     importar_dfc_do_diretorio,
     importar_orcamento_do_diretorio,
@@ -803,6 +805,18 @@ def _parse_int_ou_zero(valor):
         return 0
 
 
+def _parse_int64_ou_zero(valor):
+    numero = _parse_decimal_ou_zero(valor)
+    try:
+        numero = numero.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return 0
+    try:
+        return int(numero)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _parse_bool_checkbox(post_data, campo):
     return post_data.get(campo) == "on"
 
@@ -1485,6 +1499,37 @@ def atualizar_dfc_por_post(dfc_item, empresa, post_data):
     return ""
 
 
+def _dados_adiantamento_from_post(post_data):
+    return {
+        "moeda": (post_data.get("moeda") or "").strip(),
+        "saldo_banco_em_reais": _parse_decimal_ou_zero(post_data.get("saldo_banco_em_reais")),
+        "saldo_real_em_reais": _parse_decimal_ou_zero(post_data.get("saldo_real_em_reais")),
+        "saldo_real": _parse_decimal_ou_zero(post_data.get("saldo_real")),
+        "conta_descricao": (post_data.get("conta_descricao") or "").strip(),
+        "saldo_banco": _parse_int64_ou_zero(post_data.get("saldo_banco")),
+        "banco": (post_data.get("banco") or "").strip(),
+        "agencia": (post_data.get("agencia") or "").strip(),
+        "conta_bancaria": (post_data.get("conta_bancaria") or "").strip(),
+        "empresa_descricao": (post_data.get("empresa_descricao") or "").strip(),
+    }
+
+
+def criar_adiantamento_por_post(empresa, post_data):
+    dados = _dados_adiantamento_from_post(post_data)
+    if not dados["conta_descricao"]:
+        return "Conta Descricao e obrigatoria."
+    Adiantamento.criar_adiantamento(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_adiantamento_por_post(adiantamento_item, post_data):
+    dados = _dados_adiantamento_from_post(post_data)
+    if not dados["conta_descricao"]:
+        return "Conta Descricao e obrigatoria."
+    adiantamento_item.atualizar_adiantamento(**dados)
+    return ""
+
+
 def _dados_contas_a_receber_from_post(post_data, empresa):
     titulo = Titulo.objects.filter(id=post_data.get("titulo_id"), empresa=empresa).first()
     natureza = Natureza.objects.filter(id=post_data.get("natureza_id"), empresa=empresa).first()
@@ -2164,6 +2209,14 @@ def preparar_diretorios_dfc():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_adiantamentos():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "adiantamentos"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def preparar_diretorios_contas_a_receber():
     diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "contas_a_receber"
     diretorio_subscritos = diretorio_importacao / "subscritos"
@@ -2438,6 +2491,69 @@ def importar_upload_dfc(
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, dfc: {resultado['dfc']}."
+        ),
+    )
+
+
+def importar_upload_adiantamentos(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
+    if not arquivo:
+        return False, "Selecione um arquivo .xls para importar."
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xls"):
+        return False, "Formato invalido. Envie apenas arquivo .xls."
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        resultado = importar_adiantamentos_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Adiantamentos: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="adiantamentos",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
+
+    detalhe = _detalhe_erro_importacao(resultado, "adiantamentos", "registros de Adiantamentos importados")
+    if detalhe:
+        return False, detalhe
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, adiantamentos: {resultado['adiantamentos']}."
         ),
     )
 

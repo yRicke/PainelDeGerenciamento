@@ -15,6 +15,7 @@ from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast, Coalesce
 
 from .models import (
+    Adiantamento,
     Agenda,
     Atividade,
     CentroResultado,
@@ -70,6 +71,7 @@ from .services import (
     preparar_diretorios_pedidos_pendentes,
     preparar_diretorios_controle_margem,
     preparar_diretorios_dfc,
+    preparar_diretorios_adiantamentos,
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_orcamento,
     preparar_diretorios_cargas,
@@ -81,6 +83,7 @@ from .services import (
     importar_upload_pedidos_pendentes,
     importar_upload_controle_margem,
     importar_upload_dfc,
+    importar_upload_adiantamentos,
     importar_upload_contas_a_receber,
     importar_upload_orcamento,
     importar_upload_cargas,
@@ -132,6 +135,8 @@ from .services import (
     atualizar_centro_resultado_por_dados,
     criar_dfc_por_post,
     atualizar_dfc_por_post,
+    criar_adiantamento_por_post,
+    atualizar_adiantamento_por_post,
     criar_contas_a_receber_por_post,
     atualizar_contas_a_receber_por_post,
     criar_orcamento_por_post,
@@ -179,6 +184,7 @@ from .tabulator import (
     build_parametros_margem_logistica_tabulator,
     build_parametros_margem_financeiro_tabulator,
     build_dfc_tabulator,
+    build_adiantamentos_tabulator,
     build_contas_a_receber_tabulator,
     build_orcamento_tabulator,
     build_orcamento_x_realizado_tabulator,
@@ -199,6 +205,7 @@ TIPO_IMPORTACAO_POR_MODULO = {
     "vendas_por_categoria": "Pasta com arquivos .xls no padrao dd.mm.aaaa.xls.",
     "contas_a_receber": "Pasta com arquivos .xls.",
     "dfc": "Arquivo .xls (selecao unica).",
+    "adiantamentos": "Arquivo .xls (selecao unica).",
     "orcamento": "Pasta com arquivos .xls.",
     "cargas_em_aberto": "Arquivo .xls (selecao unica).",
     "producao": "Pasta com arquivos .xls.",
@@ -1922,7 +1929,92 @@ def excluir_orcamento_planejado_modulo(request, empresa_id, orcamento_planejado_
 @login_required(login_url="entrar")
 def adiantamentos(request, empresa_id):
     modulo = _obter_modulo("Financeiro", "Adiantamentos")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_adiantamentos()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_adiantamento"},
+        ):
+            return redirect("adiantamentos", empresa_id=empresa.id)
+        if acao == "criar_adiantamento":
+            erro = criar_adiantamento_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de Adiantamentos criado com sucesso.")
+        else:
+            arquivo = request.FILES.get("arquivo_adiantamentos")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem = importar_upload_adiantamentos(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("adiantamentos", empresa_id=empresa.id)
+
+    adiantamentos_qs = (
+        Adiantamento.objects.filter(empresa=empresa)
+        .annotate(
+            saldo_banco_em_reais_num=Cast("saldo_banco_em_reais", FloatField()),
+            saldo_real_em_reais_num=Cast("saldo_real_em_reais", FloatField()),
+            saldo_real_num=Cast("saldo_real", FloatField()),
+        )
+        .values(
+            "id",
+            "empresa_id",
+            "empresa__nome",
+            "moeda",
+            "saldo_banco_em_reais_num",
+            "saldo_real_em_reais_num",
+            "saldo_real_num",
+            "conta_descricao",
+            "saldo_banco",
+            "banco",
+            "agencia",
+            "conta_bancaria",
+            "empresa_descricao",
+        )
+        .order_by("-id")
+    )
+
+    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="adiantamentos",
+        extensoes={".xls"},
+    )
+    contexto = {
+        "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["adiantamentos"],
+        "resumo_importacao": resumo_importacao,
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "adiantamentos_tabulator": build_adiantamentos_tabulator(
+            adiantamentos_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
@@ -2876,6 +2968,53 @@ def excluir_dfc_modulo(request, empresa_id, dfc_id):
     dfc_item.excluir_fluxo_de_caixa_dfc()
     messages.success(request, "Registro DFC excluido com sucesso.")
     return redirect("dfc", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_adiantamento_modulo(request, empresa_id, adiantamento_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Adiantamentos")
+    if not autorizado:
+        return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "adiantamentos")
+    if bloqueio:
+        return bloqueio
+
+    adiantamento_item = Adiantamento.objects.filter(id=adiantamento_id, empresa=empresa).first()
+    if not adiantamento_item:
+        messages.error(request, "Registro de Adiantamentos nao encontrado.")
+        return redirect("adiantamentos", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_adiantamento_por_post(adiantamento_item, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect("editar_adiantamento_modulo", empresa_id=empresa.id, adiantamento_id=adiantamento_item.id)
+        messages.success(request, "Registro de Adiantamentos atualizado com sucesso.")
+        return redirect("adiantamentos", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "adiantamento_item": adiantamento_item,
+    }
+    return render(request, "financeiro/adiantamentos_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_adiantamento_modulo(request, empresa_id, adiantamento_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Adiantamentos")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("adiantamentos", empresa_id=empresa.id)
+
+    adiantamento_item = Adiantamento.objects.filter(id=adiantamento_id, empresa=empresa).first()
+    if not adiantamento_item:
+        messages.error(request, "Registro de Adiantamentos nao encontrado.")
+        return redirect("adiantamentos", empresa_id=empresa.id)
+    adiantamento_item.excluir_adiantamento()
+    messages.success(request, "Registro de Adiantamentos excluido com sucesso.")
+    return redirect("adiantamentos", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
