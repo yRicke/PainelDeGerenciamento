@@ -25,5 +25,7 @@ staticfiles/
 .env.*
 !.env.example
 
-
+# Planilhas
+*.xls
+*.xlsx
 
