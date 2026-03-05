@@ -2268,6 +2268,200 @@ class FluxoDeCaixaDFC(models.Model):
         self.delete()
 
 
+class Faturamento(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="faturamentos")
+    nome_origem = models.CharField(max_length=120, blank=True, default="")
+    data_faturamento = models.DateField()
+    nome_empresa = models.CharField(max_length=220, blank=True, default="")
+    parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True, related_name="faturamentos")
+    numero_nota = models.BigIntegerField(default=0, db_column="nro_nota")
+    indice_produto = models.PositiveIntegerField(default=1, db_column="indice_produto")
+    valor_nota = models.DecimalField(max_digits=16, decimal_places=2, default=0, db_column="vlr_nota")
+    participacao_venda_geral = models.DecimalField(max_digits=9, decimal_places=6, default=0)
+    participacao_venda_cliente = models.DecimalField(max_digits=9, decimal_places=6, default=0)
+    valor_nota_unico = models.DecimalField(max_digits=16, decimal_places=2, default=0, db_column="vlr_nota_unico")
+    peso_bruto = models.DecimalField(max_digits=16, decimal_places=2, default=0, db_column="peso_bruto")
+    peso_bruto_unico = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    quantidade_volumes = models.DecimalField(max_digits=16, decimal_places=2, default=0, db_column="qtd_volumes")
+    quantidade_saida = models.DecimalField(max_digits=16, decimal_places=2, default=0, db_column="qtd_saida")
+    status_nfe = models.CharField(max_length=80, blank=True, default="")
+    apelido_vendedor = models.CharField(max_length=150, blank=True, default="")
+    operacao = models.ForeignKey(Operacao, on_delete=models.SET_NULL, null=True, blank=True)
+    natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
+    centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.SET_NULL, null=True, blank=True)
+    tipo_movimento = models.CharField(max_length=80, blank=True, default="")
+    prazo_medio_safia = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    media_unica = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
+    tipo_venda = models.CharField(max_length=120, blank=True, default="")
+    produto = models.ForeignKey(Produto, on_delete=models.SET_NULL, null=True, blank=True, related_name="faturamentos")
+    gerente = models.CharField(max_length=150, blank=True, default="")
+    descricao_perfil = models.CharField(max_length=220, blank=True, default="")
+    valor_frete = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_column="criado_em")
+    atualizado_em = models.DateTimeField(auto_now=True, db_column="atualizado_em")
+
+    def __str__(self):
+        return f"Faturamento #{self.id} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_faturamento(
+        cls,
+        empresa,
+        nome_origem="",
+        data_faturamento=None,
+        nome_empresa="",
+        parceiro=None,
+        numero_nota=0,
+        indice_produto=1,
+        valor_nota=0,
+        participacao_venda_geral=0,
+        participacao_venda_cliente=0,
+        valor_nota_unico=0,
+        peso_bruto=0,
+        peso_bruto_unico=0,
+        quantidade_volumes=0,
+        quantidade_saida=0,
+        status_nfe="",
+        apelido_vendedor="",
+        operacao=None,
+        natureza=None,
+        centro_resultado=None,
+        tipo_movimento="",
+        prazo_medio_safia=0,
+        media_unica=None,
+        tipo_venda="",
+        produto=None,
+        gerente="",
+        descricao_perfil="",
+        valor_frete=None,
+    ):
+        item = cls(
+            empresa=empresa,
+            nome_origem=nome_origem,
+            data_faturamento=data_faturamento,
+            nome_empresa=nome_empresa,
+            parceiro=parceiro,
+            numero_nota=numero_nota,
+            indice_produto=indice_produto,
+            valor_nota=valor_nota,
+            participacao_venda_geral=participacao_venda_geral,
+            participacao_venda_cliente=participacao_venda_cliente,
+            valor_nota_unico=valor_nota_unico,
+            peso_bruto=peso_bruto,
+            peso_bruto_unico=peso_bruto_unico,
+            quantidade_volumes=quantidade_volumes,
+            quantidade_saida=quantidade_saida,
+            status_nfe=status_nfe,
+            apelido_vendedor=apelido_vendedor,
+            operacao=operacao,
+            natureza=natureza,
+            centro_resultado=centro_resultado,
+            tipo_movimento=tipo_movimento,
+            prazo_medio_safia=prazo_medio_safia,
+            media_unica=media_unica,
+            tipo_venda=tipo_venda,
+            produto=produto,
+            gerente=gerente,
+            descricao_perfil=descricao_perfil,
+            valor_frete=valor_frete,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_faturamento_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_faturamento(
+        self,
+        nome_origem=UNSET,
+        data_faturamento=UNSET,
+        nome_empresa=UNSET,
+        parceiro=UNSET,
+        numero_nota=UNSET,
+        indice_produto=UNSET,
+        valor_nota=UNSET,
+        participacao_venda_geral=UNSET,
+        participacao_venda_cliente=UNSET,
+        valor_nota_unico=UNSET,
+        peso_bruto=UNSET,
+        peso_bruto_unico=UNSET,
+        quantidade_volumes=UNSET,
+        quantidade_saida=UNSET,
+        status_nfe=UNSET,
+        apelido_vendedor=UNSET,
+        operacao=UNSET,
+        natureza=UNSET,
+        centro_resultado=UNSET,
+        tipo_movimento=UNSET,
+        prazo_medio_safia=UNSET,
+        media_unica=UNSET,
+        tipo_venda=UNSET,
+        produto=UNSET,
+        gerente=UNSET,
+        descricao_perfil=UNSET,
+        valor_frete=UNSET,
+    ):
+        if nome_origem is not UNSET:
+            self.nome_origem = nome_origem
+        if data_faturamento is not UNSET:
+            self.data_faturamento = data_faturamento
+        if nome_empresa is not UNSET:
+            self.nome_empresa = nome_empresa
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if numero_nota is not UNSET:
+            self.numero_nota = numero_nota
+        if indice_produto is not UNSET:
+            self.indice_produto = indice_produto
+        if valor_nota is not UNSET:
+            self.valor_nota = valor_nota
+        if participacao_venda_geral is not UNSET:
+            self.participacao_venda_geral = participacao_venda_geral
+        if participacao_venda_cliente is not UNSET:
+            self.participacao_venda_cliente = participacao_venda_cliente
+        if valor_nota_unico is not UNSET:
+            self.valor_nota_unico = valor_nota_unico
+        if peso_bruto is not UNSET:
+            self.peso_bruto = peso_bruto
+        if peso_bruto_unico is not UNSET:
+            self.peso_bruto_unico = peso_bruto_unico
+        if quantidade_volumes is not UNSET:
+            self.quantidade_volumes = quantidade_volumes
+        if quantidade_saida is not UNSET:
+            self.quantidade_saida = quantidade_saida
+        if status_nfe is not UNSET:
+            self.status_nfe = status_nfe
+        if apelido_vendedor is not UNSET:
+            self.apelido_vendedor = apelido_vendedor
+        if operacao is not UNSET:
+            self.operacao = operacao
+        if natureza is not UNSET:
+            self.natureza = natureza
+        if centro_resultado is not UNSET:
+            self.centro_resultado = centro_resultado
+        if tipo_movimento is not UNSET:
+            self.tipo_movimento = tipo_movimento
+        if prazo_medio_safia is not UNSET:
+            self.prazo_medio_safia = prazo_medio_safia
+        if media_unica is not UNSET:
+            self.media_unica = media_unica
+        if tipo_venda is not UNSET:
+            self.tipo_venda = tipo_venda
+        if produto is not UNSET:
+            self.produto = produto
+        if gerente is not UNSET:
+            self.gerente = gerente
+        if descricao_perfil is not UNSET:
+            self.descricao_perfil = descricao_perfil
+        if valor_frete is not UNSET:
+            self.valor_frete = valor_frete
+        self.save()
+
+    def excluir_faturamento(self):
+        self.delete()
+
+
 class Adiantamento(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="adiantamentos")
     moeda = models.CharField(max_length=120, blank=True, default="")

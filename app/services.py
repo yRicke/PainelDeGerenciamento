@@ -24,6 +24,7 @@ from .models import (
     ControleMargem,
     ContasAReceber,
     Empresa,
+    Faturamento,
     FluxoDeCaixaDFC,
     Estoque,
     Frete,
@@ -70,6 +71,7 @@ from .utils.financeiro_importacao import (
     importar_adiantamentos_do_diretorio,
     importar_contas_a_receber_do_diretorio,
     importar_dfc_do_diretorio,
+    importar_faturamento_do_diretorio,
     importar_orcamento_do_diretorio,
 )
 from .utils.operacional_importacao import (
@@ -1499,6 +1501,115 @@ def atualizar_dfc_por_post(dfc_item, empresa, post_data):
     return ""
 
 
+def _parse_decimal_ou_none(valor):
+    texto = (valor or "").strip()
+    if not texto:
+        return None
+    return _parse_decimal_ou_zero(texto)
+
+
+def _dados_faturamento_from_post(post_data):
+    data_faturamento_raw = (post_data.get("data_faturamento") or "").strip()
+    valor_frete_raw = (post_data.get("valor_frete") or "").strip()
+    empresa_id = post_data.get("empresa_id")
+    empresa = Empresa.objects.filter(id=empresa_id).first() if empresa_id else None
+
+    def _fk_id(campo):
+        valor = str(post_data.get(campo) or "").strip()
+        if not valor:
+            return None
+        try:
+            valor_int = int(valor)
+        except (TypeError, ValueError):
+            return None
+        return valor_int if valor_int > 0 else None
+
+    parceiro = None
+    operacao = None
+    natureza = None
+    centro_resultado = None
+    produto = None
+    if empresa:
+        parceiro_id = _fk_id("parceiro_id")
+        operacao_id = _fk_id("operacao_id")
+        natureza_id = _fk_id("natureza_id")
+        centro_resultado_id = _fk_id("centro_resultado_id")
+        produto_id = _fk_id("produto_id")
+
+        parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first() if parceiro_id else None
+        operacao = Operacao.objects.filter(id=operacao_id, empresa=empresa).first() if operacao_id else None
+        natureza = Natureza.objects.filter(id=natureza_id, empresa=empresa).first() if natureza_id else None
+        centro_resultado = CentroResultado.objects.filter(
+            id=centro_resultado_id,
+            empresa=empresa,
+        ).first() if centro_resultado_id else None
+        produto = Produto.objects.filter(id=produto_id, empresa=empresa).first() if produto_id else None
+
+    return {
+        "data_faturamento_raw": data_faturamento_raw,
+        "data_faturamento": _parse_date_ou_none(data_faturamento_raw),
+        "nome_origem": (post_data.get("nome_origem") or "").strip(),
+        "nome_empresa": (post_data.get("nome_empresa") or "").strip(),
+        "parceiro": parceiro,
+        "numero_nota": _parse_int64_ou_zero(post_data.get("numero_nota")),
+        "valor_nota": _parse_decimal_ou_zero(post_data.get("valor_nota")),
+        "participacao_venda_geral": _parse_decimal_ou_zero(post_data.get("participacao_venda_geral")),
+        "participacao_venda_cliente": _parse_decimal_ou_zero(post_data.get("participacao_venda_cliente")),
+        "valor_nota_unico": _parse_decimal_ou_zero(post_data.get("valor_nota_unico")),
+        "peso_bruto_unico": _parse_decimal_ou_zero(post_data.get("peso_bruto_unico")),
+        "quantidade_volumes": _parse_decimal_ou_zero(post_data.get("quantidade_volumes")),
+        "quantidade_saida": _parse_decimal_ou_zero(post_data.get("quantidade_saida")),
+        "status_nfe": (post_data.get("status_nfe") or "").strip(),
+        "apelido_vendedor": (post_data.get("apelido_vendedor") or "").strip(),
+        "operacao": operacao,
+        "natureza": natureza,
+        "centro_resultado": centro_resultado,
+        "tipo_movimento": (post_data.get("tipo_movimento") or "").strip(),
+        "prazo_medio_safia": _parse_decimal_ou_zero(post_data.get("prazo_medio_safia")),
+        "media_unica": _parse_decimal_ou_none(post_data.get("media_unica")),
+        "tipo_venda": (post_data.get("tipo_venda") or "").strip(),
+        "produto": produto,
+        "gerente": (post_data.get("gerente") or "").strip(),
+        "descricao_perfil": (post_data.get("descricao_perfil") or "").strip(),
+        "valor_frete_raw": valor_frete_raw,
+        "valor_frete": _parse_decimal_ou_none(valor_frete_raw),
+    }
+
+
+def criar_faturamento_por_post(empresa, post_data):
+    post_data = post_data.copy()
+    post_data["empresa_id"] = empresa.id
+    dados = _dados_faturamento_from_post(post_data)
+    if not dados["data_faturamento_raw"]:
+        return "Data do faturamento e obrigatoria."
+    if not dados["data_faturamento"]:
+        return "Data do faturamento invalida."
+    if dados["numero_nota"] <= 0:
+        return "Numero da nota e obrigatorio."
+
+    dados.pop("data_faturamento_raw", None)
+    dados.pop("valor_frete_raw", None)
+    Faturamento.criar_faturamento(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_faturamento_por_post(faturamento_item, post_data):
+    post_data = post_data.copy()
+    post_data["empresa_id"] = faturamento_item.empresa_id
+    dados = _dados_faturamento_from_post(post_data)
+    if not dados["data_faturamento_raw"]:
+        return "Data do faturamento e obrigatoria."
+    if not dados["data_faturamento"]:
+        return "Data do faturamento invalida."
+    if dados["numero_nota"] <= 0:
+        return "Numero da nota e obrigatorio."
+
+    dados.pop("data_faturamento_raw", None)
+    dados.pop("valor_frete_raw", None)
+    faturamento_item.atualizar_faturamento(**dados)
+    return ""
+
+
 def _dados_adiantamento_from_post(post_data):
     return {
         "moeda": (post_data.get("moeda") or "").strip(),
@@ -2209,6 +2320,14 @@ def preparar_diretorios_dfc():
     return diretorio_importacao, diretorio_subscritos
 
 
+def preparar_diretorios_faturamento():
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "administrativo" / "faturamento"
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
+
+
 def preparar_diretorios_adiantamentos():
     diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "adiantamentos"
     diretorio_subscritos = diretorio_importacao / "subscritos"
@@ -2491,6 +2610,114 @@ def importar_upload_dfc(
         (
             f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, dfc: {resultado['dfc']}."
+        ),
+    )
+
+
+FATURAMENTO_SUBPASTA_DIARIO = "1 - Faturamento diario"
+FATURAMENTO_SUBPASTA_PRODUTOS = "2 - Venda por Produto (NF)"
+
+
+def _normalizar_token_faturamento(valor):
+    texto = str(valor or "").strip().lower()
+    texto = re.sub(r"[^a-z0-9]+", "", texto)
+    return texto
+
+
+def _subpasta_faturamento_por_nome_arquivo(nome_arquivo):
+    caminho = str(nome_arquivo or "").replace("\\", "/")
+    partes = [parte for parte in caminho.split("/") if str(parte).strip()]
+    tokens = {_normalizar_token_faturamento(parte) for parte in partes}
+
+    if _normalizar_token_faturamento(FATURAMENTO_SUBPASTA_DIARIO) in tokens:
+        return FATURAMENTO_SUBPASTA_DIARIO
+    if _normalizar_token_faturamento(FATURAMENTO_SUBPASTA_PRODUTOS) in tokens:
+        return FATURAMENTO_SUBPASTA_PRODUTOS
+
+    # Fallback para navegadores que enviam apenas o nome do arquivo.
+    nome_base = Path(caminho).name
+    if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", nome_base, flags=re.IGNORECASE):
+        return FATURAMENTO_SUBPASTA_DIARIO
+    return FATURAMENTO_SUBPASTA_PRODUTOS
+
+
+def importar_upload_faturamento(
+    *,
+    empresa,
+    arquivos,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
+    arquivos_xlsx = []
+    for arquivo in arquivos or []:
+        nome_original = str(getattr(arquivo, "name", "") or "")
+        nome_base = Path(nome_original).name
+        if not nome_base.lower().endswith(".xlsx"):
+            continue
+        if nome_base.startswith("~$") or nome_base.startswith("."):
+            continue
+        subpasta = _subpasta_faturamento_por_nome_arquivo(nome_original)
+        arquivos_xlsx.append((arquivo, nome_base, subpasta))
+
+    if not arquivos_xlsx:
+        return False, "Selecione uma pasta com arquivos .xlsx para importar."
+
+    possui_diario = any(subpasta == FATURAMENTO_SUBPASTA_DIARIO for _, _, subpasta in arquivos_xlsx)
+    possui_produtos = any(subpasta == FATURAMENTO_SUBPASTA_PRODUTOS for _, _, subpasta in arquivos_xlsx)
+    if not possui_diario or not possui_produtos:
+        return (
+            False,
+            (
+                "Estrutura invalida. Selecione a pasta mae contendo as subpastas "
+                "'1 - Faturamento diario' e '2 - Venda por Produto (NF)'."
+            ),
+        )
+
+    for item_antigo in [f for f in diretorio_importacao.iterdir() if f.name != diretorio_subscritos.name]:
+        destino_subscrito = diretorio_subscritos / item_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{item_antigo.stem}_{timestamp}{item_antigo.suffix}"
+        shutil.move(str(item_antigo), str(destino_subscrito))
+
+    nomes_lote = []
+    for arquivo_upload, nome_arquivo, subpasta in arquivos_xlsx:
+        destino_pasta = diretorio_importacao / subpasta
+        destino_pasta.mkdir(parents=True, exist_ok=True)
+        destino = destino_pasta / nome_arquivo
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+        nomes_lote.append(str(Path(subpasta) / nome_arquivo))
+
+    try:
+        resultado = importar_faturamento_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Faturamento: {exc}"
+    try:
+        _registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            modulo="faturamento",
+            usuario=usuario,
+            arquivos=nomes_lote,
+        )
+    except Exception:
+        pass
+
+    detalhe = _detalhe_erro_importacao(resultado, "faturamento", "registros de faturamento importados")
+    if detalhe:
+        return False, detalhe
+
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, faturamento: {resultado['faturamento']}."
         ),
     )
 

@@ -27,6 +27,7 @@ from .models import (
     ContasAReceber,
     Empresa,
     Estoque,
+    Faturamento,
     FluxoDeCaixaDFC,
     Frete,
     Natureza,
@@ -71,6 +72,7 @@ from .services import (
     preparar_diretorios_pedidos_pendentes,
     preparar_diretorios_controle_margem,
     preparar_diretorios_dfc,
+    preparar_diretorios_faturamento,
     preparar_diretorios_adiantamentos,
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_orcamento,
@@ -83,6 +85,7 @@ from .services import (
     importar_upload_pedidos_pendentes,
     importar_upload_controle_margem,
     importar_upload_dfc,
+    importar_upload_faturamento,
     importar_upload_adiantamentos,
     importar_upload_contas_a_receber,
     importar_upload_orcamento,
@@ -135,6 +138,8 @@ from .services import (
     atualizar_centro_resultado_por_dados,
     criar_dfc_por_post,
     atualizar_dfc_por_post,
+    criar_faturamento_por_post,
+    atualizar_faturamento_por_post,
     criar_adiantamento_por_post,
     atualizar_adiantamento_por_post,
     criar_contas_a_receber_por_post,
@@ -184,6 +189,7 @@ from .tabulator import (
     build_parametros_margem_logistica_tabulator,
     build_parametros_margem_financeiro_tabulator,
     build_dfc_tabulator,
+    build_faturamento_tabulator,
     build_adiantamentos_tabulator,
     build_contas_a_receber_tabulator,
     build_orcamento_tabulator,
@@ -205,6 +211,7 @@ TIPO_IMPORTACAO_POR_MODULO = {
     "vendas_por_categoria": "Pasta com arquivos .xls no padrao dd.mm.aaaa.xls.",
     "contas_a_receber": "Pasta com arquivos .xls.",
     "dfc": "Arquivo .xls (selecao unica).",
+    "faturamento": "Pasta com subpastas '1 - Faturamento diario' e '2 - Venda por Produto (NF)' contendo arquivos .xlsx.",
     "adiantamentos": "Arquivo .xls (selecao unica).",
     "orcamento": "Pasta com arquivos .xls.",
     "cargas_em_aberto": "Arquivo .xls (selecao unica).",
@@ -2044,7 +2051,130 @@ def fiscal_e_contabil(request, empresa_id):
 @login_required(login_url="entrar")
 def faturamento(request, empresa_id):
     modulo = _obter_modulo("Administrativo", "Faturamento")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_faturamento()
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+            request,
+            empresa,
+            acao,
+            {"criar_faturamento"},
+        ):
+            return redirect("faturamento", empresa_id=empresa.id)
+
+        if acao == "criar_faturamento":
+            erro = criar_faturamento_por_post(empresa, request.POST)
+            if erro:
+                messages.error(request, erro)
+            else:
+                messages.success(request, "Registro de Faturamento criado com sucesso.")
+        else:
+            arquivos = request.FILES.getlist("arquivos_faturamento")
+            ok, mensagem = importar_upload_faturamento(
+                empresa=empresa,
+                arquivos=arquivos,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+        return redirect("faturamento", empresa_id=empresa.id)
+
+    faturamento_qs = (
+        Faturamento.objects.filter(empresa=empresa)
+        .annotate(
+            valor_nota_num=Cast("valor_nota", FloatField()),
+            participacao_venda_geral_num=Cast("participacao_venda_geral", FloatField()),
+            participacao_venda_cliente_num=Cast("participacao_venda_cliente", FloatField()),
+            valor_nota_unico_num=Cast("valor_nota_unico", FloatField()),
+            peso_bruto_unico_num=Cast("peso_bruto_unico", FloatField()),
+            quantidade_volumes_num=Cast("quantidade_volumes", FloatField()),
+            quantidade_saida_num=Cast("quantidade_saida", FloatField()),
+            prazo_medio_safia_num=Cast("prazo_medio_safia", FloatField()),
+            media_unica_num=Cast("media_unica", FloatField()),
+            valor_frete_num=Cast("valor_frete", FloatField()),
+        )
+        .values(
+            "id",
+            "nome_origem",
+            "data_faturamento",
+            "nome_empresa",
+            "parceiro_id",
+            "parceiro__codigo",
+            "parceiro__nome",
+            "parceiro__cidade__nome",
+            "numero_nota",
+            "valor_nota_num",
+            "participacao_venda_geral_num",
+            "participacao_venda_cliente_num",
+            "valor_nota_unico_num",
+            "peso_bruto_unico_num",
+            "quantidade_volumes_num",
+            "quantidade_saida_num",
+            "status_nfe",
+            "apelido_vendedor",
+            "operacao_id",
+            "operacao__descricao_receita_despesa",
+            "natureza_id",
+            "natureza__descricao",
+            "centro_resultado_id",
+            "centro_resultado__descricao",
+            "tipo_movimento",
+            "prazo_medio_safia_num",
+            "media_unica_num",
+            "tipo_venda",
+            "produto_id",
+            "produto__codigo_produto",
+            "produto__descricao_produto",
+            "gerente",
+            "descricao_perfil",
+            "valor_frete_num",
+        )
+        .order_by("-data_faturamento", "-id")
+    )
+
+    arquivos_existentes = sorted(
+        [
+            str(arquivo.relative_to(diretorio_importacao)).replace("\\", "/")
+            for arquivo in diretorio_importacao.rglob("*")
+            if arquivo.is_file() and diretorio_subscritos not in arquivo.parents
+        ]
+    )
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="faturamento",
+        extensoes={".xlsx"},
+    )
+    contexto = {
+        "empresa": empresa,
+        "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        "modulo_nome": modulo["nome"],
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["faturamento"],
+        "resumo_importacao": resumo_importacao,
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("descricao_receita_despesa"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("descricao"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+        "produtos": Produto.objects.filter(empresa=empresa).order_by("descricao_produto"),
+        "faturamento_tabulator": build_faturamento_tabulator(
+            faturamento_qs,
+            empresa.id,
+            permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
+        ),
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
@@ -2968,6 +3098,63 @@ def excluir_dfc_modulo(request, empresa_id, dfc_id):
     dfc_item.excluir_fluxo_de_caixa_dfc()
     messages.success(request, "Registro DFC excluido com sucesso.")
     return redirect("dfc", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_faturamento_modulo(request, empresa_id, faturamento_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Faturamento")
+    if not autorizado:
+        return redirect("index")
+    bloqueio = _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, "faturamento")
+    if bloqueio:
+        return bloqueio
+
+    faturamento_item = Faturamento.objects.filter(id=faturamento_id, empresa=empresa).first()
+    if not faturamento_item:
+        messages.error(request, "Registro de Faturamento nao encontrado.")
+        return redirect("faturamento", empresa_id=empresa.id)
+
+    if request.method == "POST":
+        erro = atualizar_faturamento_por_post(faturamento_item, request.POST)
+        if erro:
+            messages.error(request, erro)
+            return redirect(
+                "editar_faturamento_modulo",
+                empresa_id=empresa.id,
+                faturamento_id=faturamento_item.id,
+            )
+        messages.success(request, "Registro de Faturamento atualizado com sucesso.")
+        return redirect("faturamento", empresa_id=empresa.id)
+
+    contexto = {
+        "empresa": empresa,
+        "faturamento_item": faturamento_item,
+        "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
+        "operacoes": Operacao.objects.filter(empresa=empresa).order_by("descricao_receita_despesa"),
+        "naturezas": Natureza.objects.filter(empresa=empresa).order_by("descricao"),
+        "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
+        "produtos": Produto.objects.filter(empresa=empresa).order_by("descricao_produto"),
+    }
+    return render(request, "administrativo/faturamento_editar.html", contexto)
+
+
+@login_required(login_url="entrar")
+def excluir_faturamento_modulo(request, empresa_id, faturamento_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Faturamento")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("faturamento", empresa_id=empresa.id)
+
+    faturamento_item = Faturamento.objects.filter(id=faturamento_id, empresa=empresa).first()
+    if not faturamento_item:
+        messages.error(request, "Registro de Faturamento nao encontrado.")
+        return redirect("faturamento", empresa_id=empresa.id)
+
+    faturamento_item.excluir_faturamento()
+    messages.success(request, "Registro de Faturamento excluido com sucesso.")
+    return redirect("faturamento", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

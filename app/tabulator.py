@@ -904,6 +904,81 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     return resultado
 
 
+def build_faturamento_tabulator(faturamento_qs, empresa_id: int, permitir_edicao: bool = True):
+    resultado = []
+    for item in faturamento_qs:
+        data_faturamento = item.get("data_faturamento")
+        parceiro_codigo = item.get("parceiro__codigo") or ""
+        parceiro_nome = item.get("parceiro__nome") or ""
+        parceiro_label = ""
+        if parceiro_codigo and parceiro_nome:
+            parceiro_label = f"{parceiro_codigo} - {parceiro_nome}"
+        else:
+            parceiro_label = parceiro_codigo or parceiro_nome
+
+        produto_codigo = item.get("produto__codigo_produto") or ""
+        produto_descricao = item.get("produto__descricao_produto") or ""
+        produto_label = ""
+        if produto_codigo and produto_descricao:
+            produto_label = f"{produto_codigo} - {produto_descricao}"
+        else:
+            produto_label = produto_codigo or produto_descricao
+
+        resultado.append(
+            {
+                "id": item.get("id"),
+                "nome_origem": item.get("nome_origem") or "",
+                "data_faturamento": _fmt_date_br(data_faturamento),
+                "data_faturamento_iso": (
+                    data_faturamento.strftime("%Y-%m-%d")
+                    if data_faturamento
+                    else ""
+                ),
+                "ano_faturamento": data_faturamento.year if data_faturamento else "",
+                "mes_faturamento": data_faturamento.month if data_faturamento else "",
+                "nome_empresa": item.get("nome_empresa") or "",
+                "parceiro_id": item.get("parceiro_id") or "",
+                "parceiro_label": parceiro_label,
+                "numero_nota": int(item.get("numero_nota") or 0),
+                "valor_nota": float(item.get("valor_nota_num") or 0),
+                "participacao_venda_geral": float(item.get("participacao_venda_geral_num") or 0),
+                "participacao_venda_cliente": float(item.get("participacao_venda_cliente_num") or 0),
+                "valor_nota_unico": float(item.get("valor_nota_unico_num") or 0),
+                "peso_bruto_unico": float(item.get("peso_bruto_unico_num") or 0),
+                "quantidade_volumes": float(item.get("quantidade_volumes_num") or 0),
+                "quantidade_saida": float(item.get("quantidade_saida_num") or 0),
+                "status_nfe": item.get("status_nfe") or "",
+                "apelido_vendedor": item.get("apelido_vendedor") or "",
+                "operacao_id": item.get("operacao_id") or "",
+                "operacao_descricao": item.get("operacao__descricao_receita_despesa") or "",
+                "natureza_id": item.get("natureza_id") or "",
+                "natureza_descricao": item.get("natureza__descricao") or "",
+                "centro_resultado_id": item.get("centro_resultado_id") or "",
+                "centro_resultado_descricao": item.get("centro_resultado__descricao") or "",
+                "tipo_movimento": item.get("tipo_movimento") or "",
+                "prazo_medio_safia": float(item.get("prazo_medio_safia_num") or 0),
+                "media_unica": float(item.get("media_unica_num") or 0),
+                "tipo_venda": item.get("tipo_venda") or "",
+                "produto_id": item.get("produto_id") or "",
+                "produto_label": produto_label,
+                "cidade_parceiro": item.get("parceiro__cidade__nome") or "",
+                "gerente": item.get("gerente") or "",
+                "descricao_perfil": item.get("descricao_perfil") or "",
+                "valor_frete": (
+                    float(item.get("valor_frete_num"))
+                    if item.get("valor_frete_num") is not None
+                    else None
+                ),
+            }
+        )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_faturamento_modulo",
+                kwargs={"empresa_id": empresa_id, "faturamento_id": item.get("id")},
+            )
+    return resultado
+
+
 def build_adiantamentos_tabulator(adiantamentos_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for item in adiantamentos_qs:

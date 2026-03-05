@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import unicodedata
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
@@ -13,16 +14,22 @@ from django.db.models.functions import ExtractMonth, ExtractYear
 
 from ..models import (
     Adiantamento,
+    Carteira,
     CentroResultado,
+    Cidade,
     ContasAReceber,
+    Faturamento,
+    Frete,
     FluxoDeCaixaDFC,
     Natureza,
     Operacao,
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    Produto,
     Titulo,
 )
+from .comercial_importacao import _iterar_linhas_xlsx
 
 try:
     import xlrd
@@ -239,6 +246,746 @@ def _data_arquivo_nao_nula(caminho_arquivo: Path):
         return data_arquivo
     # Fallback para evitar nulo quando o nome vier fora do padrao esperado.
     return datetime.fromtimestamp(os.path.getmtime(caminho_arquivo)).date()
+
+
+FATURAMENTO_SUBPASTA_DIARIO = "1 - Faturamento diario"
+FATURAMENTO_SUBPASTA_PRODUTOS = "2 - Venda por Produto (NF)"
+FATURAMENTO_CHAVE_PASTA_DIARIO = _normalizar_nome_coluna("1 - Faturamento diario")
+FATURAMENTO_CHAVE_PASTA_PRODUTOS = _normalizar_nome_coluna("2 - Venda por Produto (NF)")
+FATURAMENTO_OPERACOES_PERMITIDAS = {
+    _normalizar_nome_coluna(valor)
+    for valor in [
+        "SAFIA VENDA INTERNA DF AÇUCAREIRA",
+        "SAFIA VENDA NFC - AÇUCAREIRA",
+        "SAFIA VENDA NFE",
+        "SAFIA VENDA NFE - ATACADO",
+        "SAFIA VENDA NFE - AÇUCAREIRA",
+        "SAFIA VENDA NFE -TRIANGULAR SEM TRASISTA",
+    ]
+}
+
+
+def _arquivo_xlsx_visivel(caminho: Path) -> bool:
+    nome = str(caminho.name or "").strip()
+    if not nome:
+        return False
+    if nome.startswith(".") or nome.startswith("~$"):
+        return False
+    if nome.lower() in {"thumbs.db", "desktop.ini"}:
+        return False
+    return caminho.suffix.lower() == ".xlsx"
+
+
+def _classificar_arquivo_faturamento(base: Path, caminho_arquivo: Path) -> str:
+    try:
+        rel_parts = list(caminho_arquivo.relative_to(base).parts[:-1])
+    except ValueError:
+        rel_parts = list(caminho_arquivo.parts[:-1])
+    tokens = {_normalizar_nome_coluna(parte) for parte in rel_parts}
+    if FATURAMENTO_CHAVE_PASTA_DIARIO in tokens:
+        return "diario"
+    if FATURAMENTO_CHAVE_PASTA_PRODUTOS in tokens:
+        return "produtos"
+
+    # Fallback para navegadores que enviam apenas o nome do arquivo no upload.
+    if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", caminho_arquivo.name, flags=re.IGNORECASE):
+        return "diario"
+    return "produtos"
+
+
+def _valor_por_indice(linha, indices, chave):
+    idx = (indices or {}).get(chave)
+    if idx is None or idx < 0 or idx >= len(linha):
+        return ""
+    return linha[idx]
+
+
+def _extrair_decimal_de_texto(valor, decimal_places: int = 2) -> Decimal:
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return Decimal("0")
+    match = re.search(r"-?\d[\d.,]*", texto)
+    if not match:
+        return Decimal("0")
+    return _to_decimal(match.group(0), decimal_places=decimal_places)
+
+
+def _gerente_valido_ou_vazio(valor):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return ""
+    if texto.upper() in {"<SEM VENDEDOR>", "SEM VENDEDOR", "<SEM GERENTE>", "SEM GERENTE"}:
+        return ""
+    return texto
+
+
+def _split_codigo_nome_texto(valor):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return "", ""
+    if " - " in texto:
+        codigo, nome = texto.split(" - ", 1)
+        return _normalizar_codigo(codigo), _normalizar_texto(nome)
+    return "", texto
+
+
+def _split_codigo_descricao_produto(valor):
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return "", ""
+
+    if " - " in texto:
+        esquerda, descricao = texto.split(" - ", 1)
+        esquerda = _normalizar_texto(esquerda)
+        descricao = _normalizar_texto(descricao)
+        numero_match = re.search(r"(\d+)", esquerda)
+        if numero_match:
+            return numero_match.group(1), descricao
+        return _normalizar_codigo(esquerda), descricao
+
+    return "", texto
+
+
+def _codigo_cidade_faturamento_unico() -> str:
+    for idx in range(1, 10000):
+        codigo = f"{idx:04d}"
+        if not Cidade.objects.filter(codigo=codigo).exists():
+            return codigo
+    return datetime.now().strftime("%H%M")
+
+
+def _cidade_por_nome_get_create(empresa, nome_cidade, cache_cidades):
+    nome = _normalizar_texto(nome_cidade)
+    if not nome:
+        return None
+
+    chave = _normalizar_nome_coluna(nome)
+    if chave in cache_cidades:
+        return cache_cidades[chave]
+
+    cidade = Cidade.objects.filter(empresa=empresa, nome__iexact=nome).first()
+    if not cidade:
+        cidade = Cidade.criar_cidade(
+            nome=nome,
+            empresa=empresa,
+            codigo=_codigo_cidade_faturamento_unico(),
+        )
+    cache_cidades[chave] = cidade
+    return cidade
+
+
+def _parceiro_get_create_com_cidade(empresa, parceiro_codigo, parceiro_nome, cidade, cache_parceiros):
+    codigo = _normalizar_codigo(parceiro_codigo)
+    nome = _normalizar_texto(parceiro_nome)
+    chave = _normalizar_nome_coluna(f"{codigo}|{nome}")
+    if chave in cache_parceiros:
+        parceiro = cache_parceiros[chave]
+    else:
+        if codigo:
+            parceiro = Parceiro.obter_ou_criar_por_codigo_nome(
+                empresa=empresa,
+                codigo=codigo,
+                nome=nome,
+            )
+        else:
+            parceiro = Parceiro.objects.filter(empresa=empresa, nome__iexact=nome).first()
+            if parceiro is None and nome:
+                codigo = f"DESC_{_codigo_a_partir_descricao('', nome, 46) or '0001'}"[:50]
+                parceiro = Parceiro.obter_ou_criar_por_codigo_nome(
+                    empresa=empresa,
+                    codigo=codigo,
+                    nome=nome,
+                )
+        cache_parceiros[chave] = parceiro
+
+    if parceiro and cidade and parceiro.cidade_id != cidade.id:
+        parceiro.cidade = cidade
+        parceiro.save(update_fields=["cidade"])
+    return parceiro
+
+
+def _operacao_get_create_por_descricao(empresa, descricao, cache_operacoes):
+    texto = _normalizar_texto(descricao)
+    if not texto:
+        return None
+    chave = _normalizar_nome_coluna(texto)
+    if chave in cache_operacoes:
+        return cache_operacoes[chave]
+    codigo = _codigo_a_partir_descricao("DESC_", texto, 50)
+    operacao = Operacao.obter_ou_criar_por_codigo_descricao(
+        empresa=empresa,
+        tipo_operacao_codigo=codigo or texto[:50],
+        descricao_receita_despesa=texto,
+    )
+    cache_operacoes[chave] = operacao
+    return operacao
+
+
+def _natureza_get_create_por_descricao(empresa, descricao, cache_naturezas):
+    texto = _normalizar_texto(descricao)
+    if not texto:
+        return None
+    chave = _normalizar_nome_coluna(texto)
+    if chave in cache_naturezas:
+        return cache_naturezas[chave]
+    codigo = _codigo_a_partir_descricao("DESC_", texto, 50)
+    natureza = Natureza.obter_ou_criar_por_codigo_descricao(
+        empresa=empresa,
+        codigo=codigo or texto[:50],
+        descricao=texto,
+    )
+    cache_naturezas[chave] = natureza
+    return natureza
+
+
+def _centro_resultado_get_create(empresa, descricao, cache_centros):
+    texto = _descricao_textual_ou_vazio(descricao)
+    if not texto:
+        return None
+    chave = _normalizar_nome_coluna(texto)
+    if chave in cache_centros:
+        return cache_centros[chave]
+    centro = CentroResultado.obter_ou_criar_por_descricao(empresa=empresa, descricao=texto)
+    cache_centros[chave] = centro
+    return centro
+
+
+def _produto_get_create_por_texto(empresa, produto_texto, cache_produtos):
+    codigo, descricao = _split_codigo_descricao_produto(produto_texto)
+    if not codigo and not descricao:
+        return None
+    chave = _normalizar_nome_coluna(f"{codigo}|{descricao}")
+    if chave in cache_produtos:
+        return cache_produtos[chave]
+    if not codigo and descricao:
+        codigo = _codigo_a_partir_descricao("DESC_", descricao, 50)
+    if not codigo:
+        return None
+    produto = Produto.obter_ou_criar_por_codigo_descricao(
+        empresa=empresa,
+        codigo_produto=codigo,
+        descricao_produto=descricao,
+    )
+    cache_produtos[chave] = produto
+    return produto
+
+
+def _mapa_cadastro_carteira_faturamento(empresa):
+    mapa = {}
+    for item in (
+        Carteira.objects.filter(empresa=empresa, parceiro__isnull=False)
+        .order_by("-data_cadastro", "-id")
+        .values("parceiro__codigo", "parceiro__nome", "gerente", "descricao_perfil")
+    ):
+        codigo = _normalizar_texto(item.get("parceiro__codigo"))
+        nome = _normalizar_texto(item.get("parceiro__nome"))
+        if not codigo and not nome:
+            continue
+        chave = _normalizar_nome_coluna(f"{codigo} - {nome}")
+        if chave in mapa:
+            continue
+        mapa[chave] = {
+            "gerente": _gerente_valido_ou_vazio(item.get("gerente")),
+            "descricao_perfil": _normalizar_texto(item.get("descricao_perfil")),
+        }
+    return mapa
+
+
+def _mapa_frete_tonelada_por_cidade(empresa):
+    mapa = {}
+    for frete in Frete.objects.filter(empresa=empresa).select_related("cidade"):
+        nome_cidade = _normalizar_texto(getattr(getattr(frete, "cidade", None), "nome", ""))
+        if not nome_cidade:
+            continue
+        chave = _normalizar_nome_coluna(nome_cidade)
+        if not chave or chave in mapa:
+            continue
+        valor = frete.valor_frete_tonelada or Decimal("0")
+        if valor > 0:
+            mapa[chave] = valor
+    return mapa
+
+
+def _percentual_faturamento(valor: Decimal, total: Decimal) -> Decimal:
+    if total <= 0:
+        return Decimal("0")
+    try:
+        return ((valor * Decimal("100")) / total).quantize(Decimal("0.000001"))
+    except (InvalidOperation, ZeroDivisionError):
+        return Decimal("0")
+
+
+def _calcular_valor_frete_faturamento(registro, frete_por_cidade):
+    tipo_venda = _normalizar_nome_coluna(registro.get("tipo_venda"))
+    if "entrega" not in tipo_venda:
+        return None
+
+    qtd_saida = registro.get("quantidade_saida") or Decimal("0")
+    if qtd_saida <= 0:
+        return None
+
+    valor_tonelada = registro.get("valor_tonelada_frete") or Decimal("0")
+    if valor_tonelada <= 0:
+        cidade_nome = registro.get("cidade_parceiro_nome")
+        if not cidade_nome:
+            parceiro = registro.get("parceiro")
+            cidade_nome = getattr(getattr(parceiro, "cidade", None), "nome", "")
+        chave_cidade = _normalizar_nome_coluna(cidade_nome)
+        valor_tonelada = frete_por_cidade.get(chave_cidade, Decimal("0"))
+    if valor_tonelada <= 0:
+        return None
+
+    try:
+        return ((qtd_saida / Decimal("1000")) * valor_tonelada).quantize(Decimal("0.01"))
+    except (InvalidOperation, ZeroDivisionError):
+        return None
+
+
+def _importar_nf_produtos_faturamento(arquivos):
+    produtos_por_nota = defaultdict(list)
+    total_linhas = 0
+    avisos = []
+
+    mapeamento_colunas = {
+        "produto": ["produto"],
+        "numero_nota": ["notafiscal", "nronota", "numeronota"],
+        "quantidade_saida": ["qtdsaida", "qntsaida", "quantidadesaida", "qtdsaida"],
+    }
+    obrigatorias = {"produto", "numero_nota", "quantidade_saida"}
+
+    for arquivo in arquivos:
+        indices = None
+        melhor_idx_map = None
+        melhor_score = -1
+
+        for linha in _iterar_linhas_xlsx(arquivo):
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            if indices is None:
+                normalizadas = [_normalizar_nome_coluna(valor) for valor in linha]
+                idx_map = {}
+                for chave, aliases in mapeamento_colunas.items():
+                    idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                score = sum(1 for idx in idx_map.values() if idx is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
+                if all(idx_map.get(chave) is not None for chave in obrigatorias):
+                    indices = idx_map
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
+                continue
+
+            if indices is None:
+                continue
+
+            numero_nota = _to_int64(_valor_por_indice(linha, indices, "numero_nota"))
+            if numero_nota <= 0:
+                continue
+
+            quantidade_saida = _to_decimal(_valor_por_indice(linha, indices, "quantidade_saida"))
+            produto = _normalizar_texto(_valor_por_indice(linha, indices, "produto"))
+
+            if quantidade_saida <= 0 and not produto:
+                continue
+
+            produtos_por_nota[numero_nota].append(
+                {
+                    "produto": produto,
+                    "quantidade_saida": quantidade_saida,
+                }
+            )
+            total_linhas += 1
+
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias,
+            )
+
+    return {
+        "linhas": total_linhas,
+        "produtos_por_nota": produtos_por_nota,
+        "avisos": avisos,
+    }
+
+
+def _importar_base_faturamento_diario(arquivos):
+    registros = []
+    total_linhas = 0
+    avisos = []
+
+    mapeamento_colunas = {
+        "nome_parceiro_base": ["nomeparceiroparceiro"],
+        "quantidade_volumes": ["qtdvolumes"],
+        "numero_nota": ["nronota", "numeronota"],
+        "valor_nota": ["vlrnota"],
+        "peso_bruto": ["pesobruto"],
+        "parceiro_codigo": ["parceiro"],
+        "status_nfe": ["statusnfe"],
+        "descricao_tipo_operacao": ["descricaotipodeoperacao"],
+        "apelido_vendedor": ["apelidovendedor"],
+        "nome_fantasia_empresa": ["nomefantasiaempresa"],
+        "empresa_codigo": ["empresa"],
+        "descricao_natureza": ["descricaonatureza"],
+        "descricao_centro_resultado": ["descricaocentroderesultado"],
+        "tipo_movimento": ["tipodemovimento"],
+        "data_faturamento": ["dtdofaturamento"],
+        "tipo_venda": ["tipodavenda"],
+        "prazo_medio_safia": ["prazomediosafia"],
+        "nome_cidade_parceiro_safia": ["nomecidadeparceirosafia"],
+        "valor_tonelada_frete": ["valortoneladafretesafia"],
+    }
+    obrigatorias = {
+        "nome_parceiro_base",
+        "numero_nota",
+        "valor_nota",
+        "data_faturamento",
+        "descricao_tipo_operacao",
+    }
+
+    for arquivo in arquivos:
+        indices = None
+        pular_arquivo = False
+
+        for idx, linha in enumerate(_iterar_linhas_xlsx(arquivo)):
+            if idx < 2:
+                continue
+
+            if indices is None:
+                normalizadas = [_normalizar_nome_coluna(valor) for valor in linha]
+                indices = {}
+                for chave, aliases in mapeamento_colunas.items():
+                    indices[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+
+                faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                _registrar_aviso_colunas(
+                    avisos,
+                    nome_arquivo=arquivo.name,
+                    faltantes=faltantes,
+                    obrigatorias=obrigatorias,
+                )
+                if any(indices.get(chave) is None for chave in obrigatorias):
+                    pular_arquivo = True
+                continue
+
+            if pular_arquivo:
+                continue
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
+
+            data_faturamento = _excel_date(_valor_por_indice(linha, indices, "data_faturamento"))
+            nome_parceiro_base = _normalizar_texto(_valor_por_indice(linha, indices, "nome_parceiro_base"))
+            if not data_faturamento or not nome_parceiro_base:
+                continue
+
+            numero_nota = _to_int64(_valor_por_indice(linha, indices, "numero_nota"))
+            if numero_nota <= 0:
+                continue
+
+            codigo_extraido, nome_extraido = _split_codigo_nome_texto(nome_parceiro_base)
+            parceiro_codigo = _normalizar_codigo(_valor_por_indice(linha, indices, "parceiro_codigo")) or codigo_extraido
+            parceiro_nome = nome_extraido or nome_parceiro_base
+            nome_parceiro_legado = (
+                _normalizar_texto(f"{parceiro_codigo} - {parceiro_nome}")
+                if parceiro_codigo
+                else parceiro_nome
+            )
+            if nome_parceiro_legado == "3620 - SAFIA DISTRIBUIDORA DE ALIMENTOS FILIAL":
+                continue
+
+            empresa_codigo = _normalizar_codigo(_valor_por_indice(linha, indices, "empresa_codigo"))
+            nome_fantasia_empresa = _normalizar_texto(_valor_por_indice(linha, indices, "nome_fantasia_empresa"))
+
+            nome_empresa = _normalizar_texto(f"{empresa_codigo} - {nome_fantasia_empresa}") if empresa_codigo else nome_fantasia_empresa
+
+            valor_nota = _to_decimal(_valor_por_indice(linha, indices, "valor_nota"))
+            prazo_medio_safia = _to_decimal(_valor_por_indice(linha, indices, "prazo_medio_safia"))
+            media = prazo_medio_safia * valor_nota
+
+            registros.append(
+                {
+                    "nome_origem": str(arquivo.stem or "")[:10],
+                    "data_faturamento": data_faturamento,
+                    "nome_empresa": nome_empresa,
+                    "parceiro_codigo": parceiro_codigo,
+                    "parceiro_nome": parceiro_nome,
+                    "numero_nota": numero_nota,
+                    "valor_nota": valor_nota,
+                    "peso_bruto": _to_decimal(_valor_por_indice(linha, indices, "peso_bruto")),
+                    "quantidade_volumes": _to_decimal(_valor_por_indice(linha, indices, "quantidade_volumes")),
+                    "status_nfe": _normalizar_texto(_valor_por_indice(linha, indices, "status_nfe")),
+                    "apelido_vendedor": _normalizar_texto(_valor_por_indice(linha, indices, "apelido_vendedor")),
+                    "operacao_descricao": _normalizar_texto(_valor_por_indice(linha, indices, "descricao_tipo_operacao")),
+                    "natureza_descricao": _normalizar_texto(_valor_por_indice(linha, indices, "descricao_natureza")),
+                    "centro_resultado_descricao": _normalizar_texto(_valor_por_indice(linha, indices, "descricao_centro_resultado")),
+                    "tipo_movimento": _normalizar_texto(_valor_por_indice(linha, indices, "tipo_movimento")),
+                    "tipo_venda": _normalizar_texto(_valor_por_indice(linha, indices, "tipo_venda")),
+                    "prazo_medio_safia": prazo_medio_safia,
+                    "media": media,
+                    "cidade_parceiro_nome": _normalizar_texto(_valor_por_indice(linha, indices, "nome_cidade_parceiro_safia")),
+                    "valor_tonelada_frete": _extrair_decimal_de_texto(_valor_por_indice(linha, indices, "valor_tonelada_frete")),
+                }
+            )
+            total_linhas += 1
+
+    return {
+        "linhas": total_linhas,
+        "registros": registros,
+        "avisos": avisos,
+    }
+
+
+@transaction.atomic
+def importar_faturamento_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/administrativo/faturamento",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    pasta_subscritos = base / "subscritos"
+    arquivos = sorted(
+        [
+            arquivo
+            for arquivo in base.rglob("*")
+            if arquivo.is_file()
+            and pasta_subscritos not in arquivo.parents
+            and _arquivo_xlsx_visivel(arquivo)
+        ]
+    )
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "arquivos_faturamento_diario": 0,
+            "arquivos_nf_produtos": 0,
+            "linhas_faturamento_diario": 0,
+            "linhas_nf_produtos": 0,
+            "linhas": 0,
+            "faturamento": 0,
+            "avisos": [],
+        }
+
+    arquivos_diario = []
+    arquivos_produtos = []
+    avisos = []
+
+    for arquivo in arquivos:
+        tipo_arquivo = _classificar_arquivo_faturamento(base, arquivo)
+        if tipo_arquivo == "diario":
+            arquivos_diario.append(arquivo)
+            continue
+        if tipo_arquivo == "produtos":
+            arquivos_produtos.append(arquivo)
+            continue
+        avisos.append(f"Arquivo ignorado '{arquivo.name}': subpasta nao reconhecida.")
+
+    if not arquivos_diario:
+        avisos.append("Nenhum arquivo .xlsx localizado na subpasta '1 - Faturamento diario'.")
+    if not arquivos_produtos:
+        avisos.append("Nenhum arquivo .xlsx localizado na subpasta '2 - Venda por Produto (NF)'.")
+
+    produtos_result = _importar_nf_produtos_faturamento(arquivos_produtos)
+    diario_result = _importar_base_faturamento_diario(arquivos_diario)
+    avisos.extend(produtos_result.get("avisos", []))
+    avisos.extend(diario_result.get("avisos", []))
+
+    if limpar_antes:
+        Faturamento.objects.filter(empresa=empresa).delete()
+
+    registros_base = diario_result.get("registros", [])
+    produtos_por_nota = produtos_result.get("produtos_por_nota", {})
+
+    cache_cidades: dict[str, Cidade] = {}
+    cache_parceiros: dict[str, Parceiro] = {}
+    cache_operacoes: dict[str, Operacao] = {}
+    cache_naturezas: dict[str, Natureza] = {}
+    cache_centros: dict[str, CentroResultado] = {}
+    cache_produtos: dict[str, Produto] = {}
+
+    registros_expandido = []
+    indice_global = 0
+    for registro in registros_base:
+        cidade = _cidade_por_nome_get_create(
+            empresa,
+            registro.get("cidade_parceiro_nome"),
+            cache_cidades,
+        )
+        parceiro = _parceiro_get_create_com_cidade(
+            empresa,
+            registro.get("parceiro_codigo"),
+            registro.get("parceiro_nome"),
+            cidade,
+            cache_parceiros,
+        )
+        operacao = _operacao_get_create_por_descricao(
+            empresa,
+            registro.get("operacao_descricao"),
+            cache_operacoes,
+        )
+        natureza = _natureza_get_create_por_descricao(
+            empresa,
+            registro.get("natureza_descricao"),
+            cache_naturezas,
+        )
+        centro_resultado = _centro_resultado_get_create(
+            empresa,
+            registro.get("centro_resultado_descricao"),
+            cache_centros,
+        )
+
+        item_base = dict(registro)
+        item_base["parceiro"] = parceiro
+        item_base["operacao"] = operacao
+        item_base["natureza"] = natureza
+        item_base["centro_resultado"] = centro_resultado
+        item_base["cidade_parceiro_nome"] = (
+            getattr(getattr(parceiro, "cidade", None), "nome", "")
+            or registro.get("cidade_parceiro_nome")
+            or ""
+        )
+
+        produtos = produtos_por_nota.get(registro.get("numero_nota")) or []
+        if not produtos:
+            item = dict(item_base)
+            item["produto"] = None
+            item["quantidade_saida"] = Decimal("0")
+            item["__global_index"] = indice_global
+            indice_global += 1
+            registros_expandido.append(item)
+            continue
+
+        for produto_info in produtos:
+            item = dict(item_base)
+            item["produto"] = _produto_get_create_por_texto(
+                empresa,
+                produto_info.get("produto"),
+                cache_produtos,
+            )
+            item["quantidade_saida"] = produto_info.get("quantidade_saida") or Decimal("0")
+            item["__global_index"] = indice_global
+            indice_global += 1
+            registros_expandido.append(item)
+
+    registros_expandido.sort(
+        key=lambda item: (
+            int(item.get("numero_nota") or 0),
+            int(item.get("__global_index") or 0),
+        )
+    )
+
+    contadores_por_nota = defaultdict(int)
+    for item in registros_expandido:
+        numero_nota = int(item.get("numero_nota") or 0)
+        contadores_por_nota[numero_nota] += 1
+        indice_produto = contadores_por_nota[numero_nota]
+        item["indice_produto"] = indice_produto
+        item["valor_nota_unico"] = item.get("valor_nota", Decimal("0")) if indice_produto == 1 else Decimal("0")
+        item["media_unica"] = item.get("media") if indice_produto == 1 else None
+        item["peso_bruto_unico"] = item.get("peso_bruto", Decimal("0")) if indice_produto == 1 else Decimal("0")
+
+    registros_filtrados = []
+    for item in registros_expandido:
+        operacao_descricao = getattr(item.get("operacao"), "descricao_receita_despesa", "")
+        if _normalizar_nome_coluna(operacao_descricao) in FATURAMENTO_OPERACOES_PERMITIDAS:
+            registros_filtrados.append(item)
+
+    cadastro_por_parceiro = _mapa_cadastro_carteira_faturamento(empresa)
+    frete_por_cidade = _mapa_frete_tonelada_por_cidade(empresa)
+
+    total_venda_geral = Decimal("0")
+    for item in registros_filtrados:
+        valor_unico = item.get("valor_nota_unico") or Decimal("0")
+        total_venda_geral += valor_unico
+
+    for item in registros_filtrados:
+        parceiro = item.get("parceiro")
+        chave_parceiro = _normalizar_nome_coluna(
+            f"{getattr(parceiro, 'codigo', '')} - {getattr(parceiro, 'nome', '')}"
+        )
+        cadastro = cadastro_por_parceiro.get(chave_parceiro) or {}
+        item["gerente"] = cadastro.get("gerente", "")
+        item["descricao_perfil"] = cadastro.get("descricao_perfil", "")
+        item["valor_frete"] = _calcular_valor_frete_faturamento(item, frete_por_cidade)
+
+        valor_unico = item.get("valor_nota_unico") or Decimal("0")
+        participacao_geral = _percentual_faturamento(valor_unico, total_venda_geral)
+        # Contrato esperado: participacao cliente segue a mesma base consolidada.
+        item["participacao_venda_geral"] = participacao_geral
+        item["participacao_venda_cliente"] = participacao_geral
+
+    registros_filtrados.sort(
+        key=lambda item: (
+            item.get("data_faturamento") or date.min,
+            int(item.get("numero_nota") or 0),
+            int(item.get("indice_produto") or 0),
+        ),
+        reverse=True,
+    )
+
+    objetos = []
+    total_faturamento = 0
+    for item in registros_filtrados:
+        objetos.append(
+            Faturamento(
+                empresa=empresa,
+                nome_origem=item.get("nome_origem") or "",
+                data_faturamento=item.get("data_faturamento"),
+                nome_empresa=item.get("nome_empresa") or "",
+                parceiro=item.get("parceiro"),
+                numero_nota=item.get("numero_nota") or 0,
+                indice_produto=item.get("indice_produto") or 1,
+                valor_nota=item.get("valor_nota") or Decimal("0"),
+                participacao_venda_geral=item.get("participacao_venda_geral") or Decimal("0"),
+                participacao_venda_cliente=item.get("participacao_venda_cliente") or Decimal("0"),
+                valor_nota_unico=item.get("valor_nota_unico") or Decimal("0"),
+                peso_bruto=item.get("peso_bruto") or Decimal("0"),
+                peso_bruto_unico=item.get("peso_bruto_unico") or Decimal("0"),
+                quantidade_volumes=item.get("quantidade_volumes") or Decimal("0"),
+                quantidade_saida=item.get("quantidade_saida") or Decimal("0"),
+                status_nfe=item.get("status_nfe") or "",
+                apelido_vendedor=item.get("apelido_vendedor") or "",
+                operacao=item.get("operacao"),
+                natureza=item.get("natureza"),
+                centro_resultado=item.get("centro_resultado"),
+                tipo_movimento=item.get("tipo_movimento") or "",
+                prazo_medio_safia=item.get("prazo_medio_safia") or Decimal("0"),
+                media_unica=item.get("media_unica"),
+                tipo_venda=item.get("tipo_venda") or "",
+                produto=item.get("produto"),
+                gerente=item.get("gerente") or "",
+                descricao_perfil=item.get("descricao_perfil") or "",
+                valor_frete=item.get("valor_frete"),
+            )
+        )
+
+        if len(objetos) >= 1000:
+            Faturamento.objects.bulk_create(objetos, batch_size=1000)
+            total_faturamento += len(objetos)
+            objetos = []
+
+    if objetos:
+        Faturamento.objects.bulk_create(objetos, batch_size=1000)
+        total_faturamento += len(objetos)
+
+    return {
+        "arquivos": len(arquivos),
+        "arquivos_faturamento_diario": len(arquivos_diario),
+        "arquivos_nf_produtos": len(arquivos_produtos),
+        "linhas_faturamento_diario": diario_result.get("linhas", 0),
+        "linhas_nf_produtos": produtos_result.get("linhas", 0),
+        "linhas": len(registros_filtrados),
+        "faturamento": total_faturamento,
+        "avisos": avisos,
+    }
 
 
 @transaction.atomic

@@ -123,6 +123,8 @@ urlpatterns = [
 
     path('fiscal_e_contabil/<int:empresa_id>/', views.fiscal_e_contabil, name='fiscal_e_contabil'),
     path('faturamento/<int:empresa_id>/', views.faturamento, name='faturamento'),
+    path('faturamento/<int:empresa_id>/editar/<int:faturamento_id>/', views.editar_faturamento_modulo, name='editar_faturamento_modulo'),
+    path('faturamento/<int:empresa_id>/excluir/<int:faturamento_id>/', views.excluir_faturamento_modulo, name='excluir_faturamento_modulo'),
     path('apuracao_de_resultados/<int:empresa_id>/', views.apuracao_de_resultados, name='apuracao_de_resultados'),
     path('orcamento_x_realizado/<int:empresa_id>/', views.orcamento_x_realizado, name='orcamento_x_realizado'),
     #Colaboradores
