@@ -72,8 +72,12 @@
                     <span>ou clique para selecionar a pasta com subpastas <code>1 - Faturamento diario</code> e <code>2 - Venda por Produto (NF)</code>.</span>
                 </div>
                 <div class="upload-actions">
-                    <button type="submit" class="btn-primary">Enviar e importar</button>
+                    <button type="submit" class="btn-primary upload-button">Enviar e importar</button>
                     <span id="nome-arquivo-faturamento-selecionado" class="file-status"></span>
+                </div>
+
+                <div id="faturamento-loading-status" class="loading-status">
+                    Carregamento em andamento. Os arquivos estao sendo enviados e a importacao foi iniciada.
                 </div>
             </form>
         </section>
@@ -197,7 +201,7 @@
                     <p id="faturamento-kpi-quantidade">0</p>
                 </article>
                 <article class="dashboard-kpi-card">
-                    <h3>Total Vlr. Nota (Unico)</h3>
+                    <h3>Total Valor Faturamento</h3>
                     <p id="faturamento-kpi-valor-unico">R$ 0,00</p>
                 </article>
                 <article class="dashboard-kpi-card">

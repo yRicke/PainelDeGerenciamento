@@ -5,6 +5,7 @@
     var dropzone = document.getElementById("dropzone-faturamento");
     var input = document.getElementById("arquivo-faturamento-input");
     var fileStatus = document.getElementById("nome-arquivo-faturamento-selecionado");
+    var loadingStatus = document.getElementById("faturamento-loading-status");
     var temArquivoExistente = form.dataset.temArquivoExistente === "1";
 
     function isArquivoVisivel(file) {
@@ -43,6 +44,11 @@
         return window.confirm("Ja existe lote na pasta de importacao. Deseja substituir o lote atual?");
     }
 
+    function iniciarCarregamento() {
+        form.classList.add("is-loading");
+        if (loadingStatus) loadingStatus.classList.add("is-visible");
+    }
+
     dropzone.addEventListener("click", function () {
         input.click();
     });
@@ -75,7 +81,10 @@
         }
         if (!confirmarSubstituicaoSeNecessario()) {
             event.preventDefault();
+            return;
         }
+
+        iniciarCarregamento();
     });
 })();
 
@@ -222,6 +231,20 @@
                 sortOptions: function (a, b) { return Number(a.value || 0) - Number(b.value || 0); },
             },
             {
+                key: "data_faturamento_iso",
+                label: "Data do Faturamento",
+                singleSelect: true,
+                extractValue: function (rowData) { return rowData ? rowData.data_faturamento_iso : ""; },
+                formatValue: function (valor) {
+                    var texto = toText(valor);
+                    if (!texto) return "(Vazio)";
+                    var partes = texto.split("-");
+                    if (partes.length !== 3) return texto;
+                    return partes[2] + "/" + partes[1] + "/" + partes[0];
+                },
+                sortOptions: function (a, b) { return String(a.value || "").localeCompare(String(b.value || "")); },
+            },
+            {
                 key: "status_nfe",
                 label: "Status NF-e",
                 singleSelect: false,
@@ -265,6 +288,22 @@
                     }
                     return valor;
                 },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "tipo_movimento",
+                label: "Tipo de Movimentacao",
+                singleSelect: false,
+                extractValue: function (rowData) { return rowData ? rowData.tipo_movimento : ""; },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "descricao_perfil",
+                label: "Descricao Perfil",
+                singleSelect: false,
+                extractValue: function (rowData) { return rowData ? rowData.descricao_perfil : ""; },
                 formatValue: formatTextoOuVazio,
                 sortOptions: ordenarTexto,
             },

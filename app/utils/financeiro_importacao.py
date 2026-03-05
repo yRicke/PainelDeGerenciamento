@@ -99,6 +99,14 @@ def _to_int64(valor) -> int:
         return 0
 
 
+def _eh_zero_explicito(valor) -> bool:
+    texto = _normalizar_texto(valor)
+    if not texto:
+        return False
+    texto = texto.replace(" ", "")
+    return bool(re.fullmatch(r"0+([.,]0+)?", texto))
+
+
 def _excel_date(valor):
     texto = _normalizar_texto(valor)
     if not texto:
@@ -585,8 +593,11 @@ def _importar_nf_produtos_faturamento(arquivos):
             if indices is None:
                 continue
 
-            numero_nota = _to_int64(_valor_por_indice(linha, indices, "numero_nota"))
-            if numero_nota <= 0:
+            numero_nota_bruto = _valor_por_indice(linha, indices, "numero_nota")
+            numero_nota = _to_int64(numero_nota_bruto)
+            if numero_nota < 0:
+                continue
+            if numero_nota == 0 and not _eh_zero_explicito(numero_nota_bruto):
                 continue
 
             quantidade_saida = _to_decimal(_valor_por_indice(linha, indices, "quantidade_saida"))
@@ -625,9 +636,9 @@ def _importar_base_faturamento_diario(arquivos):
     avisos = []
 
     mapeamento_colunas = {
-        "nome_parceiro_base": ["nomeparceiroparceiro"],
+        "nome_parceiro_base": ["nomeparceiroparceiro", "nomeparceiro"],
         "quantidade_volumes": ["qtdvolumes"],
-        "numero_nota": ["nronota", "numeronota"],
+        "numero_nota": ["nronota", "numeronota", "notafiscal"],
         "valor_nota": ["vlrnota"],
         "peso_bruto": ["pesobruto"],
         "parceiro_codigo": ["parceiro"],
@@ -639,7 +650,7 @@ def _importar_base_faturamento_diario(arquivos):
         "descricao_natureza": ["descricaonatureza"],
         "descricao_centro_resultado": ["descricaocentroderesultado"],
         "tipo_movimento": ["tipodemovimento"],
-        "data_faturamento": ["dtdofaturamento"],
+        "data_faturamento": ["dtdofaturamento", "datafaturamento", "datafatur"],
         "tipo_venda": ["tipodavenda"],
         "prazo_medio_safia": ["prazomediosafia"],
         "nome_cidade_parceiro_safia": ["nomecidadeparceirosafia"],
@@ -655,32 +666,36 @@ def _importar_base_faturamento_diario(arquivos):
 
     for arquivo in arquivos:
         indices = None
-        pular_arquivo = False
+        melhor_idx_map = None
+        melhor_score = -1
 
         for idx, linha in enumerate(_iterar_linhas_xlsx(arquivo)):
             if idx < 2:
                 continue
+            if not any(_normalizar_texto(v) for v in linha):
+                continue
 
             if indices is None:
                 normalizadas = [_normalizar_nome_coluna(valor) for valor in linha]
-                indices = {}
+                idx_map = {}
                 for chave, aliases in mapeamento_colunas.items():
-                    indices[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
-
-                faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
-                _registrar_aviso_colunas(
-                    avisos,
-                    nome_arquivo=arquivo.name,
-                    faltantes=faltantes,
-                    obrigatorias=obrigatorias,
-                )
-                if any(indices.get(chave) is None for chave in obrigatorias):
-                    pular_arquivo = True
+                    idx_map[chave] = next((i for i, token in enumerate(normalizadas) if token in aliases), None)
+                score = sum(1 for idx_coluna in idx_map.values() if idx_coluna is not None)
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_idx_map = idx_map
+                if all(idx_map.get(chave) is not None for chave in obrigatorias):
+                    indices = idx_map
+                    faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+                    _registrar_aviso_colunas(
+                        avisos,
+                        nome_arquivo=arquivo.name,
+                        faltantes=faltantes,
+                        obrigatorias=obrigatorias,
+                    )
                 continue
 
-            if pular_arquivo:
-                continue
-            if not any(_normalizar_texto(v) for v in linha):
+            if indices is None:
                 continue
 
             data_faturamento = _excel_date(_valor_por_indice(linha, indices, "data_faturamento"))
@@ -688,8 +703,11 @@ def _importar_base_faturamento_diario(arquivos):
             if not data_faturamento or not nome_parceiro_base:
                 continue
 
-            numero_nota = _to_int64(_valor_por_indice(linha, indices, "numero_nota"))
-            if numero_nota <= 0:
+            numero_nota_bruto = _valor_por_indice(linha, indices, "numero_nota")
+            numero_nota = _to_int64(numero_nota_bruto)
+            if numero_nota < 0:
+                continue
+            if numero_nota == 0 and not _eh_zero_explicito(numero_nota_bruto):
                 continue
 
             codigo_extraido, nome_extraido = _split_codigo_nome_texto(nome_parceiro_base)
@@ -737,6 +755,15 @@ def _importar_base_faturamento_diario(arquivos):
                 }
             )
             total_linhas += 1
+
+        if indices is None:
+            faltantes = _colunas_nao_identificadas(melhor_idx_map, mapeamento_colunas.keys())
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=faltantes,
+                obrigatorias=obrigatorias,
+            )
 
     return {
         "linhas": total_linhas,

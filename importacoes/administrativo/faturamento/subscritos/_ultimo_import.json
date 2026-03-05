@@ -1,7 +1,7 @@
 {
   "modulo": "faturamento",
   "usuario": "THIAGO",
-  "registrado_em_iso": "2026-03-05T17:04:38+00:00",
+  "registrado_em_iso": "2026-03-05T19:52:44+00:00",
   "quantidade_arquivos": 513,
   "arquivos": [
     "24.10.2025 - 25.10.2025.xlsx",
@@ -513,9 +513,9 @@
     "31.12.2025.xlsx",
     "faturamento 01.06 a 22.07.xlsx",
     "FATURAMENTO 23.07.20205 A 20.08.205.xlsx",
-    "SAFIA FILIAL 17.12.2025.xlsx",
-    "SAFIA FILIAL 22.12.2025.xlsx",
-    "SAFIA MATRIZ 17.12.2025.xlsx",
-    "SAFIA MATRIZ 22.12.2025.xlsx"
+    "SAFIA FILIAL 17.12.2025_2.xlsx",
+    "SAFIA FILIAL 22.12.2025_2.xlsx",
+    "SAFIA MATRIZ 17.12.2025_2.xlsx",
+    "SAFIA MATRIZ 22.12.2025_2.xlsx"
   ]
 }

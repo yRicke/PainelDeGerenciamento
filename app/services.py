@@ -6,6 +6,7 @@ from pathlib import Path
 import json
 import shutil
 import re
+import unicodedata
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -62,6 +63,7 @@ from .utils.controle_margem_regras import (
     obter_parametros_controle_margem,
 )
 from .utils.comercial_importacao import (
+    _iterar_linhas_xlsx,
     importar_carteira_do_diretorio,
     importar_controle_margem_do_diretorio,
     importar_pedidos_pendentes_do_diretorio,
@@ -2620,6 +2622,8 @@ FATURAMENTO_SUBPASTA_PRODUTOS = "2 - Venda por Produto (NF)"
 
 def _normalizar_token_faturamento(valor):
     texto = str(valor or "").strip().lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     texto = re.sub(r"[^a-z0-9]+", "", texto)
     return texto
 
@@ -2634,11 +2638,60 @@ def _subpasta_faturamento_por_nome_arquivo(nome_arquivo):
     if _normalizar_token_faturamento(FATURAMENTO_SUBPASTA_PRODUTOS) in tokens:
         return FATURAMENTO_SUBPASTA_PRODUTOS
 
-    # Fallback para navegadores que enviam apenas o nome do arquivo.
-    nome_base = Path(caminho).name
-    if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", nome_base, flags=re.IGNORECASE):
-        return FATURAMENTO_SUBPASTA_DIARIO
-    return FATURAMENTO_SUBPASTA_PRODUTOS
+    return None
+
+
+def _inferir_subpasta_faturamento_por_conteudo(caminho_arquivo: Path):
+    aliases_diario = {
+        "nome_parceiro_base": {"nomeparceiroparceiro"},
+        "numero_nota": {"nronota", "numeronota"},
+        "valor_nota": {"vlrnota"},
+        "descricao_tipo_operacao": {"descricaotipodeoperacao"},
+        "data_faturamento": {"dtdofaturamento", "datafaturamento"},
+    }
+    aliases_produtos = {
+        "produto": {"produto"},
+        "nota_fiscal": {"notafiscal", "nronota", "numeronota"},
+        "qtd_saida": {"qtdsaida", "qntsaida", "quantidadesaida"},
+    }
+
+    try:
+        for idx, linha in enumerate(_iterar_linhas_xlsx(caminho_arquivo)):
+            if idx > 30:
+                break
+            if not any(str(celula or "").strip() for celula in linha):
+                continue
+
+            normalizadas = {_normalizar_token_faturamento(celula) for celula in linha if str(celula or "").strip()}
+            if not normalizadas:
+                continue
+
+            diario_ok = all(any(alias in normalizadas for alias in aliases) for aliases in aliases_diario.values())
+            if diario_ok:
+                return FATURAMENTO_SUBPASTA_DIARIO
+
+            produtos_ok = all(any(alias in normalizadas for alias in aliases) for aliases in aliases_produtos.values())
+            if produtos_ok:
+                return FATURAMENTO_SUBPASTA_PRODUTOS
+    except Exception:
+        return None
+
+    return None
+
+
+def _destino_unico(destino_pasta: Path, nome_arquivo: str) -> Path:
+    destino = destino_pasta / nome_arquivo
+    if not destino.exists():
+        return destino
+
+    stem = Path(nome_arquivo).stem
+    suffix = Path(nome_arquivo).suffix
+    indice = 2
+    while True:
+        candidato = destino_pasta / f"{stem}_{indice}{suffix}"
+        if not candidato.exists():
+            return candidato
+        indice += 1
 
 
 def importar_upload_faturamento(
@@ -2650,29 +2703,18 @@ def importar_upload_faturamento(
     usuario=None,
 ):
     arquivos_xlsx = []
-    for arquivo in arquivos or []:
+    for idx, arquivo in enumerate(arquivos or [], start=1):
         nome_original = str(getattr(arquivo, "name", "") or "")
         nome_base = Path(nome_original).name
         if not nome_base.lower().endswith(".xlsx"):
             continue
         if nome_base.startswith("~$") or nome_base.startswith("."):
             continue
-        subpasta = _subpasta_faturamento_por_nome_arquivo(nome_original)
-        arquivos_xlsx.append((arquivo, nome_base, subpasta))
+        subpasta_hint = _subpasta_faturamento_por_nome_arquivo(nome_original)
+        arquivos_xlsx.append((idx, arquivo, nome_original, nome_base, subpasta_hint))
 
     if not arquivos_xlsx:
         return False, "Selecione uma pasta com arquivos .xlsx para importar."
-
-    possui_diario = any(subpasta == FATURAMENTO_SUBPASTA_DIARIO for _, _, subpasta in arquivos_xlsx)
-    possui_produtos = any(subpasta == FATURAMENTO_SUBPASTA_PRODUTOS for _, _, subpasta in arquivos_xlsx)
-    if not possui_diario or not possui_produtos:
-        return (
-            False,
-            (
-                "Estrutura invalida. Selecione a pasta mae contendo as subpastas "
-                "'1 - Faturamento diario' e '2 - Venda por Produto (NF)'."
-            ),
-        )
 
     for item_antigo in [f for f in diretorio_importacao.iterdir() if f.name != diretorio_subscritos.name]:
         destino_subscrito = diretorio_subscritos / item_antigo.name
@@ -2681,15 +2723,55 @@ def importar_upload_faturamento(
             destino_subscrito = diretorio_subscritos / f"{item_antigo.stem}_{timestamp}{item_antigo.suffix}"
         shutil.move(str(item_antigo), str(destino_subscrito))
 
-    nomes_lote = []
-    for arquivo_upload, nome_arquivo, subpasta in arquivos_xlsx:
-        destino_pasta = diretorio_importacao / subpasta
-        destino_pasta.mkdir(parents=True, exist_ok=True)
-        destino = destino_pasta / nome_arquivo
-        with destino.open("wb+") as file_out:
+    diretorio_tmp = diretorio_importacao / "_tmp_classificacao"
+    if diretorio_tmp.exists():
+        shutil.rmtree(diretorio_tmp)
+    diretorio_tmp.mkdir(parents=True, exist_ok=True)
+
+    arquivos_staged = []
+    for indice, arquivo_upload, nome_original, nome_base, subpasta_hint in arquivos_xlsx:
+        nome_temp = f"{indice:04d}__{nome_base}"
+        destino_temp = diretorio_tmp / nome_temp
+        with destino_temp.open("wb+") as file_out:
             for chunk in arquivo_upload.chunks():
                 file_out.write(chunk)
-        nomes_lote.append(str(Path(subpasta) / nome_arquivo))
+        arquivos_staged.append((destino_temp, nome_original, nome_base, subpasta_hint))
+
+    nomes_lote = []
+    possui_diario = False
+    possui_produtos = False
+
+    for caminho_temp, nome_original, nome_arquivo, subpasta_hint in arquivos_staged:
+        subpasta = subpasta_hint or _inferir_subpasta_faturamento_por_conteudo(caminho_temp)
+        if not subpasta:
+            # Fallback minimo quando o navegador nao envia caminho relativo.
+            if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", nome_arquivo, flags=re.IGNORECASE):
+                subpasta = FATURAMENTO_SUBPASTA_DIARIO
+            else:
+                subpasta = FATURAMENTO_SUBPASTA_PRODUTOS
+
+        if subpasta == FATURAMENTO_SUBPASTA_DIARIO:
+            possui_diario = True
+        if subpasta == FATURAMENTO_SUBPASTA_PRODUTOS:
+            possui_produtos = True
+
+        destino_pasta = diretorio_importacao / subpasta
+        destino_pasta.mkdir(parents=True, exist_ok=True)
+        destino = _destino_unico(destino_pasta, nome_arquivo)
+        shutil.move(str(caminho_temp), str(destino))
+        nomes_lote.append(str(Path(subpasta) / destino.name))
+
+    if diretorio_tmp.exists():
+        shutil.rmtree(diretorio_tmp)
+
+    if not possui_diario or not possui_produtos:
+        return (
+            False,
+            (
+                "Estrutura invalida. Selecione a pasta mae contendo as subpastas "
+                "'1 - Faturamento diario' e '2 - Venda por Produto (NF)'."
+            ),
+        )
 
     try:
         resultado = importar_faturamento_do_diretorio(
