@@ -1567,7 +1567,7 @@ def _dados_faturamento_from_post(post_data):
         "natureza": natureza,
         "centro_resultado": centro_resultado,
         "tipo_movimento": (post_data.get("tipo_movimento") or "").strip(),
-        "prazo_medio_safia": _parse_decimal_ou_zero(post_data.get("prazo_medio_safia")),
+        "prazo_medio": _parse_decimal_ou_zero(post_data.get("prazo_medio")),
         "media_unica": _parse_decimal_ou_none(post_data.get("media_unica")),
         "tipo_venda": (post_data.get("tipo_venda") or "").strip(),
         "produto": produto,

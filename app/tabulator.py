@@ -956,7 +956,7 @@ def build_faturamento_tabulator(faturamento_qs, empresa_id: int, permitir_edicao
                 "centro_resultado_id": item.get("centro_resultado_id") or "",
                 "centro_resultado_descricao": item.get("centro_resultado__descricao") or "",
                 "tipo_movimento": item.get("tipo_movimento") or "",
-                "prazo_medio_safia": float(item.get("prazo_medio_safia_num") or 0),
+                "prazo_medio": float(item.get("prazo_medio_num") or 0),
                 "media_unica": float(item.get("media_unica_num") or 0),
                 "tipo_venda": item.get("tipo_venda") or "",
                 "produto_id": item.get("produto_id") or "",

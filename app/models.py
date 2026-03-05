@@ -2290,7 +2290,7 @@ class Faturamento(models.Model):
     natureza = models.ForeignKey(Natureza, on_delete=models.SET_NULL, null=True, blank=True)
     centro_resultado = models.ForeignKey(CentroResultado, on_delete=models.SET_NULL, null=True, blank=True)
     tipo_movimento = models.CharField(max_length=80, blank=True, default="")
-    prazo_medio_safia = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    prazo_medio = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     media_unica = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
     tipo_venda = models.CharField(max_length=120, blank=True, default="")
     produto = models.ForeignKey(Produto, on_delete=models.SET_NULL, null=True, blank=True, related_name="faturamentos")
@@ -2327,7 +2327,7 @@ class Faturamento(models.Model):
         natureza=None,
         centro_resultado=None,
         tipo_movimento="",
-        prazo_medio_safia=0,
+        prazo_medio=0,
         media_unica=None,
         tipo_venda="",
         produto=None,
@@ -2357,7 +2357,7 @@ class Faturamento(models.Model):
             natureza=natureza,
             centro_resultado=centro_resultado,
             tipo_movimento=tipo_movimento,
-            prazo_medio_safia=prazo_medio_safia,
+            prazo_medio=prazo_medio,
             media_unica=media_unica,
             tipo_venda=tipo_venda,
             produto=produto,
@@ -2394,7 +2394,7 @@ class Faturamento(models.Model):
         natureza=UNSET,
         centro_resultado=UNSET,
         tipo_movimento=UNSET,
-        prazo_medio_safia=UNSET,
+        prazo_medio=UNSET,
         media_unica=UNSET,
         tipo_venda=UNSET,
         produto=UNSET,
@@ -2442,8 +2442,8 @@ class Faturamento(models.Model):
             self.centro_resultado = centro_resultado
         if tipo_movimento is not UNSET:
             self.tipo_movimento = tipo_movimento
-        if prazo_medio_safia is not UNSET:
-            self.prazo_medio_safia = prazo_medio_safia
+        if prazo_medio is not UNSET:
+            self.prazo_medio = prazo_medio
         if media_unica is not UNSET:
             self.media_unica = media_unica
         if tipo_venda is not UNSET:

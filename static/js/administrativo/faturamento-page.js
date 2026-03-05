@@ -376,7 +376,7 @@
         {title: "Descricao (Natureza)", field: "natureza_descricao"},
         {title: "Descricao (Centro de Resultado)", field: "centro_resultado_descricao"},
         {title: "Tipo de Movimento", field: "tipo_movimento"},
-        {title: "Prazo Medio [SAFIA]", field: "prazo_medio_safia"},
+        {title: "Prazo Medio", field: "prazo_medio"},
         {title: "Media (Unica)", field: "media_unica"},
         {title: "Tipo da Venda", field: "tipo_venda"},
         {title: "Produto", field: "produto_label"},

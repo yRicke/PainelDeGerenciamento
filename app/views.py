@@ -2098,7 +2098,7 @@ def faturamento(request, empresa_id):
             peso_bruto_unico_num=Cast("peso_bruto_unico", FloatField()),
             quantidade_volumes_num=Cast("quantidade_volumes", FloatField()),
             quantidade_saida_num=Cast("quantidade_saida", FloatField()),
-            prazo_medio_safia_num=Cast("prazo_medio_safia", FloatField()),
+            prazo_medio_num=Cast("prazo_medio", FloatField()),
             media_unica_num=Cast("media_unica", FloatField()),
             valor_frete_num=Cast("valor_frete", FloatField()),
         )
@@ -2128,7 +2128,7 @@ def faturamento(request, empresa_id):
             "centro_resultado_id",
             "centro_resultado__descricao",
             "tipo_movimento",
-            "prazo_medio_safia_num",
+            "prazo_medio_num",
             "media_unica_num",
             "tipo_venda",
             "produto_id",

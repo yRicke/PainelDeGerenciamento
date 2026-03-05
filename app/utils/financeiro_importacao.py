@@ -652,7 +652,7 @@ def _importar_base_faturamento_diario(arquivos):
         "tipo_movimento": ["tipodemovimento"],
         "data_faturamento": ["dtdofaturamento", "datafaturamento", "datafatur"],
         "tipo_venda": ["tipodavenda"],
-        "prazo_medio_safia": ["prazomediosafia"],
+        "prazo_medio": ["prazomediosafia", "prazomedio"],
         "nome_cidade_parceiro_safia": ["nomecidadeparceirosafia"],
         "valor_tonelada_frete": ["valortoneladafretesafia"],
     }
@@ -727,8 +727,8 @@ def _importar_base_faturamento_diario(arquivos):
             nome_empresa = _normalizar_texto(f"{empresa_codigo} - {nome_fantasia_empresa}") if empresa_codigo else nome_fantasia_empresa
 
             valor_nota = _to_decimal(_valor_por_indice(linha, indices, "valor_nota"))
-            prazo_medio_safia = _to_decimal(_valor_por_indice(linha, indices, "prazo_medio_safia"))
-            media = prazo_medio_safia * valor_nota
+            prazo_medio = _to_decimal(_valor_por_indice(linha, indices, "prazo_medio"))
+            media = prazo_medio * valor_nota
 
             registros.append(
                 {
@@ -748,7 +748,7 @@ def _importar_base_faturamento_diario(arquivos):
                     "centro_resultado_descricao": _normalizar_texto(_valor_por_indice(linha, indices, "descricao_centro_resultado")),
                     "tipo_movimento": _normalizar_texto(_valor_por_indice(linha, indices, "tipo_movimento")),
                     "tipo_venda": _normalizar_texto(_valor_por_indice(linha, indices, "tipo_venda")),
-                    "prazo_medio_safia": prazo_medio_safia,
+                    "prazo_medio": prazo_medio,
                     "media": media,
                     "cidade_parceiro_nome": _normalizar_texto(_valor_por_indice(linha, indices, "nome_cidade_parceiro_safia")),
                     "valor_tonelada_frete": _extrair_decimal_de_texto(_valor_por_indice(linha, indices, "valor_tonelada_frete")),
@@ -984,7 +984,7 @@ def importar_faturamento_do_diretorio(
                 natureza=item.get("natureza"),
                 centro_resultado=item.get("centro_resultado"),
                 tipo_movimento=item.get("tipo_movimento") or "",
-                prazo_medio_safia=item.get("prazo_medio_safia") or Decimal("0"),
+                prazo_medio=item.get("prazo_medio") or Decimal("0"),
                 media_unica=item.get("media_unica"),
                 tipo_venda=item.get("tipo_venda") or "",
                 produto=item.get("produto"),
