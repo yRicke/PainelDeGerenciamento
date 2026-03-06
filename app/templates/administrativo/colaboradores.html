@@ -38,22 +38,35 @@
 {% block extra_js %}
 {{ colaboradores_tabulator|json_script:"colaboradores-tabulator-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
 <script>
     (function () {
         var dataElement = document.getElementById("colaboradores-tabulator-data");
-        if (!dataElement || !window.Tabulator) return;
+        if (!dataElement || !window.Tabulator || !window.FinanceiroCrudUtils) return;
 
         var data = JSON.parse(dataElement.textContent || "[]");
-        var colunas = [
-            {title: "ID", field: "id", width: 80, hozAlign: "center"},
-            {title: "Nome", field: "nome"},
-        ];
-
-        window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
+        var submitPost = window.FinanceiroCrudUtils.submitPost;
+        var colunaAcoes = window.TabulatorDefaults.buildSaveDeleteActionColumn({
+            field: "editar_url",
+            submitPost: submitPost,
+            getSavePayload: function (row) {
+                return {
+                    nome: row.nome || "",
+                };
+            },
+            getDeleteUrl: function (row) {
+                return row.excluir_url;
+            },
+            deleteConfirm: "Excluir colaborador?",
+        });
 
         var tabela = window.TabulatorDefaults.create("#colaboradores-tabulator", {
             data: data,
-            columns: colunas,
+            columns: [
+                {title: "ID", field: "id", width: 80, hozAlign: "center"},
+                {title: "Nome", field: "nome", editor: "input"},
+                colunaAcoes,
+            ],
         });
 
     })();
