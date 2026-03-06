@@ -1046,6 +1046,18 @@ class ParametroMargemFinanceiro(models.Model):
         return f"Parametro Financeiro - {self.empresa.nome}"
 
 
+class ParametroNegocios(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_negocios")
+    direcao = models.CharField(max_length=80, default="")
+    meta = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    compromisso = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    gerente_pa_e_outros = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    gerente_mp_e_gerente_luciano = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"Parametro Negocios - {self.empresa.nome}"
+
+
 class Parceiro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parceiros")
     cidade = models.ForeignKey(Cidade, on_delete=models.SET_NULL, null=True, blank=True, related_name="parceiros")

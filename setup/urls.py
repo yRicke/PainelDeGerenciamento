@@ -95,6 +95,7 @@ urlpatterns = [
     path('parametros_logistica/<int:empresa_id>/', views.parametros_logistica, name='parametros_logistica'),
     path('parametros_administracao/<int:empresa_id>/', views.parametros_administracao, name='parametros_administracao'),
     path('parametros_financeiro/<int:empresa_id>/', views.parametros_financeiro, name='parametros_financeiro'),
+    path('parametros_negocios/<int:empresa_id>/', views.parametros_negocios, name='parametros_negocios'),
     path('centros_resultado/<int:empresa_id>/', views.centros_resultado, name='centros_resultado'),
     path('centros_resultado/<int:empresa_id>/criar/', views.criar_centro_resultado_modulo, name='criar_centro_resultado_modulo'),
     path('centros_resultado/<int:empresa_id>/editar/<int:centro_resultado_id>/', views.editar_centro_resultado_modulo, name='editar_centro_resultado_modulo'),

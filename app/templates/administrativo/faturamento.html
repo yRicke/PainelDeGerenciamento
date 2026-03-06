@@ -195,18 +195,63 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Faturamento</h2>
-            <div class="dashboard-kpi-grid">
+            <div class="dashboard-kpi-grid dashboard-kpi-grid--faturamento">
                 <article class="dashboard-kpi-card">
-                    <h3>Quantidade Registros</h3>
-                    <p id="faturamento-kpi-quantidade">0</p>
+                    <h3>Valor Faturamento</h3>
+                    <p id="faturamento-kpi-valor-faturamento">R$ 0,00</p>
                 </article>
                 <article class="dashboard-kpi-card">
-                    <h3>Total Valor Faturamento</h3>
-                    <p id="faturamento-kpi-valor-unico">R$ 0,00</p>
+                    <h3>Meta Geral</h3>
+                    <p id="faturamento-kpi-meta-geral">R$ 0,00</p>
                 </article>
                 <article class="dashboard-kpi-card">
-                    <h3>Total Valor Frete</h3>
-                    <p id="faturamento-kpi-valor-frete">R$ 0,00</p>
+                    <h3>Gap Faturamento</h3>
+                    <p id="faturamento-kpi-gap-faturamento">R$ 0,00</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Prazo Medio Vendas</h3>
+                    <p id="faturamento-kpi-prazo-medio">0</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Dias Uteis</h3>
+                    <p id="faturamento-kpi-dias-uteis">0</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Meta Diaria</h3>
+                    <p id="faturamento-kpi-meta-diaria">R$ 0,00</p>
+                    <p class="dashboard-kpi-card-note">
+                        Pedidos Pendentes:
+                        <strong id="faturamento-kpi-total-pedidos-pendentes">R$ 0,00</strong>
+                    </p>
+                    <label class="dashboard-kpi-toggle" for="faturamento-kpi-meta-diaria-incluir-pendentes">
+                        <input type="checkbox" id="faturamento-kpi-meta-diaria-incluir-pendentes">
+                        Incluir Pedidos Pendentes
+                    </label>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Qtd. Clientes</h3>
+                    <p id="faturamento-kpi-qtd-clientes">0</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Participacao Venda Geral</h3>
+                    <p id="faturamento-kpi-participacao-venda-geral">0,00%</p>
+                </article>
+            </div>
+            <div class="faturamento-reloginho-grid">
+                <article class="reloginho-card" data-reloginho="faturamento-total">
+                    <h3>Reloginho Producao</h3>
+                    <div class="reloginho-dial-wrap">
+                        <div class="reloginho-dial">
+                            <div class="reloginho-face"></div>
+                            <div id="faturamento-reloginho-ponteiro-meta" class="ponteiro ponteiro-meta"></div>
+                            <div id="faturamento-reloginho-ponteiro-real" class="ponteiro ponteiro-real"></div>
+                            <div class="reloginho-pivo"></div>
+                        </div>
+                    </div>
+                    <div class="reloginho-metricas">
+                        <p>META: <strong id="faturamento-reloginho-meta">R$ 0,00</strong></p>
+                        <p>REAL: <strong id="faturamento-reloginho-real">R$ 0,00</strong> <span id="faturamento-reloginho-pct">0,00%</span></p>
+                    </div>
                 </article>
             </div>
         </section>
@@ -222,6 +267,8 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ faturamento_meta_config|json_script:"faturamento-meta-config-data" }}
+{{ faturamento_pedidos_pendentes|json_script:"faturamento-pedidos-pendentes-data" }}
 {{ faturamento_tabulator|json_script:"faturamento-tabulator-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/administrativo/faturamento-page.js' %}"></script>

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Parametros de Negocios{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/parametros/controle-margem-parametros.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+    <h1>Parametros de Negocios</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel module-section">
+    <h2>Novo Parametro</h2>
+    <form method="post" action="{% url 'parametros_negocios' empresa.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="criar">
+        <div class="parametros-cm-grid">
+            <div>
+                <label>Direcao</label>
+                <input type="text" name="direcao" value="Faturamento" required>
+            </div>
+            <div>
+                <label>Meta (R$)</label>
+                <input type="text" name="meta" required>
+            </div>
+            <div>
+                <label>Compromisso (R$)</label>
+                <input type="text" name="compromisso" id="compromisso-novo" required>
+            </div>
+            <div>
+                <label>Gerente PA e Outros (R$)</label>
+                <input type="text" name="gerente_pa_e_outros" id="gerente-pa-novo" required>
+            </div>
+            <div>
+                <label>Gerente MP e Gerente Luciano (R$)</label>
+                <input type="text" id="gerente-mp-luciano-novo" value="R$ 0,00" disabled>
+                <small>Resultado automatico: Compromisso - Gerente PA e Outros</small>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Adicionar</button>
+        </div>
+    </form>
+</section>
+
+<section class="panel module-section">
+    <h2>Parametros Cadastrados</h2>
+    <div class="table-wrapper" data-table-label="Parametros de Negocios">
+        <div id="parametros-negocios-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ parametros_negocios_tabulator|json_script:"parametros-negocios-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/parametros-negocios-page.js' %}"></script>
+{% endblock %}

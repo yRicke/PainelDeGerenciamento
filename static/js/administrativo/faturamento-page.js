@@ -93,10 +93,24 @@
     if (!dataElement) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
+    var metaConfigElement = document.getElementById("faturamento-meta-config-data");
+    var pedidosPendentesElement = document.getElementById("faturamento-pedidos-pendentes-data");
+    var metaConfig = metaConfigElement ? JSON.parse(metaConfigElement.textContent || "{}") : {};
+    var pedidosPendentesData = pedidosPendentesElement ? JSON.parse(pedidosPendentesElement.textContent || "[]") : [];
     var tabelaTarget = document.getElementById("faturamento-tabulator");
-    var quantidadeEl = document.getElementById("faturamento-kpi-quantidade");
-    var valorUnicoEl = document.getElementById("faturamento-kpi-valor-unico");
-    var valorFreteEl = document.getElementById("faturamento-kpi-valor-frete");
+    var kpiValorFaturamentoEl = document.getElementById("faturamento-kpi-valor-faturamento");
+    var kpiMetaGeralEl = document.getElementById("faturamento-kpi-meta-geral");
+    var kpiGapFaturamentoEl = document.getElementById("faturamento-kpi-gap-faturamento");
+    var kpiPrazoMedioEl = document.getElementById("faturamento-kpi-prazo-medio");
+    var kpiDiasUteisEl = document.getElementById("faturamento-kpi-dias-uteis");
+    var kpiMetaDiariaEl = document.getElementById("faturamento-kpi-meta-diaria");
+    var kpiTotalPedidosPendentesEl = document.getElementById("faturamento-kpi-total-pedidos-pendentes");
+    var kpiQtdClientesEl = document.getElementById("faturamento-kpi-qtd-clientes");
+    var kpiParticipacaoVendaGeralEl = document.getElementById("faturamento-kpi-participacao-venda-geral");
+    var incluirPedidosPendentesEl = document.getElementById("faturamento-kpi-meta-diaria-incluir-pendentes");
+    var relogioMetaEl = document.getElementById("faturamento-reloginho-meta");
+    var relogioRealEl = document.getElementById("faturamento-reloginho-real");
+    var relogioPctEl = document.getElementById("faturamento-reloginho-pct");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
     var nomesMeses = [
         "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
@@ -117,6 +131,166 @@
             .toLowerCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function gerenteToken(valor) {
+        var token = normalizeText(valor).replace(/\s+/g, " ").trim();
+        if (
+            token === "sem gerente"
+            || token === "<sem gerente>"
+            || token === "sem vendedor"
+            || token === "<sem vendedor>"
+        ) {
+            return "";
+        }
+        return token;
+    }
+
+    function gerenteEhMpOuLuciano(valor) {
+        var token = gerenteToken(valor);
+        if (!token) return false;
+        if (token.indexOf("luciano") >= 0) return true;
+        return /(^| )ger(ente)? ?mp($| )/.test(token) || token === "mp";
+    }
+
+    function chaveMes(item) {
+        var ano = Number(item && item.ano_faturamento ? item.ano_faturamento : 0);
+        var mes = Number(item && item.mes_faturamento ? item.mes_faturamento : 0);
+        if (!ano || !mes || mes < 1 || mes > 12) return "";
+        return String(ano) + "-" + String(mes);
+    }
+
+    function chaveNotaFiscal(item) {
+        var numeroNota = toText(item ? item.numero_nota : "");
+        if (numeroNota) return numeroNota;
+        return "row|" + toText(item ? item.id : "");
+    }
+
+    function consolidarNotasUnicas(registros) {
+        var itens = Array.isArray(registros) ? registros : [];
+        var notasMap = new Map();
+
+        itens.forEach(function (item) {
+            var chave = chaveNotaFiscal(item);
+            var valorNota = Number(item && item.valor_nota ? item.valor_nota : 0);
+            var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            var atual = notasMap.get(chave);
+
+            if (!atual) {
+                notasMap.set(chave, {
+                    valorNotaReferencia: valorNota,
+                    valorUnicoMaximo: valorUnico,
+                });
+                return;
+            }
+
+            if (!atual.valorNotaReferencia && valorNota) {
+                atual.valorNotaReferencia = valorNota;
+            }
+            if (Math.abs(valorUnico) > Math.abs(atual.valorUnicoMaximo)) {
+                atual.valorUnicoMaximo = valorUnico;
+            }
+        });
+
+        var total = 0;
+        notasMap.forEach(function (nota) {
+            var valorConsolidado = Number(nota.valorUnicoMaximo || 0);
+            if (!valorConsolidado) {
+                valorConsolidado = Number(nota.valorNotaReferencia || 0);
+            }
+            total += valorConsolidado;
+        });
+
+        return {
+            totalValorNota: total,
+            quantidadeNotasUnicas: notasMap.size,
+        };
+    }
+
+    function somarValorNotaPorNotaUnica(registros) {
+        return consolidarNotasUnicas(registros).totalValorNota;
+    }
+
+    function chaveClienteEmpresa(item) {
+        var parceiroId = toText(item ? item.parceiro_id : "");
+        var parceiroLabel = toText(item ? item.parceiro_label : "");
+        var nomeEmpresa = toText(item ? item.nome_empresa : "");
+        var clienteBase = parceiroId || parceiroLabel || ("row|" + toText(item ? item.id : ""));
+        return [clienteBase, nomeEmpresa].join("|");
+    }
+
+    function contarClientesDistintos(registros) {
+        var itens = Array.isArray(registros) ? registros : [];
+        var clientes = new Set();
+        itens.forEach(function (item) {
+            clientes.add(chaveClienteEmpresa(item));
+        });
+        return clientes.size;
+    }
+
+    function contarDiasUteisEntre(inicio, fim) {
+        if (!inicio || !fim) return 0;
+        if (inicio > fim) return 0;
+
+        var cursor = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+        var limite = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
+        var total = 0;
+
+        while (cursor <= limite) {
+            var diaSemana = cursor.getDay();
+            if (diaSemana !== 0 && diaSemana !== 6) total += 1;
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        return total;
+    }
+
+    function calcularDiasUteisRestantesMesAtual() {
+        var hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        var inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+        var fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+        return contarDiasUteisEntre(inicio, fim);
+    }
+
+    function valorParaAngulo(valor, maximo) {
+        if (maximo <= 0) return -90;
+        var relacao = Math.max(0, Math.min(1, valor / maximo));
+        return -90 + (relacao * 180);
+    }
+
+    function setRotacaoPonteiro(id, angulo) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.transform = "rotate(" + angulo + "deg)";
+    }
+
+    function atualizarReloginho(metaGeral, valorFaturamento) {
+        var meta = Number(metaGeral || 0);
+        var real = Number(valorFaturamento || 0);
+        var percentual = meta > 0 ? (real / meta) * 100 : 0;
+        var referencia = meta > 0 ? meta : Math.max(real, 1);
+
+        if (relogioMetaEl) relogioMetaEl.textContent = formatadorMoeda.format(meta);
+        if (relogioRealEl) relogioRealEl.textContent = formatadorMoeda.format(real);
+        if (relogioPctEl) relogioPctEl.textContent = percentual.toFixed(2).replace(".", ",") + "%";
+
+        setRotacaoPonteiro("faturamento-reloginho-ponteiro-meta", valorParaAngulo(referencia, referencia));
+        setRotacaoPonteiro("faturamento-reloginho-ponteiro-real", valorParaAngulo(real, referencia));
+    }
+
+    function criarMapaPedidosPendentesPorGerente() {
+        var mapa = {};
+        if (!Array.isArray(pedidosPendentesData)) return mapa;
+
+        pedidosPendentesData.forEach(function (item) {
+            var token = gerenteToken(item ? item.gerente : "");
+            var valor = Number(item ? item.total_vlr_nota : 0);
+            if (!mapa[token]) mapa[token] = 0;
+            mapa[token] += valor;
+        });
+
+        return mapa;
     }
 
     function ordenarTexto(a, b) {
@@ -189,19 +363,105 @@
         return formatPercentual(cell.getValue(), 2);
     }
 
-    function atualizarDashboard(linhas) {
+    var pedidosPendentesPorGerente = criarMapaPedidosPendentesPorGerente();
+
+    function calcularMetricasDashboard(linhas) {
         var itens = Array.isArray(linhas) ? linhas : [];
-        var totalValorUnico = 0;
-        var totalValorFrete = 0;
+        var somaPrazoMedio = 0;
+        var qtdPrazoMedio = 0;
+        var mesesSelecionadosSet = new Set();
+        var gruposGerenteSet = new Set();
+        var gerentesAtivosSet = new Set();
+        var consolidadoNotasFiltradas = consolidarNotasUnicas(itens);
+        var qtdClientesDistintos = contarClientesDistintos(itens);
 
         itens.forEach(function (item) {
-            totalValorUnico += Number(item.valor_nota_unico || 0);
-            totalValorFrete += Number(item.valor_frete || 0);
+            var prazoMedio = Number(item.prazo_medio || 0);
+            var tokenGerente = gerenteToken(item.gerente);
+            var mes = chaveMes(item);
+
+            if (!Number.isNaN(prazoMedio)) {
+                somaPrazoMedio += prazoMedio;
+                qtdPrazoMedio += 1;
+            }
+            if (mes) mesesSelecionadosSet.add(mes);
+            gerentesAtivosSet.add(tokenGerente);
+            gruposGerenteSet.add(gerenteEhMpOuLuciano(item.gerente) ? "mp_luciano" : "pa_outros");
+        });
+        var valorFaturamento = consolidadoNotasFiltradas.totalValorNota;
+
+        var mesesSelecionados = mesesSelecionadosSet.size;
+        if (!mesesSelecionados && itens.length) mesesSelecionados = 1;
+
+        var compromisso = Number(metaConfig.compromisso || 0);
+        var gerentePaOutros = Number(metaConfig.gerente_pa_e_outros || 0);
+        var gerenteMpLuciano = Number(metaConfig.gerente_mp_e_gerente_luciano || 0);
+        var metaBase = 0;
+        if (itens.length) {
+            if (gruposGerenteSet.has("pa_outros") && gruposGerenteSet.has("mp_luciano")) {
+                metaBase = compromisso;
+            } else if (gruposGerenteSet.has("mp_luciano")) {
+                metaBase = gerenteMpLuciano;
+            } else {
+                metaBase = gerentePaOutros;
+            }
+        }
+        var metaGeral = metaBase * mesesSelecionados;
+        var gapFaturamento = metaGeral - valorFaturamento;
+        var prazoMedioArredondado = qtdPrazoMedio > 0 ? Math.round(somaPrazoMedio / qtdPrazoMedio) : 0;
+        var diasUteisRestantes = calcularDiasUteisRestantesMesAtual();
+
+        var totalPedidosPendentes = 0;
+        gerentesAtivosSet.forEach(function (gerenteAtual) {
+            totalPedidosPendentes += Number(pedidosPendentesPorGerente[gerenteAtual] || 0);
         });
 
-        if (quantidadeEl) quantidadeEl.textContent = String(itens.length);
-        if (valorUnicoEl) valorUnicoEl.textContent = formatadorMoeda.format(totalValorUnico);
-        if (valorFreteEl) valorFreteEl.textContent = formatadorMoeda.format(totalValorFrete);
+        var incluirPendentes = incluirPedidosPendentesEl ? incluirPedidosPendentesEl.checked : false;
+        var numeradorMetaDiaria = gapFaturamento + (incluirPendentes ? totalPedidosPendentes : 0);
+        var metaDiaria = diasUteisRestantes > 0 ? (numeradorMetaDiaria / diasUteisRestantes) : 0;
+
+        var totalMesSelecionado = 0;
+        if (mesesSelecionadosSet.size) {
+            var registrosMesSelecionado = [];
+            data.forEach(function (item) {
+                if (mesesSelecionadosSet.has(chaveMes(item))) {
+                    registrosMesSelecionado.push(item);
+                }
+            });
+            totalMesSelecionado = somarValorNotaPorNotaUnica(registrosMesSelecionado);
+        } else if (itens.length) {
+            totalMesSelecionado = valorFaturamento;
+        }
+        var participacaoVendaGeral = totalMesSelecionado > 0 ? (valorFaturamento / totalMesSelecionado) : 0;
+
+        return {
+            valorFaturamento: valorFaturamento,
+            metaGeral: metaGeral,
+            gapFaturamento: gapFaturamento,
+            prazoMedioArredondado: prazoMedioArredondado,
+            diasUteisRestantes: diasUteisRestantes,
+            totalPedidosPendentes: totalPedidosPendentes,
+            metaDiaria: metaDiaria,
+            qtdClientes: qtdClientesDistintos,
+            participacaoVendaGeral: participacaoVendaGeral,
+        };
+    }
+
+    function atualizarDashboard(linhas) {
+        var metricas = calcularMetricasDashboard(linhas);
+
+        if (kpiValorFaturamentoEl) kpiValorFaturamentoEl.textContent = formatadorMoeda.format(metricas.valorFaturamento);
+        if (kpiMetaGeralEl) kpiMetaGeralEl.textContent = formatadorMoeda.format(metricas.metaGeral);
+        if (kpiGapFaturamentoEl) kpiGapFaturamentoEl.textContent = formatadorMoeda.format(metricas.gapFaturamento);
+        if (kpiPrazoMedioEl) kpiPrazoMedioEl.textContent = String(metricas.prazoMedioArredondado);
+        if (kpiDiasUteisEl) kpiDiasUteisEl.textContent = String(metricas.diasUteisRestantes);
+        if (kpiMetaDiariaEl) kpiMetaDiariaEl.textContent = formatadorMoeda.format(metricas.metaDiaria);
+        if (kpiTotalPedidosPendentesEl) kpiTotalPedidosPendentesEl.textContent = formatadorMoeda.format(metricas.totalPedidosPendentes);
+        if (kpiQtdClientesEl) kpiQtdClientesEl.textContent = String(metricas.qtdClientes);
+        if (kpiParticipacaoVendaGeralEl) {
+            kpiParticipacaoVendaGeralEl.textContent = formatPercentual(metricas.participacaoVendaGeral * 100, 2);
+        }
+        atualizarReloginho(metricas.metaGeral, metricas.valorFaturamento);
     }
 
     function criarDefinicoesFiltrosFaturamento() {
@@ -225,7 +485,7 @@
             {
                 key: "mes_faturamento",
                 label: "Mes",
-                singleSelect: true,
+                singleSelect: false,
                 extractValue: function (rowData) { return rowData ? rowData.mes_faturamento : ""; },
                 formatValue: mesLabel,
                 sortOptions: function (a, b) { return Number(a.value || 0) - Number(b.value || 0); },
@@ -282,8 +542,7 @@
                 singleSelect: false,
                 extractValue: function (rowData) {
                     var valor = rowData ? rowData.gerente : "";
-                    var token = normalizeText(valor);
-                    if (token === "sem gerente" || token === "<sem gerente>" || token === "sem vendedor" || token === "<sem vendedor>") {
+                    if (!gerenteToken(valor)) {
                         return "";
                     }
                     return valor;
@@ -354,6 +613,11 @@
 
     if (!tabelaTarget || !window.Tabulator || !window.TabulatorDefaults) {
         atualizarDashboard(data);
+        if (incluirPedidosPendentesEl) {
+            incluirPedidosPendentesEl.addEventListener("change", function () {
+                atualizarDashboard(data);
+            });
+        }
         return;
     }
 
@@ -421,6 +685,10 @@
         var linhasAtivas = tabela.getData("active");
         if (!Array.isArray(linhasAtivas)) linhasAtivas = tabela.getData() || [];
         atualizarDashboard(linhasAtivas);
+    }
+
+    if (incluirPedidosPendentesEl) {
+        incluirPedidosPendentesEl.addEventListener("change", atualizarDashboardComTabela);
     }
 
     tabela.on("tableBuilt", atualizarDashboardComTabela);

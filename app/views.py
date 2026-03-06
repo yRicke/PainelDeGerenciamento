@@ -39,6 +39,7 @@ from .models import (
     ParametroMargemFinanceiro,
     ParametroMargemLogistica,
     ParametroMargemVendas,
+    ParametroNegocios,
     PedidoPendente,
     Motorista,
     Producao,
@@ -128,6 +129,9 @@ from .services import (
     criar_parametro_margem_financeiro,
     atualizar_parametro_margem_financeiro,
     excluir_parametro_margem_financeiro,
+    criar_parametro_negocios,
+    atualizar_parametro_negocios,
+    excluir_parametro_negocios,
     criar_titulo_por_dados,
     atualizar_titulo_por_dados,
     criar_natureza_por_dados,
@@ -188,6 +192,7 @@ from .tabulator import (
     build_parametros_margem_vendas_tabulator,
     build_parametros_margem_logistica_tabulator,
     build_parametros_margem_financeiro_tabulator,
+    build_parametros_negocios_tabulator,
     build_dfc_tabulator,
     build_faturamento_tabulator,
     build_adiantamentos_tabulator,
@@ -2176,6 +2181,47 @@ def faturamento(request, empresa_id):
         )
         .order_by("-data_faturamento", "-id")
     )
+    parametro_negocios_qs = ParametroNegocios.objects.filter(empresa=empresa).order_by("-id")
+    parametro_negocios_faturamento = (
+        parametro_negocios_qs.filter(direcao__icontains="faturamento").first()
+        or parametro_negocios_qs.first()
+    )
+    faturamento_meta_config = {
+        "compromisso": (
+            float(parametro_negocios_faturamento.compromisso or 0)
+            if parametro_negocios_faturamento
+            else 0.0
+        ),
+        "gerente_pa_e_outros": (
+            float(parametro_negocios_faturamento.gerente_pa_e_outros or 0)
+            if parametro_negocios_faturamento
+            else 0.0
+        ),
+        "gerente_mp_e_gerente_luciano": (
+            float(parametro_negocios_faturamento.gerente_mp_e_gerente_luciano or 0)
+            if parametro_negocios_faturamento
+            else 0.0
+        ),
+    }
+    pedidos_pendentes_por_gerente_qs = (
+        PedidoPendente.objects.filter(empresa=empresa)
+        .values("gerente")
+        .annotate(
+            total_vlr_nota=Coalesce(
+                Sum("vlr_nota"),
+                Value(0, output_field=DecimalField(max_digits=16, decimal_places=2)),
+                output_field=DecimalField(max_digits=16, decimal_places=2),
+            )
+        )
+        .order_by()
+    )
+    faturamento_pedidos_pendentes = [
+        {
+            "gerente": item.get("gerente") or "",
+            "total_vlr_nota": float(item.get("total_vlr_nota") or 0),
+        }
+        for item in pedidos_pendentes_por_gerente_qs
+    ]
 
     arquivos_existentes = sorted(
         [
@@ -2205,6 +2251,8 @@ def faturamento(request, empresa_id):
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("descricao"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
         "produtos": Produto.objects.filter(empresa=empresa).order_by("descricao_produto"),
+        "faturamento_meta_config": faturamento_meta_config,
+        "faturamento_pedidos_pendentes": faturamento_pedidos_pendentes,
         "faturamento_tabulator": build_faturamento_tabulator(
             faturamento_qs,
             empresa.id,
@@ -2466,6 +2514,47 @@ def parametros_financeiro(request, empresa_id):
         "parametros_financeiro_tabulator": build_parametros_margem_financeiro_tabulator(parametros_qs, empresa.id),
     }
     return render(request, "parametros/parametros_financeiro.html", contexto)
+
+
+@login_required(login_url="entrar")
+def parametros_negocios(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros de Negocios")
+    if not autorizado:
+        return redirect("index")
+
+    if request.method == "POST":
+        acao = (request.POST.get("acao") or "").strip()
+        if acao == "criar":
+            erro = criar_parametro_negocios(empresa, request.POST)
+        elif acao == "editar":
+            item = ParametroNegocios.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_negocios", empresa_id=empresa.id)
+            erro = atualizar_parametro_negocios(item, empresa, request.POST)
+        elif acao == "excluir":
+            item = ParametroNegocios.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
+            if not item:
+                messages.error(request, "Parametro nao encontrado.")
+                return redirect("parametros_negocios", empresa_id=empresa.id)
+            erro = excluir_parametro_negocios(item, empresa)
+        else:
+            messages.error(request, "Acao invalida para parametros de negocios.")
+            return redirect("parametros_negocios", empresa_id=empresa.id)
+
+        if erro:
+            messages.error(request, erro)
+            return redirect("parametros_negocios", empresa_id=empresa.id)
+        messages.success(request, "Parametros de negocios atualizados com sucesso.")
+        return redirect("parametros_negocios", empresa_id=empresa.id)
+
+    parametros_qs = ParametroNegocios.objects.filter(empresa=empresa).order_by("id")
+    contexto = {
+        "empresa": empresa,
+        "parametros": parametros_qs,
+        "parametros_negocios_tabulator": build_parametros_negocios_tabulator(parametros_qs, empresa.id),
+    }
+    return render(request, "parametros/parametros_negocios.html", contexto)
 
 
 @login_required(login_url="entrar")

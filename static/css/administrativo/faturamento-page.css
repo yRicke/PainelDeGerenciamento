@@ -1,1 +1,140 @@
 @import url("../financeiro/lancamentos-shared.css");
+
+.dashboard-kpi-grid--faturamento {
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.dashboard-kpi-grid--faturamento .dashboard-kpi-card-note {
+    margin-top: 0.45rem;
+    font-size: 0.86rem;
+    color: #3b4f63;
+}
+
+.dashboard-kpi-grid--faturamento .dashboard-kpi-toggle {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.86rem;
+    color: #1e3650;
+    font-weight: 600;
+}
+
+.dashboard-kpi-grid--faturamento .dashboard-kpi-toggle input {
+    margin: 0;
+}
+
+.faturamento-reloginho-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 420px);
+    gap: 0.75rem;
+}
+
+.faturamento-reloginho-grid .reloginho-card {
+    border: 1px solid #cfd8df;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+}
+
+.faturamento-reloginho-grid .reloginho-card h3 {
+    margin: 0 0 0.35rem;
+    text-align: center;
+    font-size: 1.08rem;
+    color: #152a36;
+}
+
+.faturamento-reloginho-grid .reloginho-dial-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.faturamento-reloginho-grid .reloginho-dial {
+    position: relative;
+    width: 210px;
+    height: 122px;
+    overflow: hidden;
+}
+
+.faturamento-reloginho-grid .reloginho-face {
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 270deg,
+        #d62828 0deg 36deg,
+        #ef7d25 36deg 72deg,
+        #f7d64b 72deg 108deg,
+        #6cad48 108deg 144deg,
+        #1e6f8c 144deg 180deg,
+        transparent 180deg 360deg
+    );
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.faturamento-reloginho-grid .ponteiro {
+    position: absolute;
+    left: 103px;
+    top: 30px;
+    width: 4px;
+    height: 85px;
+    border-radius: 2px;
+    transform-origin: 50% 100%;
+    transform: rotate(-90deg);
+}
+
+.faturamento-reloginho-grid .ponteiro-meta {
+    background: #000000;
+    width: 4px;
+}
+
+.faturamento-reloginho-grid .ponteiro-real {
+    background: #002792;
+    width: 4px;
+    left: 103.5px;
+}
+
+.faturamento-reloginho-grid .reloginho-pivo {
+    position: absolute;
+    left: 98px;
+    top: 110px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #444;
+    background: #fff;
+}
+
+.faturamento-reloginho-grid .reloginho-metricas {
+    margin-top: 0.3rem;
+    border: 1px solid #d9dee3;
+    border-radius: 6px;
+    background: #f5f7fa;
+    padding: 0.35rem 0.5rem;
+}
+
+.faturamento-reloginho-grid .reloginho-metricas p {
+    margin: 0.11rem 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.faturamento-reloginho-grid .reloginho-metricas span {
+    margin-left: 0.35rem;
+    color: #0f4c67;
+}
+
+@media (max-width: 1280px) {
+    .dashboard-kpi-grid--faturamento {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+
+@media (max-width: 980px) {
+    .dashboard-kpi-grid--faturamento {
+        grid-template-columns: 1fr;
+    }
+}

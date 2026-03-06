@@ -39,6 +39,7 @@ from .models import (
     ParametroMargemFinanceiro,
     ParametroMargemLogistica,
     ParametroMargemVendas,
+    ParametroNegocios,
     PedidoPendente,
     Motorista,
     Producao,
@@ -1383,6 +1384,68 @@ def excluir_parametro_margem_financeiro(item, empresa):
     item.delete()
     total = recalcular_controle_margem_por_empresa(empresa)
     return "", total
+
+
+def _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros):
+    compromisso_decimal = _parse_decimal_ou_zero(str(compromisso))
+    gerente_pa_decimal = _parse_decimal_ou_zero(str(gerente_pa_e_outros))
+    return compromisso_decimal - gerente_pa_decimal
+
+
+def criar_parametro_negocios(empresa, post_data):
+    direcao = (post_data.get("direcao") or "").strip()
+    meta = _parse_decimal_ou_zero(post_data.get("meta"))
+    compromisso = _parse_decimal_ou_zero(post_data.get("compromisso"))
+    gerente_pa_e_outros = _parse_decimal_ou_zero(post_data.get("gerente_pa_e_outros"))
+    gerente_mp_e_gerente_luciano = _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros)
+    if not direcao:
+        return "Direcao e obrigatoria."
+
+    ParametroNegocios.objects.create(
+        empresa=empresa,
+        direcao=direcao,
+        meta=meta,
+        compromisso=compromisso,
+        gerente_pa_e_outros=gerente_pa_e_outros,
+        gerente_mp_e_gerente_luciano=gerente_mp_e_gerente_luciano,
+    )
+    return ""
+
+
+def atualizar_parametro_negocios(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa."
+
+    direcao = (post_data.get("direcao") or "").strip()
+    meta = _parse_decimal_ou_zero(post_data.get("meta"))
+    compromisso = _parse_decimal_ou_zero(post_data.get("compromisso"))
+    gerente_pa_e_outros = _parse_decimal_ou_zero(post_data.get("gerente_pa_e_outros"))
+    gerente_mp_e_gerente_luciano = _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros)
+    if not direcao:
+        return "Direcao e obrigatoria."
+
+    item.direcao = direcao
+    item.meta = meta
+    item.compromisso = compromisso
+    item.gerente_pa_e_outros = gerente_pa_e_outros
+    item.gerente_mp_e_gerente_luciano = gerente_mp_e_gerente_luciano
+    item.save(
+        update_fields=[
+            "direcao",
+            "meta",
+            "compromisso",
+            "gerente_pa_e_outros",
+            "gerente_mp_e_gerente_luciano",
+        ]
+    )
+    return ""
+
+
+def excluir_parametro_negocios(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Parametro invalido para esta empresa."
+    item.delete()
+    return ""
 
 
 def _dados_carteira_from_post(post_data, empresa):

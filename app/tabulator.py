@@ -846,6 +846,22 @@ def build_parametros_margem_financeiro_tabulator(parametros_qs, empresa_id: int)
     ]
 
 
+def build_parametros_negocios_tabulator(parametros_qs, empresa_id: int):
+    acao_url = reverse("parametros_negocios", kwargs={"empresa_id": empresa_id})
+    return [
+        {
+            "id": item.id,
+            "direcao": item.direcao or "",
+            "meta": float(item.meta or 0),
+            "compromisso": float(item.compromisso or 0),
+            "gerente_pa_e_outros": float(item.gerente_pa_e_outros or 0),
+            "gerente_mp_e_gerente_luciano": float(item.gerente_mp_e_gerente_luciano or 0),
+            "acao_url": acao_url,
+        }
+        for item in parametros_qs
+    ]
+
+
 def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for dfc_item in dfc_qs:
