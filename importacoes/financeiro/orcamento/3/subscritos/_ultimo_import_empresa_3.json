@@ -1,0 +1,22 @@
+{
+  "empresa_id": 3,
+  "modulo": "orcamento",
+  "usuario": "THIAGO",
+  "registrado_em_iso": "2026-03-06T13:08:31+00:00",
+  "quantidade_arquivos": 13,
+  "arquivos": [
+    "OR\u00c7AMENTO 03-02-2026.xls",
+    "OR\u00c7AMENTO 04-02-2026.xls",
+    "OR\u00c7AMENTO 05-02-2026.xls",
+    "OR\u00c7AMENTO 06-02-2026.xls",
+    "OR\u00c7AMENTO 09-02-2026.xls",
+    "OR\u00c7AMENTO 10-02-2026.xls",
+    "OR\u00c7AMENTO 11-02-2026.xls",
+    "OR\u00c7AMENTO 12-02-2026.xls",
+    "OR\u00c7AMENTO 18-02-2026.xls",
+    "OR\u00c7AMENTO 30.11.2025.xls",
+    "OR\u00c7AMENTO 31-12-2025.xls",
+    "OR\u00c7AMENTO 31.01.2026.xls",
+    "OR\u00c7AMENTO 31.10.2025.xls"
+  ]
+}

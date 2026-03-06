@@ -3,9 +3,11 @@ from django.test import override_settings
 from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from datetime import timedelta
+import json
 import shutil
 from uuid import uuid4
 from pathlib import Path
@@ -533,6 +535,31 @@ class AdminStaffIsolamentoEmpresaTest(TestCase):
             permissoes_ids_existentes,
         )
 
+    def test_cadastro_usuario_com_username_existente_exibe_erro(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+        total_usuarios_antes = Usuario.objects.count()
+
+        response = self.client.post(
+            reverse("cadastrar_usuario", kwargs={"empresa_id": self.empresa_a.id}),
+            {
+                "nome": self.usuario_b.username,
+                "senha": "senha123",
+                "permissoes": [str(self.permissao_a.id)],
+            },
+            follow=True,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("usuarios_permissoes", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+        self.assertEqual(Usuario.objects.count(), total_usuarios_antes)
+        mensagens = [str(mensagem) for mensagem in get_messages(response.wsgi_request)]
+        self.assertIn(
+            "Ja existe um username igual ao cadastrado para outro usuario.",
+            mensagens,
+        )
+
     def test_edicao_para_staff_define_todas_permissoes(self):
         usuario_alvo = Usuario.criar_usuario(
             username="alvo_empresa_a",
@@ -794,14 +821,24 @@ class VendasImportacaoServiceTest(TestCase):
 
     def test_preparar_diretorios_vendas_cria_estrutura(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas(self.empresa)
             self.assertTrue(diretorio_importacao.exists())
             self.assertTrue(diretorio_subscritos.exists())
             self.assertEqual(diretorio_subscritos.parent, diretorio_importacao)
+            self.assertEqual(diretorio_importacao.name, str(self.empresa.id))
+
+    def test_preparar_diretorios_vendas_isola_por_empresa(self):
+        empresa_b = Empresa.criar_empresa(nome="Empresa Teste Importacao B")
+        with override_settings(BASE_DIR=self.base_dir):
+            diretorio_importacao_a, _ = preparar_diretorios_vendas(self.empresa)
+            diretorio_importacao_b, _ = preparar_diretorios_vendas(empresa_b)
+            self.assertNotEqual(diretorio_importacao_a, diretorio_importacao_b)
+            self.assertEqual(diretorio_importacao_a.name, str(self.empresa.id))
+            self.assertEqual(diretorio_importacao_b.name, str(empresa_b.id))
 
     def test_importar_upload_vendas_mantem_apenas_novos_e_move_antigos(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas(self.empresa)
             antigo = diretorio_importacao / "01.01.2026.xls"
             antigo.write_bytes(b"arquivo-antigo")
 
@@ -825,10 +862,15 @@ class VendasImportacaoServiceTest(TestCase):
             self.assertFalse((diretorio_importacao / "nao_importar.txt").exists())
             self.assertTrue((diretorio_subscritos / "01.01.2026.xls").exists())
             importar_mock.assert_called_once()
+            caminho_metadados = diretorio_subscritos / f"_ultimo_import_empresa_{self.empresa.id}.json"
+            self.assertTrue(caminho_metadados.exists())
+            payload = json.loads(caminho_metadados.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("empresa_id"), self.empresa.id)
+            self.assertEqual(payload.get("modulo"), "vendas_por_categoria")
 
     def test_importar_upload_vendas_sem_xls_retorna_erro(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas(self.empresa)
             arquivo_invalido = SimpleUploadedFile("arquivo.csv", b"1,2,3", content_type="text/csv")
 
             ok, mensagem = importar_upload_vendas(
@@ -851,14 +893,14 @@ class CargasImportacaoServiceTest(TestCase):
 
     def test_preparar_diretorios_cargas_cria_estrutura(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas(self.empresa)
             self.assertTrue(diretorio_importacao.exists())
             self.assertTrue(diretorio_subscritos.exists())
             self.assertEqual(diretorio_subscritos.parent, diretorio_importacao)
 
     def test_importar_upload_cargas_mantem_apenas_novo_e_move_antigo(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas(self.empresa)
             antigo = diretorio_importacao / "cargas_antigo.xls"
             antigo.write_bytes(b"arquivo-antigo")
 
@@ -882,7 +924,7 @@ class CargasImportacaoServiceTest(TestCase):
 
     def test_importar_upload_cargas_sem_confirmacao_retorna_erro(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas(self.empresa)
             (diretorio_importacao / "cargas_antigo.xls").write_bytes(b"arquivo-antigo")
             arquivo = SimpleUploadedFile("cargas_novo.xls", b"novo", content_type="application/vnd.ms-excel")
 
@@ -907,14 +949,14 @@ class OrcamentoImportacaoServiceTest(TestCase):
 
     def test_preparar_diretorios_orcamento_cria_estrutura(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento(self.empresa)
             self.assertTrue(diretorio_importacao.exists())
             self.assertTrue(diretorio_subscritos.exists())
             self.assertEqual(diretorio_subscritos.parent, diretorio_importacao)
 
     def test_importar_upload_orcamento_mantem_apenas_novos_e_move_antigos(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento(self.empresa)
             antigo = diretorio_importacao / "orcamento_antigo.xls"
             antigo.write_bytes(b"arquivo-antigo")
 
@@ -941,7 +983,7 @@ class OrcamentoImportacaoServiceTest(TestCase):
 
     def test_importar_upload_orcamento_sem_xls_retorna_erro(self):
         with override_settings(BASE_DIR=self.base_dir):
-            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+            diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento(self.empresa)
             arquivo_invalido = SimpleUploadedFile("arquivo.csv", b"1,2,3", content_type="text/csv")
 
             ok, mensagem = importar_upload_orcamento(

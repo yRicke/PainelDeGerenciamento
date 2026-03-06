@@ -203,7 +203,7 @@ from .tabulator import (
     build_producao_tabulator,
 )
 
-IMPORTACAO_METADATA_FILE = "_ultimo_import.json"
+IMPORTACAO_METADATA_FILE_PREFIX = "_ultimo_import_empresa_"
 TIPO_IMPORTACAO_POR_MODULO = {
     "carteira": "Arquivo .xlsx (selecao unica).",
     "pedidos_pendentes": "Arquivo .xlsx (selecao unica).",
@@ -238,8 +238,28 @@ def _resumir_arquivos_existentes(arquivos, limite=8):
     return ", ".join(arquivos_ordenados), True
 
 
-def _ler_metadados_importacao(diretorio_subscritos, modulo):
-    caminho_metadados = diretorio_subscritos / IMPORTACAO_METADATA_FILE
+def _normalizar_empresa_id(empresa_id):
+    try:
+        empresa_id_int = int(empresa_id)
+    except (TypeError, ValueError):
+        return None
+    if empresa_id_int <= 0:
+        return None
+    return empresa_id_int
+
+
+def _nome_metadados_importacao_por_empresa(empresa_id):
+    empresa_id_int = _normalizar_empresa_id(empresa_id)
+    if not empresa_id_int:
+        return ""
+    return f"{IMPORTACAO_METADATA_FILE_PREFIX}{empresa_id_int}.json"
+
+
+def _ler_metadados_importacao(diretorio_subscritos, modulo, empresa_id):
+    nome_arquivo = _nome_metadados_importacao_por_empresa(empresa_id)
+    if not nome_arquivo:
+        return {}
+    caminho_metadados = diretorio_subscritos / nome_arquivo
     if not caminho_metadados.exists():
         return {}
     try:
@@ -247,6 +267,10 @@ def _ler_metadados_importacao(diretorio_subscritos, modulo):
     except (OSError, ValueError, TypeError):
         return {}
     if not isinstance(payload, dict):
+        return {}
+    empresa_payload = _normalizar_empresa_id(payload.get("empresa_id"))
+    empresa_esperada = _normalizar_empresa_id(empresa_id)
+    if not empresa_payload or empresa_payload != empresa_esperada:
         return {}
     if str(payload.get("modulo") or "").strip() != str(modulo or "").strip():
         return {}
@@ -307,7 +331,7 @@ def _data_metadados_importacao_ou_none(metadados):
         return None
 
 
-def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo, extensoes=None):
+def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo, empresa_id, extensoes=None):
     arquivos_atuais = _listar_arquivos_importacao(
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
@@ -324,6 +348,7 @@ def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo
     metadados = _ler_metadados_importacao(
         diretorio_subscritos=diretorio_subscritos,
         modulo=modulo,
+        empresa_id=empresa_id,
     )
     data_referencia_metadado = _data_metadados_importacao_ou_none(metadados)
 
@@ -1032,7 +1057,10 @@ def cadastrar_usuario(request, empresa_id):
         return redirect("painel_admin")
     if request.method == "POST":
         permissoes = _obter_permissoes_do_form(request)
-        criar_usuario_por_post(empresa, request.POST, permissoes)
+        erro = criar_usuario_por_post(empresa, request.POST, permissoes)
+        if erro:
+            messages.error(request, erro)
+            return redirect("usuarios_permissoes", empresa_id=empresa_id)
         messages.success(request, "Usuario criado com sucesso!")
         return redirect("usuarios_permissoes", empresa_id=empresa_id)
 
@@ -1357,7 +1385,7 @@ def contas_a_receber(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_contas_a_receber()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_contas_a_receber(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -1401,6 +1429,7 @@ def contas_a_receber(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="contas_a_receber",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
     contexto = {
@@ -1512,7 +1541,7 @@ def dfc(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_dfc()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_dfc(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -1583,6 +1612,7 @@ def dfc(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="dfc",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
     contexto = {
@@ -1694,7 +1724,7 @@ def orcamento(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_orcamento(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -1724,6 +1754,7 @@ def orcamento(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="orcamento",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
     contexto = {
@@ -1940,7 +1971,7 @@ def adiantamentos(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_adiantamentos()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_adiantamentos(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -2005,6 +2036,7 @@ def adiantamentos(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="adiantamentos",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
     contexto = {
@@ -2055,7 +2087,7 @@ def faturamento(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_faturamento()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_faturamento(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -2153,6 +2185,7 @@ def faturamento(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="faturamento",
+        empresa_id=empresa.id,
         extensoes={".xlsx"},
     )
     contexto = {
@@ -3264,7 +3297,7 @@ def carteira(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_carteira()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_carteira(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -3341,6 +3374,7 @@ def carteira(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="carteira",
+        empresa_id=empresa.id,
         extensoes={".xlsx"},
     )
 
@@ -3660,7 +3694,7 @@ def pedidos_pendentes(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_pedidos_pendentes()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_pedidos_pendentes(empresa)
 
     if request.method == "POST":
         acao = (request.POST.get("acao") or "").strip()
@@ -3747,6 +3781,7 @@ def pedidos_pendentes(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="pedidos_pendentes",
+        empresa_id=empresa.id,
         extensoes={".xlsx"},
     )
     pedidos_tabulator = build_pedidos_pendentes_tabulator(
@@ -3937,7 +3972,7 @@ def vendas_por_categoria(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_vendas(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -4005,6 +4040,7 @@ def vendas_por_categoria(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="vendas_por_categoria",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
 
@@ -4083,7 +4119,7 @@ def controle_de_margem(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_controle_margem()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_controle_margem(empresa)
 
     if request.method == "POST":
         acao = (request.POST.get("acao") or "").strip()
@@ -4200,6 +4236,7 @@ def controle_de_margem(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="controle_de_margem",
+        empresa_id=empresa.id,
         extensoes={".xls", ".xlsx"},
     )
     controles_tabulator = build_controle_margem_tabulator(
@@ -4289,7 +4326,7 @@ def cargas_em_aberto(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_cargas(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -4338,6 +4375,7 @@ def cargas_em_aberto(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="cargas_em_aberto",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
 
@@ -4418,7 +4456,7 @@ def producao(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_producao()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_producao(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -4473,6 +4511,7 @@ def producao(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="producao",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
     contexto = {
@@ -4570,7 +4609,7 @@ def tabela_de_fretes(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_fretes()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_fretes(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -4624,6 +4663,7 @@ def tabela_de_fretes(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="tabela_de_fretes",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
 
@@ -4724,7 +4764,7 @@ def estoque_pcp(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    diretorio_importacao, diretorio_subscritos = preparar_diretorios_estoque()
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_estoque(empresa)
 
     if request.method == "POST":
         acao = request.POST.get("acao")
@@ -4789,6 +4829,7 @@ def estoque_pcp(request, empresa_id):
         diretorio_importacao=diretorio_importacao,
         diretorio_subscritos=diretorio_subscritos,
         modulo="estoque_pcp",
+        empresa_id=empresa.id,
         extensoes={".xls"},
     )
 

@@ -83,23 +83,50 @@ from .utils.operacional_importacao import (
     importar_producao_do_diretorio,
 )
 
-IMPORTACAO_METADATA_FILE = "_ultimo_import.json"
+IMPORTACAO_METADATA_FILE_PREFIX = "_ultimo_import_empresa_"
+
+
+def _normalizar_empresa_id(empresa):
+    empresa_id = getattr(empresa, "id", empresa)
+    try:
+        empresa_id_int = int(empresa_id)
+    except (TypeError, ValueError):
+        raise ValueError("Empresa invalida para importacao.")
+    if empresa_id_int <= 0:
+        raise ValueError("Empresa invalida para importacao.")
+    return empresa_id_int
+
+
+def _nome_metadados_importacao_por_empresa(empresa):
+    return f"{IMPORTACAO_METADATA_FILE_PREFIX}{_normalizar_empresa_id(empresa)}.json"
+
+
+def _preparar_diretorios_importacao(*, area, modulo, empresa):
+    empresa_id = str(_normalizar_empresa_id(empresa))
+    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / area / modulo / empresa_id
+    diretorio_subscritos = diretorio_importacao / "subscritos"
+    diretorio_importacao.mkdir(parents=True, exist_ok=True)
+    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
+    return diretorio_importacao, diretorio_subscritos
 
 
 def _registrar_metadados_importacao(
     *,
     diretorio_subscritos,
+    empresa,
     modulo,
     usuario,
     arquivos,
 ):
-    caminho_metadados = Path(diretorio_subscritos) / IMPORTACAO_METADATA_FILE
+    empresa_id = _normalizar_empresa_id(empresa)
+    caminho_metadados = Path(diretorio_subscritos) / _nome_metadados_importacao_por_empresa(empresa_id)
     nomes_arquivos = [
         Path(nome_arquivo).name
         for nome_arquivo in (arquivos or [])
         if str(nome_arquivo or "").strip()
     ]
     payload = {
+        "empresa_id": empresa_id,
         "modulo": str(modulo or "").strip(),
         "usuario": getattr(usuario, "username", "") if usuario else "",
         "registrado_em_iso": timezone.localtime().isoformat(timespec="seconds"),
@@ -248,17 +275,28 @@ def _valor_checkbox_ativo(post_data, campo):
 
 
 def criar_usuario_por_post(empresa, post_data, permissoes):
-    nome = post_data.get("nome")
+    nome = (post_data.get("nome") or "").strip()
     senha = post_data.get("senha")
     is_staff = _valor_checkbox_ativo(post_data, "is_staff")
-    permissoes_usuario = list(Permissao.objects.all()) if is_staff else permissoes
-    Usuario.criar_usuario(
-        empresa=empresa,
+    if not nome:
+        return "O nome do usuario e obrigatorio."
+
+    usuario, created = Usuario.objects.get_or_create(
         username=nome,
-        password=senha,
-        permissoes=permissoes_usuario,
-        is_staff=is_staff,
+        defaults={
+            "empresa": empresa,
+            "is_staff": is_staff,
+        },
     )
+    if not created:
+        return "Ja existe um username igual ao cadastrado para outro usuario."
+
+    usuario.set_password(senha)
+    usuario.save(update_fields=["password"])
+    permissoes_usuario = list(Permissao.objects.all()) if is_staff else permissoes
+    if permissoes_usuario:
+        usuario.permissoes.set(permissoes_usuario)
+    return ""
 
 
 def atualizar_usuario_por_post(usuario, post_data, permissoes, usuario_logado=None):
@@ -2219,12 +2257,8 @@ def semana_iso_input_atividade(atividade):
     return f"{iso.year}-W{iso.week:02d}"
 
 
-def preparar_diretorios_carteira():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "carteira"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_carteira(empresa):
+    return _preparar_diretorios_importacao(area="comercial", modulo="carteira", empresa=empresa)
 
 
 def importar_upload_carteira(
@@ -2270,6 +2304,7 @@ def importar_upload_carteira(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="carteira",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -2290,68 +2325,36 @@ def importar_upload_carteira(
     )
 
 
-def preparar_diretorios_vendas():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "vendas"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_vendas(empresa):
+    return _preparar_diretorios_importacao(area="comercial", modulo="vendas", empresa=empresa)
 
 
-def preparar_diretorios_pedidos_pendentes():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "pedidos_pendentes"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_pedidos_pendentes(empresa):
+    return _preparar_diretorios_importacao(area="comercial", modulo="pedidos_pendentes", empresa=empresa)
 
 
-def preparar_diretorios_controle_margem():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "comercial" / "controle_de_margem"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_controle_margem(empresa):
+    return _preparar_diretorios_importacao(area="comercial", modulo="controle_de_margem", empresa=empresa)
 
 
-def preparar_diretorios_dfc():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "dfc"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_dfc(empresa):
+    return _preparar_diretorios_importacao(area="financeiro", modulo="dfc", empresa=empresa)
 
 
-def preparar_diretorios_faturamento():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "administrativo" / "faturamento"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_faturamento(empresa):
+    return _preparar_diretorios_importacao(area="administrativo", modulo="faturamento", empresa=empresa)
 
 
-def preparar_diretorios_adiantamentos():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "adiantamentos"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_adiantamentos(empresa):
+    return _preparar_diretorios_importacao(area="financeiro", modulo="adiantamentos", empresa=empresa)
 
 
-def preparar_diretorios_contas_a_receber():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "contas_a_receber"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_contas_a_receber(empresa):
+    return _preparar_diretorios_importacao(area="financeiro", modulo="contas_a_receber", empresa=empresa)
 
 
-def preparar_diretorios_orcamento():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "financeiro" / "orcamento"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_orcamento(empresa):
+    return _preparar_diretorios_importacao(area="financeiro", modulo="orcamento", empresa=empresa)
 
 
 def importar_upload_vendas(
@@ -2395,6 +2398,7 @@ def importar_upload_vendas(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="vendas_por_categoria",
             usuario=usuario,
             arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
@@ -2459,6 +2463,7 @@ def importar_upload_pedidos_pendentes(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="pedidos_pendentes",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -2525,6 +2530,7 @@ def importar_upload_controle_margem(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="controle_de_margem",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -2596,6 +2602,7 @@ def importar_upload_dfc(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="dfc",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -2784,6 +2791,7 @@ def importar_upload_faturamento(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="faturamento",
             usuario=usuario,
             arquivos=nomes_lote,
@@ -2847,6 +2855,7 @@ def importar_upload_adiantamentos(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="adiantamentos",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -2908,6 +2917,7 @@ def importar_upload_contas_a_receber(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="contas_a_receber",
             usuario=usuario,
             arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
@@ -2973,6 +2983,7 @@ def importar_upload_orcamento(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="orcamento",
             usuario=usuario,
             arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
@@ -2998,36 +3009,20 @@ def importar_upload_orcamento(
     )
 
 
-def preparar_diretorios_cargas():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "cargas_em_aberto"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_cargas(empresa):
+    return _preparar_diretorios_importacao(area="operacional", modulo="cargas_em_aberto", empresa=empresa)
 
 
-def preparar_diretorios_producao():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "producao"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_producao(empresa):
+    return _preparar_diretorios_importacao(area="operacional", modulo="producao", empresa=empresa)
 
 
-def preparar_diretorios_fretes():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "tabela_de_fretes"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_fretes(empresa):
+    return _preparar_diretorios_importacao(area="operacional", modulo="tabela_de_fretes", empresa=empresa)
 
 
-def preparar_diretorios_estoque():
-    diretorio_importacao = Path(settings.BASE_DIR) / "importacoes" / "operacional" / "estoque_pcp"
-    diretorio_subscritos = diretorio_importacao / "subscritos"
-    diretorio_importacao.mkdir(parents=True, exist_ok=True)
-    diretorio_subscritos.mkdir(parents=True, exist_ok=True)
-    return diretorio_importacao, diretorio_subscritos
+def preparar_diretorios_estoque(empresa):
+    return _preparar_diretorios_importacao(area="operacional", modulo="estoque_pcp", empresa=empresa)
 
 
 def importar_upload_cargas(
@@ -3073,6 +3068,7 @@ def importar_upload_cargas(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="cargas_em_aberto",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -3136,6 +3132,7 @@ def importar_upload_fretes(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="tabela_de_fretes",
             usuario=usuario,
             arquivos=[nome_arquivo],
@@ -3280,6 +3277,7 @@ def importar_upload_estoque(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="estoque_pcp",
             usuario=usuario,
             arquivos=[str(caminho_relativo).replace("\\", "/") for _, caminho_relativo in arquivos_xls],
@@ -3342,6 +3340,7 @@ def importar_upload_producao(
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
             modulo="producao",
             usuario=usuario,
             arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
