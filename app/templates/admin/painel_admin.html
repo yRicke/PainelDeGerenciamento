@@ -46,14 +46,16 @@
                     method="POST"
                     class="admin-inline-form admin-inline-form--empresa"
                     data-confirm-submit
-                    data-confirm-message="Confirma salvar as alteracoes desta empresa?"
+                    data-confirm-message="Confirma salvar as alterações desta empresa?"
                 >
                     {% csrf_token %}
                     <input type="text" name="nome" value="{{ empresa.nome }}" required>
+                    {% if pode_editar_possui_sistema %}
                     <label>
                         <input type="checkbox" name="possui_sistema" {% if empresa.possui_sistema %}checked{% endif %}>
                         Possui sistema
                     </label>
+                    {% endif %}
                     <button type="submit" class="btn-primary">Salvar</button>
                     <a
                         href="{% url 'excluir_empresa' empresa.id %}"

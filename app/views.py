@@ -982,6 +982,7 @@ def painel_admin(request):
     contexto = {
         "empresas": empresas,
         "pode_cadastrar_empresa": request.user.is_superuser,
+        "pode_editar_possui_sistema": request.user.is_superuser,
     }
     return render(request, "admin/painel_admin.html", contexto)
 
@@ -1009,10 +1010,13 @@ def editar_empresa(request, empresa_id):
     if not empresa:
         return redirect("painel_admin")
     if request.method == "POST":
+        possui_sistema = empresa.possui_sistema
+        if request.user.is_superuser:
+            possui_sistema = _valor_checkbox_possui_sistema(request.POST)
         erro = atualizar_empresa_por_nome(
             empresa,
             request.POST.get("nome"),
-            possui_sistema=_valor_checkbox_possui_sistema(request.POST),
+            possui_sistema=possui_sistema,
         )
         if erro:
             messages.error(request, erro)

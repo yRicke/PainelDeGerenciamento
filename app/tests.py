@@ -434,6 +434,10 @@ class AdminStaffIsolamentoEmpresaTest(TestCase):
         self.empresa_b = Empresa.criar_empresa(nome="Empresa B")
         self.permissao_a = Permissao.objects.create(nome="Permissao A")
         self.permissao_b = Permissao.objects.create(nome="Permissao B")
+        self.superuser = Usuario.objects.create_superuser(
+            username="super_admin",
+            password="senha123",
+        )
 
         self.staff_a = Usuario.criar_usuario(
             username="staff_empresa_a",
@@ -455,6 +459,39 @@ class AdminStaffIsolamentoEmpresaTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Empresa A")
         self.assertNotContains(response, "Empresa B")
+
+    def test_staff_nao_ve_checkbox_possui_sistema_no_painel_admin(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(reverse("painel_admin"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="possui_sistema"')
+
+    def test_staff_nao_altera_possui_sistema_mesmo_via_post(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.post(
+            reverse("editar_empresa", kwargs={"empresa_id": self.empresa_a.id}),
+            {"nome": "Empresa A Atualizada", "possui_sistema": "on"},
+        )
+
+        self.assertRedirects(response, reverse("painel_admin"))
+        self.empresa_a.refresh_from_db()
+        self.assertEqual(self.empresa_a.nome, "Empresa A Atualizada")
+        self.assertFalse(self.empresa_a.possui_sistema)
+
+    def test_superuser_pode_alterar_possui_sistema(self):
+        self.client.login(username=self.superuser.username, password="senha123")
+
+        response = self.client.post(
+            reverse("editar_empresa", kwargs={"empresa_id": self.empresa_a.id}),
+            {"nome": self.empresa_a.nome, "possui_sistema": "on"},
+        )
+
+        self.assertRedirects(response, reverse("painel_admin"))
+        self.empresa_a.refresh_from_db()
+        self.assertTrue(self.empresa_a.possui_sistema)
 
     def test_staff_nao_acessa_usuarios_permissoes_de_outra_empresa(self):
         self.client.login(username=self.staff_a.username, password="senha123")
