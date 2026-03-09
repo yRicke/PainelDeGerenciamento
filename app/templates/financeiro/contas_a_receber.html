@@ -174,14 +174,49 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Contas a Receber</h2>
-            <div class="dashboard-kpi-grid">
-                <article class="dashboard-kpi-card">
-                    <h3>Quantidade de Instancias</h3>
-                    <p id="contas-kpi-quantidade">0</p>
+            <div class="contas-dashboard-grid">
+                <article class="contas-dashboard-card">
+                    <h3>Analise Ultimo Dia - Analitico</h3>
+                    <div class="contas-dashboard-analitico-grid">
+                        <div class="contas-dashboard-kpi contas-dashboard-kpi--destaque">
+                            <p class="contas-dashboard-kpi-label">Data Mais Recente</p>
+                            <p id="contas-kpi-data-mais-recente" class="contas-dashboard-kpi-data">--/--/----</p>
+                            <p id="contas-kpi-valor-recente" class="contas-dashboard-kpi-valor">R$ 0,00</p>
+                            <p class="contas-dashboard-kpi-label">QTD</p>
+                            <p id="contas-kpi-quantidade-recente" class="contas-dashboard-kpi-quantidade">0</p>
+                        </div>
+
+                        <div class="contas-dashboard-kpi contas-dashboard-kpi--secundario">
+                            <p class="contas-dashboard-kpi-label">Faturamento</p>
+                            <p id="contas-kpi-faturamento-recente" class="contas-dashboard-kpi-valor">R$ 0,00</p>
+                        </div>
+
+                        <div class="contas-dashboard-kpi contas-dashboard-kpi--secundario">
+                            <p class="contas-dashboard-kpi-label">Inadimplencia %</p>
+                            <p id="contas-kpi-inadimplencia" class="contas-dashboard-kpi-valor">0,00%</p>
+                        </div>
+                    </div>
                 </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Valor Faturado</h3>
-                    <p id="contas-kpi-faturado">R$ 0,00</p>
+
+                <article class="contas-dashboard-card">
+                    <h3>Analise Periodo Completo</h3>
+                    <div class="contas-dashboard-periodo-grid">
+                        <div class="contas-dashboard-kpi contas-dashboard-kpi--periodo">
+                            <p class="contas-dashboard-kpi-label">Data Inicial</p>
+                            <p id="contas-kpi-data-inicial" class="contas-dashboard-kpi-data">--/--/----</p>
+                            <p id="contas-kpi-valor-inicial" class="contas-dashboard-kpi-valor">R$ 0,00</p>
+                        </div>
+
+                        <div class="contas-dashboard-kpi contas-dashboard-kpi--periodo">
+                            <p class="contas-dashboard-kpi-label">Data Final</p>
+                            <p id="contas-kpi-data-final" class="contas-dashboard-kpi-data">--/--/----</p>
+                            <p id="contas-kpi-valor-final" class="contas-dashboard-kpi-valor">R$ 0,00</p>
+                        </div>
+
+                        <div class="contas-dashboard-kpi contas-dashboard-kpi--diferenca">
+                            <p id="contas-kpi-diferenca-periodo" class="contas-dashboard-kpi-valor">R$ 0,00</p>
+                        </div>
+                    </div>
                 </article>
             </div>
         </section>

@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.db.models import Case, DecimalField, F, FloatField, Q, Sum, Value, When
+from django.db.models import Case, DecimalField, F, FloatField, Max, Min, Q, Sum, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast, Coalesce
 
@@ -832,24 +832,81 @@ def _ordenar_contas_a_receber(qs, sorters):
 
 
 def _resumo_contas_a_receber(qs, total_registros):
-    agregado = qs.aggregate(
-        valor_faturado=Coalesce(
-            Sum(
-                Case(
-                    When(
-                        operacao__descricao_receita_despesa__icontains="despesa",
-                        then=-F("valor_liquido"),
-                    ),
-                    default=F("valor_liquido"),
-                    output_field=DecimalField(max_digits=16, decimal_places=2),
-                )
+    def _somar_valor_assinado(qs_ref, campo_valor):
+        agregado_local = qs_ref.aggregate(
+            total=Coalesce(
+                Sum(
+                    Case(
+                        When(
+                            operacao__descricao_receita_despesa__icontains="despesa",
+                            then=-F(campo_valor),
+                        ),
+                        default=F(campo_valor),
+                        output_field=DecimalField(max_digits=18, decimal_places=2),
+                    )
+                ),
+                Value(Decimal("0.00"), output_field=DecimalField(max_digits=18, decimal_places=2)),
             ),
-            Value(Decimal("0.00"), output_field=DecimalField(max_digits=16, decimal_places=2)),
-        ),
+        )
+        return agregado_local.get("total") or Decimal("0.00")
+
+    datas_referencia = qs.exclude(data_arquivo__isnull=True).aggregate(
+        data_inicial=Min("data_arquivo"),
+        data_final=Max("data_arquivo"),
     )
+    campo_referencia = "data_arquivo"
+    data_inicial = datas_referencia.get("data_inicial")
+    data_final = datas_referencia.get("data_final")
+
+    if data_inicial is None or data_final is None:
+        datas_negociacao = qs.exclude(data_negociacao__isnull=True).aggregate(
+            data_inicial=Min("data_negociacao"),
+            data_final=Max("data_negociacao"),
+        )
+        if data_inicial is None:
+            data_inicial = datas_negociacao.get("data_inicial")
+        if data_final is None:
+            data_final = datas_negociacao.get("data_final")
+        campo_referencia = "data_negociacao"
+
+    qs_data_final = qs.none()
+    if data_final:
+        qs_data_final = qs.filter(**{campo_referencia: data_final})
+
+    qs_data_inicial = qs.none()
+    if data_inicial:
+        qs_data_inicial = qs.filter(**{campo_referencia: data_inicial})
+
+    valor_faturado_total = _somar_valor_assinado(qs, "valor_liquido")
+    valor_data_mais_recente = _somar_valor_assinado(qs_data_final, "valor_liquido")
+    faturamento_data_mais_recente = _somar_valor_assinado(qs_data_final, "valor_desdobramento")
+    valor_data_inicial = _somar_valor_assinado(qs_data_inicial, "valor_liquido")
+    valor_data_final = valor_data_mais_recente
+    quantidade_data_mais_recente = qs_data_final.count() if data_final else 0
+    diferenca_periodo = valor_data_final - valor_data_inicial
+
+    hoje = datetime.now().date()
+    valor_inadimplente = _somar_valor_assinado(qs_data_final.filter(data_vencimento__lt=hoje), "valor_liquido")
+    base_inadimplencia = abs(valor_data_mais_recente)
+    inadimplencia_percentual = (
+        (abs(valor_inadimplente) / base_inadimplencia * Decimal("100.00"))
+        if base_inadimplencia > 0
+        else Decimal("0.00")
+    )
+
     return {
         "quantidade": int(total_registros or 0),
-        "valor_faturado": float(agregado.get("valor_faturado") or 0),
+        "valor_faturado": float(valor_faturado_total),
+        "data_mais_recente": data_final.isoformat() if data_final else "",
+        "quantidade_data_mais_recente": int(quantidade_data_mais_recente),
+        "valor_data_mais_recente": float(valor_data_mais_recente),
+        "faturamento_data_mais_recente": float(faturamento_data_mais_recente),
+        "inadimplencia_percentual": float(inadimplencia_percentual),
+        "data_inicial": data_inicial.isoformat() if data_inicial else "",
+        "valor_data_inicial": float(valor_data_inicial),
+        "data_final": data_final.isoformat() if data_final else "",
+        "valor_data_final": float(valor_data_final),
+        "diferenca_periodo": float(diferenca_periodo),
     }
 
 

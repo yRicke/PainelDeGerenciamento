@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 import unicodedata
 from collections import defaultdict
@@ -229,20 +228,48 @@ def _iterar_linhas_xls(caminho: Path):
 def _extrair_data_do_nome_arquivo(nome_arquivo: str):
     base = Path(nome_arquivo).stem
     padroes = [
-        r"(\d{1,2})[._\-/\s](\d{1,2})[._\-/\s](\d{4})",
-        r"(\d{4})[._\-/\s](\d{1,2})[._\-/\s](\d{1,2})",
-        r"(?<!\d)(\d{2})(\d{2})(\d{4})(?!\d)",
-        r"(?<!\d)(\d{4})(\d{2})(\d{2})(?!\d)",
+        # dd-mm-aaaa ou dd.mm.aaaa
+        ("dmy4", r"(?<!\d)(\d{1,2})[._\-/\s](\d{1,2})[._\-/\s](\d{4})(?!\d)"),
+        # aaaa-mm-dd
+        ("ymd4", r"(?<!\d)(\d{4})[._\-/\s](\d{1,2})[._\-/\s](\d{1,2})(?!\d)"),
+        # dd-mm-aa (ex.: 25-02-26)
+        ("dmy2", r"(?<!\d)(\d{1,2})[._\-/\s](\d{1,2})[._\-/\s](\d{2})(?!\d)"),
+        # aa-mm-dd
+        ("ymd2", r"(?<!\d)(\d{2})[._\-/\s](\d{1,2})[._\-/\s](\d{1,2})(?!\d)"),
+        # ddmmaaaa
+        ("dmy4_compacto", r"(?<!\d)(\d{2})(\d{2})(\d{4})(?!\d)"),
+        # aaaammdd
+        ("ymd4_compacto", r"(?<!\d)(\d{4})(\d{2})(\d{2})(?!\d)"),
+        # ddmmaa
+        ("dmy2_compacto", r"(?<!\d)(\d{2})(\d{2})(\d{2})(?!\d)"),
+        # aammdd
+        ("ymd2_compacto", r"(?<!\d)(\d{2})(\d{2})(\d{2})(?!\d)"),
     ]
-    for padrao in padroes:
+
+    def _normalizar_ano(ano_bruto: str) -> int:
+        ano_int = int(ano_bruto)
+        if len(str(ano_bruto)) == 4:
+            return ano_int
+        # Janela simples para anos com 2 digitos:
+        # 00-79 => 2000-2079 | 80-99 => 1980-1999
+        return 2000 + ano_int if ano_int <= 79 else 1900 + ano_int
+
+    for tipo, padrao in padroes:
         match = re.search(padrao, base)
         if not match:
             continue
         grupos = match.groups()
         try:
-            if len(grupos[0]) == 4:
-                return date(int(grupos[0]), int(grupos[1]), int(grupos[2]))
-            return date(int(grupos[2]), int(grupos[1]), int(grupos[0]))
+            if tipo.startswith("ymd"):
+                ano = _normalizar_ano(grupos[0])
+                mes = int(grupos[1])
+                dia = int(grupos[2])
+                return date(ano, mes, dia)
+            if tipo.startswith("dmy"):
+                dia = int(grupos[0])
+                mes = int(grupos[1])
+                ano = _normalizar_ano(grupos[2])
+                return date(ano, mes, dia)
         except ValueError:
             continue
     return None
@@ -252,8 +279,8 @@ def _data_arquivo_nao_nula(caminho_arquivo: Path):
     data_arquivo = _extrair_data_do_nome_arquivo(caminho_arquivo.name)
     if data_arquivo:
         return data_arquivo
-    # Fallback para evitar nulo quando o nome vier fora do padrao esperado.
-    return datetime.fromtimestamp(os.path.getmtime(caminho_arquivo)).date()
+    # Fallback intencional: manter vazio quando nao for possivel extrair do nome.
+    return None
 
 
 FATURAMENTO_SUBPASTA_DIARIO = "1 - Faturamento diario"
@@ -1420,6 +1447,11 @@ def importar_contas_a_receber_do_diretorio(
         melhor_score = -1
         obrigatorias = {"data_negociacao", "data_vencimento"}
         data_arquivo = _data_arquivo_nao_nula(arquivo)
+        if data_arquivo is None:
+            avisos.append(
+                f"Data do arquivo nao identificada pelo nome em '{arquivo.name}'. "
+                "Registro salvo com Data Arquivo vazia."
+            )
 
         for linha in _iterar_linhas_xls(arquivo):
             if not any(_normalizar_texto(v) for v in linha):

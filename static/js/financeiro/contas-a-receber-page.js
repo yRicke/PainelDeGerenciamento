@@ -81,9 +81,18 @@
 
     var canEdit = String(dataElement.getAttribute("data-can-edit") || "0") === "1";
     var secFiltros = document.getElementById("sec-filtros");
-    var kpiQuantidadeEl = document.getElementById("contas-kpi-quantidade");
-    var kpiFaturadoEl = document.getElementById("contas-kpi-faturado");
+    var kpiDataMaisRecenteEl = document.getElementById("contas-kpi-data-mais-recente");
+    var kpiQuantidadeRecenteEl = document.getElementById("contas-kpi-quantidade-recente");
+    var kpiValorRecenteEl = document.getElementById("contas-kpi-valor-recente");
+    var kpiFaturamentoRecenteEl = document.getElementById("contas-kpi-faturamento-recente");
+    var kpiInadimplenciaEl = document.getElementById("contas-kpi-inadimplencia");
+    var kpiDataInicialEl = document.getElementById("contas-kpi-data-inicial");
+    var kpiValorInicialEl = document.getElementById("contas-kpi-valor-inicial");
+    var kpiDataFinalEl = document.getElementById("contas-kpi-data-final");
+    var kpiValorFinalEl = document.getElementById("contas-kpi-valor-final");
+    var kpiDiferencaPeriodoEl = document.getElementById("contas-kpi-diferenca-periodo");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
+    var formatadorPercentual = new Intl.NumberFormat("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
     var FILTER_KEYS = {
         status: "status",
@@ -119,11 +128,66 @@
         posicao_contagem: []
     };
 
+    function formatarDataBr(valor) {
+        var texto = String(valor || "").trim();
+        var match = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return "--/--/----";
+        return match[3] + "/" + match[2] + "/" + match[1];
+    }
+
     function atualizarDashboardResumo(resumo) {
-        var quantidade = Number(resumo && resumo.quantidade ? resumo.quantidade : 0);
-        var valorFaturado = Number(resumo && resumo.valor_faturado ? resumo.valor_faturado : 0);
-        if (kpiQuantidadeEl) kpiQuantidadeEl.textContent = String(quantidade);
-        if (kpiFaturadoEl) kpiFaturadoEl.textContent = formatadorMoeda.format(valorFaturado);
+        var quantidadeDataMaisRecente = Number(
+            resumo && resumo.quantidade_data_mais_recente !== undefined
+                ? resumo.quantidade_data_mais_recente
+                : (resumo && resumo.quantidade ? resumo.quantidade : 0)
+        );
+        var valorDataMaisRecente = Number(
+            resumo && resumo.valor_data_mais_recente !== undefined
+                ? resumo.valor_data_mais_recente
+                : (resumo && resumo.valor_faturado ? resumo.valor_faturado : 0)
+        );
+        var faturamentoDataMaisRecente = Number(
+            resumo && resumo.faturamento_data_mais_recente !== undefined
+                ? resumo.faturamento_data_mais_recente
+                : 0
+        );
+        var inadimplenciaPercentual = Number(
+            resumo && resumo.inadimplencia_percentual !== undefined
+                ? resumo.inadimplencia_percentual
+                : 0
+        );
+        var valorDataInicial = Number(
+            resumo && resumo.valor_data_inicial !== undefined
+                ? resumo.valor_data_inicial
+                : 0
+        );
+        var valorDataFinal = Number(
+            resumo && resumo.valor_data_final !== undefined
+                ? resumo.valor_data_final
+                : valorDataMaisRecente
+        );
+        var diferencaPeriodo = Number(
+            resumo && resumo.diferenca_periodo !== undefined
+                ? resumo.diferenca_periodo
+                : (valorDataFinal - valorDataInicial)
+        );
+
+        if (kpiDataMaisRecenteEl) kpiDataMaisRecenteEl.textContent = formatarDataBr(resumo && resumo.data_mais_recente);
+        if (kpiQuantidadeRecenteEl) kpiQuantidadeRecenteEl.textContent = String(quantidadeDataMaisRecente);
+        if (kpiValorRecenteEl) kpiValorRecenteEl.textContent = formatadorMoeda.format(valorDataMaisRecente);
+        if (kpiFaturamentoRecenteEl) kpiFaturamentoRecenteEl.textContent = formatadorMoeda.format(faturamentoDataMaisRecente);
+        if (kpiInadimplenciaEl) kpiInadimplenciaEl.textContent = formatadorPercentual.format(inadimplenciaPercentual) + "%";
+        if (kpiDataInicialEl) kpiDataInicialEl.textContent = formatarDataBr(resumo && resumo.data_inicial);
+        if (kpiValorInicialEl) kpiValorInicialEl.textContent = formatadorMoeda.format(valorDataInicial);
+        if (kpiDataFinalEl) kpiDataFinalEl.textContent = formatarDataBr(resumo && resumo.data_final);
+        if (kpiValorFinalEl) kpiValorFinalEl.textContent = formatadorMoeda.format(valorDataFinal);
+        if (kpiDiferencaPeriodoEl) {
+            kpiDiferencaPeriodoEl.textContent = formatadorMoeda.format(diferencaPeriodo);
+            kpiDiferencaPeriodoEl.classList.remove("is-positive", "is-negative", "is-neutral");
+            if (diferencaPeriodo > 0) kpiDiferencaPeriodoEl.classList.add("is-positive");
+            else if (diferencaPeriodo < 0) kpiDiferencaPeriodoEl.classList.add("is-negative");
+            else kpiDiferencaPeriodoEl.classList.add("is-neutral");
+        }
     }
 
     function normalizarOpcoes(lista) {
