@@ -207,10 +207,6 @@
         };
     }
 
-    function somarValorNotaPorNotaUnica(registros) {
-        return consolidarNotasUnicas(registros).totalValorNota;
-    }
-
     function chaveClienteEmpresa(item) {
         var parceiroId = toText(item ? item.parceiro_id : "");
         var parceiroLabel = toText(item ? item.parceiro_label : "");
@@ -428,7 +424,7 @@
                     registrosMesSelecionado.push(item);
                 }
             });
-            totalMesSelecionado = somarValorNotaPorNotaUnica(registrosMesSelecionado);
+            totalMesSelecionado = consolidarNotasUnicas(registrosMesSelecionado).totalValorNota;
         } else if (itens.length) {
             totalMesSelecionado = valorFaturamento;
         }
@@ -456,7 +452,14 @@
         if (kpiPrazoMedioEl) kpiPrazoMedioEl.textContent = String(metricas.prazoMedioArredondado);
         if (kpiDiasUteisEl) kpiDiasUteisEl.textContent = String(metricas.diasUteisRestantes);
         if (kpiMetaDiariaEl) kpiMetaDiariaEl.textContent = formatadorMoeda.format(metricas.metaDiaria);
-        if (kpiTotalPedidosPendentesEl) kpiTotalPedidosPendentesEl.textContent = formatadorMoeda.format(metricas.totalPedidosPendentes);
+        if (kpiTotalPedidosPendentesEl) {
+            kpiTotalPedidosPendentesEl.textContent = (
+                formatadorMoeda.format(metricas.totalPedidosPendentes)
+                + " / "
+                + String(metricas.diasUteisRestantes)
+                + " dias uteis"
+            );
+        }
         if (kpiQtdClientesEl) kpiQtdClientesEl.textContent = String(metricas.qtdClientes);
         if (kpiParticipacaoVendaGeralEl) {
             kpiParticipacaoVendaGeralEl.textContent = formatPercentual(metricas.participacaoVendaGeral * 100, 2);

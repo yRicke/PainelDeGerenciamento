@@ -33,7 +33,7 @@ rede_zerotier = '10.242.14.227'
 
 rede_atual = rede_zerotier
 
-ALLOWED_HOSTS = [localhost, rede_atual]
+ALLOWED_HOSTS = [localhost_127, rede_atual]
 CSRF_TRUSTED_ORIGINS = [f'http://{rede_atual}/']
 
 

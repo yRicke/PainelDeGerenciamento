@@ -1,16 +1,84 @@
 @import url("../financeiro/lancamentos-shared.css");
 
-.dashboard-kpi-grid--faturamento {
-    grid-template-columns: repeat(3, minmax(220px, 1fr));
+:root {
+    --fatur-kpi-border: #d6e0ea;
+    --fatur-kpi-title: #32475a;
+    --fatur-kpi-bg-soft: linear-gradient(180deg, #f9fcff 0%, #eff5fb 100%);
 }
 
-.dashboard-kpi-grid--faturamento .dashboard-kpi-card-note {
+.faturamento-kpi-top-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.faturamento-kpi-top-grid .dashboard-kpi-card {
+    min-height: 122px;
+}
+
+:is(.faturamento-kpi-top-grid, .faturamento-kpi-bottom-grid, .faturamento-reloginho-side-cards) .dashboard-kpi-card {
+    border-color: var(--fatur-kpi-border);
+    background: var(--fatur-kpi-bg-soft);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:is(.faturamento-kpi-top-grid, .faturamento-kpi-bottom-grid, .faturamento-reloginho-side-cards) .dashboard-kpi-card h3 {
+    color: var(--fatur-kpi-title);
+}
+
+.dashboard-kpi-card--valor p {
+    color: #0f4a7c;
+}
+
+.dashboard-kpi-card--gap p {
+    color: #b12c2c;
+}
+
+.dashboard-kpi-card--prazo p {
+    color: #3e4a59;
+}
+
+.dashboard-kpi-card--dias p {
+    color: #0b7285;
+}
+
+.dashboard-kpi-card--meta-diaria p {
+    color: #b07f00;
+}
+
+.dashboard-kpi-card--meta-geral p {
+    color: #c15a06;
+}
+
+.dashboard-kpi-card--real p {
+    color: #1d6b33;
+}
+
+.dashboard-kpi-card--clientes p {
+    color: #1e3a8a;
+}
+
+.dashboard-kpi-card--participacao p {
+    color: #5a4b00;
+}
+
+.dashboard-kpi-card-note {
     margin-top: 0.45rem;
     font-size: 0.86rem;
     color: #3b4f63;
 }
 
-.dashboard-kpi-grid--faturamento .dashboard-kpi-toggle {
+.dashboard-kpi-card p.dashboard-kpi-card-note--pendentes {
+    font-size: 0.76rem;
+}
+
+.dashboard-kpi-card p.dashboard-kpi-card-note--pendentes strong {
+    font-size: inherit;
+    font-weight: 700;
+}
+
+.dashboard-kpi-toggle {
     margin-top: 0.5rem;
     display: flex;
     align-items: center;
@@ -20,43 +88,52 @@
     font-weight: 600;
 }
 
-.dashboard-kpi-grid--faturamento .dashboard-kpi-toggle input {
+.dashboard-kpi-toggle input {
     margin: 0;
 }
 
-.faturamento-reloginho-grid {
+.faturamento-reloginho-layout {
     display: grid;
-    grid-template-columns: minmax(260px, 420px);
-    gap: 0.75rem;
+    grid-template-columns: minmax(420px, 2fr) minmax(220px, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding: 0.5rem;
+    border: 1px solid var(--fatur-kpi-border);
+    border-radius: 12px;
+    background: var(--fatur-kpi-bg-soft);
 }
 
-.faturamento-reloginho-grid .reloginho-card {
-    border: 1px solid #cfd8df;
+.faturamento-reloginho-layout .reloginho-card {
+    border: 1px solid var(--fatur-kpi-border);
     border-radius: 8px;
-    background: #fff;
-    padding: 0.55rem;
+    background: linear-gradient(180deg, #f8fcff 0%, #eef5fc 100%);
+    padding: 0.9rem;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.faturamento-reloginho-grid .reloginho-card h3 {
-    margin: 0 0 0.35rem;
+.faturamento-reloginho-layout .reloginho-card h3 {
+    margin: 0 0 0.7rem;
     text-align: center;
     font-size: 1.08rem;
-    color: #152a36;
+    color: var(--fatur-kpi-title);
 }
 
-.faturamento-reloginho-grid .reloginho-dial-wrap {
+.faturamento-reloginho-layout .reloginho-dial-wrap {
     display: flex;
     justify-content: center;
 }
 
-.faturamento-reloginho-grid .reloginho-dial {
+.faturamento-reloginho-layout .reloginho-dial {
     position: relative;
     width: 210px;
     height: 122px;
     overflow: hidden;
 }
 
-.faturamento-reloginho-grid .reloginho-face {
+.faturamento-reloginho-layout .reloginho-face {
     position: absolute;
     left: 0;
     top: 10px;
@@ -75,7 +152,7 @@
     box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
 }
 
-.faturamento-reloginho-grid .ponteiro {
+.faturamento-reloginho-layout .ponteiro {
     position: absolute;
     left: 103px;
     top: 30px;
@@ -86,18 +163,18 @@
     transform: rotate(-90deg);
 }
 
-.faturamento-reloginho-grid .ponteiro-meta {
+.faturamento-reloginho-layout .ponteiro-meta {
     background: #000000;
     width: 4px;
 }
 
-.faturamento-reloginho-grid .ponteiro-real {
+.faturamento-reloginho-layout .ponteiro-real {
     background: #002792;
     width: 4px;
     left: 103.5px;
 }
 
-.faturamento-reloginho-grid .reloginho-pivo {
+.faturamento-reloginho-layout .reloginho-pivo {
     position: absolute;
     left: 98px;
     top: 110px;
@@ -108,33 +185,61 @@
     background: #fff;
 }
 
-.faturamento-reloginho-grid .reloginho-metricas {
-    margin-top: 0.3rem;
-    border: 1px solid #d9dee3;
-    border-radius: 6px;
-    background: #f5f7fa;
-    padding: 0.35rem 0.5rem;
+.faturamento-reloginho-side-cards {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
 }
 
-.faturamento-reloginho-grid .reloginho-metricas p {
-    margin: 0.11rem 0;
-    font-size: 0.92rem;
-    font-weight: 700;
+.dashboard-kpi-card--compact {
+    min-height: 146px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
 }
 
-.faturamento-reloginho-grid .reloginho-metricas span {
-    margin-left: 0.35rem;
-    color: #0f4c67;
+.dashboard-kpi-card--compact h3 {
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-kpi-card--compact p {
+    font-size: 1.28rem;
+}
+
+.faturamento-kpi-bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 0.8rem;
 }
 
 @media (max-width: 1280px) {
-    .dashboard-kpi-grid--faturamento {
+    .faturamento-kpi-top-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+
+    .faturamento-reloginho-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .faturamento-reloginho-layout .reloginho-card {
+        min-height: 260px;
+    }
+
+    .faturamento-reloginho-side-cards {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        grid-template-rows: auto;
     }
 }
 
 @media (max-width: 980px) {
-    .dashboard-kpi-grid--faturamento {
+    .faturamento-kpi-top-grid,
+    .faturamento-kpi-bottom-grid,
+    .faturamento-reloginho-side-cards {
         grid-template-columns: 1fr;
+    }
+
+    .faturamento-reloginho-layout .reloginho-card {
+        min-height: 210px;
     }
 }

@@ -195,51 +195,44 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Faturamento</h2>
-            <div class="dashboard-kpi-grid dashboard-kpi-grid--faturamento">
-                <article class="dashboard-kpi-card">
+            <div class="faturamento-kpi-top-grid">
+                <article class="dashboard-kpi-card dashboard-kpi-card--valor">
                     <h3>Valor Faturamento</h3>
                     <p id="faturamento-kpi-valor-faturamento">R$ 0,00</p>
                 </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Meta Geral</h3>
-                    <p id="faturamento-kpi-meta-geral">R$ 0,00</p>
-                </article>
-                <article class="dashboard-kpi-card">
+                <article class="dashboard-kpi-card dashboard-kpi-card--gap">
                     <h3>Gap Faturamento</h3>
                     <p id="faturamento-kpi-gap-faturamento">R$ 0,00</p>
                 </article>
-                <article class="dashboard-kpi-card">
+                <article class="dashboard-kpi-card dashboard-kpi-card--prazo">
                     <h3>Prazo Medio Vendas</h3>
                     <p id="faturamento-kpi-prazo-medio">0</p>
                 </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Dias Uteis</h3>
+                <article class="dashboard-kpi-card dashboard-kpi-card--dias">
+                    <h3>Dias Uteis Restantes</h3>
                     <p id="faturamento-kpi-dias-uteis">0</p>
                 </article>
-                <article class="dashboard-kpi-card">
+                <article class="dashboard-kpi-card dashboard-kpi-card--meta-diaria">
                     <h3>Meta Diaria</h3>
                     <p id="faturamento-kpi-meta-diaria">R$ 0,00</p>
-                    <p class="dashboard-kpi-card-note">
+                    <p class="dashboard-kpi-card-note dashboard-kpi-card-note--pendentes">
                         Pedidos Pendentes:
-                        <strong id="faturamento-kpi-total-pedidos-pendentes">R$ 0,00</strong>
+                        <strong id="faturamento-kpi-total-pedidos-pendentes">R$ 0,00 / 0 dias uteis</strong>
                     </p>
                     <label class="dashboard-kpi-toggle" for="faturamento-kpi-meta-diaria-incluir-pendentes">
                         <input type="checkbox" id="faturamento-kpi-meta-diaria-incluir-pendentes">
                         Incluir Pedidos Pendentes
                     </label>
                 </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Qtd. Clientes</h3>
-                    <p id="faturamento-kpi-qtd-clientes">0</p>
-                </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Participacao Venda Geral</h3>
-                    <p id="faturamento-kpi-participacao-venda-geral">0,00%</p>
+                <article class="dashboard-kpi-card dashboard-kpi-card--meta-geral">
+                    <h3>Meta Geral</h3>
+                    <p id="faturamento-kpi-meta-geral">R$ 0,00</p>
                 </article>
             </div>
-            <div class="faturamento-reloginho-grid">
+
+            <div class="faturamento-reloginho-layout">
                 <article class="reloginho-card" data-reloginho="faturamento-total">
-                    <h3>Reloginho Producao</h3>
+                    <h3>Reloginho</h3>
                     <div class="reloginho-dial-wrap">
                         <div class="reloginho-dial">
                             <div class="reloginho-face"></div>
@@ -248,10 +241,29 @@
                             <div class="reloginho-pivo"></div>
                         </div>
                     </div>
-                    <div class="reloginho-metricas">
-                        <p>META: <strong id="faturamento-reloginho-meta">R$ 0,00</strong></p>
-                        <p>REAL: <strong id="faturamento-reloginho-real">R$ 0,00</strong> <span id="faturamento-reloginho-pct">0,00%</span></p>
-                    </div>
+                </article>
+
+                <div class="faturamento-reloginho-side-cards">
+                    <article class="dashboard-kpi-card dashboard-kpi-card--compact dashboard-kpi-card--meta-geral">
+                        <h3>Meta Geral</h3>
+                        <p id="faturamento-reloginho-meta">R$ 0,00</p>
+                    </article>
+                    <article class="dashboard-kpi-card dashboard-kpi-card--compact dashboard-kpi-card--real">
+                        <h3>Real</h3>
+                        <p><strong id="faturamento-reloginho-real">R$ 0,00</strong></p>
+                        <p class="dashboard-kpi-card-note"><span id="faturamento-reloginho-pct">0,00%</span></p>
+                    </article>
+                </div>
+            </div>
+
+            <div class="faturamento-kpi-bottom-grid">
+                <article class="dashboard-kpi-card dashboard-kpi-card--clientes">
+                    <h3>Qtd. Clientes</h3>
+                    <p id="faturamento-kpi-qtd-clientes">0</p>
+                </article>
+                <article class="dashboard-kpi-card dashboard-kpi-card--participacao">
+                    <h3>Participacao Venda Geral</h3>
+                    <p id="faturamento-kpi-participacao-venda-geral">0,00%</p>
                 </article>
             </div>
         </section>
