@@ -143,42 +143,28 @@
         return match[3] + "/" + match[2] + "/" + match[1];
     }
 
+    function numeroResumo(resumo, chave, fallback) {
+        var padrao = fallback !== undefined ? fallback : 0;
+        if (!resumo || resumo[chave] === undefined || resumo[chave] === null) return Number(padrao);
+        return Number(resumo[chave]);
+    }
+
     function atualizarDashboardResumo(resumo) {
-        var quantidadeDataMaisRecente = Number(
-            resumo && resumo.quantidade_data_mais_recente !== undefined
-                ? resumo.quantidade_data_mais_recente
-                : (resumo && resumo.quantidade ? resumo.quantidade : 0)
+        var quantidadeDataMaisRecente = numeroResumo(
+            resumo,
+            "quantidade_data_mais_recente",
+            numeroResumo(resumo, "quantidade", 0)
         );
-        var valorDataMaisRecente = Number(
-            resumo && resumo.valor_data_mais_recente !== undefined
-                ? resumo.valor_data_mais_recente
-                : (resumo && resumo.valor_faturado ? resumo.valor_faturado : 0)
+        var valorDataMaisRecente = numeroResumo(
+            resumo,
+            "valor_data_mais_recente",
+            numeroResumo(resumo, "valor_faturado", 0)
         );
-        var faturamentoDataMaisRecente = Number(
-            resumo && resumo.faturamento_data_mais_recente !== undefined
-                ? resumo.faturamento_data_mais_recente
-                : 0
-        );
-        var inadimplenciaPercentual = Number(
-            resumo && resumo.inadimplencia_percentual !== undefined
-                ? resumo.inadimplencia_percentual
-                : 0
-        );
-        var valorDataInicial = Number(
-            resumo && resumo.valor_data_inicial !== undefined
-                ? resumo.valor_data_inicial
-                : 0
-        );
-        var valorDataFinal = Number(
-            resumo && resumo.valor_data_final !== undefined
-                ? resumo.valor_data_final
-                : valorDataMaisRecente
-        );
-        var diferencaPeriodo = Number(
-            resumo && resumo.diferenca_periodo !== undefined
-                ? resumo.diferenca_periodo
-                : (valorDataFinal - valorDataInicial)
-        );
+        var faturamentoDataMaisRecente = numeroResumo(resumo, "faturamento_data_mais_recente", 0);
+        var inadimplenciaPercentual = numeroResumo(resumo, "inadimplencia_percentual", 0);
+        var valorDataInicial = numeroResumo(resumo, "valor_data_inicial", 0);
+        var valorDataFinal = numeroResumo(resumo, "valor_data_final", valorDataMaisRecente);
+        var diferencaPeriodo = numeroResumo(resumo, "diferenca_periodo", (valorDataFinal - valorDataInicial));
 
         if (kpiDataMaisRecenteEl) kpiDataMaisRecenteEl.textContent = formatarDataBr(resumo && resumo.data_mais_recente);
         if (kpiQuantidadeRecenteEl) kpiQuantidadeRecenteEl.textContent = String(quantidadeDataMaisRecente);

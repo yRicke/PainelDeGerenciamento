@@ -814,6 +814,16 @@ def _ordenar_contas_a_receber(qs, sorters):
     ordenacoes = []
     ordenar_por_status = False
     ordenar_por_intervalo = False
+    intervalos_ordenacao = [
+        "0-5 (CML)",
+        "6-20 (FIN)",
+        "21-30 (POL)",
+        "31-60 (POL)",
+        "61-90 (POL)",
+        "91-120 (JUR1)",
+        "121-180 (JUR1)",
+        "+180 (JUR2)",
+    ]
 
     for sorter in sorters:
         campo = str(sorter.get("field") or sorter.get("column") or "").strip()
@@ -858,16 +868,13 @@ def _ordenar_contas_a_receber(qs, sorters):
         )
 
     if ordenar_por_intervalo:
+        casos_intervalo = [
+            When(_q_intervalo_contas(hoje, faixa), then=Value(indice))
+            for indice, faixa in enumerate(intervalos_ordenacao, start=1)
+        ]
         qs = qs.annotate(
             intervalo_ordem_sort=Case(
-                When(_q_intervalo_contas(hoje, "0-5 (CML)"), then=Value(1)),
-                When(_q_intervalo_contas(hoje, "6-20 (FIN)"), then=Value(2)),
-                When(_q_intervalo_contas(hoje, "21-30 (POL)"), then=Value(3)),
-                When(_q_intervalo_contas(hoje, "31-60 (POL)"), then=Value(4)),
-                When(_q_intervalo_contas(hoje, "61-90 (POL)"), then=Value(5)),
-                When(_q_intervalo_contas(hoje, "91-120 (JUR1)"), then=Value(6)),
-                When(_q_intervalo_contas(hoje, "121-180 (JUR1)"), then=Value(7)),
-                When(_q_intervalo_contas(hoje, "+180 (JUR2)"), then=Value(8)),
+                *casos_intervalo,
                 default=Value(9),
                 output_field=IntegerField(),
             )

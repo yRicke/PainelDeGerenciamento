@@ -275,7 +275,7 @@ def _extrair_data_do_nome_arquivo(nome_arquivo: str):
     return None
 
 
-def _data_arquivo_nao_nula(caminho_arquivo: Path):
+def _data_arquivo_do_nome_arquivo(caminho_arquivo: Path):
     data_arquivo = _extrair_data_do_nome_arquivo(caminho_arquivo.name)
     if data_arquivo:
         return data_arquivo
@@ -1446,7 +1446,7 @@ def importar_contas_a_receber_do_diretorio(
         melhor_idx_map = None
         melhor_score = -1
         obrigatorias = {"data_negociacao", "data_vencimento"}
-        data_arquivo = _data_arquivo_nao_nula(arquivo)
+        data_arquivo = _data_arquivo_do_nome_arquivo(arquivo)
         if data_arquivo is None:
             avisos.append(
                 f"Data do arquivo nao identificada pelo nome em '{arquivo.name}'. "
