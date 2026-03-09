@@ -213,6 +213,112 @@
     gap: 0.8rem;
 }
 
+.dashboard-chart-grid--faturamento {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.8rem;
+}
+
+.dashboard-chart-grid--faturamento .dashboard-chart-card {
+    border: 1px solid var(--fatur-kpi-border);
+    border-radius: 14px;
+    background: #fdfefe;
+    padding: 0.7rem;
+}
+
+.dashboard-chart-grid--faturamento .dashboard-chart-card h3 {
+    margin: 0 0 0.5rem;
+    color: #40566d;
+    font-size: 1rem;
+}
+
+.dashboard-chart-grid--faturamento .dashboard-chart-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.45rem;
+}
+
+.dashboard-chart-grid--faturamento .dashboard-chart-card-head h3 {
+    margin: 0;
+}
+
+.dashboard-chart-total-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0.28rem 0.95rem;
+    border-radius: 11px;
+    background: #186287;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.dashboard-chart-grid--faturamento .dashboard-chart-card-full {
+    grid-column: 1 / -1;
+}
+
+@media (min-width: 1101px) {
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-areas:
+            "loja loja tipo vendedores"
+            "mensal mensal fatvend fatvend"
+            "cidade cidade cidade cidade"
+            "topdias topdias topprod topprod"
+            "perfil perfil perfil perfil";
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card {
+        min-width: 0;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card-full {
+        grid-column: auto;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--faturamento-loja {
+        grid-area: loja;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--tipo-venda {
+        grid-area: tipo;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--vendedores-resumo {
+        grid-area: vendedores;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--faturamento-mensal {
+        grid-area: mensal;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--faturamento-vendedores {
+        grid-area: fatvend;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--faturamento-cidade {
+        grid-area: cidade;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--top10-dias {
+        grid-area: topdias;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--top10-produtos {
+        grid-area: topprod;
+    }
+
+    .module-shell.is-sidebar-collapsed .dashboard-chart-grid--faturamento .dashboard-chart-card--perfil-clientes {
+        grid-area: perfil;
+    }
+}
+
 @media (max-width: 1280px) {
     .faturamento-kpi-top-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
@@ -239,7 +345,16 @@
         grid-template-columns: 1fr;
     }
 
+    .dashboard-chart-grid--faturamento {
+        grid-template-columns: 1fr;
+    }
+
     .faturamento-reloginho-layout .reloginho-card {
         min-height: 210px;
+    }
+
+    .dashboard-chart-grid--faturamento .dashboard-chart-card-head {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

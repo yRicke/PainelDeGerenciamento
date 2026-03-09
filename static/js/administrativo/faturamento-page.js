@@ -95,8 +95,10 @@
     var data = JSON.parse(dataElement.textContent || "[]");
     var metaConfigElement = document.getElementById("faturamento-meta-config-data");
     var pedidosPendentesElement = document.getElementById("faturamento-pedidos-pendentes-data");
+    var vendedoresResumoBaseElement = document.getElementById("faturamento-vendedores-resumo-base-data");
     var metaConfig = metaConfigElement ? JSON.parse(metaConfigElement.textContent || "{}") : {};
     var pedidosPendentesData = pedidosPendentesElement ? JSON.parse(pedidosPendentesElement.textContent || "[]") : [];
+    var vendedoresResumoBase = vendedoresResumoBaseElement ? JSON.parse(vendedoresResumoBaseElement.textContent || "{}") : {};
     var tabelaTarget = document.getElementById("faturamento-tabulator");
     var kpiValorFaturamentoEl = document.getElementById("faturamento-kpi-valor-faturamento");
     var kpiMetaGeralEl = document.getElementById("faturamento-kpi-meta-geral");
@@ -111,11 +113,42 @@
     var relogioMetaEl = document.getElementById("faturamento-reloginho-meta");
     var relogioRealEl = document.getElementById("faturamento-reloginho-real");
     var relogioPctEl = document.getElementById("faturamento-reloginho-pct");
+    var chartTipoVendaEl = document.getElementById("faturamento-chart-tipo-venda");
+    var chartVendedoresResumoEl = document.getElementById("faturamento-chart-vendedores-resumo");
+    var chartLojaEl = document.getElementById("faturamento-chart-loja");
+    var chartMensalEl = document.getElementById("faturamento-chart-mensal");
+    var chartVendedoresEl = document.getElementById("faturamento-chart-vendedores");
+    var chartTop10DiasEl = document.getElementById("faturamento-chart-top10-dias");
+    var chartTop10ProdutosEl = document.getElementById("faturamento-chart-top10-produtos");
+    var chartCidadeEl = document.getElementById("faturamento-chart-cidade");
+    var chartPerfilClientesEl = document.getElementById("faturamento-chart-perfil-clientes");
+    var perfilClientesTotalEl = document.getElementById("faturamento-perfil-clientes-total");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
+    var formatadorMoedaCompacta = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        notation: "compact",
+        compactDisplay: "short",
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 2,
+    });
     var nomesMeses = [
         "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
     ];
+    var nomesMesesCurtos = [
+        "jan", "fev", "mar", "abr", "mai", "jun",
+        "jul", "ago", "set", "out", "nov", "dez",
+    ];
+    var chartLoja = null;
+    var chartTipoVenda = null;
+    var chartVendedoresResumo = null;
+    var chartMensal = null;
+    var chartVendedores = null;
+    var chartTop10Dias = null;
+    var chartTop10Produtos = null;
+    var chartCidade = null;
+    var chartPerfilClientes = null;
 
     function toText(valor) {
         if (valor === null || valor === undefined) return "";
@@ -153,11 +186,51 @@
         return /(^| )ger(ente)? ?mp($| )/.test(token) || token === "mp";
     }
 
+    function vendedorTokenResumo(valor) {
+        var token = normalizeText(valor).replace(/\s+/g, " ").trim();
+        if (!token || token === "sem gerente" || token === "<sem gerente>") return "";
+        if (token === "sem vendedor" || token === "<sem vendedor>") return "<SEM VENDEDOR>";
+        return toText(valor);
+    }
+
+    var universoVendedores = (function () {
+        var resultado = new Set();
+        (Array.isArray(data) ? data : []).forEach(function (item) {
+            var vendedor = vendedorTokenResumo(item && item.apelido_vendedor);
+            if (vendedor) resultado.add(vendedor);
+        });
+        return resultado;
+    })();
+
     function chaveMes(item) {
         var ano = Number(item && item.ano_faturamento ? item.ano_faturamento : 0);
         var mes = Number(item && item.mes_faturamento ? item.mes_faturamento : 0);
         if (!ano || !mes || mes < 1 || mes > 12) return "";
         return String(ano) + "-" + String(mes);
+    }
+
+    function extrairAnoMesFaturamento(item) {
+        var ano = Number(item && item.ano_faturamento ? item.ano_faturamento : 0);
+        var mes = Number(item && item.mes_faturamento ? item.mes_faturamento : 0);
+        if (ano && mes >= 1 && mes <= 12) return {ano: ano, mes: mes};
+
+        var iso = toText(item ? item.data_faturamento_iso : "");
+        if (!iso) return {ano: 0, mes: 0};
+        var partes = iso.split("-");
+        if (partes.length !== 3) return {ano: 0, mes: 0};
+
+        ano = Number(partes[0] || 0);
+        mes = Number(partes[1] || 0);
+        if (!ano || mes < 1 || mes > 12) return {ano: 0, mes: 0};
+        return {ano: ano, mes: mes};
+    }
+
+    function formatDataBr(iso) {
+        var texto = toText(iso);
+        if (!texto) return "(Vazio)";
+        var partes = texto.split("-");
+        if (partes.length !== 3) return texto;
+        return partes[2] + "/" + partes[1] + "/" + partes[0];
     }
 
     function chaveNotaFiscal(item) {
@@ -174,12 +247,21 @@
             var chave = chaveNotaFiscal(item);
             var valorNota = Number(item && item.valor_nota ? item.valor_nota : 0);
             var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            var anoMes = extrairAnoMesFaturamento(item);
             var atual = notasMap.get(chave);
 
             if (!atual) {
                 notasMap.set(chave, {
                     valorNotaReferencia: valorNota,
                     valorUnicoMaximo: valorUnico,
+                    nomeEmpresa: toText(item && item.nome_empresa),
+                    vendedor: toText(item && item.apelido_vendedor),
+                    gerente: toText(item && item.gerente),
+                    produtoLabel: toText(item && item.produto_label),
+                    quantidadeSaida: Number(item && item.quantidade_saida || 0),
+                    dataIso: toText(item && item.data_faturamento_iso),
+                    ano: anoMes.ano,
+                    mes: anoMes.mes,
                 });
                 return;
             }
@@ -190,20 +272,55 @@
             if (Math.abs(valorUnico) > Math.abs(atual.valorUnicoMaximo)) {
                 atual.valorUnicoMaximo = valorUnico;
             }
+            if (!atual.nomeEmpresa) {
+                atual.nomeEmpresa = toText(item && item.nome_empresa);
+            }
+            if (!atual.vendedor) {
+                atual.vendedor = toText(item && item.apelido_vendedor);
+            }
+            if (!atual.gerente) {
+                atual.gerente = toText(item && item.gerente);
+            }
+            if (!atual.produtoLabel) {
+                atual.produtoLabel = toText(item && item.produto_label);
+            }
+            if (!atual.quantidadeSaida && Number(item && item.quantidade_saida || 0)) {
+                atual.quantidadeSaida = Number(item && item.quantidade_saida || 0);
+            }
+            if (!atual.dataIso) {
+                atual.dataIso = toText(item && item.data_faturamento_iso);
+            }
+            if ((!atual.ano || !atual.mes) && anoMes.ano && anoMes.mes) {
+                atual.ano = anoMes.ano;
+                atual.mes = anoMes.mes;
+            }
         });
 
         var total = 0;
+        var notasConsolidadas = [];
         notasMap.forEach(function (nota) {
             var valorConsolidado = Number(nota.valorUnicoMaximo || 0);
             if (!valorConsolidado) {
                 valorConsolidado = Number(nota.valorNotaReferencia || 0);
             }
             total += valorConsolidado;
+            notasConsolidadas.push({
+                valor: valorConsolidado,
+                nomeEmpresa: nota.nomeEmpresa || "(Vazio)",
+                vendedor: nota.vendedor || "",
+                gerente: nota.gerente || "",
+                produtoLabel: nota.produtoLabel || "",
+                quantidadeSaida: Number(nota.quantidadeSaida || 0),
+                dataIso: nota.dataIso || "",
+                ano: Number(nota.ano || 0),
+                mes: Number(nota.mes || 0),
+            });
         });
 
         return {
             totalValorNota: total,
             quantidadeNotasUnicas: notasMap.size,
+            notas: notasConsolidadas,
         };
     }
 
@@ -359,6 +476,595 @@
         return formatPercentual(cell.getValue(), 2);
     }
 
+    function formatMoeda(valor) {
+        return formatadorMoeda.format(Number(valor || 0));
+    }
+
+    function formatMoedaCompacta(valor) {
+        return formatadorMoedaCompacta.format(Number(valor || 0));
+    }
+
+    function labelMesAno(ano, mes) {
+        if (!mes || mes < 1 || mes > 12) return "(Vazio)";
+        var mesTexto = String(nomesMeses[mes - 1] || "").toUpperCase();
+        return ano ? (mesTexto + "/" + String(ano)) : mesTexto;
+    }
+
+    function labelMesCurtoAno(chaveMesAno, incluirAno) {
+        var texto = toText(chaveMesAno);
+        if (!texto) return "(Vazio)";
+        var partes = texto.split("-");
+        if (partes.length !== 2) return texto;
+
+        var ano = Number(partes[0] || 0);
+        var mes = Number(partes[1] || 0);
+        if (!mes || mes < 1 || mes > 12) return texto;
+
+        var labelMes = nomesMesesCurtos[mes - 1] || "(Vazio)";
+        if (incluirAno && ano) return labelMes + "/" + String(ano).slice(-2);
+        return labelMes;
+    }
+
+    function montarSerieFaturamentoLoja(notasConsolidadas) {
+        var mapa = {};
+        (Array.isArray(notasConsolidadas) ? notasConsolidadas : []).forEach(function (nota) {
+            var nomeEmpresa = toText(nota && nota.nomeEmpresa) || "(Vazio)";
+            if (!mapa[nomeEmpresa]) mapa[nomeEmpresa] = 0;
+            mapa[nomeEmpresa] += Number(nota && nota.valor || 0);
+        });
+
+        var ranking = Object.keys(mapa).map(function (nome) {
+            return {nome: nome, valor: Number(mapa[nome] || 0)};
+        }).sort(function (a, b) { return b.valor - a.valor; });
+
+        return {
+            categorias: ranking.map(function (item) { return item.nome; }),
+            valores: ranking.map(function (item) { return Number(item.valor.toFixed(2)); }),
+        };
+    }
+
+    function montarSerieFaturamentoMensal(notasConsolidadas) {
+        var mapa = {};
+        (Array.isArray(notasConsolidadas) ? notasConsolidadas : []).forEach(function (nota) {
+            var ano = Number(nota && nota.ano || 0);
+            var mes = Number(nota && nota.mes || 0);
+            if (!ano || !mes || mes < 1 || mes > 12) return;
+            var chave = String(ano) + "-" + String(mes).padStart(2, "0");
+            if (!mapa[chave]) mapa[chave] = {ano: ano, mes: mes, valor: 0};
+            mapa[chave].valor += Number(nota && nota.valor || 0);
+        });
+
+        var chaves = Object.keys(mapa).sort();
+        return {
+            categorias: chaves.map(function (chave) {
+                return labelMesAno(mapa[chave].ano, mapa[chave].mes);
+            }),
+            valores: chaves.map(function (chave) {
+                return Number(mapa[chave].valor.toFixed(2));
+            }),
+        };
+    }
+
+    function montarSerieFaturamentoVendedores(notasConsolidadas) {
+        var mapa = {};
+        (Array.isArray(notasConsolidadas) ? notasConsolidadas : []).forEach(function (nota) {
+            var vendedor = toText(nota && nota.vendedor) || toText(nota && nota.gerente) || "(Vazio)";
+            if (!mapa[vendedor]) mapa[vendedor] = 0;
+            mapa[vendedor] += Number(nota && nota.valor || 0);
+        });
+
+        var ranking = Object.keys(mapa).map(function (nome) {
+            return {nome: nome, valor: Number(mapa[nome] || 0)};
+        }).sort(function (a, b) { return b.valor - a.valor; });
+
+        return {
+            categorias: ranking.map(function (item) { return item.nome; }),
+            valores: ranking.map(function (item) { return Number(item.valor.toFixed(2)); }),
+        };
+    }
+
+    function montarSerieTop10Dias(notasConsolidadas) {
+        var mapa = {};
+        (Array.isArray(notasConsolidadas) ? notasConsolidadas : []).forEach(function (nota) {
+            var dataIso = toText(nota && nota.dataIso) || "(Vazio)";
+            if (!mapa[dataIso]) mapa[dataIso] = 0;
+            mapa[dataIso] += Number(nota && nota.valor || 0);
+        });
+
+        var ranking = Object.keys(mapa).map(function (dataIso) {
+            return {dataIso: dataIso, valor: Number(mapa[dataIso] || 0)};
+        }).sort(function (a, b) { return b.valor - a.valor; }).slice(0, 10);
+
+        return {
+            categorias: ranking.map(function (item) { return formatDataBr(item.dataIso); }),
+            valores: ranking.map(function (item) { return Number(item.valor.toFixed(2)); }),
+        };
+    }
+
+    function montarSerieTop10Produtos(linhasDetalhadas) {
+        var linhas = Array.isArray(linhasDetalhadas) ? linhasDetalhadas : [];
+        var produtosMap = new Map();
+
+        // Compatibilidade com legado:
+        // o Top 10 Produtos soma o valor consolidado da NF (valor_nota_unico)
+        // no produto em que esse valor foi gravado.
+        linhas.forEach(function (item) {
+            var produto = toText(item && item.produto_label) || "(Sem produto)";
+            var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            if (!valorUnico) return;
+            produtosMap.set(produto, Number((produtosMap.get(produto) || 0) + valorUnico));
+        });
+
+        var ranking = Array.from(produtosMap.keys()).map(function (produto) {
+            return {produto: produto, valor: Number(produtosMap.get(produto) || 0)};
+        }).sort(function (a, b) { return b.valor - a.valor; }).slice(0, 10);
+
+        return {
+            categorias: ranking.map(function (item) { return item.produto; }),
+            valores: ranking.map(function (item) { return Number(item.valor.toFixed(2)); }),
+        };
+    }
+
+    function montarSerieFaturamentoCidade(linhasDetalhadas) {
+        var linhas = Array.isArray(linhasDetalhadas) ? linhasDetalhadas : [];
+        var cidadeMap = new Map();
+
+        // Segue consolidacao de nota por valor_nota_unico.
+        linhas.forEach(function (item) {
+            var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            if (!valorUnico) return;
+            var cidade = toText(item && item.cidade_parceiro) || "(Vazio)";
+            cidadeMap.set(cidade, Number((cidadeMap.get(cidade) || 0) + valorUnico));
+        });
+
+        var ranking = Array.from(cidadeMap.keys()).map(function (cidade) {
+            return {cidade: cidade, valor: Number(cidadeMap.get(cidade) || 0)};
+        }).sort(function (a, b) { return b.valor - a.valor; });
+
+        return {
+            categorias: ranking.map(function (item) { return item.cidade; }),
+            valores: ranking.map(function (item) { return Number(item.valor.toFixed(2)); }),
+        };
+    }
+
+    function montarResumoTipoVenda(linhasDetalhadas) {
+        var linhas = Array.isArray(linhasDetalhadas) ? linhasDetalhadas : [];
+        var notasMap = new Map();
+
+        linhas.forEach(function (item) {
+            var chaveNota = chaveNotaFiscal(item);
+            var atual = notasMap.get(chaveNota);
+            var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            var valorNota = Number(item && item.valor_nota ? item.valor_nota : 0);
+            var tipoVenda = toText(item && item.tipo_venda);
+
+            if (!atual) {
+                notasMap.set(chaveNota, {
+                    valorUnico: valorUnico,
+                    valorNota: valorNota,
+                    tipoVenda: tipoVenda,
+                });
+                return;
+            }
+
+            if (Math.abs(valorUnico) > Math.abs(atual.valorUnico)) {
+                atual.valorUnico = valorUnico;
+            }
+            if (!atual.valorNota && valorNota) {
+                atual.valorNota = valorNota;
+            }
+            if (!atual.tipoVenda && tipoVenda) {
+                atual.tipoVenda = tipoVenda;
+            }
+        });
+
+        var totalEntrega = 0;
+        var totalBalcao = 0;
+
+        notasMap.forEach(function (nota) {
+            var valor = Number(nota.valorUnico || 0);
+            if (!valor) valor = Number(nota.valorNota || 0);
+            if (!valor) return;
+            var tokenTipo = normalizeText(nota.tipoVenda);
+            if (tokenTipo.indexOf("balc") >= 0) {
+                totalBalcao += valor;
+                return;
+            }
+            totalEntrega += valor;
+        });
+
+        return {
+            categorias: ["Entrega", "Venda Balcao"],
+            valores: [Number(totalEntrega.toFixed(2)), Number(totalBalcao.toFixed(2))],
+        };
+    }
+
+    function montarResumoVendedores(linhasDetalhadas) {
+        var linhas = Array.isArray(linhasDetalhadas) ? linhasDetalhadas : [];
+        var vendedoresComFaturamento = new Set();
+
+        linhas.forEach(function (item) {
+            var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            if (!valorUnico) return;
+            var vendedor = vendedorTokenResumo(item && item.apelido_vendedor);
+            if (vendedor) vendedoresComFaturamento.add(vendedor);
+        });
+
+        var totalVendedoresBase = Number(vendedoresResumoBase && vendedoresResumoBase.total_vendedores || 0);
+        var totalVendedores = totalVendedoresBase > 0
+            ? totalVendedoresBase
+            : Number(universoVendedores.size || 0);
+        var totalComFaturamento = vendedoresComFaturamento.size;
+        if (!totalVendedores || totalComFaturamento > totalVendedores) {
+            totalVendedores = totalComFaturamento;
+        }
+        var totalSemVenda = Math.max(totalVendedores - totalComFaturamento, 0);
+
+        return {
+            categorias: ["Vendedor (Sem Venda)", "Vendedor (Faturamento)"],
+            valores: [totalSemVenda, totalComFaturamento],
+            total: totalVendedores,
+        };
+    }
+
+    function montarSeriePerfilClientes(linhasDetalhadas) {
+        var linhas = Array.isArray(linhasDetalhadas) ? linhasDetalhadas : [];
+        var perfilMesMap = new Map();
+        var perfilTotalMap = new Map();
+
+        linhas.forEach(function (item) {
+            var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
+            if (!valorUnico) return;
+
+            var anoMes = extrairAnoMesFaturamento(item);
+            var mes = Number(anoMes.mes || 0);
+            if (!mes || mes < 1 || mes > 12) return;
+
+            var perfil = toText(item && item.descricao_perfil) || "(Sem perfil)";
+            var chaveMes = String(mes).padStart(2, "0");
+
+            perfilTotalMap.set(perfil, Number((perfilTotalMap.get(perfil) || 0) + valorUnico));
+            perfilMesMap.set(
+                perfil + "|" + chaveMes,
+                Number((perfilMesMap.get(perfil + "|" + chaveMes) || 0) + valorUnico)
+            );
+        });
+
+        var mesesFixos = [];
+        for (var indiceMes = 1; indiceMes <= 12; indiceMes += 1) {
+            mesesFixos.push(String(indiceMes).padStart(2, "0"));
+        }
+
+        var perfisTop = Array.from(perfilTotalMap.keys()).map(function (perfil) {
+            return {perfil: perfil, valor: Number(perfilTotalMap.get(perfil) || 0)};
+        }).sort(function (a, b) { return b.valor - a.valor; }).slice(0, 12);
+
+        var series = perfisTop.map(function (item) {
+            var perfil = item.perfil;
+            return {
+                name: perfil,
+                data: mesesFixos.map(function (chaveMes) {
+                    var valor = Number(perfilMesMap.get(perfil + "|" + chaveMes) || 0);
+                    return Number(valor.toFixed(2));
+                }),
+            };
+        });
+
+        return {
+            categorias: mesesFixos.map(function (chaveMes) {
+                var indice = Number(chaveMes || 0);
+                return nomesMesesCurtos[indice - 1] || "(Vazio)";
+            }),
+            series: series,
+        };
+    }
+
+    function inicializarGraficosFaturamento() {
+        if (!window.ApexCharts) return;
+
+        if (chartTipoVendaEl) {
+            chartTipoVenda = new window.ApexCharts(chartTipoVendaEl, {
+                chart: {type: "donut", height: 260, toolbar: {show: false}},
+                series: [0, 0],
+                labels: ["Entrega", "Venda Balcao"],
+                colors: ["#1f6a8c", "#e8762d"],
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (valor) { return Math.round(valor) + "%"; },
+                    style: {fontSize: "14px", fontWeight: 700},
+                    dropShadow: {enabled: false},
+                },
+                legend: {position: "top", horizontalAlign: "right", fontSize: "12px"},
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: "62%",
+                            labels: {show: false},
+                        },
+                    },
+                },
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartTipoVenda.render();
+        }
+
+        if (chartVendedoresResumoEl) {
+            chartVendedoresResumo = new window.ApexCharts(chartVendedoresResumoEl, {
+                chart: {type: "donut", height: 260, toolbar: {show: false}},
+                series: [0, 0],
+                labels: ["Vendedor (Sem Venda)", "Vendedor (Faturamento)"],
+                colors: ["#2d79c7", "#4da833"],
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (valor, opts) {
+                        var numero = Number(opts.w.config.series[opts.seriesIndex] || 0);
+                        return String(numero) + "\n" + Math.round(valor) + "%";
+                    },
+                    style: {fontSize: "14px", fontWeight: 700},
+                    dropShadow: {enabled: false},
+                },
+                legend: {position: "top", horizontalAlign: "right", fontSize: "12px"},
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: "62%",
+                            labels: {
+                                show: true,
+                                name: {show: false},
+                                value: {show: false},
+                                total: {
+                                    show: true,
+                                    showAlways: true,
+                                    label: "Total Vendedores:",
+                                    formatter: function (w) {
+                                        return String(
+                                            w.globals.seriesTotals.reduce(function (acc, curr) {
+                                                return acc + Number(curr || 0);
+                                            }, 0)
+                                        );
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                tooltip: {y: {formatter: function (valor) { return String(Math.round(valor)); }}},
+            });
+            chartVendedoresResumo.render();
+        }
+
+        if (chartLojaEl) {
+            chartLoja = new window.ApexCharts(chartLojaEl, {
+                chart: {type: "bar", height: 300, toolbar: {show: false}},
+                series: [{name: "Faturamento", data: []}],
+                colors: ["#176087"],
+                plotOptions: {bar: {borderRadius: 6, columnWidth: "52%"}},
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (valor) { return formatMoedaCompacta(valor); },
+                    style: {fontSize: "11px"},
+                },
+                xaxis: {categories: []},
+                yaxis: {labels: {formatter: function (valor) { return formatMoeda(valor); }}},
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartLoja.render();
+        }
+
+        if (chartMensalEl) {
+            chartMensal = new window.ApexCharts(chartMensalEl, {
+                chart: {type: "bar", height: 320, toolbar: {show: false}},
+                series: [{name: "Faturamento", data: []}],
+                colors: ["#0b7285"],
+                plotOptions: {bar: {borderRadius: 6, columnWidth: "48%"}},
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (valor) { return formatMoedaCompacta(valor); },
+                    style: {fontSize: "11px"},
+                },
+                xaxis: {categories: []},
+                yaxis: {labels: {formatter: function (valor) { return formatMoeda(valor); }}},
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartMensal.render();
+        }
+
+        if (chartVendedoresEl) {
+            chartVendedores = new window.ApexCharts(chartVendedoresEl, {
+                chart: {type: "bar", height: 360, toolbar: {show: false}},
+                series: [{name: "Faturamento", data: []}],
+                colors: ["#175cd3"],
+                plotOptions: {bar: {borderRadius: 4, columnWidth: "62%"}},
+                dataLabels: {enabled: false},
+                xaxis: {
+                    categories: [],
+                    labels: {
+                        rotate: -60,
+                        trim: false,
+                        style: {fontSize: "10px"},
+                    },
+                },
+                yaxis: {labels: {formatter: function (valor) { return formatMoedaCompacta(valor); }}},
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartVendedores.render();
+        }
+
+        if (chartTop10DiasEl) {
+            chartTop10Dias = new window.ApexCharts(chartTop10DiasEl, {
+                chart: {type: "bar", height: 340, toolbar: {show: false}},
+                series: [{name: "Faturamento", data: []}],
+                colors: ["#1f6f8b"],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: "55%"}},
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (valor) { return formatMoeda(valor); },
+                    style: {fontSize: "11px"},
+                    offsetX: 8,
+                },
+                xaxis: {categories: [], labels: {formatter: function (valor) { return formatMoedaCompacta(valor); }}},
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartTop10Dias.render();
+        }
+
+        if (chartTop10ProdutosEl) {
+            chartTop10Produtos = new window.ApexCharts(chartTop10ProdutosEl, {
+                chart: {type: "bar", height: 380, toolbar: {show: false}},
+                series: [{name: "Faturamento", data: []}],
+                colors: ["#125d83"],
+                plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: "56%"}},
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (valor) { return formatMoeda(valor); },
+                    style: {fontSize: "10px"},
+                    offsetX: 8,
+                },
+                xaxis: {categories: [], labels: {formatter: function (valor) { return formatMoedaCompacta(valor); }}},
+                yaxis: {
+                    labels: {
+                        style: {fontSize: "10px"},
+                    },
+                },
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartTop10Produtos.render();
+        }
+
+        if (chartCidadeEl) {
+            chartCidade = new window.ApexCharts(chartCidadeEl, {
+                chart: {type: "area", height: 360, toolbar: {show: false}},
+                series: [{name: "Faturamento", data: []}],
+                colors: ["#125d83"],
+                stroke: {curve: "smooth", width: 2},
+                fill: {
+                    type: "gradient",
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.45,
+                        opacityTo: 0.05,
+                        stops: [0, 95, 100],
+                    },
+                },
+                dataLabels: {enabled: false},
+                xaxis: {
+                    categories: [],
+                    labels: {
+                        rotate: -90,
+                        trim: false,
+                        style: {fontSize: "10px"},
+                    },
+                },
+                yaxis: {labels: {formatter: function (valor) { return formatMoeda(valor); }}},
+                tooltip: {y: {formatter: function (valor) { return formatMoeda(valor); }}},
+            });
+            chartCidade.render();
+        }
+
+        if (chartPerfilClientesEl) {
+            chartPerfilClientes = new window.ApexCharts(chartPerfilClientesEl, {
+                chart: {type: "line", height: 360, toolbar: {show: false}},
+                series: [],
+                colors: [
+                    "#61b84f", "#df6f2f", "#2d9cdb", "#00a8a8", "#6c757d", "#f59f00",
+                    "#9c36b5", "#2f9e44", "#0b7285", "#495057", "#364fc7", "#a61e4d",
+                ],
+                stroke: {curve: "straight", width: 2},
+                markers: {size: 2.6, strokeWidth: 0},
+                dataLabels: {enabled: false},
+                legend: {show: false},
+                xaxis: {
+                    categories: [],
+                    labels: {
+                        rotate: 0,
+                        style: {fontSize: "12px"},
+                    },
+                },
+                yaxis: {
+                    labels: {
+                        formatter: function (valor) { return formatMoeda(valor); },
+                    },
+                },
+                grid: {
+                    borderColor: "#d9e2ea",
+                    strokeDashArray: 0,
+                },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: {formatter: function (valor) { return formatMoeda(valor); }},
+                },
+                noData: {text: "Sem dados"},
+            });
+            chartPerfilClientes.render();
+        }
+    }
+
+    function atualizarGraficosFaturamento(notasConsolidadas, linhasDetalhadas) {
+        var resumoTipoVenda = montarResumoTipoVenda(linhasDetalhadas);
+        var resumoVendedores = montarResumoVendedores(linhasDetalhadas);
+        var loja = montarSerieFaturamentoLoja(notasConsolidadas);
+        var mensal = montarSerieFaturamentoMensal(notasConsolidadas);
+        var vendedores = montarSerieFaturamentoVendedores(notasConsolidadas);
+        var top10Dias = montarSerieTop10Dias(notasConsolidadas);
+        var top10Produtos = montarSerieTop10Produtos(linhasDetalhadas);
+        var cidade = montarSerieFaturamentoCidade(linhasDetalhadas);
+        var perfilClientes = montarSeriePerfilClientes(linhasDetalhadas);
+
+        if (chartTipoVenda) {
+            chartTipoVenda.updateOptions({labels: resumoTipoVenda.categorias});
+            chartTipoVenda.updateSeries(resumoTipoVenda.valores);
+        }
+        if (chartVendedoresResumo) {
+            chartVendedoresResumo.updateOptions({
+                labels: resumoVendedores.categorias,
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            labels: {
+                                total: {
+                                    show: true,
+                                    showAlways: true,
+                                    label: "Total Vendedores:",
+                                    formatter: function () { return String(resumoVendedores.total); },
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+            chartVendedoresResumo.updateSeries(resumoVendedores.valores);
+        }
+        if (chartLoja) {
+            chartLoja.updateOptions({xaxis: {categories: loja.categorias}});
+            chartLoja.updateSeries([{name: "Faturamento", data: loja.valores}]);
+        }
+        if (chartMensal) {
+            chartMensal.updateOptions({xaxis: {categories: mensal.categorias}});
+            chartMensal.updateSeries([{name: "Faturamento", data: mensal.valores}]);
+        }
+        if (chartVendedores) {
+            chartVendedores.updateOptions({xaxis: {categories: vendedores.categorias}});
+            chartVendedores.updateSeries([{name: "Faturamento", data: vendedores.valores}]);
+        }
+        if (chartTop10Dias) {
+            chartTop10Dias.updateOptions({xaxis: {categories: top10Dias.categorias}});
+            chartTop10Dias.updateSeries([{name: "Faturamento", data: top10Dias.valores}]);
+        }
+        if (chartTop10Produtos) {
+            chartTop10Produtos.updateOptions({xaxis: {categories: top10Produtos.categorias}});
+            chartTop10Produtos.updateSeries([{name: "Faturamento", data: top10Produtos.valores}]);
+        }
+        if (chartCidade) {
+            chartCidade.updateOptions({xaxis: {categories: cidade.categorias}});
+            chartCidade.updateSeries([{name: "Faturamento", data: cidade.valores}]);
+        }
+        if (chartPerfilClientes) {
+            chartPerfilClientes.updateOptions({xaxis: {categories: perfilClientes.categorias}});
+            chartPerfilClientes.updateSeries(perfilClientes.series);
+        }
+    }
+
     var pedidosPendentesPorGerente = criarMapaPedidosPendentesPorGerente();
 
     function calcularMetricasDashboard(linhas) {
@@ -440,6 +1146,8 @@
             metaDiaria: metaDiaria,
             qtdClientes: qtdClientesDistintos,
             participacaoVendaGeral: participacaoVendaGeral,
+            notasConsolidadas: consolidadoNotasFiltradas.notas,
+            linhasDetalhadas: itens,
         };
     }
 
@@ -464,7 +1172,11 @@
         if (kpiParticipacaoVendaGeralEl) {
             kpiParticipacaoVendaGeralEl.textContent = formatPercentual(metricas.participacaoVendaGeral * 100, 2);
         }
+        if (perfilClientesTotalEl) {
+            perfilClientesTotalEl.textContent = formatadorMoeda.format(metricas.valorFaturamento);
+        }
         atualizarReloginho(metricas.metaGeral, metricas.valorFaturamento);
+        atualizarGraficosFaturamento(metricas.notasConsolidadas, metricas.linhasDetalhadas);
     }
 
     function criarDefinicoesFiltrosFaturamento() {
@@ -613,6 +1325,8 @@
         if (limparFiltrosSidebarBtn) limparFiltrosSidebarBtn.addEventListener("click", limparTodosFiltros);
         if (limparFiltrosToolbarBtn) limparFiltrosToolbarBtn.addEventListener("click", limparTodosFiltros);
     }
+
+    inicializarGraficosFaturamento();
 
     if (!tabelaTarget || !window.Tabulator || !window.TabulatorDefaults) {
         atualizarDashboard(data);

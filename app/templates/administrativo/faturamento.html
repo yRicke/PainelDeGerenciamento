@@ -266,6 +266,48 @@
                     <p id="faturamento-kpi-participacao-venda-geral">0,00%</p>
                 </article>
             </div>
+
+            <div class="dashboard-chart-grid dashboard-chart-grid--faturamento">
+                <div class="dashboard-chart-card dashboard-chart-card--tipo-venda">
+                    <h3>Tipo da Venda</h3>
+                    <div id="faturamento-chart-tipo-venda"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card--vendedores-resumo">
+                    <h3>Vendedores</h3>
+                    <div id="faturamento-chart-vendedores-resumo"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--faturamento-loja">
+                    <h3>Faturamento Loja</h3>
+                    <div id="faturamento-chart-loja"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--faturamento-mensal">
+                    <h3>Faturamento Mensal</h3>
+                    <div id="faturamento-chart-mensal"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--faturamento-vendedores">
+                    <h3>Faturamento Vendedores</h3>
+                    <div id="faturamento-chart-vendedores"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--top10-dias">
+                    <h3>TOP 10 DIAS</h3>
+                    <div id="faturamento-chart-top10-dias"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--top10-produtos">
+                    <h3>TOP 10 PRODUTOS</h3>
+                    <div id="faturamento-chart-top10-produtos"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--faturamento-cidade">
+                    <h3>Faturamento por Cidade</h3>
+                    <div id="faturamento-chart-cidade"></div>
+                </div>
+                <div class="dashboard-chart-card dashboard-chart-card-full dashboard-chart-card--perfil-clientes">
+                    <div class="dashboard-chart-card-head">
+                        <h3>Perfil Clientes</h3>
+                        <span id="faturamento-perfil-clientes-total" class="dashboard-chart-total-badge">R$ 0,00</span>
+                    </div>
+                    <div id="faturamento-chart-perfil-clientes"></div>
+                </div>
+            </div>
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">
@@ -281,7 +323,9 @@
 {% block extra_js %}
 {{ faturamento_meta_config|json_script:"faturamento-meta-config-data" }}
 {{ faturamento_pedidos_pendentes|json_script:"faturamento-pedidos-pendentes-data" }}
+{{ faturamento_vendedores_resumo_base|json_script:"faturamento-vendedores-resumo-base-data" }}
 {{ faturamento_tabulator|json_script:"faturamento-tabulator-data" }}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/administrativo/faturamento-page.js' %}"></script>
 {% endblock %}

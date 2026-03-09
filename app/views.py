@@ -1,5 +1,6 @@
 import json
 import re
+import unicodedata
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -55,6 +56,11 @@ from .models import (
 )
 from .utils.administrativo_transformers import montar_contexto_tofu_lista
 from .utils.comercial_transformers import montar_contexto_carteira, montar_contexto_vendas
+from .utils.financeiro_importacao import (
+    _arquivo_xlsx_visivel,
+    _classificar_arquivo_faturamento,
+    _importar_base_faturamento_diario,
+)
 from .utils.modulos_permissoes import (
     MODULOS_POR_AREA,
     _modulos_com_acesso,
@@ -401,6 +407,110 @@ def _gerente_valido_ou_vazio(valor):
     if texto.upper() in {"<SEM VENDEDOR>", "SEM VENDEDOR", "<SEM GERENTE>", "SEM GERENTE"}:
         return ""
     return texto
+
+
+def _normalizar_token_vendedor(valor):
+    texto = str(valor or "").strip().lower()
+    if not texto:
+        return ""
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return " ".join(texto.split())
+
+
+def _chave_vendedor_total_legado(valor):
+    token = _normalizar_token_vendedor(valor)
+    if not token:
+        return ""
+
+    if token in {"sem gerente", "<sem gerente>"}:
+        return ""
+    if token in {"sem vendedor", "<sem vendedor>"}:
+        return "<SEM VENDEDOR>"
+
+    # Compatibilidade com comportamento legado do dashboard.
+    if token == "a distribuir":
+        return ""
+    if "corret" in token:
+        return ""
+    if token.startswith("novo go "):
+        return ""
+    return token
+
+
+def _calcular_total_vendedores_legado_faturamento(diretorio_importacao, diretorio_subscritos):
+    arquivos = sorted(
+        [
+            arquivo
+            for arquivo in diretorio_importacao.rglob("*")
+            if arquivo.is_file()
+            and diretorio_subscritos not in arquivo.parents
+            and _arquivo_xlsx_visivel(arquivo)
+        ]
+    )
+    if not arquivos:
+        return 0
+
+    arquivos_diario = [
+        arquivo
+        for arquivo in arquivos
+        if _classificar_arquivo_faturamento(diretorio_importacao, arquivo) == "diario"
+    ]
+    if not arquivos_diario:
+        return 0
+
+    resultado_diario = _importar_base_faturamento_diario(arquivos_diario)
+    registros = resultado_diario.get("registros", [])
+    vendedores = set()
+    for item in registros:
+        chave = _chave_vendedor_total_legado(item.get("apelido_vendedor"))
+        if chave:
+            vendedores.add(chave)
+    return len(vendedores)
+
+
+def _obter_total_vendedores_legado_faturamento(diretorio_importacao, diretorio_subscritos, empresa_id):
+    metadados = _ler_metadados_importacao(
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="faturamento",
+        empresa_id=empresa_id,
+    )
+    total_salvo = metadados.get("faturamento_vendedores_total_legacy")
+    try:
+        total_salvo_int = int(total_salvo)
+    except (TypeError, ValueError):
+        total_salvo_int = 0
+    if total_salvo_int > 0:
+        return total_salvo_int
+
+    try:
+        total_calculado = _calcular_total_vendedores_legado_faturamento(
+            diretorio_importacao=diretorio_importacao,
+            diretorio_subscritos=diretorio_subscritos,
+        )
+    except Exception:
+        return 0
+
+    if total_calculado <= 0:
+        return 0
+
+    nome_metadados = _nome_metadados_importacao_por_empresa(empresa_id)
+    if nome_metadados:
+        caminho_metadados = diretorio_subscritos / nome_metadados
+        payload = dict(metadados) if isinstance(metadados, dict) else {}
+        payload["empresa_id"] = _normalizar_empresa_id(empresa_id)
+        payload["modulo"] = "faturamento"
+        payload["faturamento_vendedores_total_legacy"] = int(total_calculado)
+        try:
+            caminho_metadados.parent.mkdir(parents=True, exist_ok=True)
+            caminho_metadados.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    return int(total_calculado)
 
 
 def _empresa_bloqueia_cadastro_edicao_importacao(empresa):
@@ -2238,6 +2348,11 @@ def faturamento(request, empresa_id):
         empresa_id=empresa.id,
         extensoes={".xlsx"},
     )
+    total_vendedores_legado = _obter_total_vendedores_legado_faturamento(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        empresa_id=empresa.id,
+    )
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
@@ -2253,6 +2368,9 @@ def faturamento(request, empresa_id):
         "produtos": Produto.objects.filter(empresa=empresa).order_by("descricao_produto"),
         "faturamento_meta_config": faturamento_meta_config,
         "faturamento_pedidos_pendentes": faturamento_pedidos_pendentes,
+        "faturamento_vendedores_resumo_base": {
+            "total_vendedores": int(total_vendedores_legado or 0),
+        },
         "faturamento_tabulator": build_faturamento_tabulator(
             faturamento_qs,
             empresa.id,
