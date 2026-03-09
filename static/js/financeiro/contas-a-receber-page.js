@@ -5,6 +5,7 @@
     var dropzone = document.getElementById("dropzone-contas");
     var input = document.getElementById("arquivo-contas-input");
     var fileStatus = document.getElementById("nome-arquivo-contas-selecionado");
+    var loadingStatus = document.getElementById("contas-loading-status");
 
     function coletarArquivosXls(files) {
         if (!files || !files.length) return [];
@@ -39,6 +40,11 @@
         atualizarStatus(arquivosXls);
     }
 
+    function iniciarCarregamento() {
+        form.classList.add("is-loading");
+        if (loadingStatus) loadingStatus.classList.add("is-visible");
+    }
+
     dropzone.addEventListener("click", function () {
         input.click();
     });
@@ -67,7 +73,9 @@
         if (!arquivosXls.length) {
             event.preventDefault();
             window.alert("Selecione uma pasta com arquivos .xls para continuar.");
+            return;
         }
+        iniciarCarregamento();
     });
 })();
 
