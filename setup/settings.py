@@ -23,18 +23,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-@56k@-0keh23n@^rvpvw=j(9j+w$5g_am#nsmuy=bhmv^r7rnq'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-localhost = 'localhost'
-localhost_127 = '127.0.0.1'
-rede_dev = '192.168.100.94'
-rede_radmin = '26.194.211.233'
-rede_tailscale = '100.96.108.68'
-rede_zerotier = '10.242.14.227'
+DEBUG = False
+IP_MAQUINA = '192.168.100.94'  # exemplo
 
-rede_atual = rede_zerotier
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    IP_MAQUINA,
+]
 
-ALLOWED_HOSTS = [localhost_127, rede_atual]
-CSRF_TRUSTED_ORIGINS = [f'http://{rede_atual}/']
+CSRF_TRUSTED_ORIGINS = [
+    f'http://{IP_MAQUINA}',
+]
 
 
 # Application definition
@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'setup.urls'
@@ -130,6 +131,12 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}   
 
 AUTH_USER_MODEL = "app.Usuario"
 
