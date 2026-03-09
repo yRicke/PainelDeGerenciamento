@@ -606,11 +606,20 @@
     var tabela = window.TabulatorDefaults.create("#contas-a-receber-tabulator", {
         ajaxURL: endpoint,
         ajaxURLGenerator: function (url, config, params) {
+            var sortersPayload = Array.isArray(params && params.sorters)
+                ? params.sorters
+                : (Array.isArray(params && params.sort) ? params.sort : []);
+            var filtersPayload = Array.isArray(params && params.filter)
+                ? params.filter
+                : (Array.isArray(params && params.filters) ? params.filters : []);
+
             var query = new URLSearchParams();
             query.set("page", String(params && params.page ? params.page : 1));
             query.set("size", String(params && params.size ? params.size : 100));
-            query.set("sorters", JSON.stringify((params && params.sorters) || []));
-            query.set("filters", JSON.stringify((params && params.filter) || []));
+            query.set("sorters", JSON.stringify(sortersPayload));
+            query.set("sort", JSON.stringify(sortersPayload));
+            query.set("filters", JSON.stringify(filtersPayload));
+            query.set("filter", JSON.stringify(filtersPayload));
             return url + "?" + query.toString();
         },
         ajaxResponse: function (url, params, response) {

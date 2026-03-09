@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.db.models import Case, DecimalField, F, FloatField, Max, Min, Q, Sum, Value, When
+from django.db.models import Case, DecimalField, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast, Coalesce
 
@@ -808,20 +808,70 @@ def _ordenar_contas_a_receber(qs, sorters):
         "centro_resultado_descricao": "centro_resultado__descricao",
         "vendedor": "vendedor",
         "operacao_descricao": "operacao__descricao_receita_despesa",
-        "status": "data_vencimento",
-        "dias_diferenca": "data_vencimento",
-        "intervalo": "data_vencimento",
     }
 
+    hoje = datetime.now().date()
     ordenacoes = []
+    ordenar_por_status = False
+    ordenar_por_intervalo = False
+
     for sorter in sorters:
-        campo = str(sorter.get("field") or "").strip()
+        campo = str(sorter.get("field") or sorter.get("column") or "").strip()
         direcao = str(sorter.get("dir") or "asc").strip().lower()
+        if direcao not in {"asc", "desc"}:
+            direcao = "asc"
+
+        if campo == "dias_diferenca":
+            # dias_diferenca = hoje - data_vencimento:
+            # ordem crescente de dias equivale a data_vencimento decrescente.
+            direcao_data = "desc" if direcao == "asc" else "asc"
+            prefixo = "-" if direcao_data == "desc" else ""
+            ordenacoes.append(f"{prefixo}data_vencimento")
+            continue
+
+        if campo == "status":
+            ordenar_por_status = True
+            prefixo = "-" if direcao == "desc" else ""
+            ordenacoes.append(f"{prefixo}status_ordem_sort")
+            continue
+
+        if campo == "intervalo":
+            ordenar_por_intervalo = True
+            prefixo = "-" if direcao == "desc" else ""
+            ordenacoes.append(f"{prefixo}intervalo_ordem_sort")
+            continue
+
         order_field = mapeamento.get(campo)
         if not order_field:
             continue
         prefixo = "-" if direcao == "desc" else ""
         ordenacoes.append(f"{prefixo}{order_field}")
+
+    if ordenar_por_status:
+        qs = qs.annotate(
+            status_ordem_sort=Case(
+                When(data_vencimento__gte=hoje, then=Value(0)),  # A Vencer
+                When(data_vencimento__lt=hoje, then=Value(1)),   # Vencido
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+        )
+
+    if ordenar_por_intervalo:
+        qs = qs.annotate(
+            intervalo_ordem_sort=Case(
+                When(_q_intervalo_contas(hoje, "0-5 (CML)"), then=Value(1)),
+                When(_q_intervalo_contas(hoje, "6-20 (FIN)"), then=Value(2)),
+                When(_q_intervalo_contas(hoje, "21-30 (POL)"), then=Value(3)),
+                When(_q_intervalo_contas(hoje, "31-60 (POL)"), then=Value(4)),
+                When(_q_intervalo_contas(hoje, "61-90 (POL)"), then=Value(5)),
+                When(_q_intervalo_contas(hoje, "91-120 (JUR1)"), then=Value(6)),
+                When(_q_intervalo_contas(hoje, "121-180 (JUR1)"), then=Value(7)),
+                When(_q_intervalo_contas(hoje, "+180 (JUR2)"), then=Value(8)),
+                default=Value(9),
+                output_field=IntegerField(),
+            )
+        )
 
     if not ordenacoes:
         ordenacoes = ["-id"]
