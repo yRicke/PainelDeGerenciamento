@@ -804,6 +804,33 @@ def build_centros_resultado_tabulator(centros_resultado_qs, empresa_id: int):
     ]
 
 
+def build_contratos_redes_tabulator(contratos_qs, empresa_id: int):
+    return [
+        {
+            "id": contrato.id,
+            "codigo_registro": contrato.codigo_registro,
+            "numero_contrato": contrato.numero_contrato,
+            "data_inicio": contrato.data_inicio.strftime("%Y-%m-%d") if contrato.data_inicio else "",
+            "data_encerramento": contrato.data_encerramento.strftime("%Y-%m-%d") if contrato.data_encerramento else "",
+            "parceiro_id": contrato.parceiro_id or "",
+            "parceiro_codigo": contrato.parceiro.codigo if contrato.parceiro else "",
+            "parceiro_nome": contrato.parceiro.nome if contrato.parceiro else "",
+            "descricao_acordos": contrato.descricao_acordos or "",
+            "valor_acordo": float(contrato.valor_acordo or 0),
+            "status_contrato": contrato.status_contrato or "Ativo",
+            "editar_url": reverse(
+                "editar_contrato_rede_modulo",
+                kwargs={"empresa_id": empresa_id, "contrato_id": contrato.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_contrato_rede_modulo",
+                kwargs={"empresa_id": empresa_id, "contrato_id": contrato.id},
+            ),
+        }
+        for contrato in contratos_qs
+    ]
+
+
 def build_parametros_margem_vendas_tabulator(parametros_qs, empresa_id: int):
     acao_url = reverse("parametros_vendas", kwargs={"empresa_id": empresa_id})
     return [

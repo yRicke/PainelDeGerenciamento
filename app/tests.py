@@ -19,6 +19,7 @@ from .models import (
     CentroResultado,
     Cidade,
     Colaborador,
+    ContratoRede,
     Empresa,
     Natureza,
     Operacao,
@@ -34,7 +35,9 @@ from .models import (
 )
 from .services import (
     atualizar_carga_por_post,
+    atualizar_contrato_rede_por_post,
     criar_carga_por_post,
+    criar_contrato_rede_por_post,
     preparar_diretorios_orcamento,
     preparar_diretorios_cargas,
     preparar_diretorios_vendas,
@@ -687,6 +690,120 @@ class ParceiroModelTest(TestCase):
     def test_excluir_parceiro(self):
         self.parceiro.excluir_parceiro()
         self.assertFalse(Parceiro.objects.filter(id=self.parceiro.id).exists())
+
+
+class ContratoRedeModelServiceTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Contratos Redes")
+        self.parceiro = Parceiro.criar_parceiro(nome="Parceiro Rede", codigo="PR001", empresa=self.empresa)
+
+    def test_criar_contrato_rede_por_post_com_sucesso(self):
+        erro = criar_contrato_rede_por_post(
+            self.empresa,
+            {
+                "codigo_registro": "REG-100",
+                "numero_contrato": "CTR-900",
+                "data_inicio": "2026-03-10",
+                "data_encerramento": "2026-12-31",
+                "parceiro_id": str(self.parceiro.id),
+                "descricao_acordos": "Contrato de percentual de rede",
+                "valor_acordo": "1,25%",
+                "status_contrato": "Ativo",
+            },
+        )
+
+        self.assertEqual(erro, "")
+        contrato = ContratoRede.objects.get(empresa=self.empresa, codigo_registro="REG-100")
+        self.assertEqual(contrato.numero_contrato, "CTR-900")
+        self.assertEqual(str(contrato.data_inicio), "2026-03-10")
+        self.assertEqual(str(contrato.data_encerramento), "2026-12-31")
+        self.assertEqual(contrato.parceiro_id, self.parceiro.id)
+        self.assertEqual(float(contrato.valor_acordo), 0.0125)
+        self.assertEqual(contrato.status_contrato, "Ativo")
+
+    def test_criar_contrato_rede_rejeita_campos_obrigatorios(self):
+        erro = criar_contrato_rede_por_post(
+            self.empresa,
+            {
+                "codigo_registro": "",
+                "numero_contrato": "",
+                "data_inicio": "",
+                "descricao_acordos": "",
+                "valor_acordo": "",
+                "status_contrato": "",
+            },
+        )
+
+        self.assertIn("Codigo de registro", erro)
+        self.assertEqual(ContratoRede.objects.filter(empresa=self.empresa).count(), 0)
+
+    def test_criar_contrato_rede_rejeita_data_encerramento_menor_que_inicio(self):
+        erro = criar_contrato_rede_por_post(
+            self.empresa,
+            {
+                "codigo_registro": "REG-200",
+                "numero_contrato": "CTR-200",
+                "data_inicio": "2026-04-10",
+                "data_encerramento": "2026-04-01",
+                "descricao_acordos": "Acordo invalido de datas",
+                "valor_acordo": "0,75%",
+                "status_contrato": "Ativo",
+            },
+        )
+
+        self.assertIn("encerramento", erro)
+        self.assertFalse(ContratoRede.objects.filter(empresa=self.empresa, codigo_registro="REG-200").exists())
+
+    def test_atualizar_contrato_rede_por_post(self):
+        contrato = ContratoRede.criar_contrato_rede(
+            empresa=self.empresa,
+            codigo_registro="REG-300",
+            numero_contrato="CTR-300",
+            data_inicio=timezone.localdate(),
+            descricao_acordos="Descricao inicial",
+            valor_acordo=0,
+            status_contrato=ContratoRede.STATUS_ATIVO,
+        )
+
+        erro = atualizar_contrato_rede_por_post(
+            contrato,
+            self.empresa,
+            {
+                "codigo_registro": "REG-300A",
+                "numero_contrato": "CTR-300A",
+                "data_inicio": "2026-05-01",
+                "data_encerramento": "",
+                "parceiro_id": str(self.parceiro.id),
+                "descricao_acordos": "Descricao atualizada",
+                "valor_acordo": "2,50%",
+                "status_contrato": "Inativo",
+            },
+        )
+
+        self.assertEqual(erro, "")
+        contrato.refresh_from_db()
+        self.assertEqual(contrato.codigo_registro, "REG-300A")
+        self.assertEqual(contrato.numero_contrato, "CTR-300A")
+        self.assertEqual(str(contrato.data_inicio), "2026-05-01")
+        self.assertIsNone(contrato.data_encerramento)
+        self.assertEqual(contrato.parceiro_id, self.parceiro.id)
+        self.assertEqual(float(contrato.valor_acordo), 0.025)
+        self.assertEqual(contrato.status_contrato, "Inativo")
+
+    def test_excluir_contrato_rede(self):
+        contrato = ContratoRede.criar_contrato_rede(
+            empresa=self.empresa,
+            codigo_registro="REG-400",
+            numero_contrato="CTR-400",
+            data_inicio=timezone.localdate(),
+            descricao_acordos="Contrato para excluir",
+            valor_acordo=0,
+            status_contrato=ContratoRede.STATUS_ATIVO,
+        )
+        contrato_id = contrato.id
+
+        contrato.excluir_contrato_rede()
+        self.assertFalse(ContratoRede.objects.filter(id=contrato_id).exists())
 
 
 class CarteiraModelTest(TestCase):

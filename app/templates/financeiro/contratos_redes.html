@@ -1,16 +1,145 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Contratos Redes{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Contratos Redes</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'financeiro' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Financeiro</span>
+            </div>
+            <h1>Contratos Redes</h1>
+            <p class="module-hero-subtitle">Visualizacao centralizada de cadastro, filtros e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Contratos Redes</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
-</section>
+<div id="contratos-redes-module-shell" class="module-shell">
+    <aside id="contratos-redes-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="contratos-redes-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="contratos-redes-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="contratos-redes-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de contratos de redes">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+
+            <a href="{% url 'mascara_contrato_rede' empresa.id %}" target="_blank" rel="noopener" class="btn-light">
+                Mascara de Contrato
+            </a>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Contrato de Rede</h2>
+            <p class="form-note">Cadastre os dados do contrato e o valor do acordo em percentual.</p>
+            <form action="{% url 'criar_contrato_rede_modulo' empresa.id %}" method="POST">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label for="codigo-registro">Codigo de Registro</label>
+                        <input id="codigo-registro" type="text" name="codigo_registro" required>
+                    </div>
+                    <div>
+                        <label for="numero-contrato">Numero do Contrato</label>
+                        <input id="numero-contrato" type="text" name="numero_contrato" required>
+                    </div>
+                    <div>
+                        <label for="data-inicio">Data Inicio</label>
+                        <input id="data-inicio" type="date" name="data_inicio" required>
+                    </div>
+                    <div>
+                        <label for="data-encerramento">Data Encerramento</label>
+                        <input id="data-encerramento" type="date" name="data_encerramento">
+                    </div>
+                    <div>
+                        <label for="parceiro-id">Parceiro</label>
+                        <select id="parceiro-id" name="parceiro_id">
+                            <option value="">Sem parceiro</option>
+                            {% for parceiro in parceiros %}
+                            <option value="{{ parceiro.id }}">{{ parceiro.codigo }} - {{ parceiro.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="status-contrato">Status do Contrato</label>
+                        <select id="status-contrato" name="status_contrato" required>
+                            <option value="Ativo" selected>Ativo</option>
+                            <option value="Inativo">Inativo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="valor-acordo">Valor do Acordo (%)</label>
+                        <input
+                            id="valor-acordo"
+                            type="text"
+                            name="valor_acordo"
+                            required
+                            inputmode="numeric"
+                            autocomplete="off"
+                            value="0,00%"
+                            data-percentual-pix
+                        >
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label for="descricao-acordos">Descricao dos Acordos</label>
+                        <textarea id="descricao-acordos" name="descricao_acordos" rows="3" required></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Cadastrar</button>
+            </form>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Lista de Contratos de Redes</h2>
+            <div class="table-wrapper"><div id="contratos-redes-tabulator"></div></div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ contratos_redes_tabulator|json_script:"contratos-redes-tabulator-data" }}
+{{ parceiros_js|json_script:"contratos-redes-parceiros-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/financeiro/contratos-redes-page.js' %}"></script>
 {% endblock %}

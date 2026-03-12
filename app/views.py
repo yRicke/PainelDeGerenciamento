@@ -25,6 +25,7 @@ from .models import (
     Cidade,
     Colaborador,
     ControleMargem,
+    ContratoRede,
     ContasAReceber,
     Empresa,
     Estoque,
@@ -146,6 +147,8 @@ from .services import (
     atualizar_operacao_por_dados,
     criar_centro_resultado_por_dados,
     atualizar_centro_resultado_por_dados,
+    criar_contrato_rede_por_post,
+    atualizar_contrato_rede_por_post,
     criar_dfc_por_post,
     atualizar_dfc_por_post,
     criar_faturamento_por_post,
@@ -195,6 +198,7 @@ from .tabulator import (
     build_naturezas_tabulator,
     build_operacoes_tabulator,
     build_centros_resultado_tabulator,
+    build_contratos_redes_tabulator,
     build_parametros_margem_vendas_tabulator,
     build_parametros_margem_logistica_tabulator,
     build_parametros_margem_financeiro_tabulator,
@@ -2291,8 +2295,114 @@ def adiantamentos(request, empresa_id):
 
 @login_required(login_url="entrar")
 def contratos_redes(request, empresa_id):
-    modulo = _obter_modulo("Financeiro", "Contratos Redes")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contratos Redes")
+    if not autorizado:
+        return redirect("index")
+
+    contratos_qs = (
+        ContratoRede.objects.filter(empresa=empresa)
+        .select_related("parceiro")
+        .order_by("-data_inicio", "-id")
+    )
+    parceiros_qs = Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome")
+    contexto = {
+        "empresa": empresa,
+        "parceiros": parceiros_qs,
+        "parceiros_js": list(parceiros_qs.values("id", "codigo", "nome")),
+        "contratos_redes_tabulator": build_contratos_redes_tabulator(contratos_qs, empresa.id),
+    }
+    return render(request, "financeiro/contratos_redes.html", contexto)
+
+
+@login_required(login_url="entrar")
+def mascara_contrato_rede(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contratos Redes")
+    if not autorizado:
+        return redirect("index")
+
+    contratos_qs = (
+        ContratoRede.objects.filter(empresa=empresa)
+        .select_related("parceiro")
+        .order_by("numero_contrato", "id")
+    )
+    contratos_mascara_js = [
+        {
+            "id": contrato.id,
+            "numero_contrato": contrato.numero_contrato or "",
+            "data_inicio_iso": contrato.data_inicio.strftime("%Y-%m-%d") if contrato.data_inicio else "",
+            "data_encerramento_iso": contrato.data_encerramento.strftime("%Y-%m-%d") if contrato.data_encerramento else "",
+            "status_contrato": contrato.status_contrato or "Ativo",
+            "parceiro_descricao": (
+                f"{contrato.parceiro.codigo} - {contrato.parceiro.nome}"
+                if contrato.parceiro
+                else "Sem parceiro"
+            ),
+            "descricao_acordos": contrato.descricao_acordos or "",
+            "valor_acordo": float(contrato.valor_acordo or 0),
+        }
+        for contrato in contratos_qs
+    ]
+    contexto = {
+        "empresa": empresa,
+        "numero_contrato_prefill": (request.GET.get("numero_contrato") or "").strip(),
+        "contratos_mascara_js": contratos_mascara_js,
+    }
+    return render(request, "financeiro/contratos_redes_mascara.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_contrato_rede_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contratos Redes")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("contratos_redes", empresa_id=empresa.id)
+
+    erro = criar_contrato_rede_por_post(empresa, request.POST)
+    if erro:
+        messages.error(request, erro)
+        return redirect("contratos_redes", empresa_id=empresa.id)
+    messages.success(request, "Contrato de rede criado com sucesso.")
+    return redirect("contratos_redes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_contrato_rede_modulo(request, empresa_id, contrato_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contratos Redes")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("contratos_redes", empresa_id=empresa.id)
+
+    contrato = ContratoRede.objects.filter(id=contrato_id, empresa=empresa).first()
+    if not contrato:
+        messages.error(request, "Contrato de rede nao encontrado.")
+        return redirect("contratos_redes", empresa_id=empresa.id)
+
+    erro = atualizar_contrato_rede_por_post(contrato, empresa, request.POST)
+    if erro:
+        messages.error(request, erro)
+        return redirect("contratos_redes", empresa_id=empresa.id)
+    messages.success(request, "Contrato de rede atualizado com sucesso.")
+    return redirect("contratos_redes", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_contrato_rede_modulo(request, empresa_id, contrato_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contratos Redes")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("contratos_redes", empresa_id=empresa.id)
+
+    contrato = ContratoRede.objects.filter(id=contrato_id, empresa=empresa).first()
+    if not contrato:
+        messages.error(request, "Contrato de rede nao encontrado.")
+        return redirect("contratos_redes", empresa_id=empresa.id)
+
+    contrato.excluir_contrato_rede()
+    messages.success(request, "Contrato de rede excluido com sucesso.")
+    return redirect("contratos_redes", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

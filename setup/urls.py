@@ -111,6 +111,10 @@ urlpatterns = [
     path('adiantamentos/<int:empresa_id>/editar/<int:adiantamento_id>/', views.editar_adiantamento_modulo, name='editar_adiantamento_modulo'),
     path('adiantamentos/<int:empresa_id>/excluir/<int:adiantamento_id>/', views.excluir_adiantamento_modulo, name='excluir_adiantamento_modulo'),
     path('contratos_redes/<int:empresa_id>/', views.contratos_redes, name='contratos_redes'),
+    path('contratos_redes/<int:empresa_id>/mascara/', views.mascara_contrato_rede, name='mascara_contrato_rede'),
+    path('contratos_redes/<int:empresa_id>/criar/', views.criar_contrato_rede_modulo, name='criar_contrato_rede_modulo'),
+    path('contratos_redes/<int:empresa_id>/editar/<int:contrato_id>/', views.editar_contrato_rede_modulo, name='editar_contrato_rede_modulo'),
+    path('contratos_redes/<int:empresa_id>/excluir/<int:contrato_id>/', views.excluir_contrato_rede_modulo, name='excluir_contrato_rede_modulo'),
 
 
     # Modulos - Administrativo

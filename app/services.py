@@ -18,6 +18,7 @@ from .models import (
     Agenda,
     Atividade,
     CentroResultado,
+    ContratoRede,
     Cargas,
     Carteira,
     Cidade,
@@ -758,6 +759,112 @@ def atualizar_centro_resultado_por_dados(centro_resultado, descricao, empresa):
     if CentroResultado.objects.filter(empresa=empresa, descricao=descricao).exclude(id=centro_resultado.id).exists():
         return "Ja existe centro resultado com esta descricao nesta empresa."
     centro_resultado.atualizar_centro_resultado(descricao=descricao)
+    return ""
+
+
+def _normalizar_status_contrato(valor):
+    texto = (valor or "").strip()
+    if texto.lower() == "ativo":
+        return ContratoRede.STATUS_ATIVO
+    if texto.lower() == "inativo":
+        return ContratoRede.STATUS_INATIVO
+    return ""
+
+
+def _dados_contrato_rede_from_post(post_data, empresa):
+    data_inicio_raw = (post_data.get("data_inicio") or "").strip()
+    data_encerramento_raw = (post_data.get("data_encerramento") or "").strip()
+    parceiro_id = str(post_data.get("parceiro_id") or "").strip()
+
+    parceiro = None
+    if parceiro_id:
+        try:
+            parceiro_id_int = int(parceiro_id)
+        except (TypeError, ValueError):
+            parceiro_id_int = None
+        if parceiro_id_int and parceiro_id_int > 0:
+            parceiro = Parceiro.objects.filter(id=parceiro_id_int, empresa=empresa).first()
+
+    valor_acordo_raw = (post_data.get("valor_acordo") or "").strip()
+    return {
+        "codigo_registro": (post_data.get("codigo_registro") or "").strip(),
+        "numero_contrato": (post_data.get("numero_contrato") or "").strip(),
+        "data_inicio_raw": data_inicio_raw,
+        "data_inicio": _parse_date_ou_none(data_inicio_raw),
+        "data_encerramento_raw": data_encerramento_raw,
+        "data_encerramento": _parse_date_ou_none(data_encerramento_raw),
+        "parceiro_id_raw": parceiro_id,
+        "parceiro": parceiro,
+        "descricao_acordos": (post_data.get("descricao_acordos") or "").strip(),
+        "valor_acordo_raw": valor_acordo_raw,
+        "valor_acordo": _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(valor_acordo_raw),
+        "status_contrato": _normalizar_status_contrato(post_data.get("status_contrato")),
+    }
+
+
+def _validar_dados_contrato_rede(dados):
+    if not dados["codigo_registro"]:
+        return "Codigo de registro e obrigatorio."
+    if not dados["numero_contrato"]:
+        return "Numero do contrato e obrigatorio."
+    if not dados["data_inicio_raw"]:
+        return "Data de inicio e obrigatoria."
+    if not dados["data_inicio"]:
+        return "Data de inicio invalida."
+    if dados["data_encerramento_raw"] and not dados["data_encerramento"]:
+        return "Data de encerramento invalida."
+    if dados["data_encerramento"] and dados["data_encerramento"] < dados["data_inicio"]:
+        return "Data de encerramento nao pode ser menor que a data de inicio."
+    if dados["parceiro_id_raw"] and not dados["parceiro"]:
+        return "Parceiro invalido para o contrato."
+    if not dados["descricao_acordos"]:
+        return "Descricao dos acordos e obrigatoria."
+    if not dados["valor_acordo_raw"]:
+        return "Valor do acordo e obrigatorio."
+    if not dados["status_contrato"]:
+        return "Status do contrato invalido. Use Ativo ou Inativo."
+    return ""
+
+
+def criar_contrato_rede_por_post(empresa, post_data):
+    dados = _dados_contrato_rede_from_post(post_data, empresa)
+    erro = _validar_dados_contrato_rede(dados)
+    if erro:
+        return erro
+
+    ContratoRede.criar_contrato_rede(
+        empresa=empresa,
+        codigo_registro=dados["codigo_registro"],
+        numero_contrato=dados["numero_contrato"],
+        data_inicio=dados["data_inicio"],
+        data_encerramento=dados["data_encerramento"],
+        parceiro=dados["parceiro"],
+        descricao_acordos=dados["descricao_acordos"],
+        valor_acordo=dados["valor_acordo"],
+        status_contrato=dados["status_contrato"],
+    )
+    return ""
+
+
+def atualizar_contrato_rede_por_post(contrato, empresa, post_data):
+    if contrato.empresa_id != empresa.id:
+        return "Contrato invalido para esta empresa."
+
+    dados = _dados_contrato_rede_from_post(post_data, empresa)
+    erro = _validar_dados_contrato_rede(dados)
+    if erro:
+        return erro
+
+    contrato.atualizar_contrato_rede(
+        codigo_registro=dados["codigo_registro"],
+        numero_contrato=dados["numero_contrato"],
+        data_inicio=dados["data_inicio"],
+        data_encerramento=dados["data_encerramento"],
+        parceiro=dados["parceiro"],
+        descricao_acordos=dados["descricao_acordos"],
+        valor_acordo=dados["valor_acordo"],
+        status_contrato=dados["status_contrato"],
+    )
     return ""
 
 

@@ -2184,6 +2184,92 @@ class CentroResultado(models.Model):
     def excluir_centro_resultado(self):
         self.delete()
 
+
+class ContratoRede(models.Model):
+    STATUS_ATIVO = "Ativo"
+    STATUS_INATIVO = "Inativo"
+    STATUS_CHOICES = (
+        (STATUS_ATIVO, "Ativo"),
+        (STATUS_INATIVO, "Inativo"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="contratos_redes")
+    codigo_registro = models.CharField(max_length=80)
+    numero_contrato = models.CharField(max_length=80)
+    data_inicio = models.DateField()
+    data_encerramento = models.DateField(null=True, blank=True)
+    parceiro = models.ForeignKey(Parceiro, on_delete=models.SET_NULL, null=True, blank=True, related_name="contratos_redes")
+    descricao_acordos = models.TextField()
+    valor_acordo = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    status_contrato = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ATIVO)
+
+    def __str__(self):
+        return f"Contrato Rede #{self.id} - {self.numero_contrato}"
+
+    @classmethod
+    def criar_contrato_rede(
+        cls,
+        empresa,
+        codigo_registro,
+        numero_contrato,
+        data_inicio,
+        data_encerramento=None,
+        parceiro=None,
+        descricao_acordos="",
+        valor_acordo=0,
+        status_contrato=STATUS_ATIVO,
+    ):
+        contrato = cls(
+            empresa=empresa,
+            codigo_registro=codigo_registro,
+            numero_contrato=numero_contrato,
+            data_inicio=data_inicio,
+            data_encerramento=data_encerramento,
+            parceiro=parceiro,
+            descricao_acordos=descricao_acordos,
+            valor_acordo=valor_acordo,
+            status_contrato=status_contrato,
+        )
+        contrato.save()
+        return contrato
+
+    @classmethod
+    def listar_contratos_redes_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_contrato_rede(
+        self,
+        codigo_registro=UNSET,
+        numero_contrato=UNSET,
+        data_inicio=UNSET,
+        data_encerramento=UNSET,
+        parceiro=UNSET,
+        descricao_acordos=UNSET,
+        valor_acordo=UNSET,
+        status_contrato=UNSET,
+    ):
+        if codigo_registro is not UNSET:
+            self.codigo_registro = codigo_registro
+        if numero_contrato is not UNSET:
+            self.numero_contrato = numero_contrato
+        if data_inicio is not UNSET:
+            self.data_inicio = data_inicio
+        if data_encerramento is not UNSET:
+            self.data_encerramento = data_encerramento
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if descricao_acordos is not UNSET:
+            self.descricao_acordos = descricao_acordos
+        if valor_acordo is not UNSET:
+            self.valor_acordo = valor_acordo
+        if status_contrato is not UNSET:
+            self.status_contrato = status_contrato
+        self.save()
+
+    def excluir_contrato_rede(self):
+        self.delete()
+
+
 class FluxoDeCaixaDFC(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="fluxos_de_caixa_dfc")
     data_negociacao = models.DateField()

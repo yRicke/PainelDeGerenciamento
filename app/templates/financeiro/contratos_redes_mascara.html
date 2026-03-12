@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mascara de Contrato Redes{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'contratos_redes' empresa.id %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Financeiro</span>
+            </div>
+            <h1>Contrato Redes</h1>
+            <p class="module-hero-subtitle">Simulacao de descontos por contrato de rede.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Localizar Contrato</h2>
+    <div class="form-grid">
+        <div>
+            <label for="mascara-numero-contrato">Numero do Contrato</label>
+            <input id="mascara-numero-contrato" type="text" value="{{ numero_contrato_prefill }}" autocomplete="off">
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Informacoes do Contrato</h2>
+    <div class="form-grid">
+        <div>
+            <label for="mascara-data-inicio">Data Inicio</label>
+            <input id="mascara-data-inicio" type="text" value="-" readonly>
+        </div>
+        <div>
+            <label for="mascara-data-encerramento">Data Encerramento</label>
+            <input id="mascara-data-encerramento" type="text" value="-" readonly>
+        </div>
+        <div>
+            <label for="mascara-status">Status</label>
+            <input id="mascara-status" type="text" value="-" readonly>
+        </div>
+        <div>
+            <label for="mascara-valor-titulo">Valor Titulo (R$)</label>
+            <input id="mascara-valor-titulo" type="text" value="0,00" inputmode="decimal" autocomplete="off">
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+            <label style="display:flex; align-items:center; gap:0.4rem;">
+                <input id="mascara-calcular-inativos" type="checkbox" checked>
+                Calcular inativos?
+            </label>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Detalhamento</h2>
+    <div class="table-wrapper"><div id="mascara-contrato-tabulator"></div></div>
+</section>
+
+<section class="panel">
+    <h2>Resumo</h2>
+    <div class="form-grid">
+        <div>
+            <label for="mascara-total-descontos">Valor total de descontos</label>
+            <input id="mascara-total-descontos" type="text" value="R$ 0,00" readonly>
+        </div>
+        <div>
+            <label for="mascara-valor-liquido">Valor liquido</label>
+            <input id="mascara-valor-liquido" type="text" value="R$ 0,00" readonly>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ contratos_mascara_js|json_script:"contratos-redes-mascara-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/contratos-redes-mascara-page.js' %}"></script>
+{% endblock %}
