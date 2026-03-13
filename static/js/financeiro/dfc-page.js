@@ -476,6 +476,9 @@
     var includePrevisoesInput = document.getElementById("dfc-saldo-incluir-previsoes");
     var includeOutrasInput = document.getElementById("dfc-saldo-incluir-outras");
     var saveStatus = document.getElementById("dfc-saldo-save-status");
+    var saldoAtualEl = document.getElementById("dfc-kpi-saldo-atual");
+    var saldoPeriodoEl = document.getElementById("dfc-kpi-saldo-periodo");
+    var saldoDiferencaEl = document.getElementById("dfc-kpi-saldo-diferenca");
     var saveUrl = window.location.pathname;
 
     var checkboxDefaults = payload.checkbox_defaults || {};
@@ -603,6 +606,35 @@
         return Math.round(toNumber(value) * 100) / 100;
     }
 
+    function formatCurrencyKpi(value) {
+        var num = toNumber(value);
+        var abs = Math.abs(num).toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (num < 0) return "-R$ " + abs;
+        return "R$ " + abs;
+    }
+
+    function updateSaldoKpiCard() {
+        if (!saldoAtualEl && !saldoPeriodoEl && !saldoDiferencaEl) return;
+        var saldoFinal = rowMap.saldo_final || {values: {}};
+        var firstDayKey = dayColumns.length ? dayColumns[0].key : "";
+        var lastDayKey = dayColumns.length ? dayColumns[dayColumns.length - 1].key : "";
+        var saldoAtual = firstDayKey ? toNumber(saldoFinal.values[firstDayKey]) : 0;
+        var saldoPeriodo = lastDayKey ? toNumber(saldoFinal.values[lastDayKey]) : 0;
+        var diferenca = round2(saldoPeriodo - saldoAtual);
+
+        if (saldoAtualEl) saldoAtualEl.textContent = formatCurrencyKpi(saldoAtual);
+        if (saldoPeriodoEl) saldoPeriodoEl.textContent = formatCurrencyKpi(saldoPeriodo);
+        if (saldoDiferencaEl) {
+            saldoDiferencaEl.textContent = formatCurrencyKpi(diferenca);
+            saldoDiferencaEl.classList.remove("dfc-kpi-saldo-diff-positive");
+            saldoDiferencaEl.classList.remove("dfc-kpi-saldo-diff-negative");
+            saldoDiferencaEl.classList.remove("dfc-kpi-saldo-diff-neutral");
+            if (diferenca > 0) saldoDiferencaEl.classList.add("dfc-kpi-saldo-diff-positive");
+            else if (diferenca < 0) saldoDiferencaEl.classList.add("dfc-kpi-saldo-diff-negative");
+            else saldoDiferencaEl.classList.add("dfc-kpi-saldo-diff-neutral");
+        }
+    }
+
     function recalculateContasReceberFromDetails() {
         var parent = rowMap.contas_receber;
         var details = detailRowsByParent.contas_receber || [];
@@ -696,6 +728,7 @@
         if (rowMap.saldo_final) {
             rowMap.saldo_final.values.total_periodo = sumDayColumns(rowMap.saldo_final);
         }
+        updateSaldoKpiCard();
     }
 
     function saveManualValue(row, column, value, previousValue) {

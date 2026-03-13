@@ -1,5 +1,40 @@
 @import url("./lancamentos-shared.css");
 
+.dashboard-kpi-card-saldo {
+    grid-column: span 2;
+}
+
+.dfc-kpi-saldo-list {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.dfc-kpi-saldo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 0.95rem;
+}
+
+.dfc-kpi-saldo-item strong {
+    font-size: 1.05rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.dfc-kpi-saldo-diff-positive {
+    color: #216e39;
+}
+
+.dfc-kpi-saldo-diff-negative {
+    color: #b30000;
+}
+
+.dfc-kpi-saldo-diff-neutral {
+    color: #556070;
+}
+
 .dfc-saldo-controls {
     display: flex;
     flex-wrap: wrap;
@@ -170,5 +205,11 @@
 
 .dfc-saldo-save-error {
     color: #b30000;
+}
+
+@media (max-width: 980px) {
+    .dashboard-kpi-card-saldo {
+        grid-column: span 1;
+    }
 }
 
