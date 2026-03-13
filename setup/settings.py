@@ -30,10 +30,13 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     IP_MAQUINA,
+    '.trycloudflare.com',
+    'car-health-presidential-hart.trycloudflare.com'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     f'http://{IP_MAQUINA}',
+    f'https://car-health-presidential-hart.trycloudflare.com/'
 ]
 
 
