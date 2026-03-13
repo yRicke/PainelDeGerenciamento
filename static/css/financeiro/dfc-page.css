@@ -1,3 +1,174 @@
 @import url("./lancamentos-shared.css");
 
+.dfc-saldo-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1.2rem;
+    align-items: center;
+    margin-bottom: 0.9rem;
+}
+
+.dfc-saldo-checkbox {
+    display: inline-flex;
+    gap: 0.45rem;
+    align-items: center;
+    font-weight: 600;
+}
+
+.dfc-saldo-table-wrapper {
+    overflow-x: auto;
+}
+
+.dfc-saldo-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+}
+
+.dfc-saldo-table th,
+.dfc-saldo-table td {
+    border: 1px solid #c8d0da;
+    padding: 0.45rem 0.55rem;
+    white-space: nowrap;
+}
+
+.dfc-saldo-table thead th {
+    background: #dce7f5;
+    color: #0d2747;
+    font-size: 0.84rem;
+}
+
+.dfc-saldo-col-label {
+    min-width: 220px;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #f6f8fb;
+}
+
+.dfc-saldo-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    font-weight: 700;
+    background: #f6f8fb;
+}
+
+.dfc-saldo-row-receita td {
+    background: #d7ecff;
+}
+
+.dfc-saldo-row-despesa td {
+    background: #ffdfe2;
+}
+
+.dfc-saldo-row-total td {
+    background: #f5f6f8;
+    font-weight: 700;
+}
+
+.dfc-saldo-row-total td:first-child {
+    background: #eceef3;
+}
+
+.dfc-saldo-row-separator td {
+    border-top-width: 3px;
+}
+
+.dfc-saldo-row-receita td:first-child,
+.dfc-saldo-row-despesa td:first-child {
+    font-weight: 700;
+}
+
+.dfc-saldo-row-detail td {
+    background: #eef1f5;
+}
+
+.dfc-saldo-row-detail td:first-child {
+    background: #e7ebf0;
+    font-weight: 600;
+}
+
+.dfc-saldo-row-detail-special td {
+    background: #f8e7dc;
+}
+
+.dfc-saldo-row-detail-special td:first-child {
+    background: #f2dccd;
+}
+
+.dfc-saldo-row-detail-unchecked td {
+    opacity: 0.65;
+}
+
+.dfc-saldo-label-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.dfc-saldo-expand-btn {
+    border: 1px solid #9aa8bb;
+    background: #f1f4f8;
+    border-radius: 4px;
+    width: 1.25rem;
+    height: 1.25rem;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    color: #1e3550;
+}
+
+.dfc-saldo-expand-btn:hover {
+    background: #e5ebf2;
+}
+
+.dfc-saldo-expand-spacer {
+    display: inline-block;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.dfc-saldo-line-checkbox {
+    width: 0.95rem;
+    height: 0.95rem;
+    accent-color: #1f5fa8;
+}
+
+.dfc-saldo-detail-label {
+    letter-spacing: 0.01em;
+}
+
+.dfc-saldo-cell-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.dfc-saldo-cell-negative {
+    color: #b30000;
+}
+
+.dfc-saldo-input {
+    width: 100%;
+    min-width: 110px;
+    border: 1px solid #b8c2cf;
+    border-radius: 6px;
+    padding: 0.3rem 0.4rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    background: #fff;
+}
+
+.dfc-saldo-input:focus {
+    outline: 2px solid #7ca4cf;
+    border-color: #7ca4cf;
+}
+
+.dfc-saldo-save-ok {
+    color: #216e39;
+}
+
+.dfc-saldo-save-error {
+    color: #b30000;
+}
 

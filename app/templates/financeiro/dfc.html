@@ -99,6 +99,7 @@
                 <a href="#sec-importacao">Importacao</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-saldo-projecao">Saldo Projetado</a>
                 <a href="#sec-visualizacao">Visualizacao</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
@@ -175,6 +176,25 @@
             </div>
         </section>
 
+        <section id="sec-saldo-projecao" class="panel module-section">
+            <h2>Saldo Projetado (Hoje + 10 dias)</h2>
+            <p class="form-note">Valores manuais sao salvos automaticamente ao sair do campo.</p>
+            <div class="dfc-saldo-controls">
+                <label class="dfc-saldo-checkbox">
+                    <input type="checkbox" id="dfc-saldo-incluir-previsoes" checked>
+                    Calcular "Previsoes" no saldo
+                </label>
+                <label class="dfc-saldo-checkbox">
+                    <input type="checkbox" id="dfc-saldo-incluir-outras" checked>
+                    Calcular "Outras consideracoes" no saldo
+                </label>
+                <span id="dfc-saldo-save-status" class="file-status"></span>
+            </div>
+            <div class="table-wrapper">
+                <div id="dfc-saldo-table-wrapper" class="dfc-saldo-table-wrapper"></div>
+            </div>
+        </section>
+
         <section id="sec-visualizacao" class="panel module-section">
             <h2>Dados de DFC</h2>
             <div class="table-wrapper">
@@ -187,6 +207,7 @@
 
 {% block extra_js %}
 {{ dfc_tabulator|json_script:"dfc-tabulator-data" }}
+{{ dfc_saldo_planejado|json_script:"dfc-saldo-planejado-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
 {% endblock %}

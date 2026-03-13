@@ -2366,6 +2366,36 @@ class FluxoDeCaixaDFC(models.Model):
         self.delete()
 
 
+class DFCSaldoManual(models.Model):
+    TIPO_PREVISAO_RECEBIVEL = "previsao_recebivel"
+    TIPO_OUTRAS_CONSIDERACOES_RECEITA = "outras_consideracoes_receita"
+    TIPO_ADIANTAMENTOS_PREVISAO = "adiantamentos_previsao"
+    TIPO_OUTRAS_CONSIDERACOES_DESPESA = "outras_consideracoes_despesa"
+
+    TIPO_CHOICES = (
+        (TIPO_PREVISAO_RECEBIVEL, "Previsao Recebivel"),
+        (TIPO_OUTRAS_CONSIDERACOES_RECEITA, "Outras Consideracoes Receita"),
+        (TIPO_ADIANTAMENTOS_PREVISAO, "Adiantamentos Previsao"),
+        (TIPO_OUTRAS_CONSIDERACOES_DESPESA, "Outras Consideracoes Despesa"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="dfc_saldos_manuais")
+    data_referencia = models.DateField()
+    tipo = models.CharField(max_length=40, choices=TIPO_CHOICES)
+    valor = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "data_referencia", "tipo"],
+                name="uq_dfc_saldo_manual_empresa_data_tipo",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.empresa.nome} | {self.tipo} | {self.data_referencia}: {self.valor}"
+
+
 class Faturamento(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="faturamentos")
     nome_origem = models.CharField(max_length=120, blank=True, default="")

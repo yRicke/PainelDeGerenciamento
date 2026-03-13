@@ -457,3 +457,441 @@
 
 
 
+(function () {
+    var dataElement = document.getElementById("dfc-saldo-planejado-data");
+    var wrapper = document.getElementById("dfc-saldo-table-wrapper");
+    if (!dataElement || !wrapper) return;
+
+    var payload = {};
+    try {
+        payload = JSON.parse(dataElement.textContent || "{}");
+    } catch (err) {
+        return;
+    }
+
+    var columns = Array.isArray(payload.columns) ? payload.columns : [];
+    var sourceRows = Array.isArray(payload.rows) ? payload.rows : [];
+    if (!columns.length || !sourceRows.length) return;
+
+    var includePrevisoesInput = document.getElementById("dfc-saldo-incluir-previsoes");
+    var includeOutrasInput = document.getElementById("dfc-saldo-incluir-outras");
+    var saveStatus = document.getElementById("dfc-saldo-save-status");
+    var saveUrl = window.location.pathname;
+
+    var checkboxDefaults = payload.checkbox_defaults || {};
+    if (includePrevisoesInput && typeof checkboxDefaults.incluir_previsoes === "boolean") {
+        includePrevisoesInput.checked = checkboxDefaults.incluir_previsoes;
+    }
+    if (includeOutrasInput && typeof checkboxDefaults.incluir_outras_consideracoes === "boolean") {
+        includeOutrasInput.checked = checkboxDefaults.incluir_outras_consideracoes;
+    }
+
+    function toNumber(value) {
+        var num = Number(value);
+        return Number.isFinite(num) ? num : 0;
+    }
+
+    function cloneRow(row) {
+        var values = {};
+        var srcValues = row && row.values ? row.values : {};
+        Object.keys(srcValues).forEach(function (key) {
+            var val = srcValues[key];
+            values[key] = val === null || val === undefined ? null : toNumber(val);
+        });
+        return {
+            key: row.key || "",
+            label: row.label || "",
+            group: row.group || "",
+            editable_day: !!row.editable_day,
+            manual_tipo: row.manual_tipo || "",
+            values: values,
+            is_detail: !!row.is_detail,
+            parent_key: row.parent_key || "",
+            has_children: !!row.has_children,
+            expanded_default: !!row.expanded_default,
+            use_checkbox: !!row.use_checkbox,
+            checked: row.checked_default !== false,
+            uses_special_day_rule: !!row.uses_special_day_rule,
+        };
+    }
+
+    var rows = sourceRows.map(cloneRow);
+    var rowMap = {};
+    rows.forEach(function (row) {
+        rowMap[row.key] = row;
+    });
+    var contasReceberBaselineValues = {};
+    if (rowMap.contas_receber && rowMap.contas_receber.values) {
+        Object.keys(rowMap.contas_receber.values).forEach(function (key) {
+            contasReceberBaselineValues[key] = rowMap.contas_receber.values[key];
+        });
+    }
+    var dayColumns = columns.filter(function (col) {
+        return col && col.kind === "day";
+    });
+    var detailRowsByParent = {};
+    rows.forEach(function (row) {
+        if (!row.is_detail || !row.parent_key) return;
+        if (!detailRowsByParent[row.parent_key]) {
+            detailRowsByParent[row.parent_key] = [];
+        }
+        detailRowsByParent[row.parent_key].push(row);
+    });
+    var parentExpanded = {};
+    Object.keys(detailRowsByParent).forEach(function (parentKey) {
+        var parentRow = rowMap[parentKey];
+        parentExpanded[parentKey] = parentRow ? !!parentRow.expanded_default : false;
+    });
+
+    function formatCurrencyOrDash(value) {
+        var num = toNumber(value);
+        if (!num) return "R$ -";
+        var abs = Math.abs(num).toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (num < 0) return "-R$ " + abs;
+        return "R$ " + abs;
+    }
+
+    function formatInputNumber(value) {
+        var num = toNumber(value);
+        if (!num) return "";
+        return num.toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function parseInputNumber(text) {
+        var raw = String(text || "").trim();
+        if (!raw) return 0;
+        raw = raw.replace(/[R$\s]/g, "");
+        if (raw.indexOf(",") >= 0) {
+            raw = raw.replace(/\./g, "").replace(",", ".");
+        }
+        var parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return 0;
+        return Math.round(parsed * 100) / 100;
+    }
+
+    function getCsrfToken() {
+        var input = document.querySelector("input[name='csrfmiddlewaretoken']");
+        if (input && input.value) return input.value;
+        if (!document.cookie) return "";
+        var cookies = document.cookie.split(";");
+        for (var i = 0; i < cookies.length; i += 1) {
+            var cookie = cookies[i].trim();
+            if (cookie.indexOf("csrftoken=") === 0) {
+                return decodeURIComponent(cookie.substring("csrftoken=".length));
+            }
+        }
+        return "";
+    }
+
+    function setSaveStatus(text, cls) {
+        if (!saveStatus) return;
+        saveStatus.textContent = text || "";
+        saveStatus.classList.remove("dfc-saldo-save-ok");
+        saveStatus.classList.remove("dfc-saldo-save-error");
+        if (cls) saveStatus.classList.add(cls);
+    }
+
+    function sumDayColumns(row) {
+        var total = 0;
+        dayColumns.forEach(function (col) {
+            total += toNumber(row.values[col.key]);
+        });
+        return Math.round(total * 100) / 100;
+    }
+
+    function round2(value) {
+        return Math.round(toNumber(value) * 100) / 100;
+    }
+
+    function recalculateContasReceberFromDetails() {
+        var parent = rowMap.contas_receber;
+        var details = detailRowsByParent.contas_receber || [];
+        if (!parent || !details.length) return;
+        var enabledDetails = details.filter(function (detailRow) {
+            return detailRow.checked !== false;
+        });
+
+        if (enabledDetails.length === details.length) {
+            Object.keys(contasReceberBaselineValues).forEach(function (key) {
+                parent.values[key] = contasReceberBaselineValues[key];
+            });
+            return;
+        }
+
+        columns.forEach(function (column) {
+            parent.values[column.key] = 0;
+        });
+        enabledDetails.forEach(function (detailRow) {
+            columns.forEach(function (column) {
+                var key = column.key;
+                parent.values[key] = round2(toNumber(parent.values[key]) + toNumber(detailRow.values[key]));
+            });
+        });
+
+        var finalDayKey = dayColumns.length ? dayColumns[dayColumns.length - 1].key : "";
+        if (finalDayKey) {
+            parent.values[finalDayKey] = round2(toNumber(parent.values.total_posterior));
+        }
+    }
+
+    function recalculateComputedRows() {
+        recalculateContasReceberFromDetails();
+
+        var contasReceber = rowMap.contas_receber || {values: {}};
+        var previsaoRecebivel = rowMap.previsao_recebivel || {values: {}};
+        var outrasReceita = rowMap.outras_consideracoes_receita || {values: {}};
+        var contasPagar = rowMap.contas_pagar || {values: {}};
+        var adiantamentosPrevisao = rowMap.adiantamentos_previsao || {values: {}};
+        var outrasDespesa = rowMap.outras_consideracoes_despesa || {values: {}};
+        var saldoInicial = rowMap.saldo_inicial || {values: {}};
+        var saldoDia = rowMap.saldo_dia || {values: {}};
+        var saldoFinal = rowMap.saldo_final || {values: {}};
+
+        var incluirPrevisoes = includePrevisoesInput ? !!includePrevisoesInput.checked : true;
+        var incluirOutras = includeOutrasInput ? !!includeOutrasInput.checked : true;
+        var saldoFinalAnterior = 0;
+
+        dayColumns.forEach(function (col, index) {
+            var key = col.key;
+            if (index === 0) {
+                saldoInicial.values[key] = 0;
+            } else {
+                saldoInicial.values[key] = saldoFinalAnterior;
+            }
+
+            var entradas = toNumber(contasReceber.values[key]);
+            var saidas = toNumber(contasPagar.values[key]);
+            if (incluirPrevisoes) {
+                entradas += toNumber(previsaoRecebivel.values[key]);
+                saidas += toNumber(adiantamentosPrevisao.values[key]);
+            }
+            if (incluirOutras) {
+                entradas += toNumber(outrasReceita.values[key]);
+                saidas += toNumber(outrasDespesa.values[key]);
+            }
+
+            var saldoDiaValor = Math.round((entradas - saidas) * 100) / 100;
+            var saldoFinalValor = Math.round((toNumber(saldoInicial.values[key]) + saldoDiaValor) * 100) / 100;
+
+            saldoDia.values[key] = saldoDiaValor;
+            saldoFinal.values[key] = saldoFinalValor;
+            saldoFinalAnterior = saldoFinalValor;
+        });
+
+        if (rowMap.previsao_recebivel) {
+            rowMap.previsao_recebivel.values.total_periodo = sumDayColumns(rowMap.previsao_recebivel);
+        }
+        if (rowMap.outras_consideracoes_receita) {
+            rowMap.outras_consideracoes_receita.values.total_periodo = sumDayColumns(rowMap.outras_consideracoes_receita);
+        }
+        if (rowMap.adiantamentos_previsao) {
+            rowMap.adiantamentos_previsao.values.total_periodo = sumDayColumns(rowMap.adiantamentos_previsao);
+        }
+        if (rowMap.outras_consideracoes_despesa) {
+            rowMap.outras_consideracoes_despesa.values.total_periodo = sumDayColumns(rowMap.outras_consideracoes_despesa);
+        }
+        if (rowMap.saldo_dia) {
+            rowMap.saldo_dia.values.total_periodo = sumDayColumns(rowMap.saldo_dia);
+        }
+        if (rowMap.saldo_final) {
+            rowMap.saldo_final.values.total_periodo = sumDayColumns(rowMap.saldo_final);
+        }
+    }
+
+    function saveManualValue(row, column, value, previousValue) {
+        var csrfToken = getCsrfToken();
+        if (!csrfToken || !row.manual_tipo || !column.date_iso) return;
+
+        setSaveStatus("Salvando...", "");
+        var formData = new FormData();
+        formData.append("csrfmiddlewaretoken", csrfToken);
+        formData.append("acao", "salvar_dfc_saldo_manual");
+        formData.append("tipo", row.manual_tipo);
+        formData.append("data_referencia", column.date_iso);
+        formData.append("valor", String(value));
+
+        fetch(saveUrl, {
+            method: "POST",
+            body: formData,
+            credentials: "same-origin",
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        })
+            .then(function (response) {
+                return response
+                    .json()
+                    .catch(function () {
+                        return {};
+                    })
+                    .then(function (body) {
+                        return {ok: response.ok, body: body};
+                    });
+            })
+            .then(function (result) {
+                if (!result.ok || !result.body || result.body.ok === false) {
+                    row.values[column.key] = previousValue;
+                    recalculateComputedRows();
+                    renderTable();
+                    setSaveStatus(result.body && result.body.message ? result.body.message : "Falha ao salvar.", "dfc-saldo-save-error");
+                    return;
+                }
+                setSaveStatus("Salvo", "dfc-saldo-save-ok");
+            })
+            .catch(function () {
+                row.values[column.key] = previousValue;
+                recalculateComputedRows();
+                renderTable();
+                setSaveStatus("Falha ao salvar.", "dfc-saldo-save-error");
+            });
+    }
+
+    function bindManualInput(input, row, column) {
+        if (!input || !row || !column) return;
+
+        function commitValue() {
+            var previousValue = toNumber(row.values[column.key]);
+            var parsedValue = parseInputNumber(input.value);
+            if (Math.abs(parsedValue - previousValue) < 0.0001) {
+                input.value = formatInputNumber(parsedValue);
+                return;
+            }
+
+            row.values[column.key] = parsedValue;
+            recalculateComputedRows();
+            renderTable();
+            saveManualValue(row, column, parsedValue, previousValue);
+        }
+
+        input.addEventListener("blur", commitValue);
+        input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                input.blur();
+            }
+        });
+    }
+
+    function renderTable() {
+        recalculateComputedRows();
+
+        var table = document.createElement("table");
+        table.className = "dfc-saldo-table";
+
+        var thead = document.createElement("thead");
+        var headRow = document.createElement("tr");
+        var lineHeader = document.createElement("th");
+        lineHeader.className = "dfc-saldo-col-label";
+        lineHeader.textContent = "Linha";
+        headRow.appendChild(lineHeader);
+        columns.forEach(function (column) {
+            var th = document.createElement("th");
+            th.textContent = column.label || "";
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement("tbody");
+        rows.forEach(function (row) {
+            if (row.is_detail && !parentExpanded[row.parent_key]) return;
+
+            var tr = document.createElement("tr");
+            tr.classList.add("dfc-saldo-row-" + (row.group || "total"));
+            if (row.key === "contas_pagar" || row.key === "saldo_dia") {
+                tr.classList.add("dfc-saldo-row-separator");
+            }
+            if (row.is_detail) {
+                tr.classList.add("dfc-saldo-row-detail");
+                if (row.uses_special_day_rule) {
+                    tr.classList.add("dfc-saldo-row-detail-special");
+                }
+                if (row.checked === false) {
+                    tr.classList.add("dfc-saldo-row-detail-unchecked");
+                }
+            }
+
+            var labelTd = document.createElement("td");
+            var labelWrap = document.createElement("div");
+            labelWrap.className = "dfc-saldo-label-wrap";
+
+            if (row.has_children) {
+                var expandBtn = document.createElement("button");
+                expandBtn.type = "button";
+                expandBtn.className = "dfc-saldo-expand-btn";
+                expandBtn.textContent = parentExpanded[row.key] ? "-" : "+";
+                expandBtn.addEventListener("click", function () {
+                    parentExpanded[row.key] = !parentExpanded[row.key];
+                    renderTable();
+                });
+                labelWrap.appendChild(expandBtn);
+            } else if (row.is_detail) {
+                var spacer = document.createElement("span");
+                spacer.className = "dfc-saldo-expand-spacer";
+                spacer.textContent = "";
+                labelWrap.appendChild(spacer);
+            }
+
+            if (row.is_detail && row.use_checkbox) {
+                var checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.className = "dfc-saldo-line-checkbox";
+                checkbox.checked = row.checked !== false;
+                checkbox.addEventListener("change", function () {
+                    row.checked = !!checkbox.checked;
+                    renderTable();
+                });
+                labelWrap.appendChild(checkbox);
+            }
+
+            var labelText = document.createElement("span");
+            labelText.textContent = row.label || "";
+            if (row.is_detail) {
+                labelText.className = "dfc-saldo-detail-label";
+            }
+            labelWrap.appendChild(labelText);
+
+            labelTd.appendChild(labelWrap);
+            tr.appendChild(labelTd);
+
+            columns.forEach(function (column) {
+                var td = document.createElement("td");
+                var value = row.values[column.key];
+
+                if (row.editable_day && column.kind === "day") {
+                    var input = document.createElement("input");
+                    input.type = "text";
+                    input.className = "dfc-saldo-input";
+                    input.value = formatInputNumber(value);
+                    td.appendChild(input);
+                    bindManualInput(input, row, column);
+                } else {
+                    var span = document.createElement("span");
+                    span.className = "dfc-saldo-cell-value";
+                    span.textContent = value === null || value === undefined ? "R$ -" : formatCurrencyOrDash(value);
+                    if (toNumber(value) < 0) {
+                        span.classList.add("dfc-saldo-cell-negative");
+                    }
+                    td.appendChild(span);
+                }
+
+                tr.appendChild(td);
+            });
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        wrapper.innerHTML = "";
+        wrapper.appendChild(table);
+    }
+
+    if (includePrevisoesInput) {
+        includePrevisoesInput.addEventListener("change", renderTable);
+    }
+    if (includeOutrasInput) {
+        includeOutrasInput.addEventListener("change", renderTable);
+    }
+
+    renderTable();
+})();
