@@ -2,7 +2,7 @@ import json
 import re
 import unicodedata
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
@@ -14,7 +14,6 @@ from django.contrib import messages
 from django.db.models import Case, DecimalField, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast, Coalesce
-from django.utils import timezone
 
 from .models import (
     Adiantamento,
@@ -28,7 +27,6 @@ from .models import (
     ControleMargem,
     ContratoRede,
     ContasAReceber,
-    DFCSaldoManual,
     Empresa,
     Estoque,
     Faturamento,
@@ -153,6 +151,8 @@ from .services import (
     atualizar_contrato_rede_por_post,
     criar_dfc_por_post,
     atualizar_dfc_por_post,
+    construir_payload_tabela_saldo_dfc,
+    salvar_dfc_saldo_manual_por_post,
     criar_faturamento_por_post,
     atualizar_faturamento_por_post,
     criar_adiantamento_por_post,
@@ -237,53 +237,6 @@ TIPO_IMPORTACAO_POR_MODULO = {
     "estoque_pcp": "Pasta ESTOQUE com subpastas contendo arquivos .xls.",
 }
 
-_DFC_SALDO_DIA_SEMANA_ABREV = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
-_DFC_SALDO_CHAVE_TOTAL_ANTERIOR = "total_anterior"
-_DFC_SALDO_CHAVE_TOTAL_PERIODO = "total_periodo"
-_DFC_SALDO_CHAVE_TOTAL_POSTERIOR = "total_posterior"
-_DFC_SALDO_MANUAL_TIPOS = {
-    "previsao_recebivel": DFCSaldoManual.TIPO_PREVISAO_RECEBIVEL,
-    "outras_consideracoes_receita": DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_RECEITA,
-    "adiantamentos_previsao": DFCSaldoManual.TIPO_ADIANTAMENTOS_PREVISAO,
-    "outras_consideracoes_despesa": DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_DESPESA,
-}
-_DFC_SALDO_LABEL_SEM_TITULO = "<SEM TIPO DE TITULO>"
-_DFC_SALDO_TITULOS_REGRA_DIA_ANTERIOR = {
-    "boleto disponivel",
-    "cheque a vista",
-    "cheque pre datado",
-    "cheque pre datado em custodia",
-}
-_DFC_SALDO_CONTAS_RECEBER_ORDEM_LEGADO = (
-    "<SEM TIPO DE TITULO>",
-    "ADIANTAMENTO",
-    "BOLETO CARTORIO",
-    "BOLETO COBRANÇA INTERNA",
-    "BOLETO DESCONTADO",
-    "BOLETO DESPESA",
-    "BOLETO DISPONIVEL",
-    "BOLETO PROTESTADO",
-    "CHEQUE A VISTA",
-    "CHEQUE PRÉ DATADO",
-    "CHEQUE PRÉ DATADO EM CUSTODIA",
-    "COBRANÇA INTERNA",
-    "COBRANÇA INTERNO (DESCONTADO)",
-    "COMPENSAÇÃO",
-    "CONSULTH - COBRANÇA EXTERNA",
-    "DÉBITO AUTOMATICO",
-    "DEVOLUÇÃO DE VENDA",
-    "DINHEIRO",
-    "JURIDICO 1",
-    "JURIDICO 2",
-    "NEGATIVADO",
-    "NOTA FISCAL DESCONTADA",
-    "NOTA FISCAL DISPONIVEL",
-    "PAGAMENTO ELETRONICO",
-    "PAG-TED",
-    "PDD",
-)
-
-
 def _obter_modulo(area, nome):
     return next(m for m in MODULOS_POR_AREA[area] if m["nome"] == nome)
 
@@ -309,649 +262,6 @@ def _normalizar_empresa_id(empresa_id):
     if empresa_id_int <= 0:
         return None
     return empresa_id_int
-
-
-def _parse_decimal_dfc_saldo_ou_zero(valor):
-    texto = str(valor or "").strip()
-    if not texto:
-        return Decimal("0")
-
-    texto = texto.replace("R$", "").replace(" ", "")
-    texto_lower = texto.lower()
-    if "," in texto:
-        texto = texto.replace(".", "").replace(",", ".")
-    elif texto.count(".") > 1 and "e" not in texto_lower:
-        texto = texto.replace(".", "")
-
-    try:
-        numero = Decimal(texto)
-    except InvalidOperation:
-        return Decimal("0")
-
-    try:
-        return numero.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    except InvalidOperation:
-        return Decimal("0")
-
-
-def _normalizar_token_texto(valor):
-    texto = str(valor or "").strip().lower()
-    if not texto:
-        return ""
-    texto = unicodedata.normalize("NFKD", texto)
-    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    return " ".join(texto.split())
-
-
-def _classificar_tipo_dfc_por_linha(item):
-    valor = _parse_decimal_dfc_saldo_ou_zero(item.get("valor_liquido_num"))
-    if valor > 0:
-        return "receita"
-    if valor < 0:
-        return "despesa"
-
-    tipo_movimento = _normalizar_token_texto(item.get("tipo_movimento"))
-    if "receita" in tipo_movimento:
-        return "receita"
-    if "despesa" in tipo_movimento:
-        return "despesa"
-
-    operacao_descricao = _normalizar_token_texto(item.get("operacao__descricao_receita_despesa"))
-    if "receita" in operacao_descricao:
-        return "receita"
-    if "despesa" in operacao_descricao:
-        return "despesa"
-    return ""
-
-
-def _chave_coluna_dia_dfc_saldo(data_ref):
-    return f"d_{data_ref.strftime('%Y_%m_%d')}"
-
-
-def _somar_mapa_por_intervalo(mapa_por_data, *, inicio=None, fim=None):
-    total = Decimal("0")
-    for data_ref, valor in (mapa_por_data or {}).items():
-        if inicio and data_ref < inicio:
-            continue
-        if fim and data_ref > fim:
-            continue
-        total += _parse_decimal_dfc_saldo_ou_zero(valor)
-    return total
-
-
-def _float_ou_none(valor_decimal):
-    if valor_decimal is None:
-        return None
-    return float(_parse_decimal_dfc_saldo_ou_zero(valor_decimal))
-
-
-def _montar_valores_linha_dfc_saldo(mapa_por_data, datas_periodo, inicio_periodo, fim_periodo):
-    mapa = mapa_por_data or {}
-    valores = {
-        _DFC_SALDO_CHAVE_TOTAL_ANTERIOR: _float_ou_none(
-            _somar_mapa_por_intervalo(mapa, fim=inicio_periodo - timedelta(days=1))
-        ),
-        _DFC_SALDO_CHAVE_TOTAL_PERIODO: _float_ou_none(
-            _somar_mapa_por_intervalo(mapa, inicio=inicio_periodo, fim=fim_periodo)
-        ),
-        _DFC_SALDO_CHAVE_TOTAL_POSTERIOR: _float_ou_none(
-            _somar_mapa_por_intervalo(mapa, inicio=fim_periodo + timedelta(days=1))
-        ),
-    }
-    for data_ref in datas_periodo:
-        chave = _chave_coluna_dia_dfc_saldo(data_ref)
-        valores[chave] = _float_ou_none(mapa.get(data_ref, Decimal("0")))
-    return valores
-
-
-def _titulo_conta_receber_label_dfc_saldo(item):
-    titulo_descricao = str(item.get("titulo__descricao") or "").strip()
-    if not titulo_descricao:
-        return _DFC_SALDO_LABEL_SEM_TITULO
-    return titulo_descricao.upper()
-
-
-def _titulo_conta_receber_usa_regra_dia_anterior(label):
-    return _normalizar_token_texto(label) in _DFC_SALDO_TITULOS_REGRA_DIA_ANTERIOR
-
-
-def _mapa_dias_receita_por_titulo(mapa_base_por_data, datas_periodo, usar_regra_dia_anterior):
-    mapa_base = mapa_base_por_data or {}
-    mapa_dias = {}
-    if not usar_regra_dia_anterior:
-        for data_ref in datas_periodo:
-            mapa_dias[data_ref] = _parse_decimal_dfc_saldo_ou_zero(mapa_base.get(data_ref))
-        return mapa_dias
-
-    for data_ref in datas_periodo:
-        dia_semana = data_ref.weekday()
-        if dia_semana >= 5:
-            mapa_dias[data_ref] = Decimal("0")
-            continue
-        if dia_semana == 0:  # segunda-feira considera sexta+sabado+domingo
-            data_inicio = data_ref - timedelta(days=3)
-            data_fim = data_ref - timedelta(days=1)
-        else:
-            data_inicio = data_ref - timedelta(days=1)
-            data_fim = data_ref - timedelta(days=1)
-        mapa_dias[data_ref] = _somar_mapa_por_intervalo(
-            mapa_base,
-            inicio=data_inicio,
-            fim=data_fim,
-        )
-    return mapa_dias
-
-
-def _chave_detalhe_conta_receber(label, indice):
-    base = _normalizar_token_texto(label)
-    base = re.sub(r"[^a-z0-9]+", "_", base).strip("_")
-    if not base:
-        base = "sem_titulo"
-    return f"contas_receber_detalhe_{indice}_{base}"
-
-
-def _aplicar_ajustes_legacy_totais_linha_receita(
-    *,
-    mapa_base_por_data,
-    inicio_periodo,
-    fim_periodo,
-    ajuste_prev_titulo4=Decimal("0"),
-):
-    total_anterior = _somar_mapa_por_intervalo(
-        mapa_base_por_data,
-        fim=inicio_periodo - timedelta(days=1),
-    )
-    total_periodo = _somar_mapa_por_intervalo(
-        mapa_base_por_data,
-        inicio=inicio_periodo,
-        fim=fim_periodo,
-    )
-    total_posterior = _somar_mapa_por_intervalo(
-        mapa_base_por_data,
-        inicio=fim_periodo + timedelta(days=1),
-    )
-    ajuste_prev = _parse_decimal_dfc_saldo_ou_zero(ajuste_prev_titulo4)
-    ajuste_dia_final = _parse_decimal_dfc_saldo_ou_zero(mapa_base_por_data.get(fim_periodo, Decimal("0"))).copy_abs()
-    total_anterior = total_anterior - ajuste_prev
-    total_periodo = total_periodo + ajuste_prev - ajuste_dia_final
-    total_posterior = total_posterior + ajuste_dia_final
-    return total_anterior, total_periodo, total_posterior
-
-
-def _mapa_dfc_saldos_manuais_por_tipo(empresa):
-    resultado = {tipo: {} for tipo in _DFC_SALDO_MANUAL_TIPOS.values()}
-    saldos_qs = DFCSaldoManual.objects.filter(empresa=empresa).values("data_referencia", "tipo", "valor")
-    for item in saldos_qs:
-        tipo = item.get("tipo")
-        data_ref = item.get("data_referencia")
-        if not tipo or not data_ref:
-            continue
-        if tipo not in resultado:
-            resultado[tipo] = {}
-        resultado[tipo][data_ref] = _parse_decimal_dfc_saldo_ou_zero(item.get("valor"))
-    return resultado
-
-
-def _montar_linha_saldo_inicial_e_saldos_dia(
-    *,
-    datas_periodo,
-    mapa_contas_receber,
-    mapa_previsao_recebivel,
-    mapa_outras_receita,
-    mapa_contas_pagar,
-    mapa_adiantamentos_previsao,
-    mapa_outras_despesa,
-    incluir_previsoes=True,
-    incluir_outras=True,
-):
-    saldo_inicial_por_data = {}
-    saldo_dia_por_data = {}
-    saldo_final_por_data = {}
-
-    for indice, data_ref in enumerate(datas_periodo):
-        if indice <= 0:
-            saldo_inicial = Decimal("0")
-        else:
-            dia_anterior = datas_periodo[indice - 1]
-            saldo_inicial = saldo_final_por_data.get(dia_anterior, Decimal("0"))
-        saldo_inicial_por_data[data_ref] = saldo_inicial
-
-        entradas = _parse_decimal_dfc_saldo_ou_zero(mapa_contas_receber.get(data_ref, Decimal("0")))
-        saidas = _parse_decimal_dfc_saldo_ou_zero(mapa_contas_pagar.get(data_ref, Decimal("0")))
-
-        if incluir_previsoes:
-            entradas += _parse_decimal_dfc_saldo_ou_zero(mapa_previsao_recebivel.get(data_ref, Decimal("0")))
-            saidas += _parse_decimal_dfc_saldo_ou_zero(mapa_adiantamentos_previsao.get(data_ref, Decimal("0")))
-
-        if incluir_outras:
-            entradas += _parse_decimal_dfc_saldo_ou_zero(mapa_outras_receita.get(data_ref, Decimal("0")))
-            saidas += _parse_decimal_dfc_saldo_ou_zero(mapa_outras_despesa.get(data_ref, Decimal("0")))
-
-        saldo_dia = entradas - saidas
-        saldo_final = saldo_inicial + saldo_dia
-        saldo_dia_por_data[data_ref] = saldo_dia
-        saldo_final_por_data[data_ref] = saldo_final
-
-    return saldo_inicial_por_data, saldo_dia_por_data, saldo_final_por_data
-
-
-def _ajuste_legacy_resumo_contas_receber(
-    *,
-    dfc_registros,
-    mapa_contas_receber,
-    inicio_periodo,
-    fim_periodo,
-):
-    # Compatibilidade com o legado:
-    # 1) Total posterior considera o dia final do periodo como parte do bloco posterior.
-    # 2) Total anterior desconsidera receitas do dia anterior ao inicio com titulo codigo "4",
-    #    deslocando esse valor para o total do periodo.
-    dia_anterior = inicio_periodo - timedelta(days=1)
-    ajuste_prev_titulo4 = Decimal("0")
-    for item in dfc_registros or []:
-        data_vencimento = item.get("data_vencimento")
-        if data_vencimento != dia_anterior:
-            continue
-        titulo_codigo = str(item.get("titulo__tipo_titulo_codigo") or "").strip()
-        if titulo_codigo != "4":
-            continue
-        if _classificar_tipo_dfc_por_linha(item) != "receita":
-            continue
-        ajuste_prev_titulo4 += _parse_decimal_dfc_saldo_ou_zero(item.get("valor_liquido_num")).copy_abs()
-
-    ajuste_dia_final = _parse_decimal_dfc_saldo_ou_zero(mapa_contas_receber.get(fim_periodo, Decimal("0"))).copy_abs()
-    return ajuste_prev_titulo4, ajuste_dia_final
-
-
-def _construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_periodo=10):
-    hoje_ref = hoje or timezone.localdate()
-    datas_periodo = [hoje_ref + timedelta(days=offset) for offset in range(max(0, int(dias_periodo)) + 1)]
-    if not datas_periodo:
-        datas_periodo = [hoje_ref]
-    inicio_periodo = datas_periodo[0]
-    fim_periodo = datas_periodo[-1]
-
-    mapa_contas_receber = {}
-    mapa_contas_pagar = {}
-    mapa_contas_receber_por_titulo_norm = {}
-    mapa_rotulo_titulo_por_norm = {}
-    ajuste_prev_titulo4_por_norm = {}
-    dia_anterior_inicio = inicio_periodo - timedelta(days=1)
-    for item in dfc_registros or []:
-        data_ref = item.get("data_vencimento") or item.get("data_negociacao")
-        if not data_ref:
-            continue
-        valor = _parse_decimal_dfc_saldo_ou_zero(item.get("valor_liquido_num"))
-        tipo = _classificar_tipo_dfc_por_linha(item)
-        if tipo == "receita":
-            mapa_contas_receber[data_ref] = mapa_contas_receber.get(data_ref, Decimal("0")) + valor.copy_abs()
-            titulo_label = _titulo_conta_receber_label_dfc_saldo(item)
-            titulo_norm = _normalizar_token_texto(titulo_label)
-            if titulo_norm not in mapa_contas_receber_por_titulo_norm:
-                mapa_contas_receber_por_titulo_norm[titulo_norm] = {}
-            if titulo_norm not in mapa_rotulo_titulo_por_norm:
-                mapa_rotulo_titulo_por_norm[titulo_norm] = titulo_label
-            mapa_contas_receber_por_titulo_norm[titulo_norm][data_ref] = (
-                mapa_contas_receber_por_titulo_norm[titulo_norm].get(data_ref, Decimal("0")) + valor.copy_abs()
-            )
-            if data_ref == dia_anterior_inicio and str(item.get("titulo__tipo_titulo_codigo") or "").strip() == "4":
-                ajuste_prev_titulo4_por_norm[titulo_norm] = (
-                    ajuste_prev_titulo4_por_norm.get(titulo_norm, Decimal("0")) + valor.copy_abs()
-                )
-        elif tipo == "despesa":
-            mapa_contas_pagar[data_ref] = mapa_contas_pagar.get(data_ref, Decimal("0")) + valor.copy_abs()
-
-    mapa_manuais = _mapa_dfc_saldos_manuais_por_tipo(empresa)
-    mapa_previsao_recebivel = mapa_manuais.get(DFCSaldoManual.TIPO_PREVISAO_RECEBIVEL, {})
-    mapa_outras_receita = mapa_manuais.get(DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_RECEITA, {})
-    mapa_adiantamentos_previsao = mapa_manuais.get(DFCSaldoManual.TIPO_ADIANTAMENTOS_PREVISAO, {})
-    mapa_outras_despesa = mapa_manuais.get(DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_DESPESA, {})
-    mapa_contas_receber_base = dict(mapa_contas_receber)
-
-    detalhes_contas_receber = []
-    mapa_contas_receber_dias = {data_ref: Decimal("0") for data_ref in datas_periodo}
-    ordem_norm_legacy = [
-        (_normalizar_token_texto(label), label)
-        for label in _DFC_SALDO_CONTAS_RECEBER_ORDEM_LEGADO
-    ]
-    normas_legacy = {norm for norm, _ in ordem_norm_legacy}
-    extras_norm = sorted(
-        [norm for norm in mapa_contas_receber_por_titulo_norm.keys() if norm not in normas_legacy],
-        key=lambda norm: _normalizar_token_texto(mapa_rotulo_titulo_por_norm.get(norm, norm)),
-    )
-    ordem_final = list(ordem_norm_legacy) + [
-        (norm, mapa_rotulo_titulo_por_norm.get(norm, "").upper() or norm.upper())
-        for norm in extras_norm
-    ]
-
-    for indice, (titulo_norm, titulo_label_exibicao) in enumerate(ordem_final, start=1):
-        mapa_base_titulo = mapa_contas_receber_por_titulo_norm.get(titulo_norm, {})
-        usar_regra_dia_anterior = _titulo_conta_receber_usa_regra_dia_anterior(titulo_label_exibicao)
-        mapa_dias_titulo = _mapa_dias_receita_por_titulo(
-            mapa_base_titulo,
-            datas_periodo,
-            usar_regra_dia_anterior,
-        )
-        for data_ref in datas_periodo:
-            mapa_contas_receber_dias[data_ref] = (
-                mapa_contas_receber_dias.get(data_ref, Decimal("0"))
-                + _parse_decimal_dfc_saldo_ou_zero(mapa_dias_titulo.get(data_ref))
-            )
-        valores_titulo = _montar_valores_linha_dfc_saldo(
-            mapa_base_titulo,
-            datas_periodo,
-            inicio_periodo,
-            fim_periodo,
-        )
-        (
-            total_anterior_titulo,
-            total_periodo_titulo,
-            total_posterior_titulo,
-        ) = _aplicar_ajustes_legacy_totais_linha_receita(
-            mapa_base_por_data=mapa_base_titulo,
-            inicio_periodo=inicio_periodo,
-            fim_periodo=fim_periodo,
-            ajuste_prev_titulo4=ajuste_prev_titulo4_por_norm.get(titulo_norm, Decimal("0")),
-        )
-        valores_titulo[_DFC_SALDO_CHAVE_TOTAL_ANTERIOR] = _float_ou_none(total_anterior_titulo)
-        valores_titulo[_DFC_SALDO_CHAVE_TOTAL_PERIODO] = _float_ou_none(total_periodo_titulo)
-        valores_titulo[_DFC_SALDO_CHAVE_TOTAL_POSTERIOR] = _float_ou_none(total_posterior_titulo)
-        for data_ref in datas_periodo:
-            chave_coluna = _chave_coluna_dia_dfc_saldo(data_ref)
-            valores_titulo[chave_coluna] = _float_ou_none(mapa_dias_titulo.get(data_ref, Decimal("0")))
-        detalhes_contas_receber.append(
-            {
-                "key": _chave_detalhe_conta_receber(titulo_label_exibicao, indice),
-                "label": titulo_label_exibicao,
-                "group": "receita",
-                "editable_day": False,
-                "manual_tipo": "",
-                "values": valores_titulo,
-                "is_detail": True,
-                "parent_key": "contas_receber",
-                "use_checkbox": True,
-                "checked_default": True,
-                "uses_special_day_rule": usar_regra_dia_anterior,
-            }
-        )
-
-    valores_contas_receber = _montar_valores_linha_dfc_saldo(
-        mapa_contas_receber,
-        datas_periodo,
-        inicio_periodo,
-        fim_periodo,
-    )
-    for data_ref in datas_periodo:
-        chave_coluna = _chave_coluna_dia_dfc_saldo(data_ref)
-        valores_contas_receber[chave_coluna] = _float_ou_none(mapa_contas_receber_dias.get(data_ref, Decimal("0")))
-
-    saldo_inicial_por_data, saldo_dia_por_data, saldo_final_por_data = _montar_linha_saldo_inicial_e_saldos_dia(
-        datas_periodo=datas_periodo,
-        mapa_contas_receber=mapa_contas_receber_dias,
-        mapa_previsao_recebivel=mapa_previsao_recebivel,
-        mapa_outras_receita=mapa_outras_receita,
-        mapa_contas_pagar=mapa_contas_pagar,
-        mapa_adiantamentos_previsao=mapa_adiantamentos_previsao,
-        mapa_outras_despesa=mapa_outras_despesa,
-        incluir_previsoes=True,
-        incluir_outras=True,
-    )
-
-    colunas = [
-        {
-            "key": _DFC_SALDO_CHAVE_TOTAL_ANTERIOR,
-            "label": f"Total Anterior a {inicio_periodo.strftime('%d/%m/%Y')}",
-            "kind": "summary",
-        },
-        {
-            "key": _DFC_SALDO_CHAVE_TOTAL_PERIODO,
-            "label": "TOTAL Periodo",
-            "kind": "summary",
-        },
-        {
-            "key": _DFC_SALDO_CHAVE_TOTAL_POSTERIOR,
-            "label": f"Total Posterior a {fim_periodo.strftime('%d/%m/%Y')}",
-            "kind": "summary",
-        },
-    ]
-    for data_ref in datas_periodo:
-        colunas.append(
-            {
-                "key": _chave_coluna_dia_dfc_saldo(data_ref),
-                "label": f"{data_ref.strftime('%d/%m/%y')} - {_DFC_SALDO_DIA_SEMANA_ABREV[data_ref.weekday()]}",
-                "kind": "day",
-                "date_iso": data_ref.strftime("%Y-%m-%d"),
-            }
-        )
-
-    linha_saldo_inicial = {
-        _DFC_SALDO_CHAVE_TOTAL_ANTERIOR: None,
-        _DFC_SALDO_CHAVE_TOTAL_PERIODO: None,
-        _DFC_SALDO_CHAVE_TOTAL_POSTERIOR: None,
-    }
-    linha_saldo_dia = {
-        _DFC_SALDO_CHAVE_TOTAL_ANTERIOR: None,
-        _DFC_SALDO_CHAVE_TOTAL_PERIODO: _float_ou_none(sum(saldo_dia_por_data.values(), Decimal("0"))),
-        _DFC_SALDO_CHAVE_TOTAL_POSTERIOR: None,
-    }
-    linha_saldo_final = {
-        _DFC_SALDO_CHAVE_TOTAL_ANTERIOR: None,
-        _DFC_SALDO_CHAVE_TOTAL_PERIODO: _float_ou_none(sum(saldo_final_por_data.values(), Decimal("0"))),
-        _DFC_SALDO_CHAVE_TOTAL_POSTERIOR: None,
-    }
-    for data_ref in datas_periodo:
-        chave = _chave_coluna_dia_dfc_saldo(data_ref)
-        linha_saldo_inicial[chave] = _float_ou_none(saldo_inicial_por_data.get(data_ref, Decimal("0")))
-        linha_saldo_dia[chave] = _float_ou_none(saldo_dia_por_data.get(data_ref, Decimal("0")))
-        linha_saldo_final[chave] = _float_ou_none(saldo_final_por_data.get(data_ref, Decimal("0")))
-
-    linhas = [
-        {
-            "key": "saldo_inicial",
-            "label": "Saldo Inicial",
-            "group": "total",
-            "editable_day": False,
-            "manual_tipo": "",
-            "values": linha_saldo_inicial,
-        },
-        {
-            "key": "contas_receber",
-            "label": "CONTAS A RECEBER",
-            "group": "receita",
-            "editable_day": False,
-            "manual_tipo": "",
-            "values": valores_contas_receber,
-            "has_children": bool(detalhes_contas_receber),
-            "expanded_default": False,
-            "use_checkbox": False,
-        },
-        *detalhes_contas_receber,
-        {
-            "key": "previsao_recebivel",
-            "label": "PREVISAO RECEBIVEL",
-            "group": "receita",
-            "editable_day": True,
-            "manual_tipo": DFCSaldoManual.TIPO_PREVISAO_RECEBIVEL,
-            "values": _montar_valores_linha_dfc_saldo(mapa_previsao_recebivel, datas_periodo, inicio_periodo, fim_periodo),
-        },
-        {
-            "key": "outras_consideracoes_receita",
-            "label": "OUTRAS CONSIDERACOES",
-            "group": "receita",
-            "editable_day": True,
-            "manual_tipo": DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_RECEITA,
-            "values": _montar_valores_linha_dfc_saldo(mapa_outras_receita, datas_periodo, inicio_periodo, fim_periodo),
-        },
-        {
-            "key": "contas_pagar",
-            "label": "CONTAS A PAGAR",
-            "group": "despesa",
-            "editable_day": False,
-            "manual_tipo": "",
-            "values": _montar_valores_linha_dfc_saldo(mapa_contas_pagar, datas_periodo, inicio_periodo, fim_periodo),
-        },
-        {
-            "key": "adiantamentos_previsao",
-            "label": "ADIANTAMENTOS PREVISAO",
-            "group": "despesa",
-            "editable_day": True,
-            "manual_tipo": DFCSaldoManual.TIPO_ADIANTAMENTOS_PREVISAO,
-            "values": _montar_valores_linha_dfc_saldo(
-                mapa_adiantamentos_previsao,
-                datas_periodo,
-                inicio_periodo,
-                fim_periodo,
-            ),
-        },
-        {
-            "key": "outras_consideracoes_despesa",
-            "label": "OUTRAS CONSIDERACOES",
-            "group": "despesa",
-            "editable_day": True,
-            "manual_tipo": DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_DESPESA,
-            "values": _montar_valores_linha_dfc_saldo(mapa_outras_despesa, datas_periodo, inicio_periodo, fim_periodo),
-        },
-        {
-            "key": "saldo_dia",
-            "label": "SALDO DO DIA",
-            "group": "total",
-            "editable_day": False,
-            "manual_tipo": "",
-            "values": linha_saldo_dia,
-        },
-        {
-            "key": "saldo_final",
-            "label": "SALDO FINAL",
-            "group": "total",
-            "editable_day": False,
-            "manual_tipo": "",
-            "values": linha_saldo_final,
-        },
-    ]
-
-    contas_receber_row = next((row for row in linhas if row.get("key") == "contas_receber"), None)
-    if contas_receber_row:
-        ajuste_prev_titulo4, ajuste_dia_final = _ajuste_legacy_resumo_contas_receber(
-            dfc_registros=dfc_registros,
-            mapa_contas_receber=mapa_contas_receber_base,
-            inicio_periodo=inicio_periodo,
-            fim_periodo=fim_periodo,
-        )
-        total_anterior = _somar_mapa_por_intervalo(
-            mapa_contas_receber_base,
-            fim=inicio_periodo - timedelta(days=1),
-        )
-        total_periodo = _somar_mapa_por_intervalo(
-            mapa_contas_receber_base,
-            inicio=inicio_periodo,
-            fim=fim_periodo,
-        )
-        total_posterior = _somar_mapa_por_intervalo(
-            mapa_contas_receber_base,
-            inicio=fim_periodo + timedelta(days=1),
-        )
-
-        total_anterior = total_anterior - ajuste_prev_titulo4
-        total_periodo = total_periodo + ajuste_prev_titulo4 - ajuste_dia_final
-        total_posterior = total_posterior + ajuste_dia_final
-
-        valores = contas_receber_row.get("values") or {}
-        valores[_DFC_SALDO_CHAVE_TOTAL_ANTERIOR] = _float_ou_none(total_anterior)
-        valores[_DFC_SALDO_CHAVE_TOTAL_PERIODO] = _float_ou_none(total_periodo)
-        valores[_DFC_SALDO_CHAVE_TOTAL_POSTERIOR] = _float_ou_none(total_posterior)
-        # Compatibilidade legado: a ultima coluna diaria da linha azul replica o Total Posterior.
-        chave_dia_final = _chave_coluna_dia_dfc_saldo(fim_periodo)
-        valores[chave_dia_final] = _float_ou_none(total_posterior)
-
-        mapa_contas_receber_ajustado = {}
-        for data_ref in datas_periodo:
-            chave_dia = _chave_coluna_dia_dfc_saldo(data_ref)
-            mapa_contas_receber_ajustado[data_ref] = _parse_decimal_dfc_saldo_ou_zero(valores.get(chave_dia))
-
-        (
-            saldo_inicial_ajustado_por_data,
-            saldo_dia_ajustado_por_data,
-            saldo_final_ajustado_por_data,
-        ) = _montar_linha_saldo_inicial_e_saldos_dia(
-            datas_periodo=datas_periodo,
-            mapa_contas_receber=mapa_contas_receber_ajustado,
-            mapa_previsao_recebivel=mapa_previsao_recebivel,
-            mapa_outras_receita=mapa_outras_receita,
-            mapa_contas_pagar=mapa_contas_pagar,
-            mapa_adiantamentos_previsao=mapa_adiantamentos_previsao,
-            mapa_outras_despesa=mapa_outras_despesa,
-            incluir_previsoes=True,
-            incluir_outras=True,
-        )
-
-        saldo_inicial_row = next((row for row in linhas if row.get("key") == "saldo_inicial"), None)
-        saldo_dia_row = next((row for row in linhas if row.get("key") == "saldo_dia"), None)
-        saldo_final_row = next((row for row in linhas if row.get("key") == "saldo_final"), None)
-
-        if saldo_inicial_row:
-            valores_saldo_inicial = saldo_inicial_row.get("values") or {}
-            for data_ref in datas_periodo:
-                chave_dia = _chave_coluna_dia_dfc_saldo(data_ref)
-                valores_saldo_inicial[chave_dia] = _float_ou_none(saldo_inicial_ajustado_por_data.get(data_ref, Decimal("0")))
-
-        if saldo_dia_row:
-            valores_saldo_dia = saldo_dia_row.get("values") or {}
-            valores_saldo_dia[_DFC_SALDO_CHAVE_TOTAL_PERIODO] = _float_ou_none(
-                sum(saldo_dia_ajustado_por_data.values(), Decimal("0"))
-            )
-            for data_ref in datas_periodo:
-                chave_dia = _chave_coluna_dia_dfc_saldo(data_ref)
-                valores_saldo_dia[chave_dia] = _float_ou_none(saldo_dia_ajustado_por_data.get(data_ref, Decimal("0")))
-
-        if saldo_final_row:
-            valores_saldo_final = saldo_final_row.get("values") or {}
-            valores_saldo_final[_DFC_SALDO_CHAVE_TOTAL_PERIODO] = _float_ou_none(
-                sum(saldo_final_ajustado_por_data.values(), Decimal("0"))
-            )
-            for data_ref in datas_periodo:
-                chave_dia = _chave_coluna_dia_dfc_saldo(data_ref)
-                valores_saldo_final[chave_dia] = _float_ou_none(saldo_final_ajustado_por_data.get(data_ref, Decimal("0")))
-
-    return {
-        "columns": colunas,
-        "rows": linhas,
-        "today_iso": hoje_ref.strftime("%Y-%m-%d"),
-        "period_end_iso": fim_periodo.strftime("%Y-%m-%d"),
-        "checkbox_defaults": {
-            "incluir_previsoes": True,
-            "incluir_outras_consideracoes": True,
-        },
-    }
-
-
-def _salvar_dfc_saldo_manual_por_post(empresa, post_data):
-    data_raw = str(post_data.get("data_referencia") or "").strip()
-    tipo_raw = str(post_data.get("tipo") or "").strip()
-    valor = _parse_decimal_dfc_saldo_ou_zero(post_data.get("valor"))
-
-    if tipo_raw not in _DFC_SALDO_MANUAL_TIPOS.values():
-        return False, "Tipo de linha invalido.", Decimal("0")
-
-    try:
-        data_referencia = datetime.strptime(data_raw, "%Y-%m-%d").date()
-    except (TypeError, ValueError):
-        return False, "Data de referencia invalida.", Decimal("0")
-
-    if valor == Decimal("0"):
-        DFCSaldoManual.objects.filter(
-            empresa=empresa,
-            data_referencia=data_referencia,
-            tipo=tipo_raw,
-        ).delete()
-        return True, "Valor removido.", Decimal("0")
-
-    DFCSaldoManual.objects.update_or_create(
-        empresa=empresa,
-        data_referencia=data_referencia,
-        tipo=tipo_raw,
-        defaults={"valor": valor},
-    )
-    return True, "Valor salvo com sucesso.", valor
 
 
 def _nome_metadados_importacao_por_empresa(empresa_id):
@@ -2474,7 +1784,7 @@ def dfc(request, empresa_id):
     if request.method == "POST":
         acao = request.POST.get("acao")
         if acao == "salvar_dfc_saldo_manual":
-            ok, mensagem, valor = _salvar_dfc_saldo_manual_por_post(empresa, request.POST)
+            ok, mensagem, valor = salvar_dfc_saldo_manual_por_post(empresa, request.POST)
             status = 200 if ok else 400
             return JsonResponse(
                 {
@@ -2573,7 +1883,7 @@ def dfc(request, empresa_id):
             empresa.id,
             permitir_edicao=not _empresa_bloqueia_cadastro_edicao_importacao(empresa),
         ),
-        "dfc_saldo_planejado": _construir_payload_tabela_saldo_dfc(empresa, dfc_registros),
+        "dfc_saldo_planejado": construir_payload_tabela_saldo_dfc(empresa, dfc_registros),
     }
     return render(request, modulo["template"], contexto)
 
@@ -3381,7 +2691,7 @@ def editar_parceiro_modulo(request, empresa_id, parceiro_id):
 
     parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first()
     if not parceiro:
-        messages.error(request, "Parceiro não encontrado.")
+        messages.error(request, "Parceiro nÃ£o encontrado.")
         return redirect("parceiros", empresa_id=empresa.id)
 
     erro = atualizar_parceiro_por_dados(
@@ -3409,11 +2719,11 @@ def excluir_parceiro_modulo(request, empresa_id, parceiro_id):
 
     parceiro = Parceiro.objects.filter(id=parceiro_id, empresa=empresa).first()
     if not parceiro:
-        messages.error(request, "Parceiro não encontrado.")
+        messages.error(request, "Parceiro nÃ£o encontrado.")
         return redirect("parceiros", empresa_id=empresa.id)
 
     parceiro.excluir_parceiro()
-    messages.success(request, "Parceiro excluído com sucesso.")
+    messages.success(request, "Parceiro excluÃ­do com sucesso.")
     return redirect("parceiros", empresa_id=empresa.id)
 
 
@@ -3803,7 +3113,7 @@ def editar_motorista_modulo(request, empresa_id, motorista_id):
 
     motorista = Motorista.objects.filter(id=motorista_id, empresa=empresa).first()
     if not motorista:
-        messages.error(request, "Motorista não encontrado.")
+        messages.error(request, "Motorista nÃ£o encontrado.")
         return redirect("motoristas", empresa_id=empresa.id)
 
     erro = atualizar_motorista_por_dados(
@@ -3829,15 +3139,15 @@ def excluir_motorista_modulo(request, empresa_id, motorista_id):
 
     motorista = Motorista.objects.filter(id=motorista_id, empresa=empresa).first()
     if not motorista:
-        messages.error(request, "Motorista não encontrado.")
+        messages.error(request, "Motorista nÃ£o encontrado.")
         return redirect("motoristas", empresa_id=empresa.id)
 
     try:
         motorista.excluir_motorista()
     except ProtectedError:
-        messages.error(request, "Não é possível excluir o motorista porque há agendas vinculadas.")
+        messages.error(request, "NÃ£o Ã© possÃ­vel excluir o motorista porque hÃ¡ agendas vinculadas.")
         return redirect("motoristas", empresa_id=empresa.id)
-    messages.success(request, "Motorista excluído com sucesso.")
+    messages.success(request, "Motorista excluÃ­do com sucesso.")
     return redirect("motoristas", empresa_id=empresa.id)
 
 
@@ -3886,7 +3196,7 @@ def editar_transportadora_modulo(request, empresa_id, transportadora_id):
 
     transportadora = Transportadora.objects.filter(id=transportadora_id, empresa=empresa).first()
     if not transportadora:
-        messages.error(request, "Transportadora não encontrada.")
+        messages.error(request, "Transportadora nÃ£o encontrada.")
         return redirect("transportadoras", empresa_id=empresa.id)
 
     erro = atualizar_transportadora_por_dados(
@@ -3912,15 +3222,15 @@ def excluir_transportadora_modulo(request, empresa_id, transportadora_id):
 
     transportadora = Transportadora.objects.filter(id=transportadora_id, empresa=empresa).first()
     if not transportadora:
-        messages.error(request, "Transportadora não encontrada.")
+        messages.error(request, "Transportadora nÃ£o encontrada.")
         return redirect("transportadoras", empresa_id=empresa.id)
 
     try:
         transportadora.excluir_transportadora()
     except ProtectedError:
-        messages.error(request, "Não é possível excluir a transportadora porque há agendas vinculadas.")
+        messages.error(request, "NÃ£o Ã© possÃ­vel excluir a transportadora porque hÃ¡ agendas vinculadas.")
         return redirect("transportadoras", empresa_id=empresa.id)
-    messages.success(request, "Transportadora excluída com sucesso.")
+    messages.success(request, "Transportadora excluÃ­da com sucesso.")
     return redirect("transportadoras", empresa_id=empresa.id)
 
 
@@ -4695,7 +4005,7 @@ def criar_regiao_modulo(request, empresa_id):
     if erro:
         messages.error(request, erro)
         return redirect("regioes", empresa_id=empresa.id)
-    messages.success(request, "Região criada com sucesso.")
+    messages.success(request, "RegiÃ£o criada com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -4710,14 +4020,14 @@ def editar_regiao_modulo(request, empresa_id, regiao_id):
 
     regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
     if not regiao:
-        messages.error(request, "Região não encontrada.")
+        messages.error(request, "RegiÃ£o nÃ£o encontrada.")
         return redirect("regioes", empresa_id=empresa.id)
 
     erro = atualizar_regiao_por_dados(regiao, request.POST.get("nome"), request.POST.get("codigo"), empresa)
     if erro:
         messages.error(request, erro)
         return redirect("regioes", empresa_id=empresa.id)
-    messages.success(request, "Região atualizada com sucesso.")
+    messages.success(request, "RegiÃ£o atualizada com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -4732,11 +4042,11 @@ def excluir_regiao_modulo(request, empresa_id, regiao_id):
 
     regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
     if not regiao:
-        messages.error(request, "Região não encontrada.")
+        messages.error(request, "RegiÃ£o nÃ£o encontrada.")
         return redirect("regioes", empresa_id=empresa.id)
 
     regiao.excluir_regiao()
-    messages.success(request, "Região excluída com sucesso.")
+    messages.success(request, "RegiÃ£o excluÃ­da com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -4790,7 +4100,7 @@ def editar_rota_modulo(request, empresa_id, rota_id):
 
     rota = Rota.objects.filter(id=rota_id, empresa=empresa).first()
     if not rota:
-        messages.error(request, "Rota não encontrada.")
+        messages.error(request, "Rota nÃ£o encontrada.")
         return redirect("rotas", empresa_id=empresa.id)
 
     erro = atualizar_rota_por_dados(
@@ -4818,11 +4128,11 @@ def excluir_rota_modulo(request, empresa_id, rota_id):
 
     rota = Rota.objects.filter(id=rota_id, empresa=empresa).first()
     if not rota:
-        messages.error(request, "Rota não encontrada.")
+        messages.error(request, "Rota nÃ£o encontrada.")
         return redirect("rotas", empresa_id=empresa.id)
 
     rota.excluir_rota()
-    messages.success(request, "Rota excluída com sucesso.")
+    messages.success(request, "Rota excluÃ­da com sucesso.")
     return redirect("rotas", empresa_id=empresa.id)
 
 
@@ -4932,7 +4242,7 @@ def pedidos_pendentes(request, empresa_id):
     )
     total_pedidos = len(pedidos_tabulator)
     total_atrasados = sum(1 for item in pedidos_tabulator if item.get("status") == "Atrasado")
-    total_atencao = sum(1 for item in pedidos_tabulator if item.get("status") == "Atenção")
+    total_atencao = sum(1 for item in pedidos_tabulator if item.get("status") == "AtenÃ§Ã£o")
     total_no_prazo = total_pedidos - total_atrasados - total_atencao
 
     contexto = {
@@ -4970,7 +4280,7 @@ def editar_pedido_pendente_modulo(request, empresa_id, pedido_id):
         .first()
     )
     if not pedido:
-        messages.error(request, "Pedido pendente não encontrado.")
+        messages.error(request, "Pedido pendente nÃ£o encontrado.")
         return redirect("pedidos_pendentes", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -5015,11 +4325,11 @@ def excluir_pedido_pendente_modulo(request, empresa_id, pedido_id):
 
     pedido = PedidoPendente.objects.filter(id=pedido_id, empresa=empresa).first()
     if not pedido:
-        messages.error(request, "Pedido pendente não encontrado.")
+        messages.error(request, "Pedido pendente nÃ£o encontrado.")
         return redirect("pedidos_pendentes", empresa_id=empresa.id)
 
     pedido.excluir_pedido_pendente()
-    messages.success(request, "Pedido pendente excluído com sucesso.")
+    messages.success(request, "Pedido pendente excluÃ­do com sucesso.")
     return redirect("pedidos_pendentes", empresa_id=empresa.id)
 
 
@@ -5065,7 +4375,7 @@ def editar_agenda_modulo(request, empresa_id, agenda_id):
         .first()
     )
     if not agenda_item:
-        messages.error(request, "Agenda não encontrada.")
+        messages.error(request, "Agenda nÃ£o encontrada.")
         return redirect("agenda", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -5096,11 +4406,11 @@ def excluir_agenda_modulo(request, empresa_id, agenda_id):
 
     agenda_item = Agenda.objects.filter(id=agenda_id, empresa=empresa).first()
     if not agenda_item:
-        messages.error(request, "Agenda não encontrada.")
+        messages.error(request, "Agenda nÃ£o encontrada.")
         return redirect("agenda", empresa_id=empresa.id)
 
     agenda_item.excluir_agenda()
-    messages.success(request, "Agenda excluída com sucesso.")
+    messages.success(request, "Agenda excluÃ­da com sucesso.")
     return redirect("agenda", empresa_id=empresa.id)
 
 
@@ -5611,7 +4921,7 @@ def producao(request, empresa_id):
             if erro:
                 messages.error(request, erro)
             else:
-                messages.success(request, "Registro de produção criado com sucesso.")
+                messages.success(request, "Registro de produÃ§Ã£o criado com sucesso.")
         elif acao == "importar_producao":
             arquivos = request.FILES.getlist("arquivos_producao")
             ok, mensagem = importar_upload_producao(
@@ -5626,7 +4936,7 @@ def producao(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "Ação de produção inválida.")
+            messages.error(request, "AÃ§Ã£o de produÃ§Ã£o invÃ¡lida.")
         return redirect("producao", empresa_id=empresa_id)
 
     producoes_qs = (
@@ -5683,7 +4993,7 @@ def editar_producao_modulo(request, empresa_id, producao_id):
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).select_related("produto").first()
     if not producao_item:
-        messages.error(request, "Registro de produção não encontrado.")
+        messages.error(request, "Registro de produÃ§Ã£o nÃ£o encontrado.")
         return redirect("producao", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -5691,7 +5001,7 @@ def editar_producao_modulo(request, empresa_id, producao_id):
         if erro:
             messages.error(request, erro)
             return redirect("editar_producao_modulo", empresa_id=empresa.id, producao_id=producao_item.id)
-        messages.success(request, "Registro de produção atualizado com sucesso.")
+        messages.success(request, "Registro de produÃ§Ã£o atualizado com sucesso.")
         return redirect("producao", empresa_id=empresa.id)
 
     situacoes_producao = sorted(
@@ -5727,11 +5037,11 @@ def excluir_producao_modulo(request, empresa_id, producao_id):
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).first()
     if not producao_item:
-        messages.error(request, "Registro de produção não encontrado.")
+        messages.error(request, "Registro de produÃ§Ã£o nÃ£o encontrado.")
         return redirect("producao", empresa_id=empresa.id)
 
     producao_item.excluir_producao()
-    messages.success(request, "Registro de produção excluído com sucesso.")
+    messages.success(request, "Registro de produÃ§Ã£o excluÃ­do com sucesso.")
     return redirect("producao", empresa_id=empresa.id)
 
 
@@ -5842,7 +5152,7 @@ def editar_frete_modulo(request, empresa_id, frete_id):
         .first()
     )
     if not frete_item:
-        messages.error(request, "Frete não encontrado.")
+        messages.error(request, "Frete nÃ£o encontrado.")
         return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -5888,11 +5198,11 @@ def excluir_frete_modulo(request, empresa_id, frete_id):
 
     frete_item = Frete.objects.filter(id=frete_id, empresa=empresa).first()
     if not frete_item:
-        messages.error(request, "Frete não encontrado.")
+        messages.error(request, "Frete nÃ£o encontrado.")
         return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
     frete_item.excluir_frete()
-    messages.success(request, "Frete excluído com sucesso.")
+    messages.success(request, "Frete excluÃ­do com sucesso.")
     return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
 
@@ -5934,7 +5244,7 @@ def estoque_pcp(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "Ação de estoque inválida.")
+            messages.error(request, "AÃ§Ã£o de estoque invÃ¡lida.")
         return redirect("estoque_pcp", empresa_id=empresa_id)
 
     estoque_qs = (
@@ -6004,7 +5314,7 @@ def editar_estoque_modulo(request, empresa_id, estoque_id):
 
     estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).select_related("produto").first()
     if not estoque_item:
-        messages.error(request, "Registro de estoque não encontrado.")
+        messages.error(request, "Registro de estoque nÃ£o encontrado.")
         return redirect("estoque_pcp", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -6058,9 +5368,10 @@ def excluir_estoque_modulo(request, empresa_id, estoque_id):
 
     estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).first()
     if not estoque_item:
-        messages.error(request, "Registro de estoque não encontrado.")
+        messages.error(request, "Registro de estoque nÃ£o encontrado.")
         return redirect("estoque_pcp", empresa_id=empresa.id)
 
     estoque_item.excluir_estoque()
-    messages.success(request, "Registro de estoque excluído com sucesso.")
+    messages.success(request, "Registro de estoque excluÃ­do com sucesso.")
     return redirect("estoque_pcp", empresa_id=empresa.id)
+

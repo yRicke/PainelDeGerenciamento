@@ -78,6 +78,10 @@ from .utils.financeiro_importacao import (
     importar_faturamento_do_diretorio,
     importar_orcamento_do_diretorio,
 )
+from .utils.financeiro_dfc_saldo import (
+    construir_payload_tabela_saldo_dfc as _construir_payload_tabela_saldo_dfc,
+    salvar_dfc_saldo_manual_por_post as _salvar_dfc_saldo_manual_por_post,
+)
 from .utils.operacional_importacao import (
     importar_cargas_do_diretorio,
     importar_estoque_do_diretorio,
@@ -1709,6 +1713,19 @@ def atualizar_dfc_por_post(dfc_item, empresa, post_data):
     dados.pop("data_vencimento_raw", None)
     dfc_item.atualizar_fluxo_de_caixa_dfc(**dados)
     return ""
+
+
+def construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_periodo=10):
+    return _construir_payload_tabela_saldo_dfc(
+        empresa=empresa,
+        dfc_registros=dfc_registros,
+        hoje=hoje,
+        dias_periodo=dias_periodo,
+    )
+
+
+def salvar_dfc_saldo_manual_por_post(empresa, post_data):
+    return _salvar_dfc_saldo_manual_por_post(empresa=empresa, post_data=post_data)
 
 
 def _parse_decimal_ou_none(valor):

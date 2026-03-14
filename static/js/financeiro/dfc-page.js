@@ -480,6 +480,8 @@
     var saldoPeriodoEl = document.getElementById("dfc-kpi-saldo-periodo");
     var saldoDiferencaEl = document.getElementById("dfc-kpi-saldo-diferenca");
     var saveUrl = window.location.pathname;
+    var KPI_DIFF_CLASSES = ["dfc-kpi-saldo-diff-positive", "dfc-kpi-saldo-diff-negative", "dfc-kpi-saldo-diff-neutral"];
+    var SAVE_STATUS_CLASSES = ["dfc-saldo-save-ok", "dfc-saldo-save-error"];
 
     var checkboxDefaults = payload.checkbox_defaults || {};
     if (includePrevisoesInput && typeof checkboxDefaults.incluir_previsoes === "boolean") {
@@ -586,12 +588,20 @@
         return "";
     }
 
+    function replaceClasses(element, classes, nextClass) {
+        if (!element) return;
+        classes.forEach(function (className) {
+            element.classList.remove(className);
+        });
+        if (nextClass) {
+            element.classList.add(nextClass);
+        }
+    }
+
     function setSaveStatus(text, cls) {
         if (!saveStatus) return;
         saveStatus.textContent = text || "";
-        saveStatus.classList.remove("dfc-saldo-save-ok");
-        saveStatus.classList.remove("dfc-saldo-save-error");
-        if (cls) saveStatus.classList.add(cls);
+        replaceClasses(saveStatus, SAVE_STATUS_CLASSES, cls);
     }
 
     function sumDayColumns(row) {
@@ -600,6 +610,12 @@
             total += toNumber(row.values[col.key]);
         });
         return Math.round(total * 100) / 100;
+    }
+
+    function updateTotalPeriodoByRowKey(rowKey) {
+        var row = rowMap[rowKey];
+        if (!row || !row.values) return;
+        row.values.total_periodo = sumDayColumns(row);
     }
 
     function round2(value) {
@@ -626,12 +642,10 @@
         if (saldoPeriodoEl) saldoPeriodoEl.textContent = formatCurrencyKpi(saldoPeriodo);
         if (saldoDiferencaEl) {
             saldoDiferencaEl.textContent = formatCurrencyKpi(diferenca);
-            saldoDiferencaEl.classList.remove("dfc-kpi-saldo-diff-positive");
-            saldoDiferencaEl.classList.remove("dfc-kpi-saldo-diff-negative");
-            saldoDiferencaEl.classList.remove("dfc-kpi-saldo-diff-neutral");
-            if (diferenca > 0) saldoDiferencaEl.classList.add("dfc-kpi-saldo-diff-positive");
-            else if (diferenca < 0) saldoDiferencaEl.classList.add("dfc-kpi-saldo-diff-negative");
-            else saldoDiferencaEl.classList.add("dfc-kpi-saldo-diff-neutral");
+            var diffClass = "dfc-kpi-saldo-diff-neutral";
+            if (diferenca > 0) diffClass = "dfc-kpi-saldo-diff-positive";
+            else if (diferenca < 0) diffClass = "dfc-kpi-saldo-diff-negative";
+            replaceClasses(saldoDiferencaEl, KPI_DIFF_CLASSES, diffClass);
         }
     }
 
@@ -710,24 +724,14 @@
             saldoFinalAnterior = saldoFinalValor;
         });
 
-        if (rowMap.previsao_recebivel) {
-            rowMap.previsao_recebivel.values.total_periodo = sumDayColumns(rowMap.previsao_recebivel);
-        }
-        if (rowMap.outras_consideracoes_receita) {
-            rowMap.outras_consideracoes_receita.values.total_periodo = sumDayColumns(rowMap.outras_consideracoes_receita);
-        }
-        if (rowMap.adiantamentos_previsao) {
-            rowMap.adiantamentos_previsao.values.total_periodo = sumDayColumns(rowMap.adiantamentos_previsao);
-        }
-        if (rowMap.outras_consideracoes_despesa) {
-            rowMap.outras_consideracoes_despesa.values.total_periodo = sumDayColumns(rowMap.outras_consideracoes_despesa);
-        }
-        if (rowMap.saldo_dia) {
-            rowMap.saldo_dia.values.total_periodo = sumDayColumns(rowMap.saldo_dia);
-        }
-        if (rowMap.saldo_final) {
-            rowMap.saldo_final.values.total_periodo = sumDayColumns(rowMap.saldo_final);
-        }
+        [
+            "previsao_recebivel",
+            "outras_consideracoes_receita",
+            "adiantamentos_previsao",
+            "outras_consideracoes_despesa",
+            "saldo_dia",
+            "saldo_final",
+        ].forEach(updateTotalPeriodoByRowKey);
         updateSaldoKpiCard();
     }
 
