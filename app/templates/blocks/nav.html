@@ -4,7 +4,7 @@
     {% if nav_current_category or nav_current_module %}
     <div class="nav-context nav-context--brand" aria-label="Contexto da pagina">
         {% if nav_current_category %}
-        <span class="nav-context-chip nav-context-chip--category">Categoria: {{ nav_current_category }}</span>
+        <span class="nav-context-chip nav-context-chip--category">{{ nav_current_category }}</span>
         {% endif %}
         {% if nav_current_module %}
         <span class="nav-context-chip nav-context-chip--module">M&oacute;dulo: {{ nav_current_module }}</span>
@@ -39,7 +39,7 @@
         {% if nav_current_category or nav_current_module %}
         <div class="nav-context nav-context--menu" aria-label="Contexto da pagina">
             {% if nav_current_category %}
-            <span class="nav-context-chip nav-context-chip--category">Categoria: {{ nav_current_category }}</span>
+            <span class="nav-context-chip nav-context-chip--category">{{ nav_current_category }}</span>
             {% endif %}
             {% if nav_current_module %}
             <span class="nav-context-chip nav-context-chip--module">M&oacute;dulo: {{ nav_current_module }}</span>
