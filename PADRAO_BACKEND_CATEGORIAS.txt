@@ -1,0 +1,98 @@
+PADRAO OFICIAL DO BACKEND (VIEWS + SERVICES + UTILS)
+
+Objetivo
+- Padronizar a organizacao do backend para evolucao segura, clean code e manutencao simples.
+- Garantir que novas features e refatoracoes sigam sempre o mesmo formato.
+
+Categorias oficiais do sistema
+- financeiro
+- comercial
+- administrativo
+- operacional
+- parametros
+- admin_categorias
+
+Estrutura padrao (obrigatoria)
+app/
+  views/
+    financeiro.py
+    comercial.py
+    administrativo.py
+    operacional.py
+    parametros.py
+    admin.py
+  services/
+    financeiro.py
+    comercial.py
+    administrativo.py
+    operacional.py
+    parametros.py
+    admin.py
+  utils/
+    financeiro.py
+    comercial.py
+    administrativo.py
+    operacional.py
+    parametros.py
+    admin.py
+    common.py
+
+Responsabilidade de cada camada
+- views:
+  - Somente camada HTTP.
+  - Pode usar request, response, render, redirect, messages, auth, permissoes de acesso.
+  - Nao deve conter regra de negocio complexa.
+- services:
+  - Regra de negocio, orquestracao de fluxo e operacoes com models.
+  - Decide como o caso de uso funciona.
+  - Nao deve depender de detalhes de template.
+- utils:
+  - Funcoes auxiliares reutilizaveis (parse, normalizacao, validacoes simples, formatacoes, calculos).
+  - Preferencia para funcoes puras (sem efeito colateral).
+  - Nao deve acessar request diretamente.
+
+Regra de dependencias (obrigatoria)
+- views pode importar: services e utils.
+- services pode importar: utils e models.
+- utils nao pode importar: views.
+- Fluxo preferido: view -> service -> utils.
+
+Regras de nomeacao
+- Funcoes em portugues, orientadas por acao:
+  - criar_*
+  - atualizar_*
+  - excluir_*
+  - listar_*
+  - importar_*
+  - validar_*
+  - calcular_*
+- Nomes de arquivo por categoria, sem arquivos "misc" ou "varios".
+- Se utilitario for realmente compartilhado entre categorias, usar utils/common.py.
+
+Padrao para novas features (passo a passo)
+1. Identificar categoria da feature.
+2. Criar/editar endpoint em views/<categoria>.py.
+3. Implementar caso de uso em services/<categoria>.py.
+4. Extrair auxiliares para utils/<categoria>.py (ou utils/common.py se compartilhado).
+5. Manter compatibilidade de comportamento.
+6. Validar fluxo completo antes de seguir para outra categoria.
+
+Checklist de qualidade antes de finalizar
+- A view ficou enxuta e sem regra de negocio complexa?
+- A regra de negocio ficou em service?
+- Utilitarios foram para utils e nao para views/services sem necessidade?
+- Imports respeitam o fluxo view -> service -> utils?
+- O codigo novo segue nomes e padrao da categoria correta?
+- Nenhum arquivo fora do padrao foi criado?
+
+Regras para uso com Codex (obrigatorias)
+- Sempre seguir este documento como fonte de verdade para backend.
+- Nunca criar modulo novo fora de views/services/utils por categoria.
+- Nunca misturar regra de negocio pesada dentro de views.
+- Sempre reaproveitar padroes e convencoes ja existentes no sistema.
+- Em caso de duvida de categoria, escolher a categoria dominante da regra de negocio.
+- Fazer refatoracao incremental por categoria, sem "big bang" que aumente risco.
+
+Escopo desta padronizacao
+- Esta padronizacao vale para todas as proximas manutencoes e novos modulos no backend.
+- Qualquer excecao deve ser documentada com justificativa tecnica.

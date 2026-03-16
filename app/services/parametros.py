@@ -1,0 +1,92 @@
+def _services():
+    import importlib
+
+    return importlib.import_module("app.services")
+
+
+def criar_parceiro_por_dados(empresa, nome, codigo, cidade_id=None):
+    return _services().criar_parceiro_por_dados(empresa, nome, codigo, cidade_id=cidade_id)
+
+
+def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=None):
+    return _services().atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=cidade_id)
+
+
+def criar_parametro_margem_vendas(empresa, post_data):
+    return _services().criar_parametro_margem_vendas(empresa, post_data)
+
+
+def atualizar_parametro_margem_vendas(item, empresa, post_data):
+    return _services().atualizar_parametro_margem_vendas(item, empresa, post_data)
+
+
+def excluir_parametro_margem_vendas(item, empresa):
+    return _services().excluir_parametro_margem_vendas(item, empresa)
+
+
+def criar_parametro_margem_logistica(empresa, post_data):
+    return _services().criar_parametro_margem_logistica(empresa, post_data)
+
+
+def atualizar_parametro_margem_logistica(item, empresa, post_data):
+    return _services().atualizar_parametro_margem_logistica(item, empresa, post_data)
+
+
+def excluir_parametro_margem_logistica(item, empresa):
+    return _services().excluir_parametro_margem_logistica(item, empresa)
+
+
+def salvar_parametro_margem_administracao(empresa, post_data):
+    return _services().salvar_parametro_margem_administracao(empresa, post_data)
+
+
+def criar_parametro_negocios(empresa, post_data):
+    return _services().criar_parametro_negocios(empresa, post_data)
+
+
+def atualizar_parametro_negocios(item, empresa, post_data):
+    return _services().atualizar_parametro_negocios(item, empresa, post_data)
+
+
+def excluir_parametro_negocios(item, empresa):
+    return _services().excluir_parametro_negocios(item, empresa)
+
+
+def criar_produto_por_dados(empresa, post_data):
+    return _services().criar_produto_por_dados(empresa, post_data)
+
+
+def atualizar_produto_por_dados(produto, post_data, empresa):
+    return _services().atualizar_produto_por_dados(produto, post_data, empresa)
+
+
+def criar_unidade_federativa_por_dados(empresa, codigo, sigla):
+    return _services().criar_unidade_federativa_por_dados(empresa, codigo, sigla)
+
+
+def atualizar_unidade_federativa_por_dados(unidade_federativa, codigo, sigla, empresa):
+    return _services().atualizar_unidade_federativa_por_dados(unidade_federativa, codigo, sigla, empresa)
+
+
+def criar_motorista_por_dados(empresa, codigo_motorista, nome):
+    return _services().criar_motorista_por_dados(empresa, codigo_motorista, nome)
+
+
+def atualizar_motorista_por_dados(motorista, codigo_motorista, nome, empresa):
+    return _services().atualizar_motorista_por_dados(motorista, codigo_motorista, nome, empresa)
+
+
+def criar_transportadora_por_dados(empresa, codigo_transportadora, nome):
+    return _services().criar_transportadora_por_dados(empresa, codigo_transportadora, nome)
+
+
+def atualizar_transportadora_por_dados(transportadora, codigo_transportadora, nome, empresa):
+    return _services().atualizar_transportadora_por_dados(transportadora, codigo_transportadora, nome, empresa)
+
+
+def criar_rota_por_dados(empresa, codigo_rota, nome, uf_id=None):
+    return _services().criar_rota_por_dados(empresa, codigo_rota, nome, uf_id=uf_id)
+
+
+def atualizar_rota_por_dados(rota, codigo_rota, nome, empresa, uf_id=None):
+    return _services().atualizar_rota_por_dados(rota, codigo_rota, nome, empresa, uf_id=uf_id)

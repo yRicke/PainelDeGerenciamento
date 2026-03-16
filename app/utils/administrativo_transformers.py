@@ -1,4 +1,4 @@
-from ..services import calcular_dashboard_tofu
+from ..services.administrativo import calcular_dashboard_tofu
 from ..tabulator import build_atividades_tabulator
 
 
