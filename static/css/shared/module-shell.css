@@ -270,6 +270,41 @@
     background: #e9f2ff;
 }
 
+.module-form-collapse-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.55rem;
+}
+
+.module-form-collapse-head h2,
+.module-form-collapse-head h3 {
+    margin: 0;
+}
+
+.module-form-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    border-radius: 10px;
+}
+
+.module-form-collapse-indicator {
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.module-form-collapsible-body {
+    min-width: 0;
+}
+
+.module-section.is-form-collapsed .module-form-collapse-head {
+    margin-bottom: 0;
+}
+
 .module-sections-nav-mobile-filters {
     display: none;
 }
@@ -346,6 +381,15 @@
 
     .module-shell-toggle {
         display: none;
+    }
+
+    .module-form-collapse-head {
+        align-items: stretch;
+    }
+
+    .module-form-collapse-toggle {
+        width: 100%;
+        justify-content: center;
     }
 
     .module-sections-nav-mobile-filters {
