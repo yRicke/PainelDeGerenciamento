@@ -1,5 +1,5 @@
 (function () {
-    var MOBILE_MENU_QUERY = "(max-width: 1100px)";
+    var MOBILE_MENU_QUERY = "(max-width: 1600px)";
     var shell = document.querySelector(".nav-shell");
     if (!shell) return;
 
