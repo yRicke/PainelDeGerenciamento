@@ -4,41 +4,48 @@
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
-    margin-top: 10px;
+    margin-top: 0.2rem;
 }
 
-.orcamento-comparativo-layout {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
+.module-shell--orcamento {
+    grid-template-columns: clamp(280px, 28vw, 360px) minmax(0, 1fr);
 }
 
-.desvio-legenda {
-    min-width: 360px;
-    max-width: 420px;
-    border: 1px solid #cfd6de;
-    border-radius: 8px;
-    background: #ffffff;
-    padding: 12px;
+.module-shell--orcamento .module-shell-main-toolbar .module-sections-nav {
+    justify-content: flex-start;
 }
 
-.desvio-legenda h3 {
-    margin: 0 0 10px 0;
-    font-size: 18px;
+.desvio-legenda-panel {
+    border-color: #cfdbeb;
+    background: linear-gradient(180deg, #f6faff 0%, #ffffff 100%);
+    box-shadow: 0 8px 22px rgba(24, 63, 107, 0.08);
 }
 
-.desvio-legenda ul {
+.desvio-legenda-panel h2 {
+    margin: 0 0 0.35rem;
+    font-size: 1.02rem;
+}
+
+.desvio-legenda-panel .form-note {
+    margin-bottom: 0.7rem;
+}
+
+.desvio-legenda-lista {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
-.desvio-legenda li {
+.desvio-legenda-lista li {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-start;
+    gap: 0.55rem;
+    border: 1px solid #dce6f2;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 0.45rem 0.5rem;
     line-height: 1.35;
 }
 
@@ -48,6 +55,22 @@
     border-radius: 50%;
     border: 1px solid #2d2d2d;
     flex: 0 0 16px;
+}
+
+.desvio-legenda-item-body {
+    display: grid;
+    gap: 0.1rem;
+}
+
+.desvio-legenda-item-body strong {
+    color: #1d334b;
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+
+.desvio-legenda-item-body span {
+    color: #4c5f75;
+    font-size: 0.82rem;
 }
 
 .desvio-chip {
@@ -110,14 +133,18 @@
 }
 
 @media (max-width: 1300px) {
-    .orcamento-comparativo-layout {
-        flex-direction: column;
+    .module-shell--orcamento {
+        grid-template-columns: clamp(250px, 31vw, 330px) minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 1100px) {
+    .module-shell--orcamento {
+        grid-template-columns: 1fr;
     }
 
-    .desvio-legenda {
-        min-width: 0;
-        max-width: none;
-        width: 100%;
+    .desvio-legenda-lista {
+        grid-template-columns: 1fr;
     }
 }
 

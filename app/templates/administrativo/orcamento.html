@@ -10,73 +10,150 @@
 {% endblock %}
 
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Orcamento x Realizado</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
-    <div class="module-shortcuts">
-        <a class="btn-primary" href="{% url 'orcamentos' empresa.id %}">Ver Orcamentos</a>
-        <a class="btn-primary" href="{% url 'orcamentos_realizados' empresa.id %}">Ver Orcamentos Realizados</a>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Administrativo</span>
+            </div>
+            <h1>Orcamento x Realizado</h1>
+            <p class="module-hero-subtitle">Visualizacao central de importacao, comparativo e indicadores de desvio do orcamento.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+            <div class="module-shortcuts">
+                <a class="btn-primary" href="{% url 'orcamentos' empresa.id %}">Ver Orcamentos</a>
+                <a class="btn-primary" href="{% url 'orcamentos_realizados' empresa.id %}">Ver Orcamentos Realizados</a>
+            </div>
+        </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Orcamento">
+            <div class="module-hero-import-head">
+                <h2>Importacao (Pasta Unica)</h2>
+                <span class="module-hero-import-badge">.xls</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form id="upload-orcamento-form" class="upload-form" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="importar_orcamento">
+                <input
+                    type="file"
+                    id="arquivo-orcamento-input"
+                    name="arquivos_orcamento"
+                    accept=".xls"
+                    multiple
+                    webkitdirectory
+                    directory
+                    hidden
+                >
+                <div id="dropzone-orcamento" class="dropzone">
+                    <strong>Arraste e solte a pasta aqui</strong>
+                    <span>ou clique para selecionar arquivos <code>.xls</code>.</span>
+                </div>
+                <div class="upload-actions">
+                    <button type="submit" class="btn-primary upload-button">Importar Pasta</button>
+                    <span id="nome-arquivos-orcamento-selecionados" class="file-status"></span>
+                </div>
+            </form>
+        </section>
     </div>
 </section>
 
-<section class="panel module-section">
-    <h2>Importacao (Pasta Unica)</h2>
-    <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
-    {% if resumo_importacao.tem_arquivos %}
-    <div class="importacao-resumo">
-        <p class="file-status">
-            <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
-            <span class="importacao-resumo-sep">|</span>
-            <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
-        </p>
-        <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
-    </div>
-    {% else %}
-    <p class="file-status">Nenhum arquivo carregado na pasta.</p>
-    {% endif %}
-
-    <form id="upload-orcamento-form" class="upload-form" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="importar_orcamento">
-        <input
-            type="file"
-            id="arquivo-orcamento-input"
-            name="arquivos_orcamento"
-            accept=".xls"
-            multiple
-            webkitdirectory
-            directory
-            hidden
-        >
-        <div id="dropzone-orcamento" class="dropzone">
-            <strong>Arraste e solte a pasta aqui</strong>
-            <span>ou clique para selecionar arquivos <code>.xls</code>.</span>
-        </div>
-        <div class="upload-actions">
-            <button type="submit" class="btn-primary">Importar Pasta</button>
-            <span id="nome-arquivos-orcamento-selecionados" class="file-status"></span>
-        </div>
-    </form>
-</section>
-
-<section class="panel module-section">
-    <h2>Tabela Orcamento x Realizado</h2>
-    <div class="orcamento-comparativo-layout">
-        <div class="table-wrapper"><div id="orcamento-comparativo-tabulator"></div></div>
-        <aside class="desvio-legenda" aria-label="Legenda de indicadores de desvio do orcamento">
-            <h3>Indicadores de Desvio do Orcamento (%)</h3>
-            <ul>
-                <li><span class="legenda-dot legenda-verde"></span><strong>Verde</strong> - Valor dentro do orcamento</li>
-                <li><span class="legenda-dot legenda-amarelo"></span><strong>Amarelo</strong> - Pequeno desvio (ate -5%)</li>
-                <li><span class="legenda-dot legenda-laranja"></span><strong>Laranja</strong> - Desvio negativo relevante (abaixo de -5%)</li>
-                <li><span class="legenda-dot legenda-vermelho"></span><strong>Vermelho</strong> - Gasto acima do orcamento</li>
-                <li><span class="legenda-dot legenda-roxo"></span><strong>Roxo</strong> - Gasto muito acima do orcamento (acima de 5%)</li>
-                <li><span class="legenda-dot legenda-vermelho-escuro"></span><strong>Vermelho Escuro</strong> - Valores invalidos ou inconsistentes (exige correcao)</li>
+<div id="orcamento-module-shell" class="module-shell module-shell--orcamento">
+    <aside id="orcamento-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de indicadores de desvio">
+        <section id="sec-indicadores" class="panel module-section module-shell-side-panel desvio-legenda desvio-legenda-panel" aria-label="Legenda de indicadores de desvio do orcamento">
+            <h2>Indicadores de Desvio do Orcamento (%)</h2>
+            <p class="form-note">Use esta legenda para leitura rapida dos desvios na tabela.</p>
+            <ul class="desvio-legenda-lista">
+                <li>
+                    <span class="legenda-dot legenda-verde"></span>
+                    <div class="desvio-legenda-item-body">
+                        <strong>Verde</strong>
+                        <span>Valor dentro do orcamento.</span>
+                    </div>
+                </li>
+                <li>
+                    <span class="legenda-dot legenda-amarelo"></span>
+                    <div class="desvio-legenda-item-body">
+                        <strong>Amarelo</strong>
+                        <span>Pequeno desvio (ate -5%).</span>
+                    </div>
+                </li>
+                <li>
+                    <span class="legenda-dot legenda-laranja"></span>
+                    <div class="desvio-legenda-item-body">
+                        <strong>Laranja</strong>
+                        <span>Desvio negativo relevante (abaixo de -5%).</span>
+                    </div>
+                </li>
+                <li>
+                    <span class="legenda-dot legenda-vermelho"></span>
+                    <div class="desvio-legenda-item-body">
+                        <strong>Vermelho</strong>
+                        <span>Gasto acima do orcamento.</span>
+                    </div>
+                </li>
+                <li>
+                    <span class="legenda-dot legenda-roxo"></span>
+                    <div class="desvio-legenda-item-body">
+                        <strong>Roxo</strong>
+                        <span>Gasto muito acima do orcamento (acima de 5%).</span>
+                    </div>
+                </li>
+                <li>
+                    <span class="legenda-dot legenda-vermelho-escuro"></span>
+                    <div class="desvio-legenda-item-body">
+                        <strong>Vermelho Escuro</strong>
+                        <span>Valores invalidos ou inconsistentes (exige correcao).</span>
+                    </div>
+                </li>
             </ul>
-        </aside>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="orcamento-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu lateral</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Orcamento x Realizado">
+                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-indicadores">Indicadores</a>
+                <a href="#sec-comparativo">Comparativo</a>
+            </nav>
+        </div>
+
+        <section id="sec-comparativo" class="panel module-section">
+            <h2>Tabela Orcamento x Realizado</h2>
+            <div class="table-wrapper"><div id="orcamento-comparativo-tabulator"></div></div>
+        </section>
     </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
