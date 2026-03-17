@@ -334,8 +334,27 @@
         return card;
     };
 
+    ExternalFilterCore.prototype._captureOptionsScrollByFilterKey = function () {
+        var positions = {};
+        var roots = [this.leftColumn, this.rightColumn];
+
+        roots.forEach(function (root) {
+            if (!root || typeof root.querySelectorAll !== "function") return;
+            root.querySelectorAll(".module-filter-card[data-filter-key]").forEach(function (card) {
+                var filterKey = toText(card.getAttribute("data-filter-key"));
+                if (!filterKey) return;
+                var optionsWrap = card.querySelector(".module-filter-card-options");
+                if (!optionsWrap) return;
+                positions[filterKey] = Number(optionsWrap.scrollTop || 0);
+            });
+        });
+
+        return positions;
+    };
+
     ExternalFilterCore.prototype.render = function () {
         if (!this.leftColumn || !this.rightColumn) return;
+        var optionsScrollByFilterKey = this._captureOptionsScrollByFilterKey();
         this._rebuildOptionsByCurrentSelections();
         this.leftColumn.innerHTML = "";
         this.rightColumn.innerHTML = "";
@@ -348,6 +367,13 @@
                 self.leftColumn.appendChild(card);
             } else {
                 self.rightColumn.appendChild(card);
+            }
+
+            var previousScroll = Number(optionsScrollByFilterKey[definition.key] || 0);
+            if (!previousScroll) return;
+            var optionsWrap = card.querySelector(".module-filter-card-options");
+            if (optionsWrap) {
+                optionsWrap.scrollTop = previousScroll;
             }
         });
     };
