@@ -119,7 +119,12 @@
             </div>
             <div>
                 <label>Descricao perfil</label>
-                <input type="text" name="descricao_perfil" value="{{ carteira.descricao_perfil }}">
+                <input
+                    type="text"
+                    name="descricao_perfil"
+                    value="{{ carteira.descricao_perfil }}"
+                    list="carteira-editar-descricao-perfil-opcoes"
+                >
             </div>
             <div class="checkbox-group full">
                 <label><input type="checkbox" name="ativo_indicador" {% if carteira.ativo_indicador %}checked{% endif %}> Ativo</label>
@@ -132,6 +137,11 @@
         <div class="form-actions">
             <button type="submit" class="btn-primary">Salvar alteracoes</button>
         </div>
+        <datalist id="carteira-editar-descricao-perfil-opcoes">
+            {% for descricao in descricoes_perfil %}
+            <option value="{{ descricao }}"></option>
+            {% endfor %}
+        </datalist>
     </form>
 
     <div class="danger-zone">

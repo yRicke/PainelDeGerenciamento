@@ -128,7 +128,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div><label>Descricao perfil</label><input type="text" name="descricao_perfil"></div>
+                    <div><label>Descricao perfil</label><input type="text" name="descricao_perfil" list="controle-margem-descricao-perfil-opcoes"></div>
                     <div><label>Apelido vendedor</label><input type="text" name="apelido_vendedor"></div>
                     <div><label>Gerente</label><input type="text" name="gerente"></div>
                     <div><label>Dt. Neg.</label><input type="date" name="dt_neg"></div>
@@ -150,6 +150,11 @@
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Cadastrar</button>
                 </div>
+                <datalist id="controle-margem-descricao-perfil-opcoes">
+                    {% for descricao in descricoes_perfil %}
+                    <option value="{{ descricao }}"></option>
+                    {% endfor %}
+                </datalist>
             </form>
         </section>
         {% endif %}

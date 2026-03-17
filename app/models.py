@@ -1058,6 +1058,98 @@ class ParametroNegocios(models.Model):
         return f"Parametro Negocios - {self.empresa.nome}"
 
 
+class DescricaoPerfil(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="descricoes_perfil")
+    descricao = models.CharField(max_length=220)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "descricao"], name="uq_descricao_perfil_empresa_descricao"),
+        ]
+
+    def __str__(self):
+        return f"{self.descricao} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_descricao_perfil(cls, empresa, descricao):
+        item = cls(empresa=empresa, descricao=descricao)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_descricao_perfil(self, descricao=UNSET):
+        if descricao is not UNSET:
+            self.descricao = descricao
+        self.save()
+
+    def excluir_descricao_perfil(self):
+        self.delete()
+
+
+class ParametroMeta(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_metas")
+    descricao_perfil = models.ForeignKey(DescricaoPerfil, on_delete=models.PROTECT, related_name="parametros_metas")
+    meta_acabado_percentual = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    valor_meta_pd_acabado = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    meta_mt_prima_percentual = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "descricao_perfil"], name="uq_parametro_meta_empresa_perfil"),
+        ]
+
+    def __str__(self):
+        return f"Parametro Metas - {self.empresa.nome} - {self.descricao_perfil.descricao}"
+
+    @classmethod
+    def criar_parametro_meta(
+        cls,
+        *,
+        empresa,
+        descricao_perfil,
+        meta_acabado_percentual=None,
+        valor_meta_pd_acabado=None,
+        meta_mt_prima_percentual=None,
+    ):
+        item = cls(
+            empresa=empresa,
+            descricao_perfil=descricao_perfil,
+            meta_acabado_percentual=meta_acabado_percentual,
+            valor_meta_pd_acabado=valor_meta_pd_acabado,
+            meta_mt_prima_percentual=meta_mt_prima_percentual,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_parametro_meta(
+        self,
+        *,
+        descricao_perfil=UNSET,
+        meta_acabado_percentual=UNSET,
+        valor_meta_pd_acabado=UNSET,
+        meta_mt_prima_percentual=UNSET,
+    ):
+        if descricao_perfil is not UNSET:
+            self.descricao_perfil = descricao_perfil
+        if meta_acabado_percentual is not UNSET:
+            self.meta_acabado_percentual = meta_acabado_percentual
+        if valor_meta_pd_acabado is not UNSET:
+            self.valor_meta_pd_acabado = valor_meta_pd_acabado
+        if meta_mt_prima_percentual is not UNSET:
+            self.meta_mt_prima_percentual = meta_mt_prima_percentual
+        self.save()
+
+    def excluir_parametro_meta(self):
+        self.delete()
+
+
 class Parceiro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parceiros")
     cidade = models.ForeignKey(Cidade, on_delete=models.SET_NULL, null=True, blank=True, related_name="parceiros")

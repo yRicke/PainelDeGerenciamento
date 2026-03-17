@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..models import Carteira, Cidade, ControleMargem, PedidoPendente, Parceiro, Regiao, Rota, Venda
+from .comercial import _sincronizar_descricao_perfil
 from .controle_margem_regras import (
     calcular_campos_controle_margem_legado,
     obter_parametros_controle_margem,
@@ -417,6 +418,7 @@ def importar_carteira_do_diretorio(
 
     cache_cidades: dict[str, Cidade] = {}
     cache_regioes: dict[str, Regiao] = {}
+    cache_descricoes_perfil: dict[str, str] = {}
     total_linhas = 0
     total_carteiras = 0
     avisos: list[str] = []
@@ -503,6 +505,11 @@ def importar_carteira_do_diretorio(
             )
             data_cadastro = _excel_date(valor_data_cadastro)
             ultima_venda = _normalizar_ultima_venda_carteira(registro.get("Última venda [SAFIA]"))
+            descricao_perfil = _sincronizar_descricao_perfil(
+                empresa,
+                _normalizar_texto(registro.get("Descrição (Perfil)")),
+                cache=cache_descricoes_perfil,
+            )
             objetos.append(
                 Carteira(
                     empresa=empresa,
@@ -516,7 +523,7 @@ def importar_carteira_do_diretorio(
                     data_cadastro=data_cadastro or datetime.today().date(),
                     gerente=_normalizar_texto(registro.get("Gerente")),
                     vendedor=_normalizar_texto(registro.get("Apelido (Vendedor)")),
-                    descricao_perfil=_normalizar_texto(registro.get("Descrição (Perfil)")),
+                    descricao_perfil=descricao_perfil,
                     parceiro=parceiro,
                     ativo_indicador=_to_bool(registro.get("Ativo")),
                     cliente_indicador=_to_bool(registro.get("Cliente")),
@@ -975,6 +982,7 @@ def importar_controle_margem_do_diretorio(
 
     cache_parceiros: dict[str, Parceiro] = {}
     cache_carteiras: dict[int, Carteira | None] = {}
+    cache_descricoes_perfil: dict[str, str] = {}
     parametros = obter_parametros_controle_margem(empresa)
 
     titulos_obrigatorios = {
@@ -1108,7 +1116,12 @@ def importar_controle_margem_do_diretorio(
                 "nome_empresa": nome_empresa,
                 "parceiro": parceiro,
                 "cod_nome_parceiro": cod_nome_parceiro,
-                "descricao_perfil": (carteira_item.descricao_perfil if carteira_item else None),
+                "descricao_perfil": _sincronizar_descricao_perfil(
+                    empresa,
+                    (carteira_item.descricao_perfil if carteira_item else None),
+                    vazio_como_none=True,
+                    cache=cache_descricoes_perfil,
+                ),
                 "apelido_vendedor": _normalizar_texto(_valor_coluna(registro, "Apelido (Vendedor)")) or None,
                 "gerente": gerente_valor,
                 "dt_neg": _excel_date(_valor_coluna(registro, "Dt. Neg.")),

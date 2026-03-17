@@ -24,6 +24,7 @@ from ..models import (
     Colaborador,
     ControleMargem,
     ContasAReceber,
+    DescricaoPerfil,
     Empresa,
     Faturamento,
     FluxoDeCaixaDFC,
@@ -40,6 +41,7 @@ from ..models import (
     ParametroMargemLogistica,
     ParametroMargemVendas,
     ParametroNegocios,
+    ParametroMeta,
     PedidoPendente,
     Motorista,
     Producao,
@@ -63,6 +65,7 @@ from ..utils.controle_margem_regras import (
     calcular_campos_controle_margem_legado,
     obter_parametros_controle_margem,
 )
+from ..utils.comercial import _sincronizar_descricao_perfil
 from ..utils.comercial_importacao import (
     _iterar_linhas_xlsx,
     importar_carteira_do_diretorio,
@@ -606,6 +609,92 @@ def atualizar_transportadora_por_dados(transportadora, codigo_transportadora, no
     transportadora.atualizar_transportadora(codigo_transportadora=codigo_transportadora, nome=nome)
     return ""
 
+
+def criar_descricao_perfil_por_dados(empresa, descricao):
+    descricao = (descricao or "").strip()
+    if not descricao:
+        return "Descricao do perfil e obrigatoria."
+    if DescricaoPerfil.objects.filter(empresa=empresa, descricao__iexact=descricao).exists():
+        return "Ja existe descricao de perfil com este nome nesta empresa."
+    DescricaoPerfil.criar_descricao_perfil(empresa=empresa, descricao=descricao)
+    return ""
+
+
+def atualizar_descricao_perfil_por_dados(item, descricao, empresa):
+    descricao = (descricao or "").strip()
+    if not descricao:
+        return "Descricao do perfil e obrigatoria."
+    if item.empresa_id != empresa.id:
+        return "Descricao de perfil invalida para esta empresa."
+    if (
+        DescricaoPerfil.objects.filter(empresa=empresa, descricao__iexact=descricao)
+        .exclude(id=item.id)
+        .exists()
+    ):
+        return "Ja existe descricao de perfil com este nome nesta empresa."
+    item.atualizar_descricao_perfil(descricao=descricao)
+    return ""
+
+
+def _dados_parametro_meta_from_post(post_data, empresa):
+    descricao_perfil = DescricaoPerfil.objects.filter(
+        id=post_data.get("descricao_perfil_id"),
+        empresa=empresa,
+    ).first()
+    return {
+        "descricao_perfil": descricao_perfil,
+        "meta_acabado_percentual": _parse_percentual_ratio_ou_none_aceitando_inteiro_como_percentual(
+            post_data.get("meta_acabado_percentual")
+        ),
+        "valor_meta_pd_acabado": _parse_decimal_ou_none(post_data.get("valor_meta_pd_acabado")),
+        "meta_mt_prima_percentual": _parse_percentual_ratio_ou_none_aceitando_inteiro_como_percentual(
+            post_data.get("meta_mt_prima_percentual")
+        ),
+    }
+
+
+def criar_parametro_meta_por_dados(empresa, post_data):
+    dados = _dados_parametro_meta_from_post(post_data, empresa)
+    descricao_perfil = dados["descricao_perfil"]
+    if not descricao_perfil:
+        return "Descricao perfil invalida."
+    if ParametroMeta.objects.filter(empresa=empresa, descricao_perfil=descricao_perfil).exists():
+        return "Ja existe parametro de metas para esta descricao perfil."
+
+    ParametroMeta.criar_parametro_meta(
+        empresa=empresa,
+        descricao_perfil=descricao_perfil,
+        meta_acabado_percentual=dados["meta_acabado_percentual"],
+        valor_meta_pd_acabado=dados["valor_meta_pd_acabado"],
+        meta_mt_prima_percentual=dados["meta_mt_prima_percentual"],
+    )
+    return ""
+
+
+def atualizar_parametro_meta_por_dados(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Parametro de metas invalido para esta empresa."
+
+    dados = _dados_parametro_meta_from_post(post_data, empresa)
+    descricao_perfil = dados["descricao_perfil"]
+    if not descricao_perfil:
+        return "Descricao perfil invalida."
+    if (
+        ParametroMeta.objects.filter(empresa=empresa, descricao_perfil=descricao_perfil)
+        .exclude(id=item.id)
+        .exists()
+    ):
+        return "Ja existe parametro de metas para esta descricao perfil."
+
+    item.atualizar_parametro_meta(
+        descricao_perfil=descricao_perfil,
+        meta_acabado_percentual=dados["meta_acabado_percentual"],
+        valor_meta_pd_acabado=dados["valor_meta_pd_acabado"],
+        meta_mt_prima_percentual=dados["meta_mt_prima_percentual"],
+    )
+    return ""
+
+
 def _dados_produto_from_post(post_data):
     horas = _parse_decimal_ou_zero(post_data.get("horas"))
     setup = _parse_decimal_ou_zero(post_data.get("setup"))
@@ -928,6 +1017,13 @@ def _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(valor):
     return numero
 
 
+def _parse_percentual_ratio_ou_none_aceitando_inteiro_como_percentual(valor):
+    texto = (valor or "").strip()
+    if not texto:
+        return None
+    return _parse_percentual_ratio_ou_zero_aceitando_inteiro_como_percentual(texto)
+
+
 def _parse_date_ou_none(valor):
     if not valor:
         return None
@@ -1230,6 +1326,11 @@ def _dados_controle_margem_from_post(post_data, empresa):
     cod_nome_parceiro = (post_data.get("cod_nome_parceiro") or "").strip()
     if not cod_nome_parceiro and parceiro:
         cod_nome_parceiro = f"{parceiro.codigo} - {parceiro.nome}"
+    descricao_perfil = _sincronizar_descricao_perfil(
+        empresa,
+        post_data.get("descricao_perfil"),
+        vazio_como_none=True,
+    )
 
     return {
         "nro_unico_raw": nro_unico_raw,
@@ -1238,7 +1339,7 @@ def _dados_controle_margem_from_post(post_data, empresa):
         "nome_empresa": nome_empresa,
         "parceiro": parceiro,
         "cod_nome_parceiro": cod_nome_parceiro,
-        "descricao_perfil": (post_data.get("descricao_perfil") or "").strip() or None,
+        "descricao_perfil": descricao_perfil,
         "apelido_vendedor": (post_data.get("apelido_vendedor") or "").strip() or None,
         "gerente": gerente,
         "dt_neg_raw": (post_data.get("dt_neg") or "").strip(),
@@ -1577,6 +1678,7 @@ def _dados_carteira_from_post(post_data, empresa):
 
     data_cadastro_raw = post_data.get("data_cadastro")
     data_cadastro = _parse_date_ou_none(data_cadastro_raw)
+    descricao_perfil = _sincronizar_descricao_perfil(empresa, post_data.get("descricao_perfil"))
 
     return {
         "data_cadastro_raw": data_cadastro_raw,
@@ -1589,7 +1691,7 @@ def _dados_carteira_from_post(post_data, empresa):
         "data_cadastro": data_cadastro,
         "gerente": (post_data.get("gerente") or "").strip(),
         "vendedor": (post_data.get("vendedor") or "").strip(),
-        "descricao_perfil": (post_data.get("descricao_perfil") or "").strip(),
+        "descricao_perfil": descricao_perfil,
         "ativo_indicador": _parse_bool_checkbox(post_data, "ativo_indicador"),
         "cliente_indicador": _parse_bool_checkbox(post_data, "cliente_indicador"),
         "fornecedor_indicador": _parse_bool_checkbox(post_data, "fornecedor_indicador"),
@@ -1767,6 +1869,7 @@ def _dados_faturamento_from_post(post_data):
     natureza = None
     centro_resultado = None
     produto = None
+    descricao_perfil = (post_data.get("descricao_perfil") or "").strip()
     if empresa:
         parceiro_id = _fk_id("parceiro_id")
         operacao_id = _fk_id("operacao_id")
@@ -1782,6 +1885,7 @@ def _dados_faturamento_from_post(post_data):
             empresa=empresa,
         ).first() if centro_resultado_id else None
         produto = Produto.objects.filter(id=produto_id, empresa=empresa).first() if produto_id else None
+        descricao_perfil = _sincronizar_descricao_perfil(empresa, descricao_perfil)
 
     return {
         "data_faturamento_raw": data_faturamento_raw,
@@ -1808,7 +1912,7 @@ def _dados_faturamento_from_post(post_data):
         "tipo_venda": (post_data.get("tipo_venda") or "").strip(),
         "produto": produto,
         "gerente": (post_data.get("gerente") or "").strip(),
-        "descricao_perfil": (post_data.get("descricao_perfil") or "").strip(),
+        "descricao_perfil": descricao_perfil,
         "valor_frete_raw": valor_frete_raw,
         "valor_frete": _parse_decimal_ou_none(valor_frete_raw),
     }

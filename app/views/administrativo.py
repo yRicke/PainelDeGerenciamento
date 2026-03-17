@@ -11,6 +11,7 @@ from ..models import (
     Atividade,
     CentroResultado,
     Colaborador,
+    DescricaoPerfil,
     Faturamento,
     Natureza,
     Operacao,
@@ -71,6 +72,17 @@ def _normalizar_token_vendedor(valor):
     texto = unicodedata.normalize("NFD", texto)
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
     return " ".join(texto.split())
+
+
+def _descricoes_perfil_empresa(empresa):
+    return sorted(
+        [
+            valor
+            for valor in DescricaoPerfil.objects.filter(empresa=empresa).values_list("descricao", flat=True)
+            if str(valor or "").strip()
+        ],
+        key=lambda item: item.lower(),
+    )
 
 
 def _chave_vendedor_total_legado(valor):
@@ -616,6 +628,7 @@ def faturamento(request, empresa_id):
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("descricao"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
         "produtos": Produto.objects.filter(empresa=empresa).order_by("descricao_produto"),
+        "descricoes_perfil": _descricoes_perfil_empresa(empresa),
         "faturamento_meta_config": faturamento_meta_config,
         "faturamento_pedidos_pendentes": faturamento_pedidos_pendentes,
         "faturamento_vendedores_resumo_base": {
@@ -685,6 +698,7 @@ def editar_faturamento_modulo(request, empresa_id, faturamento_id):
         "naturezas": Natureza.objects.filter(empresa=empresa).order_by("descricao"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
         "produtos": Produto.objects.filter(empresa=empresa).order_by("descricao_produto"),
+        "descricoes_perfil": _descricoes_perfil_empresa(empresa),
     }
     return render(request, "administrativo/faturamento_editar.html", contexto)
 

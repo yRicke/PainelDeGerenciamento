@@ -82,12 +82,17 @@
                 </select>
             </div>
             <div><label>Gerente</label><input type="text" name="gerente" value="{{ faturamento_item.gerente }}"></div>
-            <div><label>Descricao (perfil)</label><input type="text" name="descricao_perfil" value="{{ faturamento_item.descricao_perfil }}"></div>
+            <div><label>Descricao (perfil)</label><input type="text" name="descricao_perfil" value="{{ faturamento_item.descricao_perfil }}" list="faturamento-editar-descricao-perfil-opcoes"></div>
             <div><label>Valor frete</label><input type="text" name="valor_frete" value="{{ faturamento_item.valor_frete }}"></div>
         </div>
         <div class="form-actions">
             <button type="submit" class="btn-primary">Salvar alteracoes</button>
         </div>
+        <datalist id="faturamento-editar-descricao-perfil-opcoes">
+            {% for descricao in descricoes_perfil %}
+            <option value="{{ descricao }}"></option>
+            {% endfor %}
+        </datalist>
     </form>
 
     <div class="danger-zone">

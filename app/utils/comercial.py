@@ -1,4 +1,4 @@
-from ..models import ControleMargem
+from ..models import ControleMargem, DescricaoPerfil
 
 
 def _normalizar_numero_unico_texto(valor):
@@ -47,4 +47,32 @@ def _filtrar_controle_margem_por_situacao(qs, situacao):
     if situacao == ControleMargem.SITUACAO_VERDE:
         return qs.filter(margem_bruta__gte=0.14)
     return qs.none()
+
+
+def _sincronizar_descricao_perfil(empresa, valor, *, vazio_como_none=False, cache=None):
+    texto = (str(valor or "")).strip()
+    if not texto:
+        return None if vazio_como_none else ""
+
+    chave = texto.casefold()
+    if cache is not None and chave in cache:
+        descricao = cache[chave]
+        if descricao:
+            return descricao
+        return None if vazio_como_none else ""
+
+    item = (
+        DescricaoPerfil.objects.filter(empresa=empresa, descricao__iexact=texto)
+        .order_by("id")
+        .first()
+    )
+    if not item:
+        item = DescricaoPerfil.criar_descricao_perfil(empresa=empresa, descricao=texto)
+
+    descricao = (item.descricao or "").strip()
+    if cache is not None:
+        cache[chave] = descricao
+    if descricao:
+        return descricao
+    return None if vazio_como_none else ""
 

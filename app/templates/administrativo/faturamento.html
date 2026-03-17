@@ -183,12 +183,17 @@
                         </select>
                     </div>
                     <div><label>Gerente</label><input type="text" name="gerente"></div>
-                    <div><label>Descricao (perfil)</label><input type="text" name="descricao_perfil"></div>
+                    <div><label>Descricao (perfil)</label><input type="text" name="descricao_perfil" list="faturamento-descricao-perfil-opcoes"></div>
                     <div><label>Valor frete</label><input type="text" name="valor_frete" placeholder="0,00"></div>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Cadastrar</button>
                 </div>
+                <datalist id="faturamento-descricao-perfil-opcoes">
+                    {% for descricao in descricoes_perfil %}
+                    <option value="{{ descricao }}"></option>
+                    {% endfor %}
+                </datalist>
             </form>
         </section>
         {% endif %}

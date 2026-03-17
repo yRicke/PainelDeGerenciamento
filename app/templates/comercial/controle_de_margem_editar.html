@@ -25,7 +25,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div><label>Descrição perfil</label><input type="text" name="descricao_perfil" value="{{ controle.descricao_perfil|default:'' }}"></div>
+            <div><label>Descrição perfil</label><input type="text" name="descricao_perfil" value="{{ controle.descricao_perfil|default:'' }}" list="controle-margem-editar-descricao-perfil-opcoes"></div>
             <div><label>Apelido vendedor</label><input type="text" name="apelido_vendedor" value="{{ controle.apelido_vendedor|default:'' }}"></div>
             <div><label>Gerente</label><input type="text" name="gerente" value="{{ controle.gerente|default:'' }}"></div>
             <div><label>Dt. Neg.</label><input type="date" name="dt_neg" value="{{ controle.dt_neg|date:'Y-m-d' }}"></div>
@@ -47,6 +47,11 @@
         <div class="form-actions">
             <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
+        <datalist id="controle-margem-editar-descricao-perfil-opcoes">
+            {% for descricao in descricoes_perfil %}
+            <option value="{{ descricao }}"></option>
+            {% endfor %}
+        </datalist>
     </form>
 
     <form method="post" action="{% url 'excluir_controle_margem_modulo' empresa.id controle.id %}" onsubmit="return confirm('Excluir este registro?');" style="margin-top: 1rem;">

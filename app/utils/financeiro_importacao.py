@@ -28,6 +28,7 @@ from ..models import (
     Produto,
     Titulo,
 )
+from .comercial import _sincronizar_descricao_perfil
 from .comercial_importacao import _iterar_linhas_xlsx
 
 try:
@@ -507,6 +508,7 @@ def _produto_get_create_por_texto(empresa, produto_texto, cache_produtos):
 
 def _mapa_cadastro_carteira_faturamento(empresa):
     mapa = {}
+    cache_descricoes_perfil = {}
     for item in (
         Carteira.objects.filter(empresa=empresa, parceiro__isnull=False)
         .order_by("-data_cadastro", "-id")
@@ -519,9 +521,14 @@ def _mapa_cadastro_carteira_faturamento(empresa):
         chave = _normalizar_nome_coluna(f"{codigo} - {nome}")
         if chave in mapa:
             continue
+        descricao_perfil = _sincronizar_descricao_perfil(
+            empresa,
+            _normalizar_texto(item.get("descricao_perfil")),
+            cache=cache_descricoes_perfil,
+        )
         mapa[chave] = {
             "gerente": _gerente_valido_ou_vazio(item.get("gerente")),
-            "descricao_perfil": _normalizar_texto(item.get("descricao_perfil")),
+            "descricao_perfil": descricao_perfil,
         }
     return mapa
 

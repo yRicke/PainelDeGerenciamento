@@ -9,6 +9,7 @@ from ..models import (
     Carteira,
     Cidade,
     ControleMargem,
+    DescricaoPerfil,
     Motorista,
     Parceiro,
     PedidoPendente,
@@ -70,6 +71,17 @@ from .shared import (
 def _normalizar_lista_query(request, chave):
     valores = [str(v or "").strip() for v in request.GET.getlist(chave)]
     return [v for v in valores if v]
+
+
+def _descricoes_perfil_empresa(empresa):
+    return sorted(
+        [
+            valor
+            for valor in DescricaoPerfil.objects.filter(empresa=empresa).values_list("descricao", flat=True)
+            if str(valor or "").strip()
+        ],
+        key=lambda item: item.lower(),
+    )
 
 
 @login_required(login_url="entrar")
@@ -152,6 +164,7 @@ def carteira(request, empresa_id):
     cidades = Cidade.objects.filter(empresa=empresa).order_by("nome")
     regioes = Regiao.objects.filter(empresa=empresa).order_by("nome")
     parceiros = Parceiro.objects.filter(empresa=empresa).order_by("nome")
+    descricoes_perfil = _descricoes_perfil_empresa(empresa)
     arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
     resumo_importacao = _montar_resumo_importacao(
         diretorio_importacao=diretorio_importacao,
@@ -177,6 +190,7 @@ def carteira(request, empresa_id):
     contexto["bloquear_cadastro_edicao_importacao"] = _empresa_bloqueia_cadastro_edicao_importacao(empresa)
     contexto["tipo_importacao_texto"] = TIPO_IMPORTACAO_POR_MODULO["carteira"]
     contexto["resumo_importacao"] = resumo_importacao
+    contexto["descricoes_perfil"] = descricoes_perfil
 
     # 4) Render
     return render(request, modulo["template"], contexto)
@@ -213,6 +227,7 @@ def editar_carteira_modulo(request, empresa_id, carteira_id):
         "cidades": cidades,
         "regioes": regioes,
         "parceiros": parceiros,
+        "descricoes_perfil": _descricoes_perfil_empresa(empresa),
     }
     return render(request, "comercial/carteira_editar.html", contexto)
 
@@ -855,16 +870,10 @@ def controle_de_margem(request, empresa_id):
         .select_related("parceiro")
         .order_by("-dt_neg", "-id")
     )
+    descricoes_perfil = _descricoes_perfil_empresa(empresa)
 
     filtros_disponiveis = {
-        "descricao_perfil": sorted(
-            [
-                valor
-                for valor in controles_base_qs.values_list("descricao_perfil", flat=True).distinct()
-                if str(valor or "").strip()
-            ],
-            key=lambda item: item.lower(),
-        ),
+        "descricao_perfil": descricoes_perfil,
         "apelido_vendedor": sorted(
             [
                 valor
@@ -950,6 +959,7 @@ def controle_de_margem(request, empresa_id):
         "arquivo_existente": arquivo_existente_texto,
         "tem_arquivo_existente": tem_arquivo_existente,
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome"),
+        "descricoes_perfil": descricoes_perfil,
         "controle_margem_tabulator": controles_tabulator,
         "filtros_disponiveis": filtros_disponiveis,
         "filtros_aplicados": {
@@ -993,6 +1003,7 @@ def editar_controle_margem_modulo(request, empresa_id, controle_id):
         "empresa": empresa,
         "controle": controle,
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome"),
+        "descricoes_perfil": _descricoes_perfil_empresa(empresa),
     }
     return render(request, "comercial/controle_de_margem_editar.html", contexto)
 

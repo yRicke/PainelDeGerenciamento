@@ -178,7 +178,7 @@
                     </div>
                     <div>
                         <label>Descricao perfil</label>
-                        <input type="text" name="descricao_perfil">
+                        <input type="text" name="descricao_perfil" list="carteira-descricao-perfil-opcoes">
                     </div>
                     <div class="checkbox-group indicadores-grid">
                         <label><input type="checkbox" name="ativo_indicador" checked> Ativo</label>
@@ -190,6 +190,11 @@
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Cadastrar</button>
                 </div>
+                <datalist id="carteira-descricao-perfil-opcoes">
+                    {% for descricao in descricoes_perfil %}
+                    <option value="{{ descricao }}"></option>
+                    {% endfor %}
+                </datalist>
             </form>
         </section>
         {% endif %}

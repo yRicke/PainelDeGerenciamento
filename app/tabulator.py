@@ -592,6 +592,52 @@ def build_transportadoras_tabulator(transportadoras_qs, empresa_id: int):
     ]
 
 
+def build_descricoes_perfil_tabulator(descricoes_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "descricao": item.descricao or "",
+            "editar_url": reverse(
+                "editar_descricao_perfil_modulo",
+                kwargs={"empresa_id": empresa_id, "descricao_perfil_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_descricao_perfil_modulo",
+                kwargs={"empresa_id": empresa_id, "descricao_perfil_id": item.id},
+            ),
+        }
+        for item in descricoes_qs
+    ]
+
+
+def build_parametros_metas_tabulator(parametros_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "descricao_perfil_id": item.descricao_perfil_id or "",
+            "descricao_perfil_descricao": item.descricao_perfil.descricao if item.descricao_perfil else "",
+            "meta_acabado_percentual": (
+                float(item.meta_acabado_percentual) if item.meta_acabado_percentual is not None else None
+            ),
+            "valor_meta_pd_acabado": (
+                float(item.valor_meta_pd_acabado) if item.valor_meta_pd_acabado is not None else None
+            ),
+            "meta_mt_prima_percentual": (
+                float(item.meta_mt_prima_percentual) if item.meta_mt_prima_percentual is not None else None
+            ),
+            "editar_url": reverse(
+                "editar_parametro_meta_modulo",
+                kwargs={"empresa_id": empresa_id, "parametro_meta_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_parametro_meta_modulo",
+                kwargs={"empresa_id": empresa_id, "parametro_meta_id": item.id},
+            ),
+        }
+        for item in parametros_qs
+    ]
+
+
 def build_agenda_tabulator(agenda_qs, empresa_id: int):
     return [
         {

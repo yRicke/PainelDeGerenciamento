@@ -5,11 +5,13 @@ from django.shortcuts import redirect, render
 
 from ..models import (
     Cidade,
+    DescricaoPerfil,
     Motorista,
     Parceiro,
     ParametroMargemAdministracao,
     ParametroMargemLogistica,
     ParametroMargemVendas,
+    ParametroMeta,
     ParametroNegocios,
     Produto,
     Rota,
@@ -18,6 +20,8 @@ from ..models import (
 )
 from ..services.parametros import (
     atualizar_motorista_por_dados,
+    atualizar_descricao_perfil_por_dados,
+    atualizar_parametro_meta_por_dados,
     atualizar_parametro_margem_logistica,
     atualizar_parametro_margem_vendas,
     atualizar_parametro_negocios,
@@ -27,6 +31,8 @@ from ..services.parametros import (
     atualizar_transportadora_por_dados,
     atualizar_unidade_federativa_por_dados,
     criar_motorista_por_dados,
+    criar_descricao_perfil_por_dados,
+    criar_parametro_meta_por_dados,
     criar_parametro_margem_logistica,
     criar_parametro_margem_vendas,
     criar_parametro_negocios,
@@ -42,6 +48,8 @@ from ..services.parametros import (
 )
 from ..tabulator import (
     build_motoristas_tabulator,
+    build_descricoes_perfil_tabulator,
+    build_parametros_metas_tabulator,
     build_parametros_margem_logistica_tabulator,
     build_parametros_margem_vendas_tabulator,
     build_parametros_negocios_tabulator,
@@ -292,6 +300,162 @@ def parametros_negocios(request, empresa_id):
         "parametros_negocios_tabulator": build_parametros_negocios_tabulator(parametros_qs, empresa.id),
     }
     return render(request, "parametros/parametros_negocios.html", contexto)
+
+
+@login_required(login_url="entrar")
+def descricoes_perfil(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Descricao Perfil")
+    if not autorizado:
+        return redirect("index")
+
+    descricoes_qs = DescricaoPerfil.objects.filter(empresa=empresa).order_by("descricao", "id")
+    contexto = {
+        "empresa": empresa,
+        "descricoes_perfil_tabulator": build_descricoes_perfil_tabulator(descricoes_qs, empresa.id),
+    }
+    return render(request, "parametros/descricoes_perfil.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_descricao_perfil_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Descricao Perfil")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+    erro = criar_descricao_perfil_por_dados(
+        empresa,
+        request.POST.get("descricao"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+    messages.success(request, "Descricao perfil criada com sucesso.")
+    return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_descricao_perfil_modulo(request, empresa_id, descricao_perfil_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Descricao Perfil")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+    item = DescricaoPerfil.objects.filter(id=descricao_perfil_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Descricao perfil nao encontrada.")
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+    erro = atualizar_descricao_perfil_por_dados(
+        item,
+        request.POST.get("descricao"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+    messages.success(request, "Descricao perfil atualizada com sucesso.")
+    return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_descricao_perfil_modulo(request, empresa_id, descricao_perfil_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Descricao Perfil")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+    item = DescricaoPerfil.objects.filter(id=descricao_perfil_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Descricao perfil nao encontrada.")
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+    try:
+        item.excluir_descricao_perfil()
+    except ProtectedError:
+        messages.error(
+            request,
+            "Nao e possivel excluir a descricao perfil porque ha parametros metas vinculados.",
+        )
+        return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+    messages.success(request, "Descricao perfil excluida com sucesso.")
+    return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def parametros_metas(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Metas")
+    if not autorizado:
+        return redirect("index")
+
+    parametros_qs = ParametroMeta.objects.filter(empresa=empresa).select_related("descricao_perfil").order_by("id")
+    descricoes_qs = DescricaoPerfil.objects.filter(empresa=empresa).order_by("descricao", "id")
+    contexto = {
+        "empresa": empresa,
+        "descricoes_perfil": descricoes_qs,
+        "descricoes_perfil_js": list(descricoes_qs.values("id", "descricao")),
+        "parametros_metas_tabulator": build_parametros_metas_tabulator(parametros_qs, empresa.id),
+    }
+    return render(request, "parametros/parametros_metas.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_parametro_meta_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Metas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("parametros_metas", empresa_id=empresa.id)
+
+    erro = criar_parametro_meta_por_dados(empresa, request.POST)
+    if erro:
+        messages.error(request, erro)
+        return redirect("parametros_metas", empresa_id=empresa.id)
+    messages.success(request, "Parametro de metas criado com sucesso.")
+    return redirect("parametros_metas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_parametro_meta_modulo(request, empresa_id, parametro_meta_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Metas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("parametros_metas", empresa_id=empresa.id)
+
+    item = ParametroMeta.objects.filter(id=parametro_meta_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Parametro de metas nao encontrado.")
+        return redirect("parametros_metas", empresa_id=empresa.id)
+
+    erro = atualizar_parametro_meta_por_dados(item, empresa, request.POST)
+    if erro:
+        messages.error(request, erro)
+        return redirect("parametros_metas", empresa_id=empresa.id)
+    messages.success(request, "Parametro de metas atualizado com sucesso.")
+    return redirect("parametros_metas", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_parametro_meta_modulo(request, empresa_id, parametro_meta_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Metas")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("parametros_metas", empresa_id=empresa.id)
+
+    item = ParametroMeta.objects.filter(id=parametro_meta_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Parametro de metas nao encontrado.")
+        return redirect("parametros_metas", empresa_id=empresa.id)
+
+    item.excluir_parametro_meta()
+    messages.success(request, "Parametro de metas excluido com sucesso.")
+    return redirect("parametros_metas", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
