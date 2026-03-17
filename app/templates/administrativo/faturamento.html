@@ -328,6 +328,7 @@
 {% block extra_js %}
 {{ faturamento_meta_config|json_script:"faturamento-meta-config-data" }}
 {{ faturamento_pedidos_pendentes|json_script:"faturamento-pedidos-pendentes-data" }}
+{{ faturamento_parametros_metas|json_script:"faturamento-parametros-metas-data" }}
 {{ faturamento_vendedores_resumo_base|json_script:"faturamento-vendedores-resumo-base-data" }}
 {{ faturamento_tabulator|json_script:"faturamento-tabulator-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>

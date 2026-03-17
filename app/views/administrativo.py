@@ -16,6 +16,7 @@ from ..models import (
     Natureza,
     Operacao,
     Parceiro,
+    ParametroMeta,
     ParametroNegocios,
     PedidoPendente,
     Produto,
@@ -594,6 +595,21 @@ def faturamento(request, empresa_id):
         }
         for item in pedidos_pendentes_por_gerente_qs
     ]
+    faturamento_parametros_metas = [
+        {
+            "descricao_perfil": (item.descricao_perfil.descricao if item.descricao_perfil else ""),
+            "valor_meta_pd_acabado": (
+                float(item.valor_meta_pd_acabado)
+                if item.valor_meta_pd_acabado is not None
+                else None
+            ),
+        }
+        for item in (
+            ParametroMeta.objects.filter(empresa=empresa)
+            .select_related("descricao_perfil")
+            .order_by("id")
+        )
+    ]
 
     arquivos_existentes = sorted(
         [
@@ -631,6 +647,7 @@ def faturamento(request, empresa_id):
         "descricoes_perfil": _descricoes_perfil_empresa(empresa),
         "faturamento_meta_config": faturamento_meta_config,
         "faturamento_pedidos_pendentes": faturamento_pedidos_pendentes,
+        "faturamento_parametros_metas": faturamento_parametros_metas,
         "faturamento_vendedores_resumo_base": {
             "total_vendedores": int(total_vendedores_legado or 0),
         },

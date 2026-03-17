@@ -95,9 +95,11 @@
     var data = JSON.parse(dataElement.textContent || "[]");
     var metaConfigElement = document.getElementById("faturamento-meta-config-data");
     var pedidosPendentesElement = document.getElementById("faturamento-pedidos-pendentes-data");
+    var parametrosMetasElement = document.getElementById("faturamento-parametros-metas-data");
     var vendedoresResumoBaseElement = document.getElementById("faturamento-vendedores-resumo-base-data");
     var metaConfig = metaConfigElement ? JSON.parse(metaConfigElement.textContent || "{}") : {};
     var pedidosPendentesData = pedidosPendentesElement ? JSON.parse(pedidosPendentesElement.textContent || "[]") : [];
+    var parametrosMetasData = parametrosMetasElement ? JSON.parse(parametrosMetasElement.textContent || "[]") : [];
     var vendedoresResumoBase = vendedoresResumoBaseElement ? JSON.parse(vendedoresResumoBaseElement.textContent || "{}") : {};
     var tabelaTarget = document.getElementById("faturamento-tabulator");
     var kpiValorFaturamentoEl = document.getElementById("faturamento-kpi-valor-faturamento");
@@ -192,6 +194,30 @@
         if (token === "sem vendedor" || token === "<sem vendedor>") return "<SEM VENDEDOR>";
         return toText(valor);
     }
+
+    function construirMapaMetaPorPerfil(parametros) {
+        var mapa = new Map();
+        var itens = Array.isArray(parametros) ? parametros : [];
+
+        itens.forEach(function (item) {
+            var perfil = toText(item && item.descricao_perfil);
+            if (!perfil) return;
+
+            var chavePerfil = normalizeText(perfil);
+            if (!chavePerfil) return;
+
+            var metaValorRaw = item ? item.valor_meta_pd_acabado : null;
+            if (metaValorRaw === null || metaValorRaw === undefined || metaValorRaw === "") return;
+
+            var metaValor = Number(metaValorRaw);
+            if (Number.isNaN(metaValor)) return;
+            mapa.set(chavePerfil, metaValor);
+        });
+
+        return mapa;
+    }
+
+    var mapaMetaPerfil = construirMapaMetaPorPerfil(parametrosMetasData);
 
     var universoVendedores = (function () {
         var resultado = new Set();
@@ -750,12 +776,59 @@
             };
         });
 
+        perfisTop.forEach(function (item) {
+            var perfil = item.perfil;
+            var metaPerfil = mapaMetaPerfil.get(normalizeText(perfil));
+            if (metaPerfil === undefined || metaPerfil === null || Number.isNaN(Number(metaPerfil))) return;
+
+            var valorMeta = Number(metaPerfil);
+            series.push({
+                name: "Meta - " + perfil,
+                data: mesesFixos.map(function () { return Number(valorMeta.toFixed(2)); }),
+                isMetaSerie: true,
+            });
+        });
+
+        var paletaCores = [
+            "#61b84f", "#df6f2f", "#2d9cdb", "#00a8a8", "#6c757d", "#f59f00",
+            "#9c36b5", "#2f9e44", "#0b7285", "#495057", "#364fc7", "#a61e4d",
+        ];
+        var cores = [];
+        var dashArray = [];
+        var strokeWidth = [];
+        var markerSizes = [];
+        var indiceCorBase = 0;
+        var corPorPerfil = new Map();
+
+        series.forEach(function (serie) {
+            var nomeSerie = toText(serie && serie.name);
+            var perfilBase = nomeSerie.indexOf("Meta - ") === 0
+                ? nomeSerie.replace(/^Meta - /, "")
+                : nomeSerie;
+            var chavePerfilBase = normalizeText(perfilBase);
+            var corBase = corPorPerfil.get(chavePerfilBase);
+            if (!corBase) {
+                corBase = paletaCores[indiceCorBase % paletaCores.length];
+                corPorPerfil.set(chavePerfilBase, corBase);
+                indiceCorBase += 1;
+            }
+
+            cores.push(corBase);
+            dashArray.push(serie && serie.isMetaSerie ? 6 : 0);
+            strokeWidth.push(serie && serie.isMetaSerie ? 2 : 2.4);
+            markerSizes.push(serie && serie.isMetaSerie ? 0 : 2.6);
+        });
+
         return {
             categorias: mesesFixos.map(function (chaveMes) {
                 var indice = Number(chaveMes || 0);
                 return nomesMesesCurtos[indice - 1] || "(Vazio)";
             }),
             series: series,
+            cores: cores,
+            dashArray: dashArray,
+            strokeWidth: strokeWidth,
+            markerSizes: markerSizes,
         };
     }
 
@@ -1060,7 +1133,16 @@
             chartCidade.updateSeries([{name: "Faturamento", data: cidade.valores}]);
         }
         if (chartPerfilClientes) {
-            chartPerfilClientes.updateOptions({xaxis: {categories: perfilClientes.categorias}});
+            chartPerfilClientes.updateOptions({
+                xaxis: {categories: perfilClientes.categorias},
+                colors: perfilClientes.cores,
+                stroke: {
+                    curve: "straight",
+                    width: perfilClientes.strokeWidth,
+                    dashArray: perfilClientes.dashArray,
+                },
+                markers: {size: perfilClientes.markerSizes, strokeWidth: 0},
+            });
             chartPerfilClientes.updateSeries(perfilClientes.series);
         }
     }
