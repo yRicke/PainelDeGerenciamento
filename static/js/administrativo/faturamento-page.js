@@ -6,7 +6,6 @@
     var input = document.getElementById("arquivo-faturamento-input");
     var fileStatus = document.getElementById("nome-arquivo-faturamento-selecionado");
     var loadingStatus = document.getElementById("faturamento-loading-status");
-    var temArquivoExistente = form.dataset.temArquivoExistente === "1";
 
     function isArquivoVisivel(file) {
         if (!file) return false;
@@ -37,11 +36,6 @@
             return;
         }
         fileStatus.textContent = arquivosXlsx.length + " arquivo(s) .xlsx selecionado(s).";
-    }
-
-    function confirmarSubstituicaoSeNecessario() {
-        if (!temArquivoExistente) return true;
-        return window.confirm("Ja existe lote na pasta de importacao. Deseja substituir o lote atual?");
     }
 
     function iniciarCarregamento() {
@@ -77,10 +71,6 @@
         if (!arquivosXlsx.length) {
             event.preventDefault();
             window.alert("Selecione uma pasta com arquivos .xlsx para continuar.");
-            return;
-        }
-        if (!confirmarSubstituicaoSeNecessario()) {
-            event.preventDefault();
             return;
         }
 

@@ -167,19 +167,21 @@ def _inferir_subpasta_faturamento_por_conteudo(caminho_arquivo: Path):
     return None
 
 
-def _destino_unico(destino_pasta: Path, nome_arquivo: str) -> Path:
-    destino = destino_pasta / nome_arquivo
-    if not destino.exists():
-        return destino
+def _classificar_arquivo_faturamento(base: Path, caminho_arquivo: Path) -> str:
+    try:
+        rel_parts = list(caminho_arquivo.relative_to(base).parts[:-1])
+    except ValueError:
+        rel_parts = list(caminho_arquivo.parts[:-1])
 
-    stem = Path(nome_arquivo).stem
-    suffix = Path(nome_arquivo).suffix
-    indice = 2
-    while True:
-        candidato = destino_pasta / f"{stem}_{indice}{suffix}"
-        if not candidato.exists():
-            return candidato
-        indice += 1
+    tokens = {_normalizar_token_faturamento(parte) for parte in rel_parts}
+    if _normalizar_token_faturamento(FATURAMENTO_SUBPASTA_DIARIO) in tokens:
+        return "diario"
+    if _normalizar_token_faturamento(FATURAMENTO_SUBPASTA_PRODUTOS) in tokens:
+        return "produtos"
+
+    if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", caminho_arquivo.name, flags=re.IGNORECASE):
+        return "diario"
+    return "produtos"
 
 
 def importar_upload_faturamento(
@@ -204,12 +206,26 @@ def importar_upload_faturamento(
     if not arquivos_xlsx:
         return False, "Selecione uma pasta com arquivos .xlsx para importar."
 
-    for item_antigo in [f for f in diretorio_importacao.iterdir() if f.name != diretorio_subscritos.name]:
-        destino_subscrito = diretorio_subscritos / item_antigo.name
-        if destino_subscrito.exists():
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            destino_subscrito = diretorio_subscritos / f"{item_antigo.stem}_{timestamp}{item_antigo.suffix}"
-        shutil.move(str(item_antigo), str(destino_subscrito))
+    arquivos_ativos = [
+        arquivo
+        for arquivo in diretorio_importacao.rglob("*")
+        if arquivo.is_file()
+        and diretorio_subscritos not in arquivo.parents
+        and _normalizar_token_faturamento(arquivo.parent.name)
+        != _normalizar_token_faturamento("_tmp_classificacao")
+        and arquivo.suffix.lower() == ".xlsx"
+        and not arquivo.name.startswith("~$")
+        and not arquivo.name.startswith(".")
+    ]
+    chaves_existentes = set()
+    for arquivo_existente in arquivos_ativos:
+        tipo_existente = _classificar_arquivo_faturamento(diretorio_importacao, arquivo_existente)
+        if tipo_existente == "diario":
+            subpasta_existente = FATURAMENTO_SUBPASTA_DIARIO
+        else:
+            subpasta_existente = FATURAMENTO_SUBPASTA_PRODUTOS
+        chave_existente = f"{subpasta_existente}/{arquivo_existente.name}".strip().lower()
+        chaves_existentes.add(chave_existente)
 
     diretorio_tmp = diretorio_importacao / "_tmp_classificacao"
     if diretorio_tmp.exists():
@@ -223,34 +239,71 @@ def importar_upload_faturamento(
         with destino_temp.open("wb+") as file_out:
             for chunk in arquivo_upload.chunks():
                 file_out.write(chunk)
-        arquivos_staged.append((destino_temp, nome_original, nome_base, subpasta_hint))
+        arquivos_staged.append((destino_temp, nome_base, subpasta_hint))
 
-    nomes_lote = []
+    nomes_lote_novos = []
+    nomes_lote_ignorados = []
+    chaves_novas = set()
+
+    try:
+        for caminho_temp, nome_arquivo, subpasta_hint in arquivos_staged:
+            subpasta = subpasta_hint or _inferir_subpasta_faturamento_por_conteudo(caminho_temp)
+            if not subpasta:
+                # Fallback minimo quando o navegador nao envia caminho relativo.
+                if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", nome_arquivo, flags=re.IGNORECASE):
+                    subpasta = FATURAMENTO_SUBPASTA_DIARIO
+                else:
+                    subpasta = FATURAMENTO_SUBPASTA_PRODUTOS
+
+            caminho_relativo = str(Path(subpasta) / nome_arquivo)
+            chave_arquivo = caminho_relativo.strip().lower()
+            if chave_arquivo in chaves_existentes or chave_arquivo in chaves_novas:
+                nomes_lote_ignorados.append(caminho_relativo)
+                continue
+
+            destino_pasta = diretorio_importacao / subpasta
+            destino_pasta.mkdir(parents=True, exist_ok=True)
+            destino = destino_pasta / nome_arquivo
+            if destino.exists():
+                nomes_lote_ignorados.append(caminho_relativo)
+                continue
+
+            shutil.move(str(caminho_temp), str(destino))
+            nomes_lote_novos.append(caminho_relativo)
+            chaves_novas.add(chave_arquivo)
+            chaves_existentes.add(chave_arquivo)
+    finally:
+        if diretorio_tmp.exists():
+            shutil.rmtree(diretorio_tmp)
+
+    if not nomes_lote_novos:
+        return (
+            True,
+            (
+                "Analise previa concluida. "
+                f"Arquivos enviados: {len(arquivos_xlsx)}; novos: 0; ja existentes: {len(nomes_lote_ignorados)}."
+            ),
+        )
+
     possui_diario = False
     possui_produtos = False
-
-    for caminho_temp, nome_original, nome_arquivo, subpasta_hint in arquivos_staged:
-        subpasta = subpasta_hint or _inferir_subpasta_faturamento_por_conteudo(caminho_temp)
-        if not subpasta:
-            # Fallback minimo quando o navegador nao envia caminho relativo.
-            if re.match(r"^\d{2}\.\d{2}\.\d{4}\.xlsx$", nome_arquivo, flags=re.IGNORECASE):
-                subpasta = FATURAMENTO_SUBPASTA_DIARIO
-            else:
-                subpasta = FATURAMENTO_SUBPASTA_PRODUTOS
-
-        if subpasta == FATURAMENTO_SUBPASTA_DIARIO:
+    arquivos_ativos = [
+        arquivo
+        for arquivo in diretorio_importacao.rglob("*")
+        if arquivo.is_file()
+        and diretorio_subscritos not in arquivo.parents
+        and _normalizar_token_faturamento(arquivo.parent.name)
+        != _normalizar_token_faturamento("_tmp_classificacao")
+        and arquivo.suffix.lower() == ".xlsx"
+        and not arquivo.name.startswith("~$")
+        and not arquivo.name.startswith(".")
+    ]
+    for arquivo_ativo in arquivos_ativos:
+        tipo_arquivo = _classificar_arquivo_faturamento(diretorio_importacao, arquivo_ativo)
+        if tipo_arquivo == "diario":
             possui_diario = True
-        if subpasta == FATURAMENTO_SUBPASTA_PRODUTOS:
+        elif tipo_arquivo == "produtos":
             possui_produtos = True
-
-        destino_pasta = diretorio_importacao / subpasta
-        destino_pasta.mkdir(parents=True, exist_ok=True)
-        destino = _destino_unico(destino_pasta, nome_arquivo)
-        shutil.move(str(caminho_temp), str(destino))
-        nomes_lote.append(str(Path(subpasta) / destino.name))
-
-    if diretorio_tmp.exists():
-        shutil.rmtree(diretorio_tmp)
 
     if not possui_diario or not possui_produtos:
         return (
@@ -277,7 +330,7 @@ def importar_upload_faturamento(
             empresa=empresa,
             modulo="faturamento",
             usuario=usuario,
-            arquivos=nomes_lote,
+            arquivos=nomes_lote_novos,
         )
     except Exception:
         pass
@@ -289,8 +342,10 @@ def importar_upload_faturamento(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
-            f"linhas: {resultado['linhas']}, faturamento: {resultado['faturamento']}."
+            "Importacao incremental concluida. "
+            f"Arquivos enviados: {len(arquivos_xlsx)}; novos: {len(nomes_lote_novos)}; "
+            f"ja existentes: {len(nomes_lote_ignorados)}; "
+            f"linhas: {resultado['linhas']}; faturamento: {resultado['faturamento']}."
         ),
     )
 
