@@ -112,6 +112,7 @@
     var kpiQtdClientesEl = document.getElementById("faturamento-kpi-qtd-clientes");
     var kpiParticipacaoVendaGeralEl = document.getElementById("faturamento-kpi-participacao-venda-geral");
     var incluirPedidosPendentesEl = document.getElementById("faturamento-kpi-meta-diaria-incluir-pendentes");
+    var esconderMetasPerfilClientesEl = document.getElementById("faturamento-perfil-clientes-esconder-metas");
     var relogioMetaEl = document.getElementById("faturamento-reloginho-meta");
     var relogioRealEl = document.getElementById("faturamento-reloginho-real");
     var relogioPctEl = document.getElementById("faturamento-reloginho-pct");
@@ -151,6 +152,7 @@
     var chartTop10Produtos = null;
     var chartCidade = null;
     var chartPerfilClientes = null;
+    var ultimoPerfilClientes = null;
 
     function toText(valor) {
         if (valor === null || valor === undefined) return "";
@@ -832,6 +834,54 @@
         };
     }
 
+    function obterPerfilClientesVisivel(perfilClientes) {
+        var base = perfilClientes || {};
+        var seriesBase = Array.isArray(base.series) ? base.series : [];
+        var esconderMetas = esconderMetasPerfilClientesEl ? esconderMetasPerfilClientesEl.checked : false;
+        if (!esconderMetas) return base;
+
+        var indicesVisiveis = [];
+        var series = [];
+        seriesBase.forEach(function (serie, index) {
+            if (serie && serie.isMetaSerie) return;
+            indicesVisiveis.push(index);
+            series.push({
+                name: toText(serie && serie.name),
+                data: Array.isArray(serie && serie.data) ? serie.data : [],
+            });
+        });
+
+        function pickByIndices(arr) {
+            var lista = Array.isArray(arr) ? arr : [];
+            return indicesVisiveis.map(function (idx) { return lista[idx]; });
+        }
+
+        return {
+            categorias: Array.isArray(base.categorias) ? base.categorias : [],
+            series: series,
+            cores: pickByIndices(base.cores),
+            dashArray: pickByIndices(base.dashArray),
+            strokeWidth: pickByIndices(base.strokeWidth),
+            markerSizes: pickByIndices(base.markerSizes),
+        };
+    }
+
+    function atualizarGraficoPerfilClientes(perfilClientes) {
+        if (!chartPerfilClientes) return;
+        var visible = obterPerfilClientesVisivel(perfilClientes || ultimoPerfilClientes || {});
+        chartPerfilClientes.updateOptions({
+            xaxis: {categories: visible.categorias || []},
+            colors: visible.cores || [],
+            stroke: {
+                curve: "straight",
+                width: visible.strokeWidth || [],
+                dashArray: visible.dashArray || [],
+            },
+            markers: {size: visible.markerSizes || [], strokeWidth: 0},
+        });
+        chartPerfilClientes.updateSeries(visible.series || []);
+    }
+
     function inicializarGraficosFaturamento() {
         if (!window.ApexCharts) return;
 
@@ -1132,19 +1182,8 @@
             chartCidade.updateOptions({xaxis: {categories: cidade.categorias}});
             chartCidade.updateSeries([{name: "Faturamento", data: cidade.valores}]);
         }
-        if (chartPerfilClientes) {
-            chartPerfilClientes.updateOptions({
-                xaxis: {categories: perfilClientes.categorias},
-                colors: perfilClientes.cores,
-                stroke: {
-                    curve: "straight",
-                    width: perfilClientes.strokeWidth,
-                    dashArray: perfilClientes.dashArray,
-                },
-                markers: {size: perfilClientes.markerSizes, strokeWidth: 0},
-            });
-            chartPerfilClientes.updateSeries(perfilClientes.series);
-        }
+        ultimoPerfilClientes = perfilClientes;
+        atualizarGraficoPerfilClientes(perfilClientes);
     }
 
     var pedidosPendentesPorGerente = criarMapaPedidosPendentesPorGerente();
@@ -1417,6 +1456,11 @@
                 atualizarDashboard(data);
             });
         }
+        if (esconderMetasPerfilClientesEl) {
+            esconderMetasPerfilClientesEl.addEventListener("change", function () {
+                atualizarGraficoPerfilClientes();
+            });
+        }
         return;
     }
 
@@ -1488,6 +1532,11 @@
 
     if (incluirPedidosPendentesEl) {
         incluirPedidosPendentesEl.addEventListener("change", atualizarDashboardComTabela);
+    }
+    if (esconderMetasPerfilClientesEl) {
+        esconderMetasPerfilClientesEl.addEventListener("change", function () {
+            atualizarGraficoPerfilClientes();
+        });
     }
 
     tabela.on("tableBuilt", atualizarDashboardComTabela);
