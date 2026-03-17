@@ -165,7 +165,17 @@ def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo
     data_referencia = data_referencia_metadado or data_referencia_arquivos
     data_referencia_texto = data_referencia.strftime("%d/%m/%Y") if data_referencia else "-"
 
-    quantidade_arquivos = len(arquivos_atuais)
+    quantidade_arquivos_metadado = 0
+    try:
+        quantidade_arquivos_metadado = int(metadados.get("quantidade_arquivos") or 0)
+    except (TypeError, ValueError):
+        quantidade_arquivos_metadado = 0
+
+    quantidade_arquivos = (
+        quantidade_arquivos_metadado
+        if quantidade_arquivos_metadado > 0
+        else len(arquivos_atuais)
+    )
     if quantidade_arquivos > 1:
         data_referencia_texto = f"{data_referencia_texto} +{quantidade_arquivos - 1}"
 

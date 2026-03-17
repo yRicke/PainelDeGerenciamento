@@ -1399,9 +1399,21 @@ def importar_contas_a_receber_do_diretorio(
     empresa,
     diretorio: str = "importacoes/financeiro/contas_a_receber",
     limpar_antes: bool = True,
+    arquivos_alvo=None,
 ):
     base = Path(diretorio)
     arquivos = sorted(base.glob("*.xls"))
+    if arquivos_alvo is not None:
+        nomes_alvo = {
+            Path(nome).name.strip().lower()
+            for nome in (arquivos_alvo or [])
+            if str(nome or "").strip()
+        }
+        arquivos = [
+            arquivo
+            for arquivo in arquivos
+            if arquivo.name.strip().lower() in nomes_alvo
+        ]
     if not arquivos:
         return {
             "arquivos": 0,

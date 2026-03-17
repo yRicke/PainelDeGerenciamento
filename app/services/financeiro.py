@@ -378,25 +378,45 @@ def importar_upload_contas_a_receber(
     if not arquivos_xls:
         return False, "Selecione ao menos um arquivo .xls para importar."
 
-    for arquivo_antigo in [f for f in diretorio_importacao.iterdir() if f.is_file()]:
-        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
-        if destino_subscrito.exists():
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
-        shutil.move(str(arquivo_antigo), str(destino_subscrito))
+    nomes_existentes = {
+        arquivo_existente.name.strip().lower()
+        for arquivo_existente in diretorio_importacao.iterdir()
+        if arquivo_existente.is_file() and arquivo_existente.suffix.lower() == ".xls"
+    }
+
+    nomes_novos = []
+    nomes_ignorados = []
+    nomes_novos_set = set()
 
     for arquivo_upload, nome_arquivo in arquivos_xls:
+        nome_normalizado = nome_arquivo.strip().lower()
+        if nome_normalizado in nomes_existentes or nome_normalizado in nomes_novos_set:
+            nomes_ignorados.append(nome_arquivo)
+            continue
         destino = diretorio_importacao / nome_arquivo
         with destino.open("wb+") as file_out:
             for chunk in arquivo_upload.chunks():
                 file_out.write(chunk)
+        nomes_novos.append(nome_arquivo)
+        nomes_novos_set.add(nome_normalizado)
+        nomes_existentes.add(nome_normalizado)
+
+    if not nomes_novos:
+        return (
+            True,
+            (
+                "Analise previa concluida. "
+                f"Arquivos enviados: {len(arquivos_xls)}; novos: 0; ja existentes: {len(nomes_ignorados)}."
+            ),
+        )
 
     try:
         services = _services()
         resultado = services.importar_contas_a_receber_do_diretorio(
             empresa=empresa,
             diretorio=str(diretorio_importacao),
-            limpar_antes=True,
+            limpar_antes=False,
+            arquivos_alvo=nomes_novos,
         )
     except Exception as exc:
         return False, f"Falha ao importar Contas a Receber: {exc}"
@@ -407,7 +427,7 @@ def importar_upload_contas_a_receber(
             empresa=empresa,
             modulo="contas_a_receber",
             usuario=usuario,
-            arquivos=[nome_arquivo for _, nome_arquivo in arquivos_xls],
+            arquivos=nomes_novos,
         )
     except Exception:
         pass
@@ -423,8 +443,10 @@ def importar_upload_contas_a_receber(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
-            f"linhas: {resultado['linhas']}, contas: {resultado['contas_a_receber']}."
+            "Importacao incremental concluida. "
+            f"Arquivos enviados: {len(arquivos_xls)}; novos: {len(nomes_novos)}; "
+            f"ja existentes: {len(nomes_ignorados)}; linhas importadas: {resultado['linhas']}; "
+            f"contas adicionadas: {resultado['contas_a_receber']}."
         ),
     )
 
