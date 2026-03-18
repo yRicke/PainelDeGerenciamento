@@ -23,20 +23,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-@56k@-0keh23n@^rvpvw=j(9j+w$5g_am#nsmuy=bhmv^r7rnq'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-IP_MAQUINA = '26.194.211.233'  # exemplo
+DEBUG = False
+IP_MAQUINA = '192.168.100.94'  # exemplo
 
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     IP_MAQUINA,
     '.trycloudflare.com',
-    'car-health-presidential-hart.trycloudflare.com'
+    'aplicacao.efuturetecnologia.com.br'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     f'http://{IP_MAQUINA}',
-    f'https://car-health-presidential-hart.trycloudflare.com/'
+    f'https://aplicacao.efuturetecnologia.com.br'
 ]
 
 
