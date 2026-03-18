@@ -133,9 +133,28 @@
 
 (function () {
     var dataElement = document.getElementById("producao-tabulator-data");
-    if (!dataElement || !window.Tabulator) return;
+    if (!dataElement) return;
 
-    var data = JSON.parse(dataElement.textContent || "[]");
+    function parseJsonPayload(texto) {
+        var raw = String(texto || "[]");
+        try {
+            return JSON.parse(raw);
+        } catch (_err) {
+            // Fallback para payload legado contendo NaN/Infinity.
+            var sanitizado = raw
+                .replace(/\bNaN\b/g, "null")
+                .replace(/\b-Infinity\b/g, "null")
+                .replace(/\bInfinity\b/g, "null");
+            try {
+                return JSON.parse(sanitizado);
+            } catch (errSanitizado) {
+                console.error("Falha ao ler producao-tabulator-data.", errSanitizado);
+                return [];
+            }
+        }
+    }
+
+    var data = parseJsonPayload(dataElement.textContent);
     var dadosOriginais = Array.isArray(data) ? data.slice() : [];
 
     var CHAVES_RELOGINHO = {
@@ -288,20 +307,27 @@
         { title: "KG por Lote", field: "kg_por_lote", hozAlign: "right" }
     ];
 
-    window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
+    if (window.TabulatorDefaults && typeof window.TabulatorDefaults.addEditActionColumnIfAny === "function") {
+        window.TabulatorDefaults.addEditActionColumnIfAny(colunas, dadosOriginais);
+    }
 
     var secFiltros = document.getElementById("sec-filtros");
     if (secFiltros) {
         secFiltros.dataset.moduleFiltersAuto = "off";
     }
 
-    var tabela = window.TabulatorDefaults.create("#producao-tabulator", {
-        data: dadosOriginais,
-        columns: colunas,
-    });
+    var tabelaTarget = document.getElementById("producao-tabulator");
+    var tabela = null;
+    if (tabelaTarget && window.Tabulator && window.TabulatorDefaults) {
+        tabela = window.TabulatorDefaults.create("#producao-tabulator", {
+            data: dadosOriginais,
+            columns: colunas,
+        });
+    }
     var filtrosExternos = null;
+    var filtroExternoAplicado = false;
 
-    if (window.ModuleFilterCore && secFiltros) {
+    if (tabela && window.ModuleFilterCore && secFiltros) {
         secFiltros.dataset.moduleFiltersManual = "true";
         var placeholderFiltros = secFiltros.querySelector(".module-filters-placeholder");
         if (placeholderFiltros) placeholderFiltros.remove();
@@ -353,26 +379,32 @@
                 leftColumn: filtroColumns.left,
                 rightColumn: filtroColumns.right,
                 onChange: function () {
-                    if (typeof tabela.refreshFilter === "function") {
+                    if (tabela && typeof tabela.refreshFilter === "function") {
                         tabela.refreshFilter();
                     }
                 },
             });
 
-            tabela.addFilter(function (rowData) {
-                return filtrosExternos.matchesRecord(rowData);
-            });
         }
+    }
+
+    function aplicarFiltroExternoQuandoTabelaPronta() {
+        if (filtroExternoAplicado || !filtrosExternos || !tabela) return;
+        if (typeof tabela.addFilter !== "function") return;
+        tabela.addFilter(function (rowData) {
+            return filtrosExternos.matchesRecord(rowData);
+        });
+        filtroExternoAplicado = true;
     }
 
     function limparTodosFiltros() {
         if (filtrosExternos && typeof filtrosExternos.clearAllFilters === "function") {
             filtrosExternos.clearAllFilters();
         }
-        if (typeof tabela.clearHeaderFilter === "function") {
+        if (tabela && typeof tabela.clearHeaderFilter === "function") {
             tabela.clearHeaderFilter();
         }
-        if (typeof tabela.refreshFilter === "function") {
+        if (tabela && typeof tabela.refreshFilter === "function") {
             tabela.refreshFilter();
         }
     }
@@ -573,11 +605,40 @@
         atualizarCard("total", metricas.total, semFiltrosAtivos);
     }
 
-    tabela.on("dataFiltered", function (_filters, rows) {
-        var dadosFiltrados = rows.map(function (row) { return row.getData(); });
-        atualizarDashboard(dadosFiltrados);
-    });
+    function obterLinhasAtivas() {
+        if (!tabela || typeof tabela.getData !== "function") {
+            return dadosOriginais.slice();
+        }
+        try {
+            var linhasAtivas = tabela.getData("active");
+            if (Array.isArray(linhasAtivas)) return linhasAtivas;
+        } catch (_err) {
+            // fallback para versões/estados sem suporte a "active"
+        }
+        var linhas = tabela.getData();
+        return Array.isArray(linhas) ? linhas : dadosOriginais.slice();
+    }
 
-    tabela.setLocale("pt-br");
-    atualizarDashboard(dadosOriginais);
+    function atualizarDashboardComTabela() {
+        atualizarDashboard(obterLinhasAtivas());
+    }
+
+    if (tabela) {
+        tabela.on("tableBuilt", function () {
+            aplicarFiltroExternoQuandoTabelaPronta();
+            atualizarDashboardComTabela();
+        });
+        tabela.on("dataLoaded", atualizarDashboardComTabela);
+        tabela.on("renderComplete", atualizarDashboardComTabela);
+        tabela.on("dataFiltered", function (_filters, rows) {
+            if (Array.isArray(rows)) {
+                var dadosFiltrados = rows.map(function (row) { return row.getData(); });
+                atualizarDashboard(dadosFiltrados);
+                return;
+            }
+            atualizarDashboardComTabela();
+        });
+    }
+
+    setTimeout(atualizarDashboardComTabela, 0);
 })();

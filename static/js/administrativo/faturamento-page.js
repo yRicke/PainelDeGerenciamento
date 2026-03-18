@@ -82,15 +82,45 @@
     var dataElement = document.getElementById("faturamento-tabulator-data");
     if (!dataElement) return;
 
-    var data = JSON.parse(dataElement.textContent || "[]");
+    function parseJsonPayload(texto, fallback, origem) {
+        var raw = String(texto || "");
+        var fallbackValue = fallback;
+        if (fallbackValue === undefined) fallbackValue = null;
+        if (!raw.trim()) return fallbackValue;
+        try {
+            return JSON.parse(raw);
+        } catch (_err) {
+            // Fallback para payload legado contendo NaN/Infinity.
+            var sanitizado = raw
+                .replace(/\bNaN\b/g, "null")
+                .replace(/\b-Infinity\b/g, "null")
+                .replace(/\bInfinity\b/g, "null");
+            try {
+                return JSON.parse(sanitizado);
+            } catch (errSanitizado) {
+                console.error("Falha ao ler payload JSON de " + String(origem || "faturamento") + ".", errSanitizado);
+                return fallbackValue;
+            }
+        }
+    }
+
+    var data = parseJsonPayload(dataElement.textContent, [], "faturamento-tabulator-data");
     var metaConfigElement = document.getElementById("faturamento-meta-config-data");
     var pedidosPendentesElement = document.getElementById("faturamento-pedidos-pendentes-data");
     var parametrosMetasElement = document.getElementById("faturamento-parametros-metas-data");
     var vendedoresResumoBaseElement = document.getElementById("faturamento-vendedores-resumo-base-data");
-    var metaConfig = metaConfigElement ? JSON.parse(metaConfigElement.textContent || "{}") : {};
-    var pedidosPendentesData = pedidosPendentesElement ? JSON.parse(pedidosPendentesElement.textContent || "[]") : [];
-    var parametrosMetasData = parametrosMetasElement ? JSON.parse(parametrosMetasElement.textContent || "[]") : [];
-    var vendedoresResumoBase = vendedoresResumoBaseElement ? JSON.parse(vendedoresResumoBaseElement.textContent || "{}") : {};
+    var metaConfig = metaConfigElement
+        ? parseJsonPayload(metaConfigElement.textContent, {}, "faturamento-meta-config-data")
+        : {};
+    var pedidosPendentesData = pedidosPendentesElement
+        ? parseJsonPayload(pedidosPendentesElement.textContent, [], "faturamento-pedidos-pendentes-data")
+        : [];
+    var parametrosMetasData = parametrosMetasElement
+        ? parseJsonPayload(parametrosMetasElement.textContent, [], "faturamento-parametros-metas-data")
+        : [];
+    var vendedoresResumoBase = vendedoresResumoBaseElement
+        ? parseJsonPayload(vendedoresResumoBaseElement.textContent, {}, "faturamento-vendedores-resumo-base-data")
+        : {};
     var tabelaTarget = document.getElementById("faturamento-tabulator");
     var kpiValorFaturamentoEl = document.getElementById("faturamento-kpi-valor-faturamento");
     var kpiMetaGeralEl = document.getElementById("faturamento-kpi-meta-geral");

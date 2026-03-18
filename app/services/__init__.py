@@ -10,6 +10,7 @@ import re
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import F
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from ..models import (
@@ -286,7 +287,17 @@ def excluir_empresa_por_id(empresa_id):
         empresa = Empresa.objects.get(id=empresa_id)
     except Empresa.DoesNotExist as exc:
         return False, f"Empresa nao encontrada. {exc}"
-    empresa.excluir_empresa()
+    try:
+        empresa.excluir_empresa()
+    except ProtectedError as exc:
+        modelos = sorted({obj.__class__.__name__ for obj in getattr(exc, "protected_objects", [])})
+        if modelos:
+            tipos = ", ".join(modelos)
+            return (
+                False,
+                f"Empresa nao pode ser excluida porque possui registros vinculados em: {tipos}.",
+            )
+        return False, "Empresa nao pode ser excluida porque possui registros vinculados protegidos."
     return True, "Empresa excluida com sucesso!"
 
 

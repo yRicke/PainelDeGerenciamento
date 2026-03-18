@@ -20,6 +20,7 @@ from .models import (
     Cidade,
     Colaborador,
     ContratoRede,
+    DescricaoPerfil,
     Empresa,
     Natureza,
     Operacao,
@@ -27,6 +28,7 @@ from .models import (
     OrcamentoPlanejado,
     Parceiro,
     Permissao,
+    ParametroMeta,
     Projeto,
     Regiao,
     Titulo,
@@ -63,6 +65,22 @@ class EmpresaModelTest(TestCase):
     def test_excluir_empresa(self):
         self.empresa.excluir_empresa()
         self.assertFalse(Empresa.objects.filter(id=self.empresa.id).exists())
+
+    def test_excluir_empresa_com_parametro_meta_relacionado(self):
+        descricao = DescricaoPerfil.criar_descricao_perfil(
+            empresa=self.empresa,
+            descricao="Perfil Teste",
+        )
+        parametro = ParametroMeta.criar_parametro_meta(
+            empresa=self.empresa,
+            descricao_perfil=descricao,
+        )
+
+        self.empresa.excluir_empresa()
+
+        self.assertFalse(Empresa.objects.filter(id=self.empresa.id).exists())
+        self.assertFalse(DescricaoPerfil.objects.filter(id=descricao.id).exists())
+        self.assertFalse(ParametroMeta.objects.filter(id=parametro.id).exists())
 
 class UsuarioModelTest(TestCase):
     def setUp(self):

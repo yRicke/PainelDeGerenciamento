@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -30,7 +30,10 @@ class Empresa(models.Model):
         self.save()
 
     def excluir_empresa(self):
-        self.delete()
+        with transaction.atomic():
+            # Evita ProtectedError em DescricaoPerfil quando houver ParametroMeta vinculado.
+            self.parametros_metas.all().delete()
+            self.delete()
 
 class Permissao(models.Model):
     nome = models.CharField(max_length=100, unique=True)
