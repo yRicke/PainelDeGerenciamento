@@ -4,6 +4,8 @@
     --fatur-kpi-border: #d6e0ea;
     --fatur-kpi-title: #32475a;
     --fatur-kpi-bg-soft: linear-gradient(180deg, #f9fcff 0%, #eff5fb 100%);
+    --fatur-reloginho-meta-color: #c15a06;
+    --fatur-reloginho-real-color: #1d6b33;
 }
 
 .faturamento-kpi-top-grid {
@@ -164,12 +166,12 @@
 }
 
 .faturamento-reloginho-layout .ponteiro-meta {
-    background: #000000;
+    background: var(--fatur-reloginho-meta-color);
     width: 4px;
 }
 
 .faturamento-reloginho-layout .ponteiro-real {
-    background: #002792;
+    background: var(--fatur-reloginho-real-color);
     width: 4px;
     left: 103.5px;
 }
@@ -207,6 +209,20 @@
     font-size: 1.28rem;
 }
 
+#faturamento-reloginho-meta {
+    color: var(--fatur-reloginho-meta-color);
+    font-weight: 800;
+}
+
+#faturamento-reloginho-real,
+#faturamento-reloginho-pct {
+    color: var(--fatur-reloginho-real-color);
+}
+
+#faturamento-reloginho-pct {
+    font-weight: 700;
+}
+
 .faturamento-kpi-bottom-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(260px, 1fr));
@@ -231,6 +247,58 @@
     margin: 0 0 0.5rem;
     color: #40566d;
     font-size: 1rem;
+}
+
+.vendedores-resumo-listas {
+    margin-top: 0.65rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.vendedores-resumo-lista {
+    border: 1px solid #d7e3ef;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #f8fbff 0%, #eff6fd 100%);
+    padding: 0.5rem 0.6rem;
+}
+
+.vendedores-resumo-lista h4 {
+    margin: 0 0 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.84rem;
+    color: #274056;
+}
+
+.vendedores-resumo-lista--com-venda h4 span {
+    color: #1d6b33;
+}
+
+.vendedores-resumo-lista--sem-venda h4 span {
+    color: #9a4b0d;
+}
+
+.vendedores-resumo-lista ul {
+    margin: 0;
+    padding-left: 1rem;
+    max-height: 138px;
+    overflow: auto;
+}
+
+.vendedores-resumo-lista li {
+    margin: 0.12rem 0;
+    font-size: 0.8rem;
+    color: #203345;
+}
+
+.vendedores-resumo-lista li.is-empty {
+    list-style: none;
+    margin-left: -1rem;
+    color: #5a7086;
+    font-style: italic;
 }
 
 .dashboard-chart-grid--faturamento .dashboard-chart-card-head {
@@ -356,5 +424,9 @@
     .dashboard-chart-grid--faturamento .dashboard-chart-card-head {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .vendedores-resumo-listas {
+        grid-template-columns: 1fr;
     }
 }

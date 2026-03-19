@@ -138,6 +138,10 @@
     var relogioPctEl = document.getElementById("faturamento-reloginho-pct");
     var chartTipoVendaEl = document.getElementById("faturamento-chart-tipo-venda");
     var chartVendedoresResumoEl = document.getElementById("faturamento-chart-vendedores-resumo");
+    var vendedoresComVendaListaEl = document.getElementById("faturamento-vendedores-com-venda-lista");
+    var vendedoresSemVendaListaEl = document.getElementById("faturamento-vendedores-sem-venda-lista");
+    var vendedoresComVendaTotalEl = document.getElementById("faturamento-vendedores-com-venda-total");
+    var vendedoresSemVendaTotalEl = document.getElementById("faturamento-vendedores-sem-venda-total");
     var chartLojaEl = document.getElementById("faturamento-chart-loja");
     var chartMensalEl = document.getElementById("faturamento-chart-mensal");
     var chartVendedoresEl = document.getElementById("faturamento-chart-vendedores");
@@ -461,6 +465,13 @@
         });
     }
 
+    function ordenarNomes(a, b) {
+        return String(a || "").localeCompare(String(b || ""), "pt-BR", {
+            sensitivity: "base",
+            numeric: true,
+        });
+    }
+
     function ensureFilterColumns(section) {
         if (!section) return null;
 
@@ -729,30 +740,71 @@
 
     function montarResumoVendedores(linhasDetalhadas) {
         var linhas = Array.isArray(linhasDetalhadas) ? linhasDetalhadas : [];
-        var vendedoresComFaturamento = new Set();
+        var vendedoresComFaturamento = new Map();
+        var vendedoresBase = new Map();
+
+        function registrarVendedor(mapa, nome) {
+            var vendedor = vendedorTokenResumo(nome);
+            if (!vendedor) return;
+            var chave = normalizeText(vendedor).replace(/\s+/g, " ").trim();
+            if (!chave || mapa.has(chave)) return;
+            mapa.set(chave, vendedor);
+        }
+
+        universoVendedores.forEach(function (vendedor) {
+            registrarVendedor(vendedoresBase, vendedor);
+        });
+        (Array.isArray(vendedoresResumoBase && vendedoresResumoBase.vendedores)
+            ? vendedoresResumoBase.vendedores
+            : []
+        ).forEach(function (vendedor) {
+            registrarVendedor(vendedoresBase, vendedor);
+        });
 
         linhas.forEach(function (item) {
             var valorUnico = Number(item && item.valor_nota_unico ? item.valor_nota_unico : 0);
             if (!valorUnico) return;
-            var vendedor = vendedorTokenResumo(item && item.apelido_vendedor);
-            if (vendedor) vendedoresComFaturamento.add(vendedor);
+            var vendedor = item ? item.apelido_vendedor : "";
+            registrarVendedor(vendedoresComFaturamento, vendedor);
+            registrarVendedor(vendedoresBase, vendedor);
         });
 
-        var totalVendedoresBase = Number(vendedoresResumoBase && vendedoresResumoBase.total_vendedores || 0);
-        var totalVendedores = totalVendedoresBase > 0
-            ? totalVendedoresBase
-            : Number(universoVendedores.size || 0);
-        var totalComFaturamento = vendedoresComFaturamento.size;
-        if (!totalVendedores || totalComFaturamento > totalVendedores) {
-            totalVendedores = totalComFaturamento;
-        }
-        var totalSemVenda = Math.max(totalVendedores - totalComFaturamento, 0);
+        var vendedoresComVenda = Array.from(vendedoresComFaturamento.values()).sort(ordenarNomes);
+        var vendedoresSemVenda = Array.from(vendedoresBase.keys())
+            .filter(function (chave) { return !vendedoresComFaturamento.has(chave); })
+            .map(function (chave) { return vendedoresBase.get(chave); })
+            .sort(ordenarNomes);
+
+        var totalVendedores = vendedoresComVenda.length + vendedoresSemVenda.length;
 
         return {
             categorias: ["Vendedor (Sem Venda)", "Vendedor (Faturamento)"],
-            valores: [totalSemVenda, totalComFaturamento],
+            valores: [vendedoresSemVenda.length, vendedoresComVenda.length],
             total: totalVendedores,
+            comVenda: vendedoresComVenda,
+            semVenda: vendedoresSemVenda,
         };
+    }
+
+    function renderizarListaVendedores(listaEl, totalEl, nomes, mensagemVazia) {
+        var itens = Array.isArray(nomes) ? nomes : [];
+        if (totalEl) totalEl.textContent = String(itens.length);
+        if (!listaEl) return;
+
+        listaEl.innerHTML = "";
+        if (!itens.length) {
+            var vazioItem = document.createElement("li");
+            vazioItem.className = "is-empty";
+            vazioItem.textContent = mensagemVazia;
+            listaEl.appendChild(vazioItem);
+            return;
+        }
+
+        itens.forEach(function (nome) {
+            var item = document.createElement("li");
+            item.textContent = toText(nome) || "(Vazio)";
+            listaEl.appendChild(item);
+        });
     }
 
     function montarSeriePerfilClientes(linhasDetalhadas) {
@@ -939,9 +991,9 @@
                 colors: ["#2d79c7", "#4da833"],
                 dataLabels: {
                     enabled: true,
-                    formatter: function (valor, opts) {
+                    formatter: function (_valor, opts) {
                         var numero = Number(opts.w.config.series[opts.seriesIndex] || 0);
-                        return String(numero) + "\n" + Math.round(valor) + "%";
+                        return String(Math.round(numero));
                     },
                     style: {fontSize: "14px", fontWeight: 700},
                     dropShadow: {enabled: false},
@@ -971,7 +1023,23 @@
                         },
                     },
                 },
-                tooltip: {y: {formatter: function (valor) { return String(Math.round(valor)); }}},
+                tooltip: {
+                    y: {
+                        formatter: function (valor, opts) {
+                            var numero = Number(valor || 0);
+                            var totais = (
+                                opts && opts.w && opts.w.globals && Array.isArray(opts.w.globals.seriesTotals)
+                            )
+                                ? opts.w.globals.seriesTotals
+                                : [];
+                            var total = totais.reduce(function (acc, atual) {
+                                return acc + Number(atual || 0);
+                            }, 0);
+                            var percentual = total > 0 ? (numero / total) * 100 : 0;
+                            return formatPercentual(percentual, 1);
+                        },
+                    },
+                },
             });
             chartVendedoresResumo.render();
         }
@@ -1178,6 +1246,18 @@
             });
             chartVendedoresResumo.updateSeries(resumoVendedores.valores);
         }
+        renderizarListaVendedores(
+            vendedoresComVendaListaEl,
+            vendedoresComVendaTotalEl,
+            resumoVendedores.comVenda,
+            "Nenhum vendedor com venda no periodo."
+        );
+        renderizarListaVendedores(
+            vendedoresSemVendaListaEl,
+            vendedoresSemVendaTotalEl,
+            resumoVendedores.semVenda,
+            "Nenhum vendedor sem venda no periodo."
+        );
         if (chartLoja) {
             chartLoja.updateOptions({xaxis: {categories: loja.categorias}});
             chartLoja.updateSeries([{name: "Faturamento", data: loja.valores}]);

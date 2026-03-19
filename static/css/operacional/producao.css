@@ -1,5 +1,11 @@
 @import url("./cargas-em-aberto-shared.css");
 
+:root {
+    --producao-reloginho-meta-color: #c15a06;
+    --producao-reloginho-meta80-color: #8d5f00;
+    --producao-reloginho-real-color: #1d6b33;
+}
+
 .producao-reloginhos-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(220px, 1fr));
@@ -64,18 +70,18 @@
 }
 
 .ponteiro-meta {
-    background: #000000;
+    background: var(--producao-reloginho-meta-color);
     width: 4px;
 }
 
 .ponteiro-meta80 {
-    background: #460066;
+    background: var(--producao-reloginho-meta80-color);
     width: 4px;
     left: 104px;
 }
 
 .ponteiro-real {
-    background: #002792;
+    background: var(--producao-reloginho-real-color);
     width: 4px;
     left: 103.5px;
 }
@@ -103,11 +109,20 @@
     margin: 0.11rem 0;
     font-size: 0.92rem;
     font-weight: 700;
+    color: #294153;
 }
 
 .reloginho-metricas span {
     margin-left: 0.35rem;
-    color: #0f4c67;
+}
+
+.reloginho-metricas strong[id^="meta-acum-"] {
+    color: var(--producao-reloginho-meta-color);
+}
+
+.reloginho-metricas strong[id^="real-"],
+.reloginho-metricas span[id^="pct-"] {
+    color: var(--producao-reloginho-real-color);
 }
 
 @media (max-width: 1600px) {
