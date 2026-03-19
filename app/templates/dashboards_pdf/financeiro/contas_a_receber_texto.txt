@@ -1,0 +1,29 @@
+Dashboard Contas a Receber
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+
+ANALISE ULTIMO DIA - ANALITICO
+Data mais recente: {{ analitico.data_mais_recente }}
+Valor data mais recente: {{ analitico.valor_data_mais_recente }}
+Quantidade data mais recente: {{ analitico.quantidade_data_mais_recente }}
+
+ANALISE FATURAMENTO
+Periodo inicio: {{ faturamento.periodo_inicio }}
+Periodo fim: {{ faturamento.periodo_fim }}
+Empresa filtro: {{ faturamento.empresa_filtro }}
+Faturamento: {{ faturamento.faturamento_total }}
+Inadimplencia: {{ faturamento.inadimplencia_percentual }}
+Base contas (snapshot): {{ faturamento.data_snapshot }}
+
+ANALISE PERIODO COMPLETO
+Data inicial: {{ periodo.data_inicial }}
+Valor data inicial: {{ periodo.valor_data_inicial }}
+Data final: {{ periodo.data_final }}
+Valor data final: {{ periodo.valor_data_final }}
+Diferenca periodo: {{ periodo.diferenca_periodo }}
+
+FILTROS DA PAGINA (impactam dashboards analitico e periodo completo)
+{% for linha in filtros_pagina %}
+{{ linha }}
+{% endfor %}

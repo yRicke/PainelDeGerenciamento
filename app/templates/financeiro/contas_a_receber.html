@@ -258,6 +258,11 @@
                     </div>
                 </article>
             </div>
+            <div class="contas-dashboard-actions">
+                <a id="contas-dashboard-exportar-pdf" class="btn-light" href="{{ contas_dashboard_pdf_url }}">
+                    Baixar PDF do Dashboard
+                </a>
+            </div>
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">
@@ -275,6 +280,7 @@
     id="contas-tabulator-data"
     data-endpoint="{{ contas_tabulator_url }}"
     data-dashboard-faturamento-endpoint="{{ contas_dashboard_faturamento_url }}"
+    data-dashboard-pdf-endpoint="{{ contas_dashboard_pdf_url }}"
     data-can-edit="{% if not bloquear_cadastro_edicao_importacao %}1{% else %}0{% endif %}"
 ></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>

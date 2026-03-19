@@ -61,6 +61,11 @@ urlpatterns = [
         views_financeiro.contas_a_receber_dashboard_faturamento,
         name='contas_a_receber_dashboard_faturamento',
     ),
+    path(
+        'contas_a_receber/<int:empresa_id>/dashboard-pdf/',
+        views_financeiro.contas_a_receber_dashboard_pdf,
+        name='contas_a_receber_dashboard_pdf',
+    ),
     path('contas_a_receber/<int:empresa_id>/editar/<int:conta_id>/', views_financeiro.editar_contas_a_receber_modulo, name='editar_contas_a_receber_modulo'),
     path('contas_a_receber/<int:empresa_id>/excluir/<int:conta_id>/', views_financeiro.excluir_contas_a_receber_modulo, name='excluir_contas_a_receber_modulo'),
     path('dfc/<int:empresa_id>/', views_financeiro.dfc, name='dfc'),

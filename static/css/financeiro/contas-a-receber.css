@@ -5,6 +5,17 @@
     gap: 0.9rem;
 }
 
+.contas-dashboard-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.contas-dashboard-actions .btn-light {
+    min-width: 220px;
+    text-align: center;
+}
+
 .contas-dashboard-card {
     border: 1px solid #d8dee4;
     border-radius: 10px;
@@ -188,6 +199,14 @@
 
     .contas-dashboard-kpi-valor {
         font-size: 1.6rem;
+    }
+
+    .contas-dashboard-actions {
+        justify-content: stretch;
+    }
+
+    .contas-dashboard-actions .btn-light {
+        width: 100%;
     }
 }
 

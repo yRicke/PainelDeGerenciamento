@@ -5,9 +5,11 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import FloatField, Max, Min
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 
 from ..models import (
     Adiantamento,
@@ -84,6 +86,7 @@ from ..utils.financeiro import (
     _resumo_contas_a_receber,
     _resumo_dashboard_faturamento_contas_a_receber,
 )
+from ..utils.pdf_renderer import render_template_to_pdf_bytes
 from .shared import (
     TIPO_IMPORTACAO_POR_MODULO,
     _bloquear_criar_em_modulo_com_importacao_se_necessario,
@@ -106,6 +109,70 @@ def _parse_data_dashboard_faturamento(valor):
         except ValueError:
             continue
     return None
+
+
+def _formatar_moeda_br(valor):
+    numero = float(valor or 0)
+    valor_formatado = f"{numero:,.2f}"
+    valor_formatado = valor_formatado.replace(",", "_").replace(".", ",").replace("_", ".")
+    return f"R$ {valor_formatado}"
+
+
+def _formatar_percentual_br(valor):
+    numero = float(valor or 0)
+    return f"{numero:.2f}".replace(".", ",") + "%"
+
+
+def _formatar_data_iso_br(valor):
+    data = _parse_data_dashboard_faturamento(valor)
+    return data.strftime("%d/%m/%Y") if data else "--/--/----"
+
+
+def _formatar_valor_filtro_para_texto(valor):
+    if isinstance(valor, (list, tuple, set)):
+        valores = [str(item).strip() for item in valor if str(item).strip()]
+        return ", ".join(valores) if valores else "-"
+    texto = str(valor or "").strip()
+    if not texto:
+        return "-"
+    if "||" in texto:
+        valores = [item.strip() for item in texto.split("||") if item.strip()]
+        return ", ".join(valores) if valores else "-"
+    return texto
+
+
+def _descrever_filtros_pagina_contas(filtros):
+    if not filtros:
+        return ["- Nenhum filtro de pagina aplicado."]
+
+    titulos = {
+        "status": "Status",
+        "intervalo": "Intervalo",
+        "data_arquivo_iso": "Data Arquivo",
+        "titulo_descricao": "Descricao Tipo Titulo",
+        "nome_fantasia_empresa": "Nome Fantasia Empresa",
+        "natureza_descricao": "Descricao Natureza",
+        "posicao_contagem": "Posicao",
+        "data_negociacao": "Data Negociacao",
+        "data_vencimento": "Data Vencimento",
+        "numero_nota": "Numero Nota",
+        "parceiro_nome": "Parceiro",
+        "vendedor": "Vendedor",
+        "operacao_descricao": "Receita/Despesa",
+    }
+
+    linhas = []
+    for filtro in filtros:
+        campo = str((filtro or {}).get("field") or "").strip()
+        if not campo:
+            continue
+        tipo = str((filtro or {}).get("type") or "").strip().lower()
+        valor = _formatar_valor_filtro_para_texto((filtro or {}).get("value"))
+        titulo = titulos.get(campo, campo)
+        sufixo = f" ({tipo})" if tipo and tipo not in {"=", "in"} else ""
+        linhas.append(f"- {titulo}{sufixo}: {valor}")
+
+    return linhas or ["- Nenhum filtro de pagina aplicado."]
 
 
 @login_required(login_url="entrar")
@@ -207,6 +274,10 @@ def contas_a_receber(request, empresa_id):
         "contas_tabulator_url": reverse("contas_a_receber_dados", kwargs={"empresa_id": empresa.id}),
         "contas_dashboard_faturamento_url": reverse(
             "contas_a_receber_dashboard_faturamento",
+            kwargs={"empresa_id": empresa.id},
+        ),
+        "contas_dashboard_pdf_url": reverse(
+            "contas_a_receber_dashboard_pdf",
             kwargs={"empresa_id": empresa.id},
         ),
         "contas_dashboard_empresas": dashboard_empresas,
@@ -327,6 +398,79 @@ def contas_a_receber_dashboard_faturamento(request, empresa_id):
         empresa_filtro=empresa_filtro,
     )
     return JsonResponse(payload)
+
+
+@login_required(login_url="entrar")
+def contas_a_receber_dashboard_pdf(request, empresa_id):
+    modulo = _obter_modulo("Financeiro", "Contas a Receber")
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return JsonResponse({"detail": "Acesso negado."}, status=403)
+
+    periodo_inicio = _parse_data_dashboard_faturamento(request.GET.get("periodo_inicio"))
+    periodo_fim = _parse_data_dashboard_faturamento(request.GET.get("periodo_fim"))
+    empresa_filtro = str(request.GET.get("empresa") or "").strip()
+    filtros_pagina = _coletar_param_json_lista(request, ("filters", "filter"))
+
+    qs_contas = ContasAReceber.objects.filter(empresa=empresa)
+    qs_contas_filtrado = _aplicar_filtros_contas_a_receber(qs_contas, filtros_pagina)
+    qs_faturamento = Faturamento.objects.filter(empresa=empresa)
+    resumo_dashboard = _resumo_contas_a_receber(qs_contas_filtrado, qs_contas_filtrado.count())
+    resumo_faturamento = _resumo_dashboard_faturamento_contas_a_receber(
+        qs_contas=qs_contas,
+        qs_faturamento=qs_faturamento,
+        data_inicio=periodo_inicio,
+        data_fim=periodo_fim,
+        empresa_filtro=empresa_filtro,
+    )
+
+    contexto = {
+        "empresa": empresa,
+        "gerado_em": timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+        "analitico": {
+            "data_mais_recente": _formatar_data_iso_br(resumo_dashboard.get("data_mais_recente")),
+            "valor_data_mais_recente": _formatar_moeda_br(resumo_dashboard.get("valor_data_mais_recente")),
+            "quantidade_data_mais_recente": int(resumo_dashboard.get("quantidade_data_mais_recente") or 0),
+        },
+        "faturamento": {
+            "periodo_inicio": _formatar_data_iso_br(resumo_faturamento.get("periodo_inicio")),
+            "periodo_fim": _formatar_data_iso_br(resumo_faturamento.get("periodo_fim")),
+            "empresa_filtro": resumo_faturamento.get("empresa") or "Todas",
+            "faturamento_total": _formatar_moeda_br(resumo_faturamento.get("faturamento_total")),
+            "inadimplencia_percentual": _formatar_percentual_br(resumo_faturamento.get("inadimplencia_percentual")),
+            "data_snapshot": _formatar_data_iso_br(resumo_faturamento.get("data_snapshot")),
+        },
+        "periodo": {
+            "data_inicial": _formatar_data_iso_br(resumo_dashboard.get("data_inicial")),
+            "valor_data_inicial": _formatar_moeda_br(resumo_dashboard.get("valor_data_inicial")),
+            "data_final": _formatar_data_iso_br(resumo_dashboard.get("data_final")),
+            "valor_data_final": _formatar_moeda_br(resumo_dashboard.get("valor_data_final")),
+            "diferenca_periodo": _formatar_moeda_br(resumo_dashboard.get("diferenca_periodo")),
+        },
+        "filtros_pagina": _descrever_filtros_pagina_contas(filtros_pagina),
+    }
+    texto_relatorio = render_to_string(
+        "dashboards_pdf/financeiro/contas_a_receber_texto.txt",
+        contexto,
+        request=request,
+    )
+    contexto_pdf = dict(contexto)
+    contexto_pdf["texto_relatorio"] = texto_relatorio
+    try:
+        pdf_bytes = render_template_to_pdf_bytes(
+            "dashboards_pdf/financeiro/contas_a_receber.html",
+            context=contexto_pdf,
+            request=request,
+        )
+    except RuntimeError as erro:
+        return JsonResponse({"detail": str(erro)}, status=500)
+
+    resposta = HttpResponse(pdf_bytes, content_type="application/pdf")
+    sufixo = timezone.localtime().strftime("%Y%m%d-%H%M%S")
+    resposta["Content-Disposition"] = (
+        f'attachment; filename="dashboard-contas-a-receber-{sufixo}.pdf"'
+    )
+    return resposta
 
 
 @login_required(login_url="entrar")

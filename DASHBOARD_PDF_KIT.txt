@@ -1,0 +1,85 @@
+KIT DE PLUG - DASHBOARD PDF (ABORDAGEM SIMPLES COM TEMPLATE HTML)
+=================================================================
+
+Objetivo
+--------
+Padronizar exportacao de dashboards para PDF usando:
+1) template HTML do dashboard (pagina visual)
+2) segunda pagina textual para auditoria (valores + filtros aplicados)
+3) renderer unico de HTML -> PDF
+
+
+Arquitetura do kit
+------------------
+1. app/utils/pdf_renderer.py
+   - funcao principal: render_template_to_pdf_bytes(template_name, context, request=None)
+   - resolve navegador (Chrome/Edge) e gera PDF em modo headless
+   - centraliza todo o "como gerar PDF" em um unico lugar
+
+2. app/templates/dashboards_pdf/<area>/<modulo>.html
+   - template visual do PDF (normalmente com 2 secoes/page-break):
+     - pagina 1: layout parecido com o dashboard da tela
+     - pagina 2: detalhamento textual
+
+3. app/templates/dashboards_pdf/<area>/<modulo>_texto.txt (opcional, recomendado)
+   - template textual para montar auditoria de dados/filtros
+   - pode ser embutido no HTML da pagina 2 via {{ texto_relatorio }}
+
+
+Exemplo aplicado (Financeiro > Contas a Receber)
+-------------------------------------------------
+- Template PDF visual:
+  app/templates/dashboards_pdf/financeiro/contas_a_receber.html
+
+- Template textual:
+  app/templates/dashboards_pdf/financeiro/contas_a_receber_texto.txt
+
+- Endpoint:
+  app/views/financeiro.py -> contas_a_receber_dashboard_pdf
+
+- Fluxo no endpoint:
+  1) coleta filtros locais do dashboard (periodo_inicio, periodo_fim, empresa)
+  2) coleta filtros da pagina (filters/filter) que impactam dashboards
+  3) calcula contexto visual e textual
+  4) renderiza texto_relatorio (template .txt)
+  5) renderiza PDF final via render_template_to_pdf_bytes(...)
+
+
+Como plugar em outro modulo (passo a passo)
+-------------------------------------------
+1) Criar template HTML do PDF:
+   app/templates/dashboards_pdf/<area>/<modulo>.html
+
+2) (Opcional) Criar template textual:
+   app/templates/<area>/<modulo>_dashboard_pdf.txt
+
+3) Criar endpoint de PDF na view:
+   - prepara contexto do dashboard
+   - coleta filtros relevantes (locais e de pagina)
+   - monta texto_relatorio se necessario
+   - chama render_template_to_pdf_bytes(template_html, contexto_pdf)
+   - retorna HttpResponse(application/pdf) com attachment
+
+4) Registrar rota no urls.py
+
+5) Adicionar botao/link "Baixar PDF do Dashboard" na pagina
+   - no JS, atualizar querystring do link com filtros atuais
+
+
+Boas praticas
+-------------
+- Evitar regra de negocio dentro do renderer.
+- Regra de calculo fica na view/service/util de negocio.
+- Incluir sempre os filtros aplicados na pagina textual.
+- Usar HTML/CSS focado em impressao:
+  - @page
+  - page-break-after
+  - layout simples e previsivel para A4
+
+
+Dependencia de ambiente
+-----------------------
+- O renderer usa navegador Chromium-based em headless (Chrome/Edge).
+- Caminho pode ser configurado por variavel de ambiente:
+  DASHBOARD_PDF_BROWSER
+- Sem browser disponivel, o endpoint retorna erro 500 com mensagem explicativa.

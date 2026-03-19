@@ -89,6 +89,9 @@
     var dashboardFaturamentoEndpoint = String(
         dataElement.getAttribute("data-dashboard-faturamento-endpoint") || ""
     ).trim();
+    var dashboardPdfEndpoint = String(
+        dataElement.getAttribute("data-dashboard-pdf-endpoint") || ""
+    ).trim();
 
     var canEdit = String(dataElement.getAttribute("data-can-edit") || "0") === "1";
     var secFiltros = document.getElementById("sec-filtros");
@@ -105,6 +108,7 @@
     var filtroInicioDashboardEl = document.getElementById("contas-dashboard-faturamento-inicio");
     var filtroFimDashboardEl = document.getElementById("contas-dashboard-faturamento-fim");
     var filtroEmpresaDashboardEl = document.getElementById("contas-dashboard-faturamento-empresa");
+    var linkDashboardPdfEl = document.getElementById("contas-dashboard-exportar-pdf");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
     var formatadorPercentual = new Intl.NumberFormat("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
@@ -192,6 +196,40 @@
         return inputEl ? String(inputEl.value || "").trim() : "";
     }
 
+    function filtrosPaginaAtivosParaPdf() {
+        if (!tabela || typeof tabela.getFilters !== "function") return [];
+        var filtros = tabela.getFilters(true);
+        if (!Array.isArray(filtros)) return [];
+
+        return filtros.filter(function (filtro) {
+            if (!filtro || typeof filtro !== "object") return false;
+            var campo = String(filtro.field || "").trim();
+            if (!campo) return false;
+            var valor = filtro.value;
+            if (valor === undefined || valor === null) return false;
+            if (typeof valor === "string" && !valor.trim()) return false;
+            return true;
+        });
+    }
+
+    function atualizarLinkDashboardPdf() {
+        if (!linkDashboardPdfEl || !dashboardPdfEndpoint) return;
+
+        var periodoInicio = obterValorInputData(filtroInicioDashboardEl);
+        var periodoFim = obterValorInputData(filtroFimDashboardEl);
+        var empresaDashboard = filtroEmpresaDashboardEl ? String(filtroEmpresaDashboardEl.value || "").trim() : "__all__";
+        var filtrosPagina = filtrosPaginaAtivosParaPdf();
+        var query = new URLSearchParams();
+
+        if (periodoInicio) query.set("periodo_inicio", periodoInicio);
+        if (periodoFim) query.set("periodo_fim", periodoFim);
+        query.set("empresa", empresaDashboard || "__all__");
+        query.set("filters", JSON.stringify(filtrosPagina));
+        query.set("filter", JSON.stringify(filtrosPagina));
+
+        linkDashboardPdfEl.href = dashboardPdfEndpoint + "?" + query.toString();
+    }
+
     function atualizarDashboardFaturamentoResumo(resumo) {
         var faturamentoTotal = numeroResumo(resumo, "faturamento_total", 0);
         var inadimplenciaPercentual = numeroResumo(resumo, "inadimplencia_percentual", 0);
@@ -206,6 +244,7 @@
 
     function carregarDashboardFaturamento() {
         if (!dashboardFaturamentoEndpoint) return;
+        atualizarLinkDashboardPdf();
 
         var periodoInicio = obterValorInputData(filtroInicioDashboardEl);
         var periodoFim = obterValorInputData(filtroFimDashboardEl);
@@ -247,6 +286,10 @@
     }
 
     function initDashboardFaturamento() {
+        atualizarLinkDashboardPdf();
+        if (linkDashboardPdfEl) {
+            linkDashboardPdfEl.addEventListener("click", atualizarLinkDashboardPdf);
+        }
         if (filtroInicioDashboardEl) {
             filtroInicioDashboardEl.addEventListener("change", carregarDashboardFaturamento);
         }
@@ -686,6 +729,7 @@
         ajaxResponse: function (url, params, response) {
             atualizarDashboardResumo(response && response.summary ? response.summary : null);
             atualizarOpcoesFiltrosExternos(response || {});
+            atualizarLinkDashboardPdf();
             return response;
         },
         pagination: true,
