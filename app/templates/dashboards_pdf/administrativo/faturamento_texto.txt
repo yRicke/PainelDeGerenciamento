@@ -1,0 +1,34 @@
+Dashboard Faturamento
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+
+INDICADORES PRINCIPAIS
+Valor Faturamento: {{ dashboard.valor_faturamento }}
+Meta Geral: {{ dashboard.meta_geral }}
+Gap Faturamento: {{ dashboard.gap_faturamento }}
+Prazo Medio Vendas: {{ dashboard.prazo_medio }}
+Dias Uteis Restantes: {{ dashboard.dias_uteis }}
+Meta Diaria: {{ dashboard.meta_diaria }}
+Pedidos Pendentes: {{ dashboard.pedidos_pendentes }}
+Incluir Pedidos Pendentes: {{ dashboard.incluir_pedidos_pendentes }}
+Qtd. Clientes: {{ dashboard.qtd_clientes }}
+Participacao Venda Geral: {{ dashboard.participacao_venda_geral }}
+Registros Ativos: {{ dashboard.registros_ativos }}
+
+RELOGINHO
+Meta: {{ dashboard.reloginho_meta }}
+Real: {{ dashboard.reloginho_real }}
+Percentual: {{ dashboard.reloginho_percentual }}
+
+VENDEDORES
+Com venda: {{ dashboard.vendedores_com_venda_total }}
+Sem venda: {{ dashboard.vendedores_sem_venda_total }}
+
+GRAFICOS
+Total exportados: {{ graficos_exportados }}
+
+FILTROS ATIVOS
+{% for linha in filtros_ativos %}
+- {{ linha }}
+{% endfor %}

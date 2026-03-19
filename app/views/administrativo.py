@@ -5,7 +5,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import DecimalField, FloatField, Sum, Value
 from django.db.models.functions import Cast, Coalesce
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils import timezone
 
 from ..models import (
     Atividade,
@@ -52,6 +56,7 @@ from ..utils.modulos_permissoes import (
     _obter_empresa_e_validar_permissao_tofu,
     _render_modulo_com_permissao,
 )
+from ..utils.pdf_renderer import render_template_to_pdf_bytes
 from .shared import (
     TIPO_IMPORTACAO_POR_MODULO,
     _bloquear_criar_em_modulo_com_importacao_se_necessario,
@@ -179,6 +184,106 @@ def _obter_total_vendedores_legado_faturamento(diretorio_importacao, diretorio_s
             pass
 
     return int(total_calculado)
+
+
+def _texto_pdf_faturamento(valor, fallback="-", limite=180):
+    texto = str(valor or "").strip()
+    if not texto:
+        return fallback
+    if len(texto) <= limite:
+        return texto
+    return texto[: limite - 3].rstrip() + "..."
+
+
+def _linhas_pdf_faturamento(lista):
+    if not isinstance(lista, (list, tuple)):
+        return ["- Nenhum filtro ativo."]
+    linhas = []
+    for item in lista:
+        texto = _texto_pdf_faturamento(item, fallback="", limite=220)
+        if texto:
+            linhas.append(texto)
+    return linhas or ["- Nenhum filtro ativo."]
+
+
+def _carregar_payload_dashboard_pdf_faturamento(request):
+    bruto = request.POST.get("payload_json")
+    if not bruto:
+        return {}
+    try:
+        payload = json.loads(bruto)
+    except (TypeError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _montar_contexto_dashboard_pdf_faturamento(empresa, payload):
+    dados = payload if isinstance(payload, dict) else {}
+    dashboard = dados.get("dashboard") if isinstance(dados.get("dashboard"), dict) else {}
+    graficos_payload = dados.get("graficos") if isinstance(dados.get("graficos"), dict) else {}
+
+    ordem_graficos = [
+        ("tipo_venda", "Tipo da Venda"),
+        ("vendedores_resumo", "Vendedores"),
+        ("faturamento_loja", "Faturamento Loja"),
+        ("faturamento_mensal", "Faturamento Mensal"),
+        ("faturamento_vendedores", "Faturamento Vendedores"),
+        ("top10_dias", "TOP 10 DIAS"),
+        ("top10_produtos", "TOP 10 PRODUTOS"),
+        ("faturamento_cidade", "Faturamento por Cidade"),
+        ("perfil_clientes", "Perfil Clientes"),
+    ]
+    graficos = []
+    for chave, titulo_padrao in ordem_graficos:
+        item = graficos_payload.get(chave) if isinstance(graficos_payload.get(chave), dict) else {}
+        img_uri = str(item.get("img_uri") or "").strip()
+        if not img_uri.startswith("data:image/"):
+            img_uri = ""
+        graficos.append(
+            {
+                "chave": chave,
+                "titulo": _texto_pdf_faturamento(item.get("titulo"), titulo_padrao, limite=80),
+                "img_uri": img_uri,
+            }
+        )
+
+    return {
+        "empresa": empresa,
+        "gerado_em": timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+        "dashboard": {
+            "valor_faturamento": _texto_pdf_faturamento(dashboard.get("valor_faturamento"), "R$ 0,00"),
+            "meta_geral": _texto_pdf_faturamento(dashboard.get("meta_geral"), "R$ 0,00"),
+            "gap_faturamento": _texto_pdf_faturamento(dashboard.get("gap_faturamento"), "R$ 0,00"),
+            "prazo_medio": _texto_pdf_faturamento(dashboard.get("prazo_medio"), "0"),
+            "dias_uteis": _texto_pdf_faturamento(dashboard.get("dias_uteis"), "0"),
+            "meta_diaria": _texto_pdf_faturamento(dashboard.get("meta_diaria"), "R$ 0,00"),
+            "pedidos_pendentes": _texto_pdf_faturamento(dashboard.get("pedidos_pendentes"), "R$ 0,00 / 0 dias uteis"),
+            "qtd_clientes": _texto_pdf_faturamento(dashboard.get("qtd_clientes"), "0"),
+            "participacao_venda_geral": _texto_pdf_faturamento(
+                dashboard.get("participacao_venda_geral"),
+                "0,00%",
+            ),
+            "incluir_pedidos_pendentes": _texto_pdf_faturamento(
+                dashboard.get("incluir_pedidos_pendentes"),
+                "Nao",
+            ),
+            "reloginho_meta": _texto_pdf_faturamento(dashboard.get("reloginho_meta"), "R$ 0,00"),
+            "reloginho_real": _texto_pdf_faturamento(dashboard.get("reloginho_real"), "R$ 0,00"),
+            "reloginho_percentual": _texto_pdf_faturamento(dashboard.get("reloginho_percentual"), "0,00%"),
+            "vendedores_com_venda_total": _texto_pdf_faturamento(
+                dashboard.get("vendedores_com_venda_total"),
+                "0",
+            ),
+            "vendedores_sem_venda_total": _texto_pdf_faturamento(
+                dashboard.get("vendedores_sem_venda_total"),
+                "0",
+            ),
+            "registros_ativos": _texto_pdf_faturamento(dashboard.get("registros_ativos"), "0"),
+        },
+        "filtros_ativos": _linhas_pdf_faturamento(dados.get("filtros_ativos")),
+        "graficos": graficos,
+        "graficos_exportados": sum(1 for item in graficos if item.get("img_uri")),
+    }
 
 
 def _usuario_pode_gerenciar_atividade(usuario, atividade):
@@ -651,6 +756,10 @@ def faturamento(request, empresa_id):
         "faturamento_vendedores_resumo_base": {
             "total_vendedores": int(total_vendedores_legado or 0),
         },
+        "faturamento_dashboard_pdf_url": reverse(
+            "faturamento_dashboard_pdf",
+            kwargs={"empresa_id": empresa.id},
+        ),
         "faturamento_tabulator": build_faturamento_tabulator(
             faturamento_qs,
             empresa.id,
@@ -658,6 +767,40 @@ def faturamento(request, empresa_id):
         ),
     }
     return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def faturamento_dashboard_pdf(request, empresa_id):
+    modulo = _obter_modulo("Administrativo", "Faturamento")
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return JsonResponse({"detail": "Acesso negado."}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"detail": "Metodo nao permitido."}, status=405)
+
+    payload = _carregar_payload_dashboard_pdf_faturamento(request)
+    contexto = _montar_contexto_dashboard_pdf_faturamento(empresa, payload)
+    texto_relatorio = render_to_string(
+        "dashboards_pdf/administrativo/faturamento_texto.txt",
+        contexto,
+        request=request,
+    )
+    contexto_pdf = dict(contexto)
+    contexto_pdf["texto_relatorio"] = texto_relatorio
+
+    try:
+        pdf_bytes = render_template_to_pdf_bytes(
+            "dashboards_pdf/administrativo/faturamento.html",
+            context=contexto_pdf,
+            request=request,
+        )
+    except RuntimeError as erro:
+        return JsonResponse({"detail": str(erro)}, status=500)
+
+    resposta = HttpResponse(pdf_bytes, content_type="application/pdf")
+    sufixo = timezone.localtime().strftime("%Y%m%d-%H%M%S")
+    resposta["Content-Disposition"] = f'attachment; filename="dashboard-faturamento-{sufixo}.pdf"'
+    return resposta
 
 
 @login_required(login_url="entrar")

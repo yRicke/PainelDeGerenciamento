@@ -150,6 +150,9 @@
     var chartCidadeEl = document.getElementById("faturamento-chart-cidade");
     var chartPerfilClientesEl = document.getElementById("faturamento-chart-perfil-clientes");
     var perfilClientesTotalEl = document.getElementById("faturamento-perfil-clientes-total");
+    var dashboardPdfButtonEl = document.getElementById("faturamento-dashboard-exportar-pdf");
+    var dashboardPdfFormEl = document.getElementById("faturamento-dashboard-pdf-form");
+    var dashboardPdfPayloadEl = document.getElementById("faturamento-dashboard-pdf-payload");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
     var formatadorMoedaCompacta = new Intl.NumberFormat("pt-BR", {
         style: "currency",
@@ -177,6 +180,11 @@
     var chartCidade = null;
     var chartPerfilClientes = null;
     var ultimoPerfilClientes = null;
+    var tabelaRef = null;
+    var filtrosExternosRef = null;
+    var ultimoSnapshotDashboardPdf = null;
+    var dashboardPdfExportInicializado = false;
+    var dashboardPdfExportEmAndamento = false;
 
     function toText(valor) {
         if (valor === null || valor === undefined) return "";
@@ -541,6 +549,277 @@
 
     function formatMoedaCompacta(valor) {
         return formatadorMoedaCompacta.format(Number(valor || 0));
+    }
+
+    function textoDeElemento(el, fallback) {
+        var texto = el ? toText(el.textContent) : "";
+        if (texto) return texto;
+        return toText(fallback) || "-";
+    }
+
+    function valorFiltroTabelaParaTexto(valor) {
+        if (Array.isArray(valor)) {
+            var itens = valor
+                .map(function (item) { return toText(item); })
+                .filter(function (item) { return !!item; });
+            return itens.length ? itens.join(", ") : "(Vazio)";
+        }
+        var texto = toText(valor);
+        return texto || "(Vazio)";
+    }
+
+    function labelCampoFiltroTabela(campo) {
+        var mapa = {
+            nome_origem: "Nome Origem",
+            data_faturamento: "Dt. do Faturamento",
+            nome_empresa: "Nome Empresa",
+            parceiro_label: "Parceiro",
+            numero_nota: "Nro. Nota",
+            valor_nota: "Vlr. Nota",
+            participacao_venda_geral: "%Part. Venda Geral",
+            participacao_venda_cliente: "%Part. Venda Cliente",
+            valor_nota_unico: "Vlr. Nota (Unico)",
+            quantidade_saida: "Qtd. Saida",
+            status_nfe: "Status NF-e",
+            apelido_vendedor: "Apelido (Vendedor)",
+            operacao_descricao: "Descricao (Tipo de Operacao)",
+            natureza_descricao: "Descricao (Natureza)",
+            centro_resultado_descricao: "Descricao (Centro de Resultado)",
+            tipo_movimento: "Tipo de Movimento",
+            prazo_medio: "Prazo Medio",
+            media_unica: "Media (Unica)",
+            tipo_venda: "Tipo da Venda",
+            produto_label: "Produto",
+            cidade_parceiro: "Cidade Parceiro",
+            gerente: "Gerente",
+            descricao_perfil: "Descricao (Perfil)",
+            valor_frete: "Valor Frete",
+        };
+        return mapa[campo] || campo;
+    }
+
+    function listarFiltrosTabelaAtivos() {
+        if (!tabelaRef || typeof tabelaRef.getFilters !== "function") return [];
+        var filtros = tabelaRef.getFilters(true);
+        if (!Array.isArray(filtros)) return [];
+
+        var linhas = [];
+        filtros.forEach(function (filtro) {
+            if (!filtro || typeof filtro !== "object") return;
+            if (!toText(filtro.field)) return;
+            var valor = filtro.value;
+            if (valor === null || valor === undefined) return;
+            if (typeof valor === "string" && !toText(valor)) return;
+
+            var campoLabel = labelCampoFiltroTabela(toText(filtro.field));
+            var sufixoTipo = toText(filtro.type);
+            var tipoTexto = sufixoTipo && sufixoTipo !== "=" ? " (" + sufixoTipo + ")" : "";
+            linhas.push(
+                "Tabela - "
+                + campoLabel
+                + tipoTexto
+                + ": "
+                + valorFiltroTabelaParaTexto(valor)
+            );
+        });
+        return linhas;
+    }
+
+    function listarFiltrosExternosAtivos() {
+        if (!filtrosExternosRef || !Array.isArray(filtrosExternosRef.definitions)) return [];
+        var linhas = [];
+
+        filtrosExternosRef.definitions.forEach(function (definition) {
+            var key = toText(definition && definition.key);
+            if (!key) return;
+
+            var selected = filtrosExternosRef.selectedTokensByKey
+                ? filtrosExternosRef.selectedTokensByKey[key]
+                : null;
+            if (!selected || selected.size === 0) return;
+
+            var opcoes = Array.isArray(filtrosExternosRef.optionsByKey && filtrosExternosRef.optionsByKey[key])
+                ? filtrosExternosRef.optionsByKey[key]
+                : [];
+            var labelByToken = new Map();
+            opcoes.forEach(function (opcao) {
+                labelByToken.set(String(opcao.token), toText(opcao.label) || "(Vazio)");
+            });
+
+            var selecionados = Array.from(selected).map(function (token) {
+                var keyToken = String(token);
+                return labelByToken.get(keyToken) || toText(token) || "(Vazio)";
+            });
+            if (!selecionados.length) return;
+
+            var titulo = toText(definition.label) || key;
+            linhas.push("Filtro Externo - " + titulo + ": " + selecionados.join(", "));
+        });
+
+        return linhas;
+    }
+
+    function coletarFiltrosAtivosDashboardPdf() {
+        var linhas = []
+            .concat(listarFiltrosExternosAtivos())
+            .concat(listarFiltrosTabelaAtivos());
+        return linhas.length ? linhas : ["Nenhum filtro ativo."];
+    }
+
+    function montarSnapshotDashboardPdf(metricas) {
+        var metricasAtuais = metricas || {};
+        return {
+            dashboard: {
+                valor_faturamento: textoDeElemento(kpiValorFaturamentoEl, formatMoeda(metricasAtuais.valorFaturamento || 0)),
+                meta_geral: textoDeElemento(kpiMetaGeralEl, formatMoeda(metricasAtuais.metaGeral || 0)),
+                gap_faturamento: textoDeElemento(kpiGapFaturamentoEl, formatMoeda(metricasAtuais.gapFaturamento || 0)),
+                prazo_medio: textoDeElemento(kpiPrazoMedioEl, String(metricasAtuais.prazoMedioArredondado || 0)),
+                dias_uteis: textoDeElemento(kpiDiasUteisEl, String(metricasAtuais.diasUteisRestantes || 0)),
+                meta_diaria: textoDeElemento(kpiMetaDiariaEl, formatMoeda(metricasAtuais.metaDiaria || 0)),
+                pedidos_pendentes: textoDeElemento(kpiTotalPedidosPendentesEl, "R$ 0,00 / 0 dias uteis"),
+                qtd_clientes: textoDeElemento(kpiQtdClientesEl, String(metricasAtuais.qtdClientes || 0)),
+                participacao_venda_geral: textoDeElemento(
+                    kpiParticipacaoVendaGeralEl,
+                    formatPercentual((metricasAtuais.participacaoVendaGeral || 0) * 100, 2)
+                ),
+                incluir_pedidos_pendentes: incluirPedidosPendentesEl && incluirPedidosPendentesEl.checked ? "Sim" : "Nao",
+                reloginho_meta: textoDeElemento(relogioMetaEl, formatMoeda(metricasAtuais.metaGeral || 0)),
+                reloginho_real: textoDeElemento(relogioRealEl, formatMoeda(metricasAtuais.valorFaturamento || 0)),
+                reloginho_percentual: textoDeElemento(
+                    relogioPctEl,
+                    formatPercentual(
+                        (
+                            Number(metricasAtuais.metaGeral || 0) > 0
+                                ? (Number(metricasAtuais.valorFaturamento || 0) / Number(metricasAtuais.metaGeral || 0))
+                                : 0
+                        ) * 100,
+                        2
+                    )
+                ),
+                vendedores_com_venda_total: textoDeElemento(vendedoresComVendaTotalEl, "0"),
+                vendedores_sem_venda_total: textoDeElemento(vendedoresSemVendaTotalEl, "0"),
+                registros_ativos: String(Array.isArray(metricasAtuais.linhasDetalhadas) ? metricasAtuais.linhasDetalhadas.length : 0),
+            },
+            filtros_ativos: coletarFiltrosAtivosDashboardPdf(),
+        };
+    }
+
+    function atualizarPayloadDashboardPdf(metricas) {
+        ultimoSnapshotDashboardPdf = montarSnapshotDashboardPdf(metricas);
+        if (!dashboardPdfPayloadEl) return;
+        try {
+            dashboardPdfPayloadEl.value = JSON.stringify(ultimoSnapshotDashboardPdf);
+        } catch (_erro) {
+            dashboardPdfPayloadEl.value = "{}";
+        }
+    }
+
+    function descritoresGraficosDashboardPdf() {
+        return [
+            {chave: "tipo_venda", titulo: "Tipo da Venda", chart: chartTipoVenda},
+            {chave: "vendedores_resumo", titulo: "Vendedores", chart: chartVendedoresResumo},
+            {chave: "faturamento_loja", titulo: "Faturamento Loja", chart: chartLoja},
+            {chave: "faturamento_mensal", titulo: "Faturamento Mensal", chart: chartMensal},
+            {chave: "faturamento_vendedores", titulo: "Faturamento Vendedores", chart: chartVendedores},
+            {chave: "top10_dias", titulo: "TOP 10 DIAS", chart: chartTop10Dias},
+            {chave: "top10_produtos", titulo: "TOP 10 PRODUTOS", chart: chartTop10Produtos},
+            {chave: "faturamento_cidade", titulo: "Faturamento por Cidade", chart: chartCidade},
+            {chave: "perfil_clientes", titulo: "Perfil Clientes", chart: chartPerfilClientes},
+        ];
+    }
+
+    function gerarImagemGraficoParaPdf(chart) {
+        if (!chart || typeof chart.dataURI !== "function") {
+            return Promise.resolve("");
+        }
+        try {
+            return chart
+                .dataURI({scale: 1, width: 920})
+                .then(function (resultado) {
+                    return toText(resultado && resultado.imgURI);
+                })
+                .catch(function () {
+                    return "";
+                });
+        } catch (_erro) {
+            return Promise.resolve("");
+        }
+    }
+
+    function coletarGraficosDashboardPdf() {
+        var descritores = descritoresGraficosDashboardPdf();
+        var tarefas = descritores.map(function (item) {
+            return gerarImagemGraficoParaPdf(item.chart).then(function (imgUri) {
+                return {
+                    chave: item.chave,
+                    titulo: item.titulo,
+                    img_uri: imgUri,
+                };
+            });
+        });
+
+        return Promise.all(tarefas).then(function (itens) {
+            var payload = {};
+            itens.forEach(function (item) {
+                payload[item.chave] = {
+                    titulo: item.titulo,
+                    img_uri: item.img_uri || "",
+                };
+            });
+            return payload;
+        });
+    }
+
+    function restaurarBotaoExportacaoPdf(textoOriginal) {
+        if (!dashboardPdfButtonEl) return;
+        window.setTimeout(function () {
+            dashboardPdfButtonEl.disabled = false;
+            dashboardPdfButtonEl.textContent = textoOriginal;
+            dashboardPdfExportEmAndamento = false;
+        }, 1200);
+    }
+
+    function inicializarExportacaoDashboardPdf() {
+        if (dashboardPdfExportInicializado) return;
+        dashboardPdfExportInicializado = true;
+        if (!dashboardPdfButtonEl || !dashboardPdfFormEl || !dashboardPdfPayloadEl) return;
+
+        dashboardPdfButtonEl.addEventListener("click", function () {
+            if (dashboardPdfExportEmAndamento) return;
+            dashboardPdfExportEmAndamento = true;
+            var textoOriginal = dashboardPdfButtonEl.textContent || "Baixar PDF do Dashboard";
+            dashboardPdfButtonEl.disabled = true;
+            dashboardPdfButtonEl.textContent = "Preparando PDF...";
+
+            var linhasAtivas = [];
+            if (tabelaRef && typeof tabelaRef.getData === "function") {
+                linhasAtivas = tabelaRef.getData("active");
+                if (!Array.isArray(linhasAtivas)) linhasAtivas = tabelaRef.getData() || [];
+            }
+            if (!Array.isArray(linhasAtivas) || !linhasAtivas.length) {
+                linhasAtivas = Array.isArray(data) ? data : [];
+            }
+
+            var metricasAtuais = calcularMetricasDashboard(linhasAtivas);
+            atualizarPayloadDashboardPdf(metricasAtuais);
+            coletarGraficosDashboardPdf()
+                .then(function (graficos) {
+                    if (!ultimoSnapshotDashboardPdf || typeof ultimoSnapshotDashboardPdf !== "object") {
+                        ultimoSnapshotDashboardPdf = {};
+                    }
+                    ultimoSnapshotDashboardPdf.graficos = graficos || {};
+                    dashboardPdfPayloadEl.value = JSON.stringify(ultimoSnapshotDashboardPdf);
+                    dashboardPdfFormEl.submit();
+                })
+                .catch(function () {
+                    dashboardPdfFormEl.submit();
+                })
+                .then(function () {
+                    restaurarBotaoExportacaoPdf(textoOriginal);
+                }, function () {
+                    restaurarBotaoExportacaoPdf(textoOriginal);
+                });
+        });
     }
 
     function labelMesAno(ano, mes) {
@@ -1398,6 +1677,7 @@
         }
         atualizarReloginho(metricas.metaGeral, metricas.valorFaturamento);
         atualizarGraficosFaturamento(metricas.notasConsolidadas, metricas.linhasDetalhadas);
+        atualizarPayloadDashboardPdf(metricas);
     }
 
     function criarDefinicoesFiltrosFaturamento() {
@@ -1561,6 +1841,7 @@
                 atualizarGraficoPerfilClientes();
             });
         }
+        inicializarExportacaoDashboardPdf();
         return;
     }
 
@@ -1618,11 +1899,14 @@
             enabled: true,
         },
     });
+    tabelaRef = tabela;
 
     var filtrosConfig = configurarFiltrosExternos(tabela, data, secFiltros);
     if (filtrosConfig) {
         registrarAcaoLimparFiltros(tabela, filtrosConfig.secFiltros, filtrosConfig.filtrosExternos);
+        filtrosExternosRef = filtrosConfig.filtrosExternos;
     }
+    inicializarExportacaoDashboardPdf();
 
     function atualizarDashboardComTabela() {
         var linhasAtivas = tabela.getData("active");

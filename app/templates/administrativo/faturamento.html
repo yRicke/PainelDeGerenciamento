@@ -327,6 +327,25 @@
                     <div id="faturamento-chart-perfil-clientes"></div>
                 </div>
             </div>
+            <div class="faturamento-dashboard-actions">
+                <button type="button" id="faturamento-dashboard-exportar-pdf" class="btn-light">
+                    Baixar PDF do Dashboard
+                </button>
+            </div>
+            <form
+                id="faturamento-dashboard-pdf-form"
+                method="post"
+                action="{{ faturamento_dashboard_pdf_url }}"
+                hidden
+            >
+                {% csrf_token %}
+                <input
+                    type="hidden"
+                    id="faturamento-dashboard-pdf-payload"
+                    name="payload_json"
+                    value=""
+                >
+            </form>
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">

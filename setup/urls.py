@@ -152,6 +152,11 @@ urlpatterns = [
 
     path('fiscal_e_contabil/<int:empresa_id>/', views_administrativo.fiscal_e_contabil, name='fiscal_e_contabil'),
     path('faturamento/<int:empresa_id>/', views_administrativo.faturamento, name='faturamento'),
+    path(
+        'faturamento/<int:empresa_id>/dashboard-pdf/',
+        views_administrativo.faturamento_dashboard_pdf,
+        name='faturamento_dashboard_pdf',
+    ),
     path('faturamento/<int:empresa_id>/editar/<int:faturamento_id>/', views_administrativo.editar_faturamento_modulo, name='editar_faturamento_modulo'),
     path('faturamento/<int:empresa_id>/excluir/<int:faturamento_id>/', views_administrativo.excluir_faturamento_modulo, name='excluir_faturamento_modulo'),
     path('apuracao_de_resultados/<int:empresa_id>/', views_administrativo.apuracao_de_resultados, name='apuracao_de_resultados'),

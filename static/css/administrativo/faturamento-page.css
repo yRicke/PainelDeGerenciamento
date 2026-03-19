@@ -229,6 +229,17 @@
     gap: 0.8rem;
 }
 
+.faturamento-dashboard-actions {
+    margin-top: 0.85rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.faturamento-dashboard-actions .btn-light {
+    min-width: 240px;
+    text-align: center;
+}
+
 .dashboard-chart-grid--faturamento {
     display: grid;
     grid-template-columns: repeat(2, minmax(320px, 1fr));
@@ -428,5 +439,13 @@
 
     .vendedores-resumo-listas {
         grid-template-columns: 1fr;
+    }
+
+    .faturamento-dashboard-actions {
+        justify-content: stretch;
+    }
+
+    .faturamento-dashboard-actions .btn-light {
+        width: 100%;
     }
 }
