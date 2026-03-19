@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import FloatField
+from django.db.models import FloatField, Max, Min
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast
 from django.http import JsonResponse
@@ -12,6 +14,7 @@ from ..models import (
     CentroResultado,
     ContratoRede,
     ContasAReceber,
+    Faturamento,
     FluxoDeCaixaDFC,
     Natureza,
     Operacao,
@@ -79,6 +82,7 @@ from ..utils.financeiro import (
     _opcoes_externas_contas_a_receber,
     _ordenar_contas_a_receber,
     _resumo_contas_a_receber,
+    _resumo_dashboard_faturamento_contas_a_receber,
 )
 from .shared import (
     TIPO_IMPORTACAO_POR_MODULO,
@@ -90,6 +94,18 @@ from .shared import (
     _obter_modulo,
     _resumir_arquivos_existentes,
 )
+
+
+def _parse_data_dashboard_faturamento(valor):
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    for formato in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            continue
+    return None
 
 
 @login_required(login_url="entrar")
@@ -164,6 +180,17 @@ def contas_a_receber(request, empresa_id):
         empresa_id=empresa.id,
         extensoes={".xls"},
     )
+    dashboard_empresas = list(
+        ContasAReceber.objects.filter(empresa=empresa)
+        .exclude(nome_fantasia_empresa="")
+        .order_by("nome_fantasia_empresa")
+        .values_list("nome_fantasia_empresa", flat=True)
+        .distinct()
+    )
+    dashboard_periodo = Faturamento.objects.filter(empresa=empresa).aggregate(
+        periodo_inicio=Min("data_faturamento"),
+        periodo_fim=Max("data_faturamento"),
+    )
     contexto = {
         "empresa": empresa,
         "bloquear_cadastro_edicao_importacao": _empresa_bloqueia_cadastro_edicao_importacao(empresa),
@@ -178,6 +205,21 @@ def contas_a_receber(request, empresa_id):
         "parceiros": Parceiro.objects.filter(empresa=empresa).order_by("nome"),
         "centros_resultado": CentroResultado.objects.filter(empresa=empresa).order_by("descricao"),
         "contas_tabulator_url": reverse("contas_a_receber_dados", kwargs={"empresa_id": empresa.id}),
+        "contas_dashboard_faturamento_url": reverse(
+            "contas_a_receber_dashboard_faturamento",
+            kwargs={"empresa_id": empresa.id},
+        ),
+        "contas_dashboard_empresas": dashboard_empresas,
+        "contas_dashboard_periodo_inicio_padrao": (
+            dashboard_periodo["periodo_inicio"].isoformat()
+            if dashboard_periodo.get("periodo_inicio")
+            else ""
+        ),
+        "contas_dashboard_periodo_fim_padrao": (
+            dashboard_periodo["periodo_fim"].isoformat()
+            if dashboard_periodo.get("periodo_fim")
+            else ""
+        ),
     }
     return render(request, modulo["template"], contexto)
 
@@ -264,6 +306,27 @@ def contas_a_receber_dados(request, empresa_id):
             "external_filters": filtros_externos,
         }
     )
+
+
+@login_required(login_url="entrar")
+def contas_a_receber_dashboard_faturamento(request, empresa_id):
+    modulo = _obter_modulo("Financeiro", "Contas a Receber")
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return JsonResponse({"detail": "Acesso negado."}, status=403)
+
+    periodo_inicio = _parse_data_dashboard_faturamento(request.GET.get("periodo_inicio"))
+    periodo_fim = _parse_data_dashboard_faturamento(request.GET.get("periodo_fim"))
+    empresa_filtro = str(request.GET.get("empresa") or "").strip()
+
+    payload = _resumo_dashboard_faturamento_contas_a_receber(
+        qs_contas=ContasAReceber.objects.filter(empresa=empresa),
+        qs_faturamento=Faturamento.objects.filter(empresa=empresa),
+        data_inicio=periodo_inicio,
+        data_fim=periodo_fim,
+        empresa_filtro=empresa_filtro,
+    )
+    return JsonResponse(payload)
 
 
 @login_required(login_url="entrar")

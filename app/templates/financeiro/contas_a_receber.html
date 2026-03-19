@@ -189,15 +189,50 @@
                             <p class="contas-dashboard-kpi-label">QTD</p>
                             <p id="contas-kpi-quantidade-recente" class="contas-dashboard-kpi-quantidade">0</p>
                         </div>
+                    </div>
+                </article>
+
+                <article class="contas-dashboard-card">
+                    <h3>Analise Faturamento</h3>
+                    <div class="contas-dashboard-faturamento-grid">
+                        <div class="contas-dashboard-filtros-card">
+                            <div class="contas-dashboard-filtros-grid">
+                                <div class="contas-dashboard-filtro-item">
+                                    <label for="contas-dashboard-faturamento-inicio">Periodo Inicio</label>
+                                    <input
+                                        type="date"
+                                        id="contas-dashboard-faturamento-inicio"
+                                        value="{{ contas_dashboard_periodo_inicio_padrao }}"
+                                    >
+                                </div>
+                                <div class="contas-dashboard-filtro-item">
+                                    <label for="contas-dashboard-faturamento-fim">Periodo Fim</label>
+                                    <input
+                                        type="date"
+                                        id="contas-dashboard-faturamento-fim"
+                                        value="{{ contas_dashboard_periodo_fim_padrao }}"
+                                    >
+                                </div>
+                                <div class="contas-dashboard-filtro-item contas-dashboard-filtro-item--full">
+                                    <label for="contas-dashboard-faturamento-empresa">Empresa</label>
+                                    <select id="contas-dashboard-faturamento-empresa">
+                                        <option value="__all__">Todas</option>
+                                        {% for nome_empresa in contas_dashboard_empresas %}
+                                        <option value="{{ nome_empresa }}">{{ nome_empresa }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="contas-dashboard-kpi contas-dashboard-kpi--secundario">
                             <p class="contas-dashboard-kpi-label">Faturamento</p>
-                            <p id="contas-kpi-faturamento-recente" class="contas-dashboard-kpi-valor">R$ 0,00</p>
+                            <p id="contas-kpi-faturamento-dashboard" class="contas-dashboard-kpi-valor">R$ 0,00</p>
                         </div>
 
                         <div class="contas-dashboard-kpi contas-dashboard-kpi--secundario">
                             <p class="contas-dashboard-kpi-label">Inadimplencia %</p>
-                            <p id="contas-kpi-inadimplencia" class="contas-dashboard-kpi-valor">0,00%</p>
+                            <p id="contas-kpi-inadimplencia-dashboard" class="contas-dashboard-kpi-valor">0,00%</p>
                         </div>
                     </div>
                 </article>
@@ -239,6 +274,7 @@
 <div
     id="contas-tabulator-data"
     data-endpoint="{{ contas_tabulator_url }}"
+    data-dashboard-faturamento-endpoint="{{ contas_dashboard_faturamento_url }}"
     data-can-edit="{% if not bloquear_cadastro_edicao_importacao %}1{% else %}0{% endif %}"
 ></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>

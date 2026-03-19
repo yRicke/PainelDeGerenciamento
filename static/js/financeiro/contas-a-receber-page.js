@@ -86,19 +86,25 @@
 
     var endpoint = String(dataElement.getAttribute("data-endpoint") || "").trim();
     if (!endpoint) return;
+    var dashboardFaturamentoEndpoint = String(
+        dataElement.getAttribute("data-dashboard-faturamento-endpoint") || ""
+    ).trim();
 
     var canEdit = String(dataElement.getAttribute("data-can-edit") || "0") === "1";
     var secFiltros = document.getElementById("sec-filtros");
     var kpiDataMaisRecenteEl = document.getElementById("contas-kpi-data-mais-recente");
     var kpiQuantidadeRecenteEl = document.getElementById("contas-kpi-quantidade-recente");
     var kpiValorRecenteEl = document.getElementById("contas-kpi-valor-recente");
-    var kpiFaturamentoRecenteEl = document.getElementById("contas-kpi-faturamento-recente");
-    var kpiInadimplenciaEl = document.getElementById("contas-kpi-inadimplencia");
     var kpiDataInicialEl = document.getElementById("contas-kpi-data-inicial");
     var kpiValorInicialEl = document.getElementById("contas-kpi-valor-inicial");
     var kpiDataFinalEl = document.getElementById("contas-kpi-data-final");
     var kpiValorFinalEl = document.getElementById("contas-kpi-valor-final");
     var kpiDiferencaPeriodoEl = document.getElementById("contas-kpi-diferenca-periodo");
+    var kpiFaturamentoDashboardEl = document.getElementById("contas-kpi-faturamento-dashboard");
+    var kpiInadimplenciaDashboardEl = document.getElementById("contas-kpi-inadimplencia-dashboard");
+    var filtroInicioDashboardEl = document.getElementById("contas-dashboard-faturamento-inicio");
+    var filtroFimDashboardEl = document.getElementById("contas-dashboard-faturamento-fim");
+    var filtroEmpresaDashboardEl = document.getElementById("contas-dashboard-faturamento-empresa");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
     var formatadorPercentual = new Intl.NumberFormat("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
@@ -160,8 +166,6 @@
             "valor_data_mais_recente",
             numeroResumo(resumo, "valor_faturado", 0)
         );
-        var faturamentoDataMaisRecente = numeroResumo(resumo, "faturamento_data_mais_recente", 0);
-        var inadimplenciaPercentual = numeroResumo(resumo, "inadimplencia_percentual", 0);
         var valorDataInicial = numeroResumo(resumo, "valor_data_inicial", 0);
         var valorDataFinal = numeroResumo(resumo, "valor_data_final", valorDataMaisRecente);
         var diferencaPeriodo = numeroResumo(resumo, "diferenca_periodo", (valorDataFinal - valorDataInicial));
@@ -169,8 +173,6 @@
         if (kpiDataMaisRecenteEl) kpiDataMaisRecenteEl.textContent = formatarDataBr(resumo && resumo.data_mais_recente);
         if (kpiQuantidadeRecenteEl) kpiQuantidadeRecenteEl.textContent = String(quantidadeDataMaisRecente);
         if (kpiValorRecenteEl) kpiValorRecenteEl.textContent = formatadorMoeda.format(valorDataMaisRecente);
-        if (kpiFaturamentoRecenteEl) kpiFaturamentoRecenteEl.textContent = formatadorMoeda.format(faturamentoDataMaisRecente);
-        if (kpiInadimplenciaEl) kpiInadimplenciaEl.textContent = formatadorPercentual.format(inadimplenciaPercentual) + "%";
         if (kpiDataInicialEl) kpiDataInicialEl.textContent = formatarDataBr(resumo && resumo.data_inicial);
         if (kpiValorInicialEl) kpiValorInicialEl.textContent = formatadorMoeda.format(valorDataInicial);
         if (kpiDataFinalEl) kpiDataFinalEl.textContent = formatarDataBr(resumo && resumo.data_final);
@@ -182,6 +184,79 @@
             else if (diferencaPeriodo < 0) kpiDiferencaPeriodoEl.classList.add("is-negative");
             else kpiDiferencaPeriodoEl.classList.add("is-neutral");
         }
+    }
+
+    var dashboardFaturamentoRequestId = 0;
+
+    function obterValorInputData(inputEl) {
+        return inputEl ? String(inputEl.value || "").trim() : "";
+    }
+
+    function atualizarDashboardFaturamentoResumo(resumo) {
+        var faturamentoTotal = numeroResumo(resumo, "faturamento_total", 0);
+        var inadimplenciaPercentual = numeroResumo(resumo, "inadimplencia_percentual", 0);
+
+        if (kpiFaturamentoDashboardEl) {
+            kpiFaturamentoDashboardEl.textContent = formatadorMoeda.format(faturamentoTotal);
+        }
+        if (kpiInadimplenciaDashboardEl) {
+            kpiInadimplenciaDashboardEl.textContent = formatadorPercentual.format(inadimplenciaPercentual) + "%";
+        }
+    }
+
+    function carregarDashboardFaturamento() {
+        if (!dashboardFaturamentoEndpoint) return;
+
+        var periodoInicio = obterValorInputData(filtroInicioDashboardEl);
+        var periodoFim = obterValorInputData(filtroFimDashboardEl);
+        var empresaDashboard = filtroEmpresaDashboardEl ? String(filtroEmpresaDashboardEl.value || "").trim() : "__all__";
+
+        if (!periodoInicio || !periodoFim) {
+            atualizarDashboardFaturamentoResumo({faturamento_total: 0, inadimplencia_percentual: 0});
+            return;
+        }
+        if (periodoInicio > periodoFim) {
+            window.alert("O Periodo Inicio deve ser menor ou igual ao Periodo Fim.");
+            return;
+        }
+
+        var query = new URLSearchParams();
+        query.set("periodo_inicio", periodoInicio);
+        query.set("periodo_fim", periodoFim);
+        query.set("empresa", empresaDashboard || "__all__");
+
+        var requestId = dashboardFaturamentoRequestId + 1;
+        dashboardFaturamentoRequestId = requestId;
+
+        fetch(dashboardFaturamentoEndpoint + "?" + query.toString(), {
+            method: "GET",
+            headers: {"X-Requested-With": "XMLHttpRequest"}
+        })
+            .then(function (resposta) {
+                if (!resposta.ok) throw new Error("Erro ao carregar dashboard de faturamento.");
+                return resposta.json();
+            })
+            .then(function (payload) {
+                if (requestId !== dashboardFaturamentoRequestId) return;
+                atualizarDashboardFaturamentoResumo(payload || {});
+            })
+            .catch(function () {
+                if (requestId !== dashboardFaturamentoRequestId) return;
+                atualizarDashboardFaturamentoResumo({faturamento_total: 0, inadimplencia_percentual: 0});
+            });
+    }
+
+    function initDashboardFaturamento() {
+        if (filtroInicioDashboardEl) {
+            filtroInicioDashboardEl.addEventListener("change", carregarDashboardFaturamento);
+        }
+        if (filtroFimDashboardEl) {
+            filtroFimDashboardEl.addEventListener("change", carregarDashboardFaturamento);
+        }
+        if (filtroEmpresaDashboardEl) {
+            filtroEmpresaDashboardEl.addEventListener("change", carregarDashboardFaturamento);
+        }
+        carregarDashboardFaturamento();
     }
 
     function normalizarOpcoes(lista) {
@@ -651,4 +726,5 @@
 
     initSecaoFiltros();
     initAcoesLimparFiltros();
+    initDashboardFaturamento();
 })();

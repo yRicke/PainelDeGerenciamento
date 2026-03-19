@@ -403,6 +403,88 @@ def _resumo_contas_a_receber(qs, total_registros):
     }
 
 
+def _resumo_dashboard_faturamento_contas_a_receber(
+    qs_contas,
+    qs_faturamento,
+    data_inicio=None,
+    data_fim=None,
+    empresa_filtro="",
+):
+    def _somar_decimal(qs_ref, campo):
+        agregado_local = qs_ref.aggregate(
+            total=Coalesce(
+                Sum(campo),
+                Value(Decimal("0.00"), output_field=DecimalField(max_digits=18, decimal_places=2)),
+            ),
+        )
+        return agregado_local.get("total") or Decimal("0.00")
+
+    empresa_normalizada = str(empresa_filtro or "").strip()
+    aplicar_filtro_empresa = bool(empresa_normalizada and empresa_normalizada != "__all__")
+    if aplicar_filtro_empresa:
+        qs_contas = qs_contas.filter(nome_fantasia_empresa__iexact=empresa_normalizada)
+        qs_faturamento = qs_faturamento.filter(nome_empresa__iendswith=empresa_normalizada)
+    else:
+        empresa_normalizada = ""
+
+    datas_faturamento = qs_faturamento.exclude(data_faturamento__isnull=True).aggregate(
+        data_inicio=Min("data_faturamento"),
+        data_fim=Max("data_faturamento"),
+    )
+    if data_inicio is None:
+        data_inicio = datas_faturamento.get("data_inicio")
+    if data_fim is None:
+        data_fim = datas_faturamento.get("data_fim")
+    if data_inicio and data_fim and data_inicio > data_fim:
+        data_inicio, data_fim = data_fim, data_inicio
+
+    qs_faturamento_periodo = qs_faturamento
+    if data_inicio:
+        qs_faturamento_periodo = qs_faturamento_periodo.filter(data_faturamento__gte=data_inicio)
+    if data_fim:
+        qs_faturamento_periodo = qs_faturamento_periodo.filter(data_faturamento__lte=data_fim)
+
+    faturamento_total = _somar_decimal(qs_faturamento_periodo, "valor_nota_unico")
+
+    # Regra BI: inadimplencia considera apenas a ultima posicao de contas a receber
+    # e dentro dela filtra pelos titulos vencidos no periodo selecionado.
+    data_snapshot = (
+        qs_contas.exclude(data_arquivo__isnull=True)
+        .aggregate(data_snapshot=Max("data_arquivo"))
+        .get("data_snapshot")
+    )
+
+    valor_inadimplente = Decimal("0.00")
+    if data_snapshot:
+        hoje = datetime.now().date()
+        qs_inadimplencia = qs_contas.filter(
+            data_arquivo=data_snapshot,
+            data_vencimento__lt=hoje,
+        )
+        if data_inicio:
+            qs_inadimplencia = qs_inadimplencia.filter(data_vencimento__gte=data_inicio)
+        if data_fim:
+            qs_inadimplencia = qs_inadimplencia.filter(data_vencimento__lte=data_fim)
+        valor_inadimplente = _somar_decimal(qs_inadimplencia, "valor_liquido")
+
+    base_inadimplencia = abs(faturamento_total)
+    inadimplencia_percentual = (
+        (abs(valor_inadimplente) / base_inadimplencia * Decimal("100.00"))
+        if base_inadimplencia > 0
+        else Decimal("0.00")
+    )
+
+    return {
+        "periodo_inicio": data_inicio.isoformat() if data_inicio else "",
+        "periodo_fim": data_fim.isoformat() if data_fim else "",
+        "empresa": empresa_normalizada,
+        "faturamento_total": float(faturamento_total),
+        "valor_inadimplente": float(valor_inadimplente),
+        "inadimplencia_percentual": float(inadimplencia_percentual),
+        "data_snapshot": data_snapshot.isoformat() if data_snapshot else "",
+    }
+
+
 def _filtros_sem_campo(filtros, campo):
     alvo = str(campo or "").strip()
     if not alvo:
