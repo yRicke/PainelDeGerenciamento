@@ -8,7 +8,7 @@
 
 .producao-reloginhos-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(220px, 1fr));
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
     gap: 0.75rem;
     margin-bottom: 0.75rem;
 }
@@ -18,6 +18,17 @@
     border-radius: 8px;
     background: #fff;
     padding: 0.55rem;
+}
+
+.reloginho-card[data-reloginho="total"] {
+    border-color: #b8cadb;
+    background: linear-gradient(180deg, #f4f9ff 0%, #edf5ff 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.reloginho-card[data-reloginho="total"] .reloginho-metricas {
+    border-color: #c4d5e6;
+    background: #f0f6ff;
 }
 
 .reloginho-card h3 {

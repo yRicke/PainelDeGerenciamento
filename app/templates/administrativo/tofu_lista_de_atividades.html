@@ -214,7 +214,14 @@
 
 {% block extra_js %}
 {{ atividades_tabulator|json_script:"atividades-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'administrativo_tofu_lista_de_atividades' %}"
+    data-title="Dashboard TOFU Lista de Atividades"
+    data-dashboard-slug="administrativo_tofu_lista_de_atividades"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/administrativo/tofu-atividade-form.js' %}"></script>
 <script src="{% static 'js/administrativo/tofu-lista-de-atividades.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

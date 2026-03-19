@@ -1,0 +1,24 @@
+{{ titulo_dashboard }}
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+
+INDICADORES
+{% if kpis %}
+{% for item in kpis %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+{% else %}
+- Sem indicadores disponiveis.
+{% endif %}
+
+GRAFICOS
+- Total capturado: {{ quantidade_graficos }}
+
+FILTROS ATIVOS
+{% for linha in filtros_ativos %}
+- {{ linha }}
+{% endfor %}
+
+OBSERVACOES
+{{ detalhes_texto }}

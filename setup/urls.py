@@ -23,6 +23,7 @@ import app.views.administrativo as views_administrativo
 import app.views.operacional as views_operacional
 import app.views.parametros as views_parametros
 import app.views.admin as views_admin
+import app.views.dashboard_pdf as views_dashboard_pdf
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -36,6 +37,11 @@ urlpatterns = [
 
     path('entrar/', views_core.entrar, name='entrar'),
     path('sair/', views_core.sair, name='sair'),
+    path(
+        'dashboard-pdf/<int:empresa_id>/<slug:dashboard_slug>/',
+        views_dashboard_pdf.dashboard_pdf_generico,
+        name='dashboard_pdf_generico',
+    ),
 
     path('painel_admin/', views_admin.painel_admin, name='painel_admin'),
 

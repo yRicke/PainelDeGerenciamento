@@ -1,0 +1,27 @@
+{{ titulo_dashboard }}
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+
+RESUMO
+- Total de atividades: {{ tofu.total_atividades }}
+
+INDICADORES
+{% if tofu.cards %}
+{% for card in tofu.cards %}
+- {{ card.titulo }}: {{ card.percentual }}
+{% for linha in card.linhas %}
+  - {{ linha.label }}: {{ linha.value }}
+{% endfor %}
+{% endfor %}
+{% else %}
+- Sem indicadores disponiveis.
+{% endif %}
+
+FILTROS ATIVOS
+{% for linha in filtros_ativos %}
+- {{ linha }}
+{% endfor %}
+
+OBSERVACOES
+{{ detalhes_texto }}

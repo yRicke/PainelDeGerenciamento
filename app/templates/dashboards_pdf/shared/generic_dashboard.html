@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>{{ titulo_dashboard }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1e3652;
+            background: #f2f5f9;
+        }
+
+        .page {
+            min-height: calc(297mm - 24mm);
+            page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        .title {
+            margin: 0 0 8px;
+            font-size: 31px;
+            font-weight: 800;
+            color: #183b62;
+            letter-spacing: -0.2px;
+        }
+        .meta {
+            margin: 0 0 12px;
+            font-size: 13px;
+            color: #35547a;
+        }
+
+        .section {
+            border: 1px solid #c5d1df;
+            border-radius: 12px;
+            background: #f8fafd;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .section h2 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            color: #1b3f66;
+            font-weight: 800;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .kpi-card {
+            border: 1px solid #c1d2e4;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #fbfdff 0%, #eef5fc 100%);
+            padding: 10px;
+            min-height: 86px;
+        }
+        .kpi-label {
+            margin: 0 0 7px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #345677;
+        }
+        .kpi-value {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 800;
+            color: #123f67;
+            word-break: break-word;
+        }
+        .kpi-empty {
+            margin: 0;
+            font-size: 13px;
+            color: #516c8a;
+            font-style: italic;
+        }
+
+        .charts-stack {
+            display: block;
+        }
+        .chart-card {
+            border: 1px solid #c3d2e2;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #fcfeff 0%, #f5f9fd 100%);
+            box-shadow: 0 1px 2px rgba(27, 52, 86, 0.08);
+            padding: 12px;
+            margin-bottom: 12px;
+            page-break-inside: avoid;
+        }
+        .chart-card:last-child {
+            margin-bottom: 0;
+        }
+        .chart-card h3 {
+            margin: -12px -12px 10px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #d4dfeb;
+            border-radius: 12px 12px 0 0;
+            background: #eef4fb;
+            font-size: 12px;
+            color: #23486f;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+            text-align: center;
+        }
+        .chart-card img {
+            width: 100%;
+            height: auto;
+            border: 1px solid #d0dbe8;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+        .chart-empty {
+            margin: 0;
+            min-height: 120px;
+            border: 1px dashed #b8c7d8;
+            border-radius: 8px;
+            background: #f5f8fc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #506987;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .filtros {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .filtros li {
+            margin: 4px 0;
+            font-size: 12px;
+            color: #244262;
+        }
+        .text-block {
+            border: 1px solid #c5d1df;
+            border-radius: 10px;
+            background: #fbfdff;
+            padding: 12px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1b3456;
+        }
+    </style>
+</head>
+<body>
+    <section class="page">
+        <h1 class="title">{{ titulo_dashboard }}</h1>
+        <p class="meta">Empresa: {{ empresa.nome }} | Gerado em: {{ gerado_em }}</p>
+
+        <article class="section">
+            <h2>Indicadores</h2>
+            {% if kpis %}
+            <div class="kpi-grid">
+                {% for item in kpis %}
+                <div class="kpi-card">
+                    <p class="kpi-label">{{ item.label }}</p>
+                    <p class="kpi-value">{{ item.value }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="kpi-empty">Sem indicadores disponiveis para este dashboard.</p>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="page">
+        <article class="section">
+            <h2>Graficos</h2>
+            {% if graficos %}
+            <div class="charts-stack">
+                {% for item in graficos %}
+                <article class="chart-card">
+                    <h3>{{ item.title }}</h3>
+                    <img src="{{ item.img_uri }}" alt="{{ item.title }}">
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="chart-empty">Nenhum grafico foi capturado para exportacao.</p>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="page">
+        <article class="section">
+            <h2>Filtros Aplicados</h2>
+            <ul class="filtros">
+                {% for linha in filtros_ativos %}
+                <li>{{ linha }}</li>
+                {% endfor %}
+            </ul>
+        </article>
+        <article class="section">
+            <h2>Detalhamento</h2>
+            <div class="text-block">{{ texto_relatorio }}</div>
+        </article>
+    </section>
+</body>
+</html>

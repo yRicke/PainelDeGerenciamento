@@ -266,6 +266,16 @@
 
 {% block extra_js %}
 {{ producao_tabulator|json_script:"producao-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'operacional_producao' %}"
+    data-title="Dashboard Producao"
+    data-dashboard-slug="operacional_producao"
+    data-section-selector="#sec-visualizacao"
+    data-kpi-scope-selector=".producao-reloginhos-grid"
+    data-chart-scope-selector=".producao-reloginhos-grid"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/operacional/producao-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

@@ -248,7 +248,14 @@
 
 {% block extra_js %}
 {{ carteiras_tabulator|json_script:"carteira-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'comercial_carteira' %}"
+    data-title="Dashboard Carteira"
+    data-kpi-scope-selector="#sec-dashboard, #sec-dashboard + section"
+></div>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/comercial/carteira-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

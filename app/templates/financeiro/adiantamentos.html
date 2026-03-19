@@ -155,6 +155,12 @@
 
 {% block extra_js %}
 {{ adiantamentos_tabulator|json_script:"adiantamentos-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'financeiro_adiantamentos' %}"
+    data-title="Dashboard Adiantamentos"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/adiantamentos-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

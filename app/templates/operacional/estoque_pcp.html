@@ -244,6 +244,12 @@
 
 {% block extra_js %}
 {{ estoque_tabulator|json_script:"estoque-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'operacional_estoque_pcp' %}"
+    data-title="Dashboard Estoque - PCP"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/operacional/estoque-pcp-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

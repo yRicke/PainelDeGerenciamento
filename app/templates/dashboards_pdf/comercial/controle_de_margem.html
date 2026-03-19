@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>{{ titulo_dashboard }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1f3752;
+            background: #f2f5f9;
+        }
+
+        .page {
+            min-height: calc(297mm - 24mm);
+            page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        .title {
+            margin: 0 0 8px;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            color: #16375c;
+        }
+        .meta {
+            margin: 0 0 14px;
+            font-size: 13px;
+            color: #35547a;
+        }
+
+        .section {
+            border: 1px solid #c9d5e3;
+            border-radius: 12px;
+            background: #f7f9fc;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .section h2 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 800;
+            color: #1a3e66;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 9px;
+        }
+        .card {
+            border: 1px solid #d6e0ea;
+            border-radius: 12px;
+            background: #f8fcff;
+            padding: 10px;
+        }
+        .card h3 {
+            margin: 0 0 4px;
+            font-size: 13px;
+            color: #32475a;
+        }
+        .card p {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 800;
+        }
+        .card--pedido p { color: #0f4a7c; }
+        .card--cmv p { color: #b07f00; }
+        .card--lucro p { color: #1d6b33; }
+        .card--margem p { color: #3e4a59; }
+
+        .analitico-grid {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 9px;
+        }
+        .box {
+            border: 1px solid #d6e0ea;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #f9fcff 0%, #eff5fb 100%);
+            padding: 10px;
+        }
+        .box h3 {
+            margin: 0 0 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #5a6f84;
+        }
+
+        .setor-row {
+            display: grid;
+            grid-template-columns: minmax(95px, auto) minmax(125px, 1fr) minmax(95px, auto) minmax(40px, auto);
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .setor-row:last-child { margin-bottom: 0; }
+        .setor-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #31475d;
+        }
+        .setor-track {
+            height: 9px;
+            border-radius: 999px;
+            border: 1px solid #ccd8e5;
+            background: #f1f4f8;
+            overflow: hidden;
+        }
+        .setor-fill {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #8fd1ff 0%, #3a8bd2 100%);
+        }
+        .setor-valor {
+            font-size: 12px;
+            font-weight: 700;
+            color: #243445;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .setor-percentual {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1f2f3f;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .resumo-grid {
+            margin-top: 9px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .resumo-card {
+            border: 1px solid #d6e0ea;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #f9fcff 0%, #eff5fb 100%);
+            padding: 10px;
+        }
+        .resumo-card h3 {
+            margin: 0;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #4f6275;
+        }
+        .resumo-card p {
+            margin: 4px 0 0;
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #243445;
+        }
+        .resumo-card--total p { color: #c15a06; }
+        .resumo-card--positivo p { color: #127b47; }
+        .resumo-card--negativo p { color: #b12c2c; }
+
+        .empty {
+            margin: 0;
+            min-height: 120px;
+            border: 1px dashed #b8c7d8;
+            border-radius: 8px;
+            background: #f5f8fc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #506987;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .filtros {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .filtros li {
+            margin: 4px 0;
+            font-size: 12px;
+            color: #223f61;
+        }
+        .text-block {
+            border: 1px solid #c9d5e3;
+            border-radius: 10px;
+            background: #fbfdff;
+            padding: 12px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1b3456;
+        }
+    </style>
+</head>
+<body>
+    <section class="page">
+        <h1 class="title">{{ titulo_dashboard }}</h1>
+        <p class="meta">Empresa: {{ empresa.nome }} | Gerado em: {{ gerado_em }}</p>
+
+        <article class="section">
+            <h2>Indicadores Principais</h2>
+            {% if controle_margem.cards_principais %}
+            <div class="cards-grid">
+                {% for card in controle_margem.cards_principais %}
+                <article class="card card--{{ card.tone }}">
+                    <h3>{{ card.titulo }}</h3>
+                    <p>{{ card.valor }}</p>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty">Sem indicadores principais disponiveis.</p>
+            {% endif %}
+        </article>
+
+        <article class="section">
+            <h2>Analise de Setores</h2>
+            <div class="analitico-grid">
+                <section class="box">
+                    <h3>Setores</h3>
+                    {% if controle_margem.setores %}
+                    {% for setor in controle_margem.setores %}
+                    <div class="setor-row">
+                        <span class="setor-label">{{ setor.label }}</span>
+                        <span class="setor-track"><span class="setor-fill" style="width: {{ setor.percentual_num }}%;"></span></span>
+                        <span class="setor-valor">{{ setor.valor }}</span>
+                        <span class="setor-percentual">{{ setor.percentual }}</span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="empty">Sem dados de setores.</p>
+                    {% endif %}
+                </section>
+
+                <section class="box">
+                    <h3>Logistica detalhada</h3>
+                    {% if controle_margem.logistica %}
+                    {% for setor in controle_margem.logistica %}
+                    <div class="setor-row">
+                        <span class="setor-label">{{ setor.label }}</span>
+                        <span class="setor-track"><span class="setor-fill" style="width: {{ setor.percentual_num }}%;"></span></span>
+                        <span class="setor-valor">{{ setor.valor }}</span>
+                        <span class="setor-percentual">{{ setor.percentual }}</span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="empty">Sem dados de logistica.</p>
+                    {% endif %}
+                </section>
+            </div>
+
+            {% if controle_margem.resumo_cards %}
+            <div class="resumo-grid">
+                {% for card in controle_margem.resumo_cards %}
+                <article class="resumo-card resumo-card--{{ card.tone }}">
+                    <h3>{{ card.titulo }}</h3>
+                    <p>{{ card.valor }}</p>
+                </article>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="page">
+        <article class="section">
+            <h2>Filtros Aplicados</h2>
+            <ul class="filtros">
+                {% for linha in filtros_ativos %}
+                <li>{{ linha }}</li>
+                {% endfor %}
+            </ul>
+        </article>
+        <article class="section">
+            <h2>Detalhamento</h2>
+            <div class="text-block">{{ texto_relatorio }}</div>
+        </article>
+    </section>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>{{ titulo_dashboard }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1f3752;
+            background: #f2f5f9;
+        }
+
+        .page {
+            min-height: calc(297mm - 24mm);
+            page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        .title {
+            margin: 0 0 8px;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            color: #16375c;
+        }
+        .meta {
+            margin: 0 0 14px;
+            font-size: 13px;
+            color: #35547a;
+        }
+
+        .section {
+            border: 1px solid #c9d5e3;
+            border-radius: 12px;
+            background: #f7f9fc;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .section h2 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 800;
+            color: #1a3e66;
+        }
+
+        .total-card {
+            border: 1px solid #d7e2ee;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%);
+            padding: 12px;
+        }
+        .total-card p {
+            margin: 0;
+        }
+        .total-label {
+            color: #3d5368;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+        .total-value {
+            margin-top: 4px;
+            color: #0f4a7c;
+            font-size: 34px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .cards-grid {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+        }
+        .card {
+            --card-border: #d8dee4;
+            --card-bg: #fff;
+            --card-accent: #175cd3;
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            background: linear-gradient(160deg, var(--card-bg) 0%, #ffffff 100%);
+            padding: 10px;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+        }
+        .card-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .card-head h3 {
+            margin: 0;
+            font-size: 15px;
+            color: #273a4d;
+        }
+        .card-head strong {
+            font-size: 26px;
+            line-height: 1;
+            font-weight: 800;
+            color: var(--card-accent);
+        }
+        .card-lines {
+            display: grid;
+            gap: 5px;
+        }
+        .card-lines p {
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 13px;
+            color: #34495d;
+        }
+        .card-lines span:last-child {
+            font-weight: 700;
+            color: #13293f;
+        }
+
+        .card--atrasados {
+            --card-border: #f4c9c5;
+            --card-bg: #fff6f5;
+            --card-accent: #b42318;
+        }
+        .card--alertas {
+            --card-border: #f0dfa1;
+            --card-bg: #fff9ea;
+            --card-accent: #8a5d00;
+        }
+        .card--concluidos {
+            --card-border: #bfe7c5;
+            --card-bg: #eefbf0;
+            --card-accent: #1f7032;
+        }
+        .card--a-fazer {
+            --card-border: #c8dbf6;
+            --card-bg: #f1f7ff;
+            --card-accent: #175cd3;
+        }
+
+        .empty {
+            margin: 0;
+            min-height: 120px;
+            border: 1px dashed #b8c7d8;
+            border-radius: 8px;
+            background: #f5f8fc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #506987;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .filtros {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .filtros li {
+            margin: 4px 0;
+            font-size: 12px;
+            color: #223f61;
+        }
+        .text-block {
+            border: 1px solid #c9d5e3;
+            border-radius: 10px;
+            background: #fbfdff;
+            padding: 12px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1b3456;
+        }
+    </style>
+</head>
+<body>
+    <section class="page">
+        <h1 class="title">{{ titulo_dashboard }}</h1>
+        <p class="meta">Empresa: {{ empresa.nome }} | Gerado em: {{ gerado_em }}</p>
+
+        <article class="section">
+            <h2>Resumo Geral</h2>
+            <div class="total-card">
+                <p class="total-label">Total de atividades</p>
+                <p class="total-value">{{ tofu.total_atividades }}</p>
+            </div>
+        </article>
+
+        <article class="section">
+            <h2>Analise por Indicador</h2>
+            {% if tofu.cards %}
+            <div class="cards-grid">
+                {% for card in tofu.cards %}
+                <article class="card card--{{ card.tone }}">
+                    <div class="card-head">
+                        <h3>{{ card.titulo }}</h3>
+                        <strong>{{ card.percentual }}</strong>
+                    </div>
+                    <div class="card-lines">
+                        {% for linha in card.linhas %}
+                        <p>
+                            <span>{{ linha.label }}</span>
+                            <span>{{ linha.value }}</span>
+                        </p>
+                        {% endfor %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty">Sem dados de indicadores para este dashboard.</p>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="page">
+        <article class="section">
+            <h2>Filtros Aplicados</h2>
+            <ul class="filtros">
+                {% for linha in filtros_ativos %}
+                <li>{{ linha }}</li>
+                {% endfor %}
+            </ul>
+        </article>
+        <article class="section">
+            <h2>Detalhamento</h2>
+            <div class="text-block">{{ texto_relatorio }}</div>
+        </article>
+    </section>
+</body>
+</html>

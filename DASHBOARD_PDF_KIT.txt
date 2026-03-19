@@ -83,3 +83,49 @@ Dependencia de ambiente
 - Caminho pode ser configurado por variavel de ambiente:
   DASHBOARD_PDF_BROWSER
 - Sem browser disponivel, o endpoint retorna erro 500 com mensagem explicativa.
+
+
+Modo generico (escala rapida para outros modulos)
+-------------------------------------------------
+Para dashboards que nao exigem regra de negocio no servidor:
+
+1) Rota generica:
+   /dashboard-pdf/<empresa_id>/<dashboard_slug>/
+   view: app/views/dashboard_pdf.py -> dashboard_pdf_generico
+
+2) Front compartilhado:
+   static/js/shared/dashboard-pdf-export.js
+   - captura KPIs no DOM
+   - captura graficos (svg/canvas) no sec-dashboard
+   - captura filtros externos e filtros da tabela
+   - envia payload_json por POST com CSRF
+
+3) Config por template:
+   inserir um bloco:
+   <div id="dashboard-pdf-config" data-endpoint="...slug..." data-title="..."></div>
+   e incluir:
+   <script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
+
+4) Template PDF generico:
+   app/templates/dashboards_pdf/shared/generic_dashboard.html
+   app/templates/dashboards_pdf/shared/generic_dashboard_texto.txt
+
+Modo dedicado por modulo (quando precisa ficar igual ao web)
+------------------------------------------------------------
+Quando o dashboard exige layout muito proximo da tela web, use:
+
+1) Templates dedicados no mesmo padrao de pasta:
+   app/templates/dashboards_pdf/<area>/<modulo>.html
+   app/templates/dashboards_pdf/<area>/<modulo>_texto.txt
+
+2) No mapeamento DASHBOARD_EXPORT_CONFIG (app/views/dashboard_pdf.py):
+   - template_html
+   - template_text
+
+3) (Opcional) Context builder dedicado por slug:
+   - CONTEXT_BUILDERS[slug] = funcao
+   - payload_json pode levar um bloco module_payload montado no front
+
+4) Exemplo ja aplicado:
+   - administrativo_tofu_lista_de_atividades
+   - comercial_controle_de_margem

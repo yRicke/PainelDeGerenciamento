@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>{{ titulo_dashboard }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1f3752;
+            background: #f2f5f9;
+        }
+
+        .page {
+            min-height: calc(297mm - 24mm);
+            page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        .title {
+            margin: 0 0 8px;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            color: #16375c;
+        }
+        .meta {
+            margin: 0 0 14px;
+            font-size: 13px;
+            color: #35547a;
+        }
+
+        .section {
+            border: 1px solid #c9d5e3;
+            border-radius: 12px;
+            background: #f7f9fc;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .section h2 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 800;
+            color: #1a3e66;
+        }
+
+        .reloginhos-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .reloginho-card {
+            border: 1px solid #cfd8df;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+        }
+        .reloginho-card--total {
+            border-color: #b8cadb;
+            background: linear-gradient(180deg, #f4f9ff 0%, #edf5ff 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        .reloginho-card h3 {
+            margin: 0 0 6px;
+            text-align: center;
+            font-size: 14px;
+            color: #152a36;
+        }
+
+        .reloginho-dial-wrap {
+            display: flex;
+            justify-content: center;
+        }
+
+        .reloginho-dial {
+            position: relative;
+            width: 180px;
+            height: 104px;
+            overflow: hidden;
+        }
+
+        .reloginho-face {
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 270deg,
+                #d62828 0deg 36deg,
+                #ef7d25 36deg 72deg,
+                #f7d64b 72deg 108deg,
+                #6cad48 108deg 144deg,
+                #1e6f8c 144deg 180deg,
+                transparent 180deg 360deg
+            );
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+        }
+
+        .ponteiro {
+            position: absolute;
+            left: 88px;
+            top: 30px;
+            width: 4px;
+            height: 72px;
+            border-radius: 2px;
+            transform-origin: 50% 100%;
+            transform: rotate(-90deg);
+        }
+
+        .ponteiro-meta {
+            background: #c15a06;
+        }
+
+        .ponteiro-meta80 {
+            background: #8d5f00;
+            left: 89px;
+        }
+
+        .ponteiro-real {
+            background: #1d6b33;
+            left: 88.5px;
+        }
+
+        .reloginho-pivo {
+            position: absolute;
+            left: 83px;
+            top: 93px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #444;
+            background: #fff;
+        }
+
+        .reloginho-metricas {
+            margin-top: 5px;
+            border: 1px solid #d9dee3;
+            border-radius: 6px;
+            background: #f5f7fa;
+            padding: 6px 8px;
+        }
+        .reloginho-card--total .reloginho-metricas {
+            border-color: #c4d5e6;
+            background: #f0f6ff;
+        }
+        .reloginho-metricas p {
+            margin: 2px 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: #294153;
+        }
+        .reloginho-metricas span {
+            margin-left: 6px;
+            color: #1d6b33;
+        }
+        .meta-valor {
+            color: #c15a06;
+        }
+        .real-valor {
+            color: #1d6b33;
+        }
+
+        .empty {
+            margin: 0;
+            min-height: 120px;
+            border: 1px dashed #b8c7d8;
+            border-radius: 8px;
+            background: #f5f8fc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #506987;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .filtros {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .filtros li {
+            margin: 4px 0;
+            font-size: 12px;
+            color: #223f61;
+        }
+        .text-block {
+            border: 1px solid #c9d5e3;
+            border-radius: 10px;
+            background: #fbfdff;
+            padding: 12px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1b3456;
+        }
+    </style>
+</head>
+<body>
+    <section class="page">
+        <h1 class="title">{{ titulo_dashboard }}</h1>
+        <p class="meta">Empresa: {{ empresa.nome }} | Gerado em: {{ gerado_em }}</p>
+
+        <article class="section">
+            <h2>Reloginhos de Producao</h2>
+            {% if producao.reloginhos %}
+            <div class="reloginhos-grid">
+                {% for item in producao.reloginhos %}
+                <article class="reloginho-card {% if item.sufixo == 'total' %}reloginho-card--total{% endif %}">
+                    <h3>{{ item.titulo }}</h3>
+                    <div class="reloginho-dial-wrap">
+                        <div class="reloginho-dial">
+                            <div class="reloginho-face"></div>
+                            <div class="ponteiro ponteiro-meta" style="transform: rotate({{ item.meta_angulo }}deg);"></div>
+                            {% if item.meta80_angulo %}
+                            <div class="ponteiro ponteiro-meta80" style="transform: rotate({{ item.meta80_angulo }}deg);"></div>
+                            {% endif %}
+                            <div class="ponteiro ponteiro-real" style="transform: rotate({{ item.real_angulo }}deg);"></div>
+                            <div class="reloginho-pivo"></div>
+                        </div>
+                    </div>
+                    <div class="reloginho-metricas">
+                        <p>META ACUM: <strong class="meta-valor">{{ item.meta_acum }}</strong></p>
+                        <p>REAL: <strong class="real-valor">{{ item.real }}</strong> <span>{{ item.percentual }}</span></p>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty">Sem dados de reloginhos para este dashboard.</p>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="page">
+        <article class="section">
+            <h2>Filtros Aplicados</h2>
+            <ul class="filtros">
+                {% for linha in filtros_ativos %}
+                <li>{{ linha }}</li>
+                {% endfor %}
+            </ul>
+        </article>
+        <article class="section">
+            <h2>Detalhamento</h2>
+            <div class="text-block">{{ texto_relatorio }}</div>
+        </article>
+    </section>
+</body>
+</html>

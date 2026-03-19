@@ -257,6 +257,13 @@
 
 {% block extra_js %}
 {{ controle_margem_tabulator|json_script:"controle-margem-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'comercial_controle_de_margem' %}"
+    data-title="Dashboard Controle de Margem"
+    data-dashboard-slug="comercial_controle_de_margem"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/comercial/controle-de-margem-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

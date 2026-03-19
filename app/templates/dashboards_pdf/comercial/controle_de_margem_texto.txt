@@ -1,0 +1,48 @@
+{{ titulo_dashboard }}
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+
+INDICADORES PRINCIPAIS
+{% if controle_margem.cards_principais %}
+{% for item in controle_margem.cards_principais %}
+- {{ item.titulo }}: {{ item.valor }}
+{% endfor %}
+{% else %}
+- Sem indicadores principais.
+{% endif %}
+
+SETORES
+{% if controle_margem.setores %}
+{% for item in controle_margem.setores %}
+- {{ item.label }}: {{ item.valor }} ({{ item.percentual }})
+{% endfor %}
+{% else %}
+- Sem dados de setores.
+{% endif %}
+
+LOGISTICA DETALHADA
+{% if controle_margem.logistica %}
+{% for item in controle_margem.logistica %}
+- {{ item.label }}: {{ item.valor }} ({{ item.percentual }})
+{% endfor %}
+{% else %}
+- Sem dados de logistica.
+{% endif %}
+
+RESUMO
+{% if controle_margem.resumo_cards %}
+{% for item in controle_margem.resumo_cards %}
+- {{ item.titulo }}: {{ item.valor }}
+{% endfor %}
+{% else %}
+- Sem dados de resumo.
+{% endif %}
+
+FILTROS ATIVOS
+{% for linha in filtros_ativos %}
+- {{ linha }}
+{% endfor %}
+
+OBSERVACOES
+{{ detalhes_texto }}

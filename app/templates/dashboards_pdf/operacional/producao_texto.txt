@@ -1,0 +1,24 @@
+{{ titulo_dashboard }}
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+
+RELOGINHOS
+{% if producao.reloginhos %}
+{% for item in producao.reloginhos %}
+- {{ item.titulo }}
+  - Meta acumulada: {{ item.meta_acum }}
+  - Real: {{ item.real }}
+  - Percentual: {{ item.percentual }}
+{% endfor %}
+{% else %}
+- Sem dados de reloginhos.
+{% endif %}
+
+FILTROS ATIVOS
+{% for linha in filtros_ativos %}
+- {{ linha }}
+{% endfor %}
+
+OBSERVACOES
+{{ detalhes_texto }}

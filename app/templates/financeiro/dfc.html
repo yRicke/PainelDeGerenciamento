@@ -225,6 +225,12 @@
 {% block extra_js %}
 {{ dfc_tabulator|json_script:"dfc-tabulator-data" }}
 {{ dfc_saldo_planejado|json_script:"dfc-saldo-planejado-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'financeiro_dfc' %}"
+    data-title="Dashboard DFC"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

@@ -241,8 +241,14 @@
 
 {% block extra_js %}
 {{ vendas_tabulator|json_script:"vendas-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'comercial_vendas_por_categoria' %}"
+    data-title="Dashboard de Vendas por Categoria"
+></div>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/comercial/vendas-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}
 
