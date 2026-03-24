@@ -179,6 +179,13 @@
 
 {% block extra_js %}
 {{ planos_cargos_salarios_tabulator|json_script:"plano-cargos-tabulator-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'administrativo_plano_de_cargos_e_salarios' %}"
+    data-title="Dashboard Plano de Cargos e Salarios"
+    data-dashboard-slug="administrativo_plano_de_cargos_e_salarios"
+></div>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/administrativo/plano-cargos-salarios-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

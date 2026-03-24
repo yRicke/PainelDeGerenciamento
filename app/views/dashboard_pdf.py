@@ -56,6 +56,10 @@ DASHBOARD_EXPORT_CONFIG = {
         "template_html": "dashboards_pdf/administrativo/tofu_lista_de_atividades.html",
         "template_text": "dashboards_pdf/administrativo/tofu_lista_de_atividades_texto.txt",
     },
+    "administrativo_plano_de_cargos_e_salarios": {
+        "modulo_nome": "Plano de Cargos e Salarios",
+        "titulo_padrao": "Dashboard Plano de Cargos e Salarios",
+    },
 }
 
 
