@@ -112,6 +112,144 @@ class Colaborador(models.Model):
     def excluir_colaborador(self):
         self.delete()
 
+
+class PlanoCargoSalario(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="planos_cargos_salarios",
+    )
+    cadastro = models.PositiveIntegerField()
+    funcionario = models.CharField(max_length=150)
+    contrato = models.CharField(max_length=80, blank=True, default="")
+    genero = models.CharField(max_length=40, blank=True, default="")
+    setor = models.CharField(max_length=150, blank=True, default="")
+    cargo = models.CharField(max_length=180, blank=True, default="")
+    novo_cargo = models.CharField(max_length=180, blank=True, default="")
+    data_admissao = models.DateField(null=True, blank=True)
+    salario_carteira = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    piso_categoria = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    jr = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    pleno = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    senior = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "cadastro"], name="uq_plano_cargo_salario_empresa_cadastro"),
+        ]
+
+    def __str__(self):
+        return f"{self.funcionario} ({self.cadastro})"
+
+    def clean(self):
+        campos_monetarios = [
+            "salario_carteira",
+            "piso_categoria",
+            "jr",
+            "pleno",
+            "senior",
+        ]
+        erros = {}
+        for campo in campos_monetarios:
+            valor = getattr(self, campo, None)
+            if valor is not None and valor < 0:
+                erros[campo] = "O valor nao pode ser negativo."
+        if erros:
+            raise ValidationError(erros)
+
+    @classmethod
+    def criar_plano_cargo_salario(
+        cls,
+        *,
+        empresa,
+        cadastro,
+        funcionario,
+        contrato="",
+        genero="",
+        setor="",
+        cargo="",
+        novo_cargo="",
+        data_admissao=None,
+        salario_carteira=None,
+        piso_categoria=None,
+        jr=None,
+        pleno=None,
+        senior=None,
+    ):
+        item = cls(
+            empresa=empresa,
+            cadastro=cadastro,
+            funcionario=funcionario,
+            contrato=contrato,
+            genero=genero,
+            setor=setor,
+            cargo=cargo,
+            novo_cargo=novo_cargo,
+            data_admissao=data_admissao,
+            salario_carteira=salario_carteira,
+            piso_categoria=piso_categoria,
+            jr=jr,
+            pleno=pleno,
+            senior=senior,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_plano_cargo_salario(
+        self,
+        *,
+        cadastro=UNSET,
+        funcionario=UNSET,
+        contrato=UNSET,
+        genero=UNSET,
+        setor=UNSET,
+        cargo=UNSET,
+        novo_cargo=UNSET,
+        data_admissao=UNSET,
+        salario_carteira=UNSET,
+        piso_categoria=UNSET,
+        jr=UNSET,
+        pleno=UNSET,
+        senior=UNSET,
+    ):
+        if cadastro is not UNSET:
+            self.cadastro = cadastro
+        if funcionario is not UNSET:
+            self.funcionario = funcionario
+        if contrato is not UNSET:
+            self.contrato = contrato
+        if genero is not UNSET:
+            self.genero = genero
+        if setor is not UNSET:
+            self.setor = setor
+        if cargo is not UNSET:
+            self.cargo = cargo
+        if novo_cargo is not UNSET:
+            self.novo_cargo = novo_cargo
+        if data_admissao is not UNSET:
+            self.data_admissao = data_admissao
+        if salario_carteira is not UNSET:
+            self.salario_carteira = salario_carteira
+        if piso_categoria is not UNSET:
+            self.piso_categoria = piso_categoria
+        if jr is not UNSET:
+            self.jr = jr
+        if pleno is not UNSET:
+            self.pleno = pleno
+        if senior is not UNSET:
+            self.senior = senior
+        self.full_clean()
+        self.save()
+
+    def excluir_plano_cargo_salario(self):
+        self.delete()
+
+
 class Projeto(models.Model):
     empresa = models.ForeignKey(
         Empresa,

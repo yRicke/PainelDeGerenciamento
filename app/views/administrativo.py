@@ -23,6 +23,7 @@ from ..models import (
     ParametroMeta,
     ParametroNegocios,
     PedidoPendente,
+    PlanoCargoSalario,
     Produto,
     Projeto,
 )
@@ -30,10 +31,12 @@ from ..services.administrativo import (
     atualizar_atividade_por_post,
     atualizar_colaborador_por_nome,
     atualizar_faturamento_por_post,
+    atualizar_plano_cargo_salario_por_post,
     atualizar_projeto_por_dados,
     criar_atividade_por_post,
     criar_colaborador_por_nome,
     criar_faturamento_por_post,
+    criar_plano_cargo_salario_por_post,
     criar_projeto_por_dados,
     importar_upload_faturamento,
     preparar_diretorios_faturamento,
@@ -42,6 +45,7 @@ from ..services.administrativo import (
 from ..tabulator import (
     build_colaboradores_tabulator,
     build_faturamento_tabulator,
+    build_plano_cargos_salarios_tabulator,
     build_projetos_tabulator,
 )
 from ..utils.administrativo_transformers import montar_contexto_tofu_lista
@@ -89,6 +93,94 @@ def _descricoes_perfil_empresa(empresa):
         ],
         key=lambda item: item.lower(),
     )
+
+
+def _texto_filtro_get(request, campo):
+    return str(request.GET.get(campo) or "").strip()
+
+
+def _filtros_planos_cargos_salarios(request):
+    return {
+        "cadastro": _texto_filtro_get(request, "cadastro"),
+        "funcionario": _texto_filtro_get(request, "funcionario"),
+        "contrato": _texto_filtro_get(request, "contrato"),
+        "genero": _texto_filtro_get(request, "genero"),
+        "setor": _texto_filtro_get(request, "setor"),
+        "cargo": _texto_filtro_get(request, "cargo"),
+        "novo_cargo": _texto_filtro_get(request, "novo_cargo"),
+    }
+
+
+def _aplicar_filtros_planos_cargos_salarios(qs, filtros):
+    cadastro = filtros.get("cadastro")
+    if cadastro:
+        try:
+            cadastro_int = int(cadastro)
+        except (TypeError, ValueError):
+            cadastro_int = None
+        if cadastro_int is not None and cadastro_int > 0:
+            qs = qs.filter(cadastro=cadastro_int)
+
+    funcionario = filtros.get("funcionario")
+    if funcionario:
+        qs = qs.filter(funcionario__icontains=funcionario)
+
+    for campo in ("contrato", "genero", "setor", "cargo", "novo_cargo"):
+        valor = filtros.get(campo)
+        if valor:
+            qs = qs.filter(**{campo: valor})
+
+    return qs
+
+
+def _opcoes_filtros_planos_cargos_salarios(empresa):
+    def _valores(campo):
+        return list(
+            PlanoCargoSalario.objects.filter(empresa=empresa)
+            .exclude(**{campo: ""})
+            .values_list(campo, flat=True)
+            .distinct()
+            .order_by(campo)
+        )
+
+    return {
+        "contratos": _valores("contrato"),
+        "generos": _valores("genero"),
+        "setores": _valores("setor"),
+        "cargos": _valores("cargo"),
+        "novos_cargos": _valores("novo_cargo"),
+    }
+
+
+def _is_ajax_request(request):
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def _payload_plano_cargo_salario(item):
+    return {
+        "id": item.id,
+        "cadastro": item.cadastro,
+        "funcionario": item.funcionario or "",
+        "contrato": item.contrato or "",
+        "genero": item.genero or "",
+        "setor": item.setor or "",
+        "cargo": item.cargo or "",
+        "novo_cargo": item.novo_cargo or "",
+        "data_admissao_iso": item.data_admissao.strftime("%Y-%m-%d") if item.data_admissao else "",
+        "salario_carteira": float(item.salario_carteira) if item.salario_carteira is not None else None,
+        "piso_categoria": float(item.piso_categoria) if item.piso_categoria is not None else None,
+        "jr": float(item.jr) if item.jr is not None else None,
+        "pleno": float(item.pleno) if item.pleno is not None else None,
+        "senior": float(item.senior) if item.senior is not None else None,
+        "editar_url": reverse(
+            "editar_plano_cargo_salario_modulo",
+            kwargs={"empresa_id": item.empresa_id, "plano_cargo_salario_id": item.id},
+        ),
+        "excluir_url": reverse(
+            "excluir_plano_cargo_salario_modulo",
+            kwargs={"empresa_id": item.empresa_id, "plano_cargo_salario_id": item.id},
+        ),
+    }
 
 
 def _chave_vendedor_total_legado(valor):
@@ -552,7 +644,152 @@ def excluir_projeto_modulo(request, empresa_id, projeto_id):
 @login_required(login_url="entrar")
 def plano_de_cargos_e_salarios(request, empresa_id):
     modulo = _obter_modulo("Administrativo", "Plano de Cargos e Salarios")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not autorizado:
+        return redirect("index")
+
+    filtros = _filtros_planos_cargos_salarios(request)
+    planos_qs_base = PlanoCargoSalario.objects.filter(empresa=empresa)
+    planos_qs = _aplicar_filtros_planos_cargos_salarios(
+        planos_qs_base,
+        filtros,
+    ).order_by("funcionario", "cadastro")
+
+    contexto = {
+        "empresa": empresa,
+        "filtros": filtros,
+        "filtros_opcoes": _opcoes_filtros_planos_cargos_salarios(empresa),
+        "planos_cargos_salarios": planos_qs,
+        "planos_cargos_salarios_tabulator": build_plano_cargos_salarios_tabulator(planos_qs, empresa.id),
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def criar_plano_cargo_salario_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Plano de Cargos e Salarios",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+    erro = criar_plano_cargo_salario_por_post(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        cadastro_raw = str(request.POST.get("cadastro") or "").strip()
+        item = None
+        try:
+            cadastro = int(cadastro_raw)
+        except (TypeError, ValueError):
+            cadastro = 0
+        if cadastro > 0:
+            item = (
+                PlanoCargoSalario.objects.filter(empresa=empresa, cadastro=cadastro)
+                .order_by("-id")
+                .first()
+            )
+        if item is None:
+            item = PlanoCargoSalario.objects.filter(empresa=empresa).order_by("-id").first()
+        if item is None:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "message": "Registro criado, mas nao foi possivel recarregar os dados.",
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro criado com sucesso.",
+                "registro": _payload_plano_cargo_salario(item),
+            }
+        )
+
+    messages.success(request, "Registro criado com sucesso.")
+    return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_plano_cargo_salario_modulo(request, empresa_id, plano_cargo_salario_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Plano de Cargos e Salarios",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+    item = PlanoCargoSalario.objects.filter(id=plano_cargo_salario_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+    erro = atualizar_plano_cargo_salario_por_post(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": _payload_plano_cargo_salario(item),
+            }
+        )
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_plano_cargo_salario_modulo(request, empresa_id, plano_cargo_salario_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Plano de Cargos e Salarios",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+    item = PlanoCargoSalario.objects.filter(id=plano_cargo_salario_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+    item_id = item.id
+    item.excluir_plano_cargo_salario()
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro excluido com sucesso.",
+                "id": item_id,
+            }
+        )
+    messages.success(request, "Registro excluido com sucesso.")
+    return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

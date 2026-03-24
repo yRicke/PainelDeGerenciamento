@@ -1,0 +1,123 @@
+@import url("../shared/module-crud.css");
+
+.dashboard-total-card {
+    margin-bottom: 0.8rem;
+    border: 1px solid #d7e2ee;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%);
+    padding: 0.8rem 0.95rem;
+}
+
+.pcs-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 0.75rem;
+}
+
+.pcs-dashboard-grid .dashboard-total-card {
+    margin-bottom: 0;
+}
+
+.dashboard-total-card--jr {
+    border-color: #f287c8;
+    background: linear-gradient(135deg, #ffe6f5 0%, #ffd1ee 100%);
+}
+
+.dashboard-total-card--pleno {
+    border-color: #58ca7b;
+    background: linear-gradient(135deg, #e7fceb 0%, #caf5d6 100%);
+}
+
+.dashboard-total-card--senior {
+    border-color: #a4aeb9;
+    background: linear-gradient(135deg, #eef1f4 0%, #dfe4ea 100%);
+}
+
+.dashboard-total-label {
+    margin: 0;
+    color: #3d5368;
+    font-size: 0.86rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.dashboard-total-value {
+    margin: 0.2rem 0 0.1rem;
+    color: #0f4a7c;
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+#pcs-save-status {
+    min-height: 1.2rem;
+}
+
+.pcs-currency-input {
+    width: 100%;
+    text-align: right;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.pcs-save-status--ok {
+    color: #1f7032;
+}
+
+.pcs-save-status--error {
+    color: #b42318;
+}
+
+.pcs-save-status--progress {
+    color: #8a5d00;
+}
+
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-col-jr,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-header-jr {
+    background: #df4da6 !important;
+    border-color: #c31f85 !important;
+}
+
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-col-pleno,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-header-pleno {
+    background: #2ebd59 !important;
+    border-color: #1f9343 !important;
+}
+
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-col-senior,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-header-senior {
+    background: #7c8591 !important;
+    border-color: #5f6771 !important;
+}
+
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-col-jr .tabulator-col-content,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-col-pleno .tabulator-col-content,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-col-senior .tabulator-col-content,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-header-jr .tabulator-col-content,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-header-pleno .tabulator-col-content,
+#plano-cargos-tabulator .tabulator-header .tabulator-col.pcs-header-senior .tabulator-col-content {
+    color: #fff !important;
+    font-weight: 800;
+}
+
+#plano-cargos-tabulator .tabulator-cell.pcs-faixa-jr {
+    background: #ffd1ee !important;
+    color: #6f0d45;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px #f287c8;
+}
+
+#plano-cargos-tabulator .tabulator-cell.pcs-faixa-pleno {
+    background: #caf5d6 !important;
+    color: #0f5b27;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px #58ca7b;
+}
+
+#plano-cargos-tabulator .tabulator-cell.pcs-faixa-senior {
+    background: #dfe4ea !important;
+    color: #2f3742;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px #a4aeb9;
+}

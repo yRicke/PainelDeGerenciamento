@@ -455,6 +455,39 @@ def build_projetos_tabulator(projetos_qs, empresa_id: int):
     ]
 
 
+def build_plano_cargos_salarios_tabulator(planos_qs, empresa_id: int):
+    resultado = []
+    for item in planos_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "cadastro": item.cadastro,
+                "funcionario": item.funcionario or "",
+                "contrato": item.contrato or "",
+                "genero": item.genero or "",
+                "setor": item.setor or "",
+                "cargo": item.cargo or "",
+                "novo_cargo": item.novo_cargo or "",
+                "data_admissao": _fmt_date_br(item.data_admissao),
+                "data_admissao_iso": item.data_admissao.strftime("%Y-%m-%d") if item.data_admissao else "",
+                "salario_carteira": float(item.salario_carteira) if item.salario_carteira is not None else None,
+                "piso_categoria": float(item.piso_categoria) if item.piso_categoria is not None else None,
+                "jr": float(item.jr) if item.jr is not None else None,
+                "pleno": float(item.pleno) if item.pleno is not None else None,
+                "senior": float(item.senior) if item.senior is not None else None,
+                "editar_url": reverse(
+                    "editar_plano_cargo_salario_modulo",
+                    kwargs={"empresa_id": empresa_id, "plano_cargo_salario_id": item.id},
+                ),
+                "excluir_url": reverse(
+                    "excluir_plano_cargo_salario_modulo",
+                    kwargs={"empresa_id": empresa_id, "plano_cargo_salario_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
 def build_cidades_tabulator(cidades_qs, empresa_id: int):
     return [
         {

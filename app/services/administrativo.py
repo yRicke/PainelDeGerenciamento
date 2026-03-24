@@ -32,6 +32,14 @@ def atualizar_projeto_por_dados(projeto, nome, codigo):
     return _services().atualizar_projeto_por_dados(projeto, nome, codigo)
 
 
+def criar_plano_cargo_salario_por_post(empresa, post_data):
+    return _services().criar_plano_cargo_salario_por_post(empresa, post_data)
+
+
+def atualizar_plano_cargo_salario_por_post(item, empresa, post_data):
+    return _services().atualizar_plano_cargo_salario_por_post(item, empresa, post_data)
+
+
 def preparar_diretorios_faturamento(empresa):
     return _services().preparar_diretorios_faturamento(empresa)
 

@@ -48,6 +48,7 @@ from ..models import (
     Producao,
     Produto,
     Projeto,
+    PlanoCargoSalario,
     Rota,
     Regiao,
     Titulo,
@@ -392,6 +393,89 @@ def atualizar_projeto_por_dados(projeto, nome, codigo):
     if not nome:
         return "Nome do projeto e obrigatorio."
     projeto.atualizar_projeto(novo_nome=nome, novo_codigo=codigo)
+    return ""
+
+
+def _dados_plano_cargo_salario_from_post(post_data):
+    cadastro_raw = (post_data.get("cadastro") or "").strip()
+    data_admissao_raw = (post_data.get("data_admissao") or "").strip()
+    return {
+        "cadastro_raw": cadastro_raw,
+        "cadastro": _parse_int_ou_zero(cadastro_raw),
+        "funcionario": (post_data.get("funcionario") or "").strip(),
+        "contrato": (post_data.get("contrato") or "").strip(),
+        "genero": (post_data.get("genero") or "").strip(),
+        "setor": (post_data.get("setor") or "").strip(),
+        "cargo": (post_data.get("cargo") or "").strip(),
+        "novo_cargo": (post_data.get("novo_cargo") or "").strip(),
+        "data_admissao_raw": data_admissao_raw,
+        "data_admissao": _parse_date_ou_none(data_admissao_raw),
+        "salario_carteira": _parse_decimal_ou_none(post_data.get("salario_carteira")),
+        "piso_categoria": _parse_decimal_ou_none(post_data.get("piso_categoria")),
+        "jr": _parse_decimal_ou_none(post_data.get("jr")),
+        "pleno": _parse_decimal_ou_none(post_data.get("pleno")),
+        "senior": _parse_decimal_ou_none(post_data.get("senior")),
+    }
+
+
+def criar_plano_cargo_salario_por_post(empresa, post_data):
+    dados = _dados_plano_cargo_salario_from_post(post_data)
+    if not dados["cadastro_raw"]:
+        return "Cadastro e obrigatorio."
+    if dados["cadastro"] <= 0:
+        return "Cadastro invalido."
+    if not dados["funcionario"]:
+        return "Funcionario e obrigatorio."
+    if not dados["contrato"]:
+        return "Contrato e obrigatorio."
+    if not dados["genero"]:
+        return "Genero e obrigatorio."
+    if not dados["setor"]:
+        return "Setor e obrigatorio."
+    if not dados["cargo"]:
+        return "Cargo e obrigatorio."
+    if dados["data_admissao_raw"] and not dados["data_admissao"]:
+        return "Data de admissao invalida."
+    if PlanoCargoSalario.objects.filter(empresa=empresa, cadastro=dados["cadastro"]).exists():
+        return "Ja existe cadastro com este numero nesta empresa."
+
+    dados.pop("cadastro_raw", None)
+    dados.pop("data_admissao_raw", None)
+    PlanoCargoSalario.criar_plano_cargo_salario(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_plano_cargo_salario_por_post(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    dados = _dados_plano_cargo_salario_from_post(post_data)
+    if not dados["cadastro_raw"]:
+        return "Cadastro e obrigatorio."
+    if dados["cadastro"] <= 0:
+        return "Cadastro invalido."
+    if not dados["funcionario"]:
+        return "Funcionario e obrigatorio."
+    if not dados["contrato"]:
+        return "Contrato e obrigatorio."
+    if not dados["genero"]:
+        return "Genero e obrigatorio."
+    if not dados["setor"]:
+        return "Setor e obrigatorio."
+    if not dados["cargo"]:
+        return "Cargo e obrigatorio."
+    if dados["data_admissao_raw"] and not dados["data_admissao"]:
+        return "Data de admissao invalida."
+    if (
+        PlanoCargoSalario.objects.filter(empresa=empresa, cadastro=dados["cadastro"])
+        .exclude(id=item.id)
+        .exists()
+    ):
+        return "Ja existe cadastro com este numero nesta empresa."
+
+    dados.pop("cadastro_raw", None)
+    dados.pop("data_admissao_raw", None)
+    item.atualizar_plano_cargo_salario(**dados)
     return ""
 
 

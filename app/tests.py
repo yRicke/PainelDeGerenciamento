@@ -29,6 +29,7 @@ from .models import (
     Parceiro,
     Permissao,
     ParametroMeta,
+    PlanoCargoSalario,
     Projeto,
     Regiao,
     Titulo,
@@ -176,6 +177,235 @@ class ColaboradorModelTest(TestCase):
     def test_excluir_colaborador(self):
         self.colaborador.excluir_colaborador()
         self.assertFalse(Colaborador.objects.filter(id=self.colaborador.id).exists())
+
+
+class PlanoCargoSalarioModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa PCS")
+        self.item = PlanoCargoSalario.criar_plano_cargo_salario(
+            empresa=self.empresa,
+            cadastro=50,
+            funcionario="RAISSA AMANDA FERNANDES ALVES",
+            contrato="PERMANENTE",
+            genero="FEMININO",
+            setor="ADMINISTRACAO",
+            cargo="AUXILIAR ADMINISTRATIVO",
+            novo_cargo="AUXILIAR ADMINISTRATIVO SENIOR",
+            data_admissao="2021-10-20",
+            salario_carteira="2769.38",
+            piso_categoria="1850.00",
+            jr="1850.00",
+            pleno="2502.33",
+            senior="2769.38",
+        )
+
+    def test_criar_plano_cargo_salario(self):
+        self.assertEqual(self.item.empresa, self.empresa)
+        self.assertEqual(self.item.cadastro, 50)
+        self.assertEqual(self.item.funcionario, "RAISSA AMANDA FERNANDES ALVES")
+        self.assertEqual(str(self.item.data_admissao), "2021-10-20")
+        self.assertEqual(str(self.item.salario_carteira), "2769.38")
+
+    def test_atualizar_plano_cargo_salario(self):
+        self.item.atualizar_plano_cargo_salario(
+            novo_cargo="AUXILIAR ADMINISTRATIVO PLENO",
+            pleno="2600.00",
+            senior="3478.91",
+        )
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.novo_cargo, "AUXILIAR ADMINISTRATIVO PLENO")
+        self.assertEqual(str(self.item.pleno), "2600.00")
+        self.assertEqual(str(self.item.senior), "3478.91")
+
+    def test_listar_plano_cargo_salario_por_empresa(self):
+        empresa_b = Empresa.criar_empresa(nome="Empresa PCS B")
+        item_b = PlanoCargoSalario.criar_plano_cargo_salario(
+            empresa=empresa_b,
+            cadastro=51,
+            funcionario="PRECIFICACAO %",
+        )
+        itens_empresa = PlanoCargoSalario.listar_por_empresa(self.empresa)
+        self.assertIn(self.item, itens_empresa)
+        self.assertNotIn(item_b, itens_empresa)
+
+    def test_excluir_plano_cargo_salario(self):
+        self.item.excluir_plano_cargo_salario()
+        self.assertFalse(PlanoCargoSalario.objects.filter(id=self.item.id).exists())
+
+    def test_nao_aceita_valor_monetario_negativo(self):
+        with self.assertRaises(ValidationError):
+            PlanoCargoSalario.criar_plano_cargo_salario(
+                empresa=self.empresa,
+                cadastro=52,
+                funcionario="DANIEL FREITAS BARBOSA",
+                salario_carteira="-1.00",
+            )
+
+
+class PlanoCargoSalarioModuloViewTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa PCS View")
+        self.permissao_modulo = Permissao.objects.create(nome="Plano de Cargos e Salarios")
+        self.usuario = Usuario.criar_usuario(
+            username="usuario_pcs_view",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao_modulo],
+        )
+        self.item = PlanoCargoSalario.criar_plano_cargo_salario(
+            empresa=self.empresa,
+            cadastro=100,
+            funcionario="FUNCIONARIO TESTE",
+            contrato="PERMANENTE",
+            setor="ADMINISTRACAO",
+            cargo="AUXILIAR",
+        )
+        self.lista_url = reverse("plano_de_cargos_e_salarios", kwargs={"empresa_id": self.empresa.id})
+        self.criar_url = reverse("criar_plano_cargo_salario_modulo", kwargs={"empresa_id": self.empresa.id})
+        self.editar_url = reverse(
+            "editar_plano_cargo_salario_modulo",
+            kwargs={"empresa_id": self.empresa.id, "plano_cargo_salario_id": self.item.id},
+        )
+        self.excluir_url = reverse(
+            "excluir_plano_cargo_salario_modulo",
+            kwargs={"empresa_id": self.empresa.id, "plano_cargo_salario_id": self.item.id},
+        )
+
+    def test_lista_modulo_retorna_contexto_com_tabulator(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.get(self.lista_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("planos_cargos_salarios_tabulator", response.context)
+
+    def test_criar_plano_cargo_salario_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.criar_url,
+            {
+                "cadastro": "101",
+                "funcionario": "NOVO FUNCIONARIO",
+                "contrato": "EXPERIENCIA",
+                "genero": "MASCULINO",
+                "setor": "ADMINISTRACAO",
+                "cargo": "ANALISTA",
+            },
+        )
+        self.assertRedirects(response, self.lista_url)
+        self.assertTrue(
+            PlanoCargoSalario.objects.filter(
+                empresa=self.empresa,
+                cadastro=101,
+                funcionario="NOVO FUNCIONARIO",
+            ).exists()
+        )
+
+    def test_criar_plano_cargo_salario_modulo_ajax_retorna_json(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.criar_url,
+            {
+                "cadastro": "103",
+                "funcionario": "NOVO AJAX",
+                "contrato": "PERMANENTE",
+                "genero": "MASCULINO",
+                "setor": "ADMINISTRACAO",
+                "cargo": "ANALISTA",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("registro", {}).get("cadastro"), 103)
+        self.assertTrue(payload.get("registro", {}).get("editar_url"))
+        self.assertTrue(payload.get("registro", {}).get("excluir_url"))
+        self.assertTrue(
+            PlanoCargoSalario.objects.filter(
+                empresa=self.empresa,
+                cadastro=103,
+                funcionario="NOVO AJAX",
+            ).exists()
+        )
+
+    def test_editar_plano_cargo_salario_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.editar_url,
+            {
+                "cadastro": "100",
+                "funcionario": "FUNCIONARIO ATUALIZADO",
+                "contrato": "ABERTO",
+                "genero": "OUTROS",
+                "setor": "COMERCIAL",
+                "cargo": "ANALISTA",
+            },
+        )
+        self.assertRedirects(response, self.lista_url)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.funcionario, "FUNCIONARIO ATUALIZADO")
+        self.assertEqual(self.item.setor, "COMERCIAL")
+
+    def test_excluir_plano_cargo_salario_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(self.excluir_url)
+        self.assertRedirects(response, self.lista_url)
+        self.assertFalse(PlanoCargoSalario.objects.filter(id=self.item.id).exists())
+
+    def test_excluir_plano_cargo_salario_modulo_ajax_retorna_json(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.excluir_url,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("id"), self.item.id)
+        self.assertFalse(PlanoCargoSalario.objects.filter(id=self.item.id).exists())
+
+    def test_edicao_inline_ajax_retorna_json(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.editar_url,
+            {
+                "cadastro": "100",
+                "funcionario": "FUNCIONARIO INLINE",
+                "contrato": "PERMANENTE",
+                "genero": "FEMININO",
+                "setor": "ADMINISTRACAO",
+                "cargo": "ANALISTA",
+                "novo_cargo": "ANALISTA PLENO",
+                "data_admissao": "2024-01-15",
+                "salario_carteira": "2500,00",
+                "pleno": "2800,00",
+                "senior": "3200,00",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("registro", {}).get("funcionario"), "FUNCIONARIO INLINE")
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.funcionario, "FUNCIONARIO INLINE")
+
+    def test_lista_modulo_aplica_filtro(self):
+        PlanoCargoSalario.criar_plano_cargo_salario(
+            empresa=self.empresa,
+            cadastro=102,
+            funcionario="OUTRO FUNCIONARIO",
+            contrato="EXPERIENCIA",
+            genero="MASCULINO",
+            setor="LOGISTICA",
+            cargo="AUXILIAR",
+        )
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.get(self.lista_url, {"contrato": "EXPERIENCIA"})
+        self.assertEqual(response.status_code, 200)
+        itens = list(response.context["planos_cargos_salarios"])
+        self.assertEqual(len(itens), 1)
+        self.assertEqual(itens[0].cadastro, 102)
+
 
 class ProjetoModelTest(TestCase):
     def setUp(self):

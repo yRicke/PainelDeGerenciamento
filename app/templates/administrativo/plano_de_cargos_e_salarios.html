@@ -1,16 +1,184 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Plano de Cargos e Salarios{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/plano-cargos-salarios-page.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Plano de Cargos e Salarios</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Administrativo</span>
+            </div>
+            <h1>Plano de Cargos e Salarios</h1>
+            <p class="module-hero-subtitle">Visualizacao central de cadastro, filtros, dashboard e tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Plano de Cargos e Salarios</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
-</section>
+<div id="plano-cargos-module-shell" class="module-shell">
+    <aside id="plano-cargos-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="plano-cargos-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="plano-cargos-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="plano-cargos-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de plano de cargos e salarios">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro</h2>
+            <p class="form-note">Campos opcionais: Novo Cargo, Data de Admissao, Salario Carteira, Piso Categoria, Jr, Pleno e Senior.</p>
+            <form action="{% url 'criar_plano_cargo_salario_modulo' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Cadastro</label>
+                        <input type="number" name="cadastro" min="1" required>
+                    </div>
+                    <div>
+                        <label>Funcionario</label>
+                        <input type="text" name="funcionario" required>
+                    </div>
+                    <div>
+                        <label>Contrato</label>
+                        <input type="text" name="contrato" required>
+                    </div>
+                    <div>
+                        <label>Genero</label>
+                        <input type="text" name="genero" required>
+                    </div>
+                    <div>
+                        <label>Setor</label>
+                        <input type="text" name="setor" required>
+                    </div>
+                    <div>
+                        <label>Cargo</label>
+                        <input type="text" name="cargo" required>
+                    </div>
+                    <div>
+                        <label>Novo Cargo</label>
+                        <input type="text" name="novo_cargo">
+                    </div>
+                    <div>
+                        <label>Data de Admissao</label>
+                        <input type="date" name="data_admissao">
+                    </div>
+                    <div>
+                        <label>Salario Carteira</label>
+                        <input type="text" name="salario_carteira" class="js-pcs-currency-input pcs-currency-input" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+                    </div>
+                    <div>
+                        <label>Piso Categoria</label>
+                        <input type="text" name="piso_categoria" class="js-pcs-currency-input pcs-currency-input" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+                    </div>
+                    <div>
+                        <label>Jr</label>
+                        <input type="text" name="jr" class="js-pcs-currency-input pcs-currency-input" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+                    </div>
+                    <div>
+                        <label>Pleno</label>
+                        <input type="text" name="pleno" class="js-pcs-currency-input pcs-currency-input" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+                    </div>
+                    <div>
+                        <label>Senior</label>
+                        <input type="text" name="senior" class="js-pcs-currency-input pcs-currency-input" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard</h2>
+            <div class="pcs-dashboard-grid">
+                <article class="dashboard-total-card">
+                    <p class="dashboard-total-label">Plano de Cargos e Salario</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-total-salario-carteira">0</p>
+                    <p class="form-note">Contagem de registros com Salario Carteira diferente de zero.</p>
+                </article>
+                <article class="dashboard-total-card">
+                    <p class="dashboard-total-label">Media Salarial</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-media-salario">R$ 0,00</p>
+                </article>
+                <article class="dashboard-total-card">
+                    <p class="dashboard-total-label">Maior Salario</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-max-salario">R$ 0,00</p>
+                </article>
+                <article class="dashboard-total-card">
+                    <p class="dashboard-total-label">Menor Salario</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-min-salario">R$ 0,00</p>
+                </article>
+                <article class="dashboard-total-card">
+                    <p class="dashboard-total-label">Desvio Padrao Salarial</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-desvio-salario">R$ 0,00</p>
+                </article>
+                <article class="dashboard-total-card dashboard-total-card--jr">
+                    <p class="dashboard-total-label">Total JR</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-total-jr">0</p>
+                </article>
+                <article class="dashboard-total-card dashboard-total-card--pleno">
+                    <p class="dashboard-total-label">Total Pleno</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-total-pleno">0</p>
+                </article>
+                <article class="dashboard-total-card dashboard-total-card--senior">
+                    <p class="dashboard-total-label">Total Senior</p>
+                    <p class="dashboard-total-value" id="pcs-dashboard-total-senior">0</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Tabela de Registros</h2>
+            <div class="table-wrapper"><div id="plano-cargos-tabulator"></div></div>
+            <p id="pcs-save-status" class="file-status"></p>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ planos_cargos_salarios_tabulator|json_script:"plano-cargos-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/administrativo/plano-cargos-salarios-page.js' %}"></script>
 {% endblock %}

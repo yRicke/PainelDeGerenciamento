@@ -155,6 +155,9 @@ urlpatterns = [
 
     # Modulos - Administrativo
     path('plano_de_cargos_e_salarios/<int:empresa_id>/', views_administrativo.plano_de_cargos_e_salarios, name='plano_de_cargos_e_salarios'),
+    path('plano_de_cargos_e_salarios/<int:empresa_id>/criar/', views_administrativo.criar_plano_cargo_salario_modulo, name='criar_plano_cargo_salario_modulo'),
+    path('plano_de_cargos_e_salarios/<int:empresa_id>/editar/<int:plano_cargo_salario_id>/', views_administrativo.editar_plano_cargo_salario_modulo, name='editar_plano_cargo_salario_modulo'),
+    path('plano_de_cargos_e_salarios/<int:empresa_id>/excluir/<int:plano_cargo_salario_id>/', views_administrativo.excluir_plano_cargo_salario_modulo, name='excluir_plano_cargo_salario_modulo'),
     path('descritivos/<int:empresa_id>/', views_administrativo.descritivos, name='descritivos'),
     #TOFU
     path('tofu_lista_de_atividades/<int:empresa_id>/', views_administrativo.tofu_lista_de_atividades, name='tofu_lista_de_atividades'),
