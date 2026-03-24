@@ -449,6 +449,107 @@ class TofuAtividadePermissaoViewTest(TestCase):
         self.assertNotIn("editar_url", atividade_item)
 
 
+@override_settings(API_FIXED_TOKEN="token-fixo-api-teste")
+class TofuAtividadeApiV1Test(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa API TOFU")
+        self.permissao_tofu = Permissao.objects.create(nome="TOFU Lista de Atividades")
+        self.projeto = Projeto.criar_projeto(empresa=self.empresa, nome="Projeto API", codigo="API")
+        self.gestor = Colaborador.criar_colaborador(nome="Gestora API", empresa=self.empresa)
+        self.responsavel = Colaborador.criar_colaborador(nome="Responsavel API", empresa=self.empresa)
+
+        self.usuario_com_permissao = Usuario.criar_usuario(
+            username="usuario_api_tofu",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao_tofu],
+        )
+        self.usuario_sem_permissao = Usuario.criar_usuario(
+            username="usuario_sem_permissao_api_tofu",
+            password="senha123",
+            empresa=self.empresa,
+        )
+        self.staff_mesma_empresa = Usuario.criar_usuario(
+            username="staff_api_tofu",
+            password="senha123",
+            empresa=self.empresa,
+            is_staff=True,
+        )
+
+        self.atividade = Atividade.criar_atividade(
+            projeto=self.projeto,
+            usuario=self.usuario_com_permissao,
+            gestor=self.gestor,
+            responsavel=self.responsavel,
+            interlocutor="Interlocutor API",
+            historico="Historico API",
+            tarefa="Tarefa API",
+            progresso=35,
+        )
+
+        self.api_url = reverse(
+            "api_v1_atividades_list",
+            kwargs={"empresa_id": self.empresa.id},
+        )
+        self.headers_token_valido = {
+            "HTTP_AUTHORIZATION": f"Bearer {settings.API_FIXED_TOKEN}",
+        }
+
+    def test_api_lista_retorna_campos_fk_com_id_e_nome(self):
+        self.client.login(username=self.usuario_com_permissao.username, password="senha123")
+
+        response = self.client.get(self.api_url)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload.get("total"), 1)
+        self.assertEqual(len(payload.get("data", [])), 1)
+
+        item = payload["data"][0]
+        self.assertEqual(item["id"], self.atividade.id)
+        self.assertEqual(item["projeto"], {"id": self.projeto.id, "nome": self.projeto.nome})
+        self.assertEqual(item["gestor"], {"id": self.gestor.id, "nome": self.gestor.nome})
+        self.assertEqual(item["responsavel"], {"id": self.responsavel.id, "nome": self.responsavel.nome})
+        self.assertEqual(
+            item["usuario"],
+            {"id": self.usuario_com_permissao.id, "nome": self.usuario_com_permissao.username},
+        )
+
+    def test_api_bloqueia_usuario_sem_permissao_tofu(self):
+        self.client.login(username=self.usuario_sem_permissao.username, password="senha123")
+
+        response = self.client.get(self.api_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_api_permite_staff_da_mesma_empresa(self):
+        self.client.login(username=self.staff_mesma_empresa.username, password="senha123")
+
+        response = self.client.get(self.api_url)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_api_permite_deslogado_com_token_fixo_valido(self):
+        response = self.client.get(self.api_url, **self.headers_token_valido)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload.get("total"), 1)
+
+    def test_api_bloqueia_deslogado_sem_token(self):
+        response = self.client.get(self.api_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_api_bloqueia_deslogado_com_token_invalido(self):
+        response = self.client.get(
+            self.api_url,
+            HTTP_AUTHORIZATION="Bearer token-invalido",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
 class AdminStaffIsolamentoEmpresaTest(TestCase):
     def setUp(self):
         self.empresa_a = Empresa.criar_empresa(nome="Empresa A")

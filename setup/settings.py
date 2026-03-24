@@ -9,11 +9,13 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env", override=False)
 
 
 # Quick-start development settings - unsuitable for production
@@ -24,7 +26,7 @@ SECRET_KEY = 'django-insecure-@56k@-0keh23n@^rvpvw=j(9j+w$5g_am#nsmuy=bhmv^r7rnq
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-IP_MAQUINA = '192.168.100.94'  # exemplo
+IP_MAQUINA = '26.194.211.233'  # exemplo
 
 ALLOWED_HOSTS = [
     '127.0.0.1',
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'django_tables2',
     'app',
 
@@ -142,6 +145,7 @@ STORAGES = {
 }   
 
 AUTH_USER_MODEL = "app.Usuario"
+API_FIXED_TOKEN = os.getenv("API_FIXED_TOKEN", "").strip()
 
 # Upload de pasta (webkitdirectory) para modulos com muitos arquivos .xls
 DATA_UPLOAD_MAX_NUMBER_FILES = 10000

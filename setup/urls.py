@@ -24,10 +24,16 @@ import app.views.operacional as views_operacional
 import app.views.parametros as views_parametros
 import app.views.admin as views_admin
 import app.views.dashboard_pdf as views_dashboard_pdf
+import app.api.v1.views as views_api_v1
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views_core.index, name='index'),
+    path(
+        'api/v1/empresas/<int:empresa_id>/atividades/',
+        views_api_v1.AtividadeListAPIView.as_view(),
+        name='api_v1_atividades_list',
+    ),
 
     path('financeiro/', views_core.financeiro_home, name='financeiro'),
     path('administrativo/', views_administrativo.administrativo, name='administrativo'),
