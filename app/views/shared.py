@@ -4,6 +4,7 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.shortcuts import redirect
+from django.utils import timezone
 
 from ..utils.importacao_metadados import (
     caminho_metadados_importacao,
@@ -104,12 +105,12 @@ def _datas_no_nome_arquivo(nome_arquivo):
     return datas
 
 
-def _data_referencia_arquivo_ou_none(arquivo):
+def _data_hora_referencia_arquivo_ou_none(arquivo):
     datas_no_nome = _datas_no_nome_arquivo(getattr(arquivo, "name", ""))
     if datas_no_nome:
-        return max(datas_no_nome)
+        return datetime.combine(max(datas_no_nome), datetime.min.time())
     try:
-        return datetime.fromtimestamp(arquivo.stat().st_mtime).date()
+        return datetime.fromtimestamp(arquivo.stat().st_mtime)
     except (OSError, OverflowError, ValueError):
         return None
 
@@ -139,9 +140,12 @@ def _data_metadados_importacao_ou_none(metadados):
     if not valor_iso:
         return None
     try:
-        return datetime.fromisoformat(valor_iso).date()
+        data_hora = datetime.fromisoformat(valor_iso)
     except ValueError:
         return None
+    if timezone.is_aware(data_hora):
+        return timezone.localtime(data_hora)
+    return data_hora
 
 
 def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo, empresa_id, extensoes=None):
@@ -163,16 +167,16 @@ def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo
         modulo=modulo,
         empresa_id=empresa_id,
     )
-    data_referencia_metadado = _data_metadados_importacao_ou_none(metadados)
+    data_hora_referencia_metadado = _data_metadados_importacao_ou_none(metadados)
 
-    datas_arquivos = []
+    datas_horas_arquivos = []
     for arquivo in arquivos_atuais:
-        data_arquivo = _data_referencia_arquivo_ou_none(arquivo)
-        if data_arquivo:
-            datas_arquivos.append(data_arquivo)
-    data_referencia_arquivos = max(datas_arquivos) if datas_arquivos else None
-    data_referencia = data_referencia_metadado or data_referencia_arquivos
-    data_referencia_texto = data_referencia.strftime("%d/%m/%Y") if data_referencia else "-"
+        data_hora_arquivo = _data_hora_referencia_arquivo_ou_none(arquivo)
+        if data_hora_arquivo:
+            datas_horas_arquivos.append(data_hora_arquivo)
+    data_hora_referencia_arquivos = max(datas_horas_arquivos) if datas_horas_arquivos else None
+    data_hora_referencia = data_hora_referencia_metadado or data_hora_referencia_arquivos
+    data_referencia_texto = data_hora_referencia.strftime("%d/%m/%Y %H:%M") if data_hora_referencia else "-"
 
     quantidade_arquivos_metadado = 0
     try:
@@ -185,8 +189,6 @@ def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo
         if quantidade_arquivos_metadado > 0
         else len(arquivos_atuais)
     )
-    if quantidade_arquivos > 1:
-        data_referencia_texto = f"{data_referencia_texto} +{quantidade_arquivos - 1}"
 
     usuario_importacao = str(metadados.get("usuario") or "").strip()
     if not usuario_importacao:

@@ -39,11 +39,11 @@
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
                     <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
                 </p>
-                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+                <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
             {% else %}
             <p class="file-status">Nenhum arquivo carregado na pasta.</p>
@@ -234,3 +234,4 @@
 <script src="{% static 'js/financeiro/dfc-page.js' %}"></script>
 <script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}
+

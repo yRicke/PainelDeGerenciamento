@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load static %}
 
 {% block title %}Vendas por Categoria{% endblock %}
@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Módulo Comercial</span>
+                <span class="module-hero-pill">MÃ³dulo Comercial</span>
             </div>
             <h1>Vendas por Categoria</h1>
-            <p class="module-hero-subtitle">Visualização central de importação, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">VisualizaÃ§Ã£o central de importaÃ§Ã£o, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -28,9 +28,9 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Vendas">
+        <section id="sec-importacao" class="module-hero-import" aria-label="ImportaÃ§Ã£o de Vendas">
             <div class="module-hero-import-head">
-                <h2>Importação de Vendas</h2>
+                <h2>ImportaÃ§Ã£o de Vendas</h2>
                 <span class="module-hero-import-badge">.xls</span>
             </div>
 
@@ -42,7 +42,7 @@
 
                 <p class="file-status">
 
-                    <strong>Ultimo lote:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
 
                     <span class="importacao-resumo-sep">|</span>
 
@@ -50,7 +50,7 @@
 
                 </p>
 
-                <p class="file-status"><strong>Arquivos no lote:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+                <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
 
             </div>
 
@@ -91,7 +91,7 @@
                 </div>
 
                 <div id="vendas-loading-status" class="loading-status">
-                    Carregamento em andamento. Os arquivos estão sendo enviados e a importação foi iniciada.
+                    Carregamento em andamento. Os arquivos estÃ£o sendo enviados e a importaÃ§Ã£o foi iniciada.
                 </div>
             </form>
         </section>
@@ -105,7 +105,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light" id="vendas-limpar-filtros-sidebar">Limpar filtros</button>
             </div>
-            <p class="form-note">Filtros multisseleção aplicados em conjunto com os filtros de cabeçalho da tabela.</p>
+            <p class="form-note">Filtros multisseleÃ§Ã£o aplicados em conjunto com os filtros de cabeÃ§alho da tabela.</p>
             <div class="module-filter-columns">
                 <div id="vendas-filtros-coluna-esquerda" class="module-filter-column"></div>
                 <div id="vendas-filtros-coluna-direita" class="module-filter-column"></div>
@@ -125,11 +125,11 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegação de seções de Vendas por Categoria">
-                <a href="#sec-importacao">Importação</a>
+            <nav class="module-sections-nav" aria-label="NavegaÃ§Ã£o de seÃ§Ãµes de Vendas por Categoria">
+                <a href="#sec-importacao">ImportaÃ§Ã£o</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualização</a>
+                <a href="#sec-visualizacao">VisualizaÃ§Ã£o</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -137,18 +137,18 @@
         {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
             <h2>Nova Venda (Cadastro Manual)</h2>
-            <p class="form-note">Preencha os dados da venda para incluir no histórico e indicadores.</p>
+            <p class="form-note">Preencha os dados da venda para incluir no histÃ³rico e indicadores.</p>
             <form action="{% url 'vendas_por_categoria' empresa.id %}" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_venda">
 
                 <div class="form-grid">
                     <div>
-                        <label>Código</label>
+                        <label>CÃ³digo</label>
                         <input type="text" name="codigo" required>
                     </div>
                     <div>
-                        <label>Descrição</label>
+                        <label>DescriÃ§Ã£o</label>
                         <input type="text" name="descricao">
                     </div>
                     <div>
@@ -164,7 +164,7 @@
                         <input type="number" name="qtd_notas" min="0" value="0">
                     </div>
                     <div>
-                        <label>Custo médio ICMS CMV</label>
+                        <label>Custo mÃ©dio ICMS CMV</label>
                         <input type="text" name="custo_medio_icms_cmv" placeholder="0,00">
                     </div>
                     <div>
@@ -172,7 +172,7 @@
                         <input type="text" name="peso_bruto" placeholder="0,00">
                     </div>
                     <div>
-                        <label>Peso líquido</label>
+                        <label>Peso lÃ­quido</label>
                         <input type="text" name="peso_liquido" placeholder="0,00">
                     </div>
                 </div>
@@ -213,7 +213,7 @@
                     <div id="dashboard-vendas-dia-chart"></div>
                 </div>
                 <div class="dashboard-chart-card dashboard-chart-card-full">
-                    <h3>Vendas por Mês</h3>
+                    <h3>Vendas por MÃªs</h3>
                     <div id="dashboard-vendas-mes-chart"></div>
                 </div>
                 <div class="dashboard-chart-card dashboard-chart-card-full">
@@ -221,7 +221,7 @@
                     <div id="dashboard-vendas-top10-chart"></div>
                 </div>
                 <div class="dashboard-chart-card">
-                    <h3>Situação das Margens</h3>
+                    <h3>SituaÃ§Ã£o das Margens</h3>
                     <div id="dashboard-vendas-margens-chart"></div>
                 </div>
             </div>
@@ -251,4 +251,5 @@
 <script src="{% static 'js/comercial/vendas-page.js' %}"></script>
 <script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}
+
 
