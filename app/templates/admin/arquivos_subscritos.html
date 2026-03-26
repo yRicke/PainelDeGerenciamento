@@ -62,32 +62,4 @@
 
 {% block extra_js %}
 <script src="{% static 'js/admin/admin-confirmacoes.js' %}"></script>
-<script>
-    (function () {
-        const checkboxes = Array.from(document.querySelectorAll('input[name="modulos"]'));
-        if (!checkboxes.length) {
-            return;
-        }
-
-        function marcarTodos(valor) {
-            checkboxes.forEach(function (checkbox) {
-                checkbox.checked = valor;
-            });
-        }
-
-        const botaoMarcarTodos = document.querySelector(".js-marcar-todos");
-        if (botaoMarcarTodos) {
-            botaoMarcarTodos.addEventListener("click", function () {
-                marcarTodos(true);
-            });
-        }
-
-        const botaoDesmarcarTodos = document.querySelector(".js-desmarcar-todos");
-        if (botaoDesmarcarTodos) {
-            botaoDesmarcarTodos.addEventListener("click", function () {
-                marcarTodos(false);
-            });
-        }
-    })();
-</script>
 {% endblock %}

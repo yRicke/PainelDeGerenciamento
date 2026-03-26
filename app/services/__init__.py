@@ -68,6 +68,7 @@ from ..utils.controle_margem_regras import (
     obter_parametros_controle_margem,
 )
 from ..utils.comercial import _sincronizar_descricao_perfil
+from ..utils.importacao_metadados import caminho_metadados_importacao
 from ..utils.comercial_importacao import (
     _iterar_linhas_xlsx,
     importar_carteira_do_diretorio,
@@ -105,9 +106,6 @@ from .financeiro import (
     preparar_diretorios_orcamento,
 )
 
-IMPORTACAO_METADATA_FILE_PREFIX = "_ultimo_import_empresa_"
-
-
 def _normalizar_empresa_id(empresa):
     empresa_id = getattr(empresa, "id", empresa)
     try:
@@ -117,10 +115,6 @@ def _normalizar_empresa_id(empresa):
     if empresa_id_int <= 0:
         raise ValueError("Empresa invalida para importacao.")
     return empresa_id_int
-
-
-def _nome_metadados_importacao_por_empresa(empresa):
-    return f"{IMPORTACAO_METADATA_FILE_PREFIX}{_normalizar_empresa_id(empresa)}.json"
 
 
 def _preparar_diretorios_importacao(*, area, modulo, empresa):
@@ -141,10 +135,7 @@ def _registrar_metadados_importacao(
     arquivos,
 ):
     empresa_id = _normalizar_empresa_id(empresa)
-    caminho_metadados = (
-        Path(diretorio_subscritos).parent
-        / _nome_metadados_importacao_por_empresa(empresa_id)
-    )
+    caminho_metadados = caminho_metadados_importacao(Path(diretorio_subscritos).parent, empresa_id)
     nomes_arquivos = [
         Path(nome_arquivo).name
         for nome_arquivo in (arquivos or [])

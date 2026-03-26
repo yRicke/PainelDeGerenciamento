@@ -18,4 +18,25 @@
             }
         });
     });
+
+    const checkboxesModulos = Array.from(document.querySelectorAll('input[name="modulos"]'));
+    function marcarTodosModulos(valor) {
+        checkboxesModulos.forEach(function (checkbox) {
+            checkbox.checked = valor;
+        });
+    }
+
+    const botaoMarcarTodos = document.querySelector(".js-marcar-todos");
+    if (botaoMarcarTodos && checkboxesModulos.length) {
+        botaoMarcarTodos.addEventListener("click", function () {
+            marcarTodosModulos(true);
+        });
+    }
+
+    const botaoDesmarcarTodos = document.querySelector(".js-desmarcar-todos");
+    if (botaoDesmarcarTodos && checkboxesModulos.length) {
+        botaoDesmarcarTodos.addEventListener("click", function () {
+            marcarTodosModulos(false);
+        });
+    }
 })();

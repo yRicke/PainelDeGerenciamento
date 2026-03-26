@@ -236,7 +236,7 @@ def _calcular_total_vendedores_legado_faturamento(diretorio_importacao, diretori
 
 def _obter_total_vendedores_legado_faturamento(diretorio_importacao, diretorio_subscritos, empresa_id):
     metadados = _ler_metadados_importacao(
-        diretorio_subscritos=diretorio_subscritos,
+        diretorio_importacao=diretorio_importacao,
         modulo="faturamento",
         empresa_id=empresa_id,
     )
