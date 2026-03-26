@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Arquivos Subscritos{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin/admin.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'usuarios_permissoes' empresa.id %}" class="module-hero-back-link">Voltar</a>
+    <h1>Arquivos Subscritos</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel admin-panel">
+    <section class="panel admin-subpanel">
+        <h2>Limpeza por Modulo</h2>
+        <p>Selecione os modulos desejados e clique em limpar. Os arquivos dentro de cada pasta <strong>subscritos</strong> serao removidos.</p>
+        <p class="subscritos-resumo">
+            Modulos com importacao: <strong>{{ total_modulos }}</strong> |
+            Arquivos subscritos atuais: <strong>{{ total_arquivos_subscritos }}</strong>
+        </p>
+
+        <form
+            method="POST"
+            action="{% url 'arquivos_subscritos' empresa.id %}"
+            data-confirm-submit
+            data-confirm-message="Confirma limpar os arquivos subscritos dos modulos selecionados?"
+        >
+            {% csrf_token %}
+            <div class="admin-inline-actions">
+                <button type="button" class="btn-light js-marcar-todos">Marcar Todos</button>
+                <button type="button" class="btn-light js-desmarcar-todos">Desmarcar Todos</button>
+            </div>
+
+            <div class="permissions-grid">
+                {% for area in modulos_por_area %}
+                <fieldset class="permissions-card">
+                    <legend>{{ area.nome }}</legend>
+                    <p class="subscritos-area-total">Arquivos na area: {{ area.arquivos_subscritos_total }}</p>
+                    <div class="permissions-items">
+                        {% for modulo in area.modulos %}
+                        <label class="permission-item">
+                            <input type="checkbox" name="modulos" value="{{ modulo.chave }}">
+                            <span>{{ modulo.nome }} ({{ modulo.arquivos_subscritos }} arquivo(s))</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                {% endfor %}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-danger">Limpar Arquivos Subscritos</button>
+            </div>
+        </form>
+    </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/admin/admin-confirmacoes.js' %}"></script>
+<script>
+    (function () {
+        const checkboxes = Array.from(document.querySelectorAll('input[name="modulos"]'));
+        if (!checkboxes.length) {
+            return;
+        }
+
+        function marcarTodos(valor) {
+            checkboxes.forEach(function (checkbox) {
+                checkbox.checked = valor;
+            });
+        }
+
+        const botaoMarcarTodos = document.querySelector(".js-marcar-todos");
+        if (botaoMarcarTodos) {
+            botaoMarcarTodos.addEventListener("click", function () {
+                marcarTodos(true);
+            });
+        }
+
+        const botaoDesmarcarTodos = document.querySelector(".js-desmarcar-todos");
+        if (botaoDesmarcarTodos) {
+            botaoDesmarcarTodos.addEventListener("click", function () {
+                marcarTodos(false);
+            });
+        }
+    })();
+</script>
+{% endblock %}

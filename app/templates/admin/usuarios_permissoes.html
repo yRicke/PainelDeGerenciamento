@@ -12,6 +12,9 @@
     <a href="{% url 'painel_admin' %}" class="module-hero-back-link">Voltar</a>
     <h1>Usuarios e Permissoes</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+    <div class="form-actions">
+        <a href="{% url 'arquivos_subscritos' empresa.id %}" class="btn-light">Arquivos Subscritos</a>
+    </div>
 </section>
 
 <section class="panel admin-panel">

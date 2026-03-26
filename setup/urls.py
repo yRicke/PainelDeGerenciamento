@@ -56,6 +56,7 @@ urlpatterns = [
     path('excluir_empresa/<int:empresa_id>/', views_admin.excluir_empresa, name='excluir_empresa'),
 
     path('usuarios_permissoes/<int:empresa_id>', views_admin.usuarios_permissoes, name='usuarios_permissoes'),
+    path('arquivos_subscritos/<int:empresa_id>/', views_admin.arquivos_subscritos, name='arquivos_subscritos'),
     
     path('cadastrar_usuario/<int:empresa_id>', views_admin.cadastrar_usuario, name='cadastrar_usuario'),
     path('editar_usuario/<int:usuario_id>/', views_admin.editar_usuario, name='editar_usuario'),

@@ -26,6 +26,7 @@ ADMIN_SEGMENTS = {
     "editar_empresa",
     "excluir_empresa",
     "usuarios_permissoes",
+    "arquivos_subscritos",
     "cadastrar_usuario",
     "editar_usuario",
     "excluir_usuario",

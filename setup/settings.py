@@ -33,11 +33,13 @@ ALLOWED_HOSTS = [
     'localhost',
     IP_MAQUINA,
     '.trycloudflare.com',
+    'portal.efuturetecnologia.com.br',
     'aplicacao.efuturetecnologia.com.br'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     f'http://{IP_MAQUINA}',
+    f'https://portal.efuturetecnologia.com.br'
     f'https://aplicacao.efuturetecnologia.com.br'
 ]
 

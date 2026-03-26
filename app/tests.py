@@ -854,6 +854,28 @@ class AdminStaffIsolamentoEmpresaTest(TestCase):
 
         self.assertRedirects(response, reverse("painel_admin"))
 
+    def test_staff_nao_acessa_arquivos_subscritos_de_outra_empresa(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(
+            reverse("arquivos_subscritos", kwargs={"empresa_id": self.empresa_b.id})
+        )
+
+        self.assertRedirects(response, reverse("painel_admin"))
+
+    def test_usuarios_permissoes_exibe_botao_arquivos_subscritos(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.get(
+            reverse("usuarios_permissoes", kwargs={"empresa_id": self.empresa_a.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("arquivos_subscritos", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+
     def test_staff_nao_edita_usuario_de_outra_empresa(self):
         self.client.login(username=self.staff_a.username, password="senha123")
 
@@ -978,6 +1000,83 @@ class AdminStaffIsolamentoEmpresaTest(TestCase):
         self.assertSetEqual(
             set(usuario_alvo.permissoes.values_list("id", flat=True)),
             permissoes_ids_existentes,
+        )
+
+    def test_limpeza_arquivos_subscritos_remove_apenas_modulos_selecionados(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        base_dir = Path(settings.BASE_DIR) / f".tmp_test_admin_subscritos_{uuid4().hex}"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(lambda: shutil.rmtree(base_dir, ignore_errors=True))
+
+        with override_settings(BASE_DIR=str(base_dir)):
+            diretorio_carteira = (
+                base_dir
+                / "importacoes"
+                / "comercial"
+                / "carteira"
+                / str(self.empresa_a.id)
+                / "subscritos"
+            )
+            diretorio_carteira.mkdir(parents=True, exist_ok=True)
+            (diretorio_carteira / "carteira_antigo.xls").write_text("antigo", encoding="utf-8")
+            (diretorio_carteira / "historico").mkdir(parents=True, exist_ok=True)
+            (diretorio_carteira / "historico" / "carteira_mais_antigo.xls").write_text(
+                "antigo2",
+                encoding="utf-8",
+            )
+
+            diretorio_dfc = (
+                base_dir
+                / "importacoes"
+                / "financeiro"
+                / "dfc"
+                / str(self.empresa_a.id)
+                / "subscritos"
+            )
+            diretorio_dfc.mkdir(parents=True, exist_ok=True)
+            arquivo_dfc = diretorio_dfc / "dfc_antigo.xls"
+            arquivo_dfc.write_text("dfc", encoding="utf-8")
+
+            response = self.client.post(
+                reverse("arquivos_subscritos", kwargs={"empresa_id": self.empresa_a.id}),
+                {"modulos": ["comercial:carteira"]},
+                follow=True,
+            )
+
+        self.assertRedirects(
+            response,
+            reverse("arquivos_subscritos", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+        self.assertTrue(diretorio_carteira.exists())
+        self.assertEqual(
+            sum(1 for arquivo in diretorio_carteira.rglob("*") if arquivo.is_file()),
+            0,
+        )
+        self.assertTrue(arquivo_dfc.exists())
+
+        mensagens = [str(mensagem) for mensagem in get_messages(response.wsgi_request)]
+        self.assertTrue(
+            any("Arquivos removidos: 2." in mensagem for mensagem in mensagens)
+        )
+
+    def test_limpeza_arquivos_subscritos_sem_selecao_exibe_erro(self):
+        self.client.login(username=self.staff_a.username, password="senha123")
+
+        response = self.client.post(
+            reverse("arquivos_subscritos", kwargs={"empresa_id": self.empresa_a.id}),
+            {},
+            follow=True,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("arquivos_subscritos", kwargs={"empresa_id": self.empresa_a.id}),
+        )
+        mensagens = [str(mensagem) for mensagem in get_messages(response.wsgi_request)]
+        self.assertIn(
+            "Selecione ao menos um modulo para limpar os arquivos subscritos.",
+            mensagens,
         )
 
 
