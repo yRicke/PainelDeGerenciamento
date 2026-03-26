@@ -488,6 +488,36 @@ def build_plano_cargos_salarios_tabulator(planos_qs, empresa_id: int):
     return resultado
 
 
+def build_descritivo_tabulator_item(item, empresa_id: int):
+    return {
+        "id": item.id,
+        "inicio": item.inicio.strftime("%H:%M") if item.inicio else "",
+        "termino": item.termino.strftime("%H:%M") if item.termino else "",
+        "contas_a_pagar": item.contas_a_pagar or "",
+        "contas_a_receber": item.contas_a_receber or "",
+        "supervisor_financeiro": item.supervisor_financeiro or "",
+        "faturamento": item.faturamento or "",
+        "supervisor_logistica": item.supervisor_logistica or "",
+        "conferente": item.conferente or "",
+        "gerente_de_producao": item.gerente_de_producao or "",
+        "gerente_cml": item.gerente_cml or "",
+        "assistente_comercial": item.assistente_comercial or "",
+        "diretor": item.diretor or "",
+        "editar_url": reverse(
+            "editar_descritivo_modulo",
+            kwargs={"empresa_id": empresa_id, "descritivo_id": item.id},
+        ),
+        "excluir_url": reverse(
+            "excluir_descritivo_modulo",
+            kwargs={"empresa_id": empresa_id, "descritivo_id": item.id},
+        ),
+    }
+
+
+def build_descritivos_tabulator(descritivos_qs, empresa_id: int):
+    return [build_descritivo_tabulator_item(item, empresa_id) for item in descritivos_qs]
+
+
 def build_cidades_tabulator(cidades_qs, empresa_id: int):
     return [
         {

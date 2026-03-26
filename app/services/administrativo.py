@@ -40,6 +40,14 @@ def atualizar_plano_cargo_salario_por_post(item, empresa, post_data):
     return _services().atualizar_plano_cargo_salario_por_post(item, empresa, post_data)
 
 
+def criar_descritivo_por_post(empresa, post_data):
+    return _services().criar_descritivo_por_post(empresa, post_data)
+
+
+def atualizar_descritivo_por_post(item, empresa, post_data):
+    return _services().atualizar_descritivo_por_post(item, empresa, post_data)
+
+
 def preparar_diretorios_faturamento(empresa):
     return _services().preparar_diretorios_faturamento(empresa)
 

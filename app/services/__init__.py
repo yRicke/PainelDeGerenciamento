@@ -23,6 +23,7 @@ from ..models import (
     Carteira,
     Cidade,
     Colaborador,
+    Descritivo,
     ControleMargem,
     ContasAReceber,
     DescricaoPerfil,
@@ -470,6 +471,89 @@ def atualizar_plano_cargo_salario_por_post(item, empresa, post_data):
     dados.pop("cadastro_raw", None)
     dados.pop("data_admissao_raw", None)
     item.atualizar_plano_cargo_salario(**dados)
+    return ""
+
+
+_CAMPOS_DESCRITIVO_TEXTO = (
+    "contas_a_pagar",
+    "contas_a_receber",
+    "supervisor_financeiro",
+    "faturamento",
+    "supervisor_logistica",
+    "conferente",
+    "gerente_de_producao",
+    "gerente_cml",
+    "assistente_comercial",
+    "diretor",
+)
+
+
+def _dados_descritivo_from_post(post_data):
+    inicio_raw = (post_data.get("inicio") or "").strip()
+    termino_raw = (post_data.get("termino") or "").strip()
+    dados = {
+        "inicio_raw": inicio_raw,
+        "termino_raw": termino_raw,
+        "inicio": _parse_time_ou_none(inicio_raw),
+        "termino": _parse_time_ou_none(termino_raw),
+    }
+    for campo in _CAMPOS_DESCRITIVO_TEXTO:
+        dados[campo] = (post_data.get(campo) or "").strip()
+    return dados
+
+
+def _validar_dados_descritivo(dados, *, empresa, descritivo_id=None):
+    if not dados["inicio_raw"]:
+        return "Horario de inicio e obrigatorio."
+    if not dados["termino_raw"]:
+        return "Horario de termino e obrigatorio."
+    if not dados["inicio"]:
+        return "Horario de inicio invalido."
+    if not dados["termino"]:
+        return "Horario de termino invalido."
+    if dados["inicio"] >= dados["termino"]:
+        return "Horario de termino deve ser maior que o inicio."
+
+    conflito_qs = Descritivo.objects.filter(
+        empresa=empresa,
+        inicio=dados["inicio"],
+        termino=dados["termino"],
+    )
+    if descritivo_id is not None:
+        conflito_qs = conflito_qs.exclude(id=descritivo_id)
+    if conflito_qs.exists():
+        return "Ja existe descritivo com este intervalo nesta empresa."
+    return ""
+
+
+def criar_descritivo_por_post(empresa, post_data):
+    dados = _dados_descritivo_from_post(post_data)
+    erro = _validar_dados_descritivo(dados, empresa=empresa)
+    if erro:
+        return erro
+
+    dados.pop("inicio_raw", None)
+    dados.pop("termino_raw", None)
+    Descritivo.criar_descritivo(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_descritivo_por_post(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    dados = _dados_descritivo_from_post(post_data)
+    erro = _validar_dados_descritivo(
+        dados,
+        empresa=empresa,
+        descritivo_id=item.id,
+    )
+    if erro:
+        return erro
+
+    dados.pop("inicio_raw", None)
+    dados.pop("termino_raw", None)
+    item.atualizar_descritivo(**dados)
     return ""
 
 
@@ -1120,6 +1204,22 @@ def _parse_date_ou_none(valor):
         return datetime.strptime(valor, "%Y-%m-%d").date()
     except (TypeError, ValueError):
         return None
+
+
+def _parse_time_ou_none(valor):
+    if not valor:
+        return None
+    texto = (valor or "").strip()
+    formatos = (
+        "%H:%M",
+        "%H:%M:%S",
+    )
+    for formato in formatos:
+        try:
+            return datetime.strptime(texto, formato).time()
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _parse_datetime_ou_none(valor):

@@ -1,0 +1,34 @@
+@import url("../shared/module-crud.css");
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-grid textarea {
+    min-height: 58px;
+    resize: vertical;
+}
+
+.form-grid .descritivos-time-input {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+}
+
+#descritivos-save-status {
+    min-height: 1.2rem;
+}
+
+.descritivos-save-status--ok {
+    color: #107c41;
+}
+
+.descritivos-save-status--error {
+    color: #a4262c;
+}
+
+.descritivos-save-status--progress {
+    color: #005a9e;
+}

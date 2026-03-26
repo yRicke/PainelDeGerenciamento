@@ -250,6 +250,129 @@ class PlanoCargoSalario(models.Model):
         self.delete()
 
 
+class Descritivo(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="descritivos",
+    )
+    inicio = models.TimeField()
+    termino = models.TimeField()
+    contas_a_pagar = models.TextField(blank=True, default="")
+    contas_a_receber = models.TextField(blank=True, default="")
+    supervisor_financeiro = models.TextField(blank=True, default="")
+    faturamento = models.TextField(blank=True, default="")
+    supervisor_logistica = models.TextField(blank=True, default="")
+    conferente = models.TextField(blank=True, default="")
+    gerente_de_producao = models.TextField(blank=True, default="")
+    gerente_cml = models.TextField(blank=True, default="")
+    assistente_comercial = models.TextField(blank=True, default="")
+    diretor = models.TextField(blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "inicio", "termino"],
+                name="uq_descritivo_empresa_inicio_termino",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.inicio} - {self.termino}"
+
+    def clean(self):
+        if self.inicio and self.termino and self.inicio >= self.termino:
+            raise ValidationError({"termino": "Horario de termino deve ser maior que o inicio."})
+
+    @classmethod
+    def criar_descritivo(
+        cls,
+        *,
+        empresa,
+        inicio,
+        termino,
+        contas_a_pagar="",
+        contas_a_receber="",
+        supervisor_financeiro="",
+        faturamento="",
+        supervisor_logistica="",
+        conferente="",
+        gerente_de_producao="",
+        gerente_cml="",
+        assistente_comercial="",
+        diretor="",
+    ):
+        item = cls(
+            empresa=empresa,
+            inicio=inicio,
+            termino=termino,
+            contas_a_pagar=contas_a_pagar,
+            contas_a_receber=contas_a_receber,
+            supervisor_financeiro=supervisor_financeiro,
+            faturamento=faturamento,
+            supervisor_logistica=supervisor_logistica,
+            conferente=conferente,
+            gerente_de_producao=gerente_de_producao,
+            gerente_cml=gerente_cml,
+            assistente_comercial=assistente_comercial,
+            diretor=diretor,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_descritivo(
+        self,
+        *,
+        inicio=UNSET,
+        termino=UNSET,
+        contas_a_pagar=UNSET,
+        contas_a_receber=UNSET,
+        supervisor_financeiro=UNSET,
+        faturamento=UNSET,
+        supervisor_logistica=UNSET,
+        conferente=UNSET,
+        gerente_de_producao=UNSET,
+        gerente_cml=UNSET,
+        assistente_comercial=UNSET,
+        diretor=UNSET,
+    ):
+        if inicio is not UNSET:
+            self.inicio = inicio
+        if termino is not UNSET:
+            self.termino = termino
+        if contas_a_pagar is not UNSET:
+            self.contas_a_pagar = contas_a_pagar
+        if contas_a_receber is not UNSET:
+            self.contas_a_receber = contas_a_receber
+        if supervisor_financeiro is not UNSET:
+            self.supervisor_financeiro = supervisor_financeiro
+        if faturamento is not UNSET:
+            self.faturamento = faturamento
+        if supervisor_logistica is not UNSET:
+            self.supervisor_logistica = supervisor_logistica
+        if conferente is not UNSET:
+            self.conferente = conferente
+        if gerente_de_producao is not UNSET:
+            self.gerente_de_producao = gerente_de_producao
+        if gerente_cml is not UNSET:
+            self.gerente_cml = gerente_cml
+        if assistente_comercial is not UNSET:
+            self.assistente_comercial = assistente_comercial
+        if diretor is not UNSET:
+            self.diretor = diretor
+
+        self.full_clean()
+        self.save()
+
+    def excluir_descritivo(self):
+        self.delete()
+
+
 class Projeto(models.Model):
     empresa = models.ForeignKey(
         Empresa,

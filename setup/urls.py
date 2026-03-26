@@ -160,6 +160,9 @@ urlpatterns = [
     path('plano_de_cargos_e_salarios/<int:empresa_id>/editar/<int:plano_cargo_salario_id>/', views_administrativo.editar_plano_cargo_salario_modulo, name='editar_plano_cargo_salario_modulo'),
     path('plano_de_cargos_e_salarios/<int:empresa_id>/excluir/<int:plano_cargo_salario_id>/', views_administrativo.excluir_plano_cargo_salario_modulo, name='excluir_plano_cargo_salario_modulo'),
     path('descritivos/<int:empresa_id>/', views_administrativo.descritivos, name='descritivos'),
+    path('descritivos/<int:empresa_id>/criar/', views_administrativo.criar_descritivo_modulo, name='criar_descritivo_modulo'),
+    path('descritivos/<int:empresa_id>/editar/<int:descritivo_id>/', views_administrativo.editar_descritivo_modulo, name='editar_descritivo_modulo'),
+    path('descritivos/<int:empresa_id>/excluir/<int:descritivo_id>/', views_administrativo.excluir_descritivo_modulo, name='excluir_descritivo_modulo'),
     #TOFU
     path('tofu_lista_de_atividades/<int:empresa_id>/', views_administrativo.tofu_lista_de_atividades, name='tofu_lista_de_atividades'),
     path('tofu_lista_de_atividades/<int:empresa_id>/criar/', views_administrativo.criar_atividade_tofu, name='criar_atividade_tofu'),

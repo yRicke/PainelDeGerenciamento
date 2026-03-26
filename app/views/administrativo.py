@@ -15,6 +15,7 @@ from ..models import (
     Atividade,
     CentroResultado,
     Colaborador,
+    Descritivo,
     DescricaoPerfil,
     Faturamento,
     Natureza,
@@ -30,11 +31,13 @@ from ..models import (
 from ..services.administrativo import (
     atualizar_atividade_por_post,
     atualizar_colaborador_por_nome,
+    atualizar_descritivo_por_post,
     atualizar_faturamento_por_post,
     atualizar_plano_cargo_salario_por_post,
     atualizar_projeto_por_dados,
     criar_atividade_por_post,
     criar_colaborador_por_nome,
+    criar_descritivo_por_post,
     criar_faturamento_por_post,
     criar_plano_cargo_salario_por_post,
     criar_projeto_por_dados,
@@ -44,6 +47,8 @@ from ..services.administrativo import (
 )
 from ..tabulator import (
     build_colaboradores_tabulator,
+    build_descritivo_tabulator_item,
+    build_descritivos_tabulator,
     build_faturamento_tabulator,
     build_plano_cargos_salarios_tabulator,
     build_projetos_tabulator,
@@ -181,6 +186,10 @@ def _payload_plano_cargo_salario(item):
             kwargs={"empresa_id": item.empresa_id, "plano_cargo_salario_id": item.id},
         ),
     }
+
+
+def _payload_descritivo(item):
+    return build_descritivo_tabulator_item(item, item.empresa_id)
 
 
 def _chave_vendedor_total_legado(valor):
@@ -795,7 +804,142 @@ def excluir_plano_cargo_salario_modulo(request, empresa_id, plano_cargo_salario_
 @login_required(login_url="entrar")
 def descritivos(request, empresa_id):
     modulo = _obter_modulo("Administrativo", "Descritivos")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not autorizado:
+        return redirect("index")
+
+    descritivos_qs = Descritivo.objects.filter(empresa=empresa).order_by("inicio", "termino", "id")
+    contexto = {
+        "empresa": empresa,
+        "descritivos": descritivos_qs,
+        "descritivos_tabulator": build_descritivos_tabulator(descritivos_qs, empresa.id),
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def criar_descritivo_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descritivos",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    erro = criar_descritivo_por_post(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        inicio = str(request.POST.get("inicio") or "").strip()
+        termino = str(request.POST.get("termino") or "").strip()
+        item = (
+            Descritivo.objects.filter(empresa=empresa, inicio=inicio, termino=termino)
+            .order_by("-id")
+            .first()
+        )
+        if item is None:
+            item = Descritivo.objects.filter(empresa=empresa).order_by("-id").first()
+        if item is None:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "message": "Registro criado, mas nao foi possivel recarregar os dados.",
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro criado com sucesso.",
+                "registro": _payload_descritivo(item),
+            }
+        )
+
+    messages.success(request, "Registro criado com sucesso.")
+    return redirect("descritivos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_descritivo_modulo(request, empresa_id, descritivo_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descritivos",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    item = Descritivo.objects.filter(id=descritivo_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    erro = atualizar_descritivo_por_post(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": _payload_descritivo(item),
+            }
+        )
+
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("descritivos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_descritivo_modulo(request, empresa_id, descritivo_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descritivos",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    item = Descritivo.objects.filter(id=descritivo_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("descritivos", empresa_id=empresa.id)
+
+    item_id = item.id
+    item.excluir_descritivo()
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro excluido com sucesso.",
+                "id": item_id,
+            }
+        )
+
+    messages.success(request, "Registro excluido com sucesso.")
+    return redirect("descritivos", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

@@ -1,16 +1,125 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Descritivos{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/tabulator-cadastro-ux.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/descritivos-page.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Descritivos</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Administrativo</span>
+            </div>
+            <h1>Descritivos</h1>
+            <p class="module-hero-subtitle">Gestao da grade horaria por area com edicao inline e exclusao por linha.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Descritivos</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
-</section>
+<div class="tabulator-cadastro-ux">
+    <section id="sec-cadastro" class="panel module-section">
+        <h2>Novo Registro</h2>
+        <p class="form-note">Campos obrigatorios: Inicio e Termino. Empresa e associada automaticamente.</p>
+        <form id="descritivos-cadastro-form" action="{% url 'criar_descritivo_modulo' empresa.id %}" method="post">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div>
+                    <label>Inicio</label>
+                    <input
+                        type="text"
+                        name="inicio"
+                        class="descritivos-time-input"
+                        placeholder="HH:MM"
+                        inputmode="numeric"
+                        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                        required
+                    >
+                </div>
+                <div>
+                    <label>Termino</label>
+                    <input
+                        type="text"
+                        name="termino"
+                        class="descritivos-time-input"
+                        placeholder="HH:MM"
+                        inputmode="numeric"
+                        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                        required
+                    >
+                </div>
+                <div>
+                    <label>Contas a Pagar</label>
+                    <textarea name="contas_a_pagar"></textarea>
+                </div>
+                <div>
+                    <label>Contas a Receber</label>
+                    <textarea name="contas_a_receber"></textarea>
+                </div>
+                <div>
+                    <label>Supervisor Financeiro</label>
+                    <textarea name="supervisor_financeiro"></textarea>
+                </div>
+                <div>
+                    <label>Faturamento</label>
+                    <textarea name="faturamento"></textarea>
+                </div>
+                <div>
+                    <label>Supervisor Logistica</label>
+                    <textarea name="supervisor_logistica"></textarea>
+                </div>
+                <div>
+                    <label>Conferente</label>
+                    <textarea name="conferente"></textarea>
+                </div>
+                <div>
+                    <label>Gerente de Producao</label>
+                    <textarea name="gerente_de_producao"></textarea>
+                </div>
+                <div>
+                    <label>Gerente CML</label>
+                    <textarea name="gerente_cml"></textarea>
+                </div>
+                <div>
+                    <label>Assistente Comercial</label>
+                    <textarea name="assistente_comercial"></textarea>
+                </div>
+                <div>
+                    <label>Diretor</label>
+                    <textarea name="diretor"></textarea>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Cadastrar</button>
+            </div>
+        </form>
+    </section>
+
+    <section id="sec-visualizacao" class="panel module-section">
+        <h2>Tabela de Registros</h2>
+        <div class="table-wrapper">
+            <div id="descritivos-tabulator"></div>
+        </div>
+        <p id="descritivos-save-status" class="file-status"></p>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ descritivos_tabulator|json_script:"descritivos-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/administrativo/descritivos-page.js' %}"></script>
 {% endblock %}

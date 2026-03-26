@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from datetime import timedelta
+from datetime import time, timedelta
 import json
 import shutil
 from uuid import uuid4
@@ -20,6 +20,7 @@ from .models import (
     Cidade,
     Colaborador,
     ContratoRede,
+    Descritivo,
     DescricaoPerfil,
     Empresa,
     Natureza,
@@ -405,6 +406,198 @@ class PlanoCargoSalarioModuloViewTest(TestCase):
         itens = list(response.context["planos_cargos_salarios"])
         self.assertEqual(len(itens), 1)
         self.assertEqual(itens[0].cadastro, 102)
+
+
+class DescritivoModelTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Descritivos")
+        self.item = Descritivo.criar_descritivo(
+            empresa=self.empresa,
+            inicio=time(7, 30),
+            termino=time(8, 0),
+            contas_a_pagar="Exportacao dos extratos bancarios",
+            supervisor_financeiro="Feed Back D-1",
+            faturamento="Rotinas administrativas",
+        )
+
+    def test_criar_descritivo(self):
+        self.assertEqual(self.item.empresa, self.empresa)
+        self.assertEqual(self.item.inicio.strftime("%H:%M"), "07:30")
+        self.assertEqual(self.item.termino.strftime("%H:%M"), "08:00")
+        self.assertEqual(self.item.contas_a_pagar, "Exportacao dos extratos bancarios")
+
+    def test_atualizar_descritivo(self):
+        self.item.atualizar_descritivo(
+            contas_a_receber="Exportacao relatorio CR",
+            gerente_cml="Pre PCP / Atualizacao Logistica",
+        )
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.contas_a_receber, "Exportacao relatorio CR")
+        self.assertEqual(self.item.gerente_cml, "Pre PCP / Atualizacao Logistica")
+
+    def test_listar_por_empresa(self):
+        empresa_b = Empresa.criar_empresa(nome="Empresa Descritivos B")
+        item_b = Descritivo.criar_descritivo(
+            empresa=empresa_b,
+            inicio=time(8, 0),
+            termino=time(8, 30),
+            diretor="Reuniao Controladoria",
+        )
+        itens_empresa = Descritivo.listar_por_empresa(self.empresa)
+        self.assertIn(self.item, itens_empresa)
+        self.assertNotIn(item_b, itens_empresa)
+
+    def test_excluir_descritivo(self):
+        self.item.excluir_descritivo()
+        self.assertFalse(Descritivo.objects.filter(id=self.item.id).exists())
+
+    def test_nao_aceita_faixa_horaria_invalida(self):
+        with self.assertRaises(ValidationError):
+            Descritivo.criar_descritivo(
+                empresa=self.empresa,
+                inicio=time(10, 0),
+                termino=time(9, 30),
+            )
+
+
+class DescritivoModuloViewTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Descritivos View")
+        self.permissao_modulo = Permissao.objects.create(nome="Descritivos")
+        self.usuario = Usuario.criar_usuario(
+            username="usuario_descritivos_view",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao_modulo],
+        )
+        self.item = Descritivo.criar_descritivo(
+            empresa=self.empresa,
+            inicio=time(7, 30),
+            termino=time(8, 0),
+            contas_a_pagar="Exportacao dos extratos bancarios",
+        )
+        self.lista_url = reverse("descritivos", kwargs={"empresa_id": self.empresa.id})
+        self.criar_url = reverse("criar_descritivo_modulo", kwargs={"empresa_id": self.empresa.id})
+        self.editar_url = reverse(
+            "editar_descritivo_modulo",
+            kwargs={"empresa_id": self.empresa.id, "descritivo_id": self.item.id},
+        )
+        self.excluir_url = reverse(
+            "excluir_descritivo_modulo",
+            kwargs={"empresa_id": self.empresa.id, "descritivo_id": self.item.id},
+        )
+
+    def _payload_base(self):
+        return {
+            "inicio": "07:30",
+            "termino": "08:00",
+            "contas_a_pagar": "Exportacao dos extratos bancarios",
+            "contas_a_receber": "",
+            "supervisor_financeiro": "Feed Back D-1",
+            "faturamento": "Rotinas administrativas",
+            "supervisor_logistica": "",
+            "conferente": "",
+            "gerente_de_producao": "",
+            "gerente_cml": "Pre PCP / Atualizacao Logistica",
+            "assistente_comercial": "",
+            "diretor": "Reuniao Controladoria",
+        }
+
+    def test_lista_modulo_retorna_contexto_com_tabulator(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.get(self.lista_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("descritivos_tabulator", response.context)
+
+    def test_criar_descritivo_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.criar_url,
+            {
+                **self._payload_base(),
+                "inicio": "08:00",
+                "termino": "08:30",
+                "contas_a_pagar": "Processamento automatico dos pagamentos recebidos",
+            },
+        )
+        self.assertRedirects(response, self.lista_url)
+        self.assertTrue(
+            Descritivo.objects.filter(
+                empresa=self.empresa,
+                inicio=time(8, 0),
+                termino=time(8, 30),
+            ).exists()
+        )
+
+    def test_criar_descritivo_modulo_ajax_retorna_json(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.criar_url,
+            {
+                **self._payload_base(),
+                "inicio": "08:30",
+                "termino": "09:00",
+                "contas_a_pagar": "Processamento manual dos pagamentos recebidos",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("registro", {}).get("inicio"), "08:30")
+        self.assertEqual(payload.get("registro", {}).get("termino"), "09:00")
+        self.assertTrue(payload.get("registro", {}).get("editar_url"))
+        self.assertTrue(payload.get("registro", {}).get("excluir_url"))
+
+    def test_editar_descritivo_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.editar_url,
+            {
+                **self._payload_base(),
+                "contas_a_pagar": "Conferencia pagamentos x comite de caixa",
+            },
+        )
+        self.assertRedirects(response, self.lista_url)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.contas_a_pagar, "Conferencia pagamentos x comite de caixa")
+
+    def test_edicao_inline_ajax_retorna_json(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.editar_url,
+            {
+                **self._payload_base(),
+                "inicio": "07:30",
+                "termino": "08:00",
+                "diretor": "Qualidade",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("registro", {}).get("diretor"), "Qualidade")
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.diretor, "Qualidade")
+
+    def test_excluir_descritivo_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(self.excluir_url)
+        self.assertRedirects(response, self.lista_url)
+        self.assertFalse(Descritivo.objects.filter(id=self.item.id).exists())
+
+    def test_excluir_descritivo_modulo_ajax_retorna_json(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.excluir_url,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("id"), self.item.id)
+        self.assertFalse(Descritivo.objects.filter(id=self.item.id).exists())
 
 
 class ProjetoModelTest(TestCase):
