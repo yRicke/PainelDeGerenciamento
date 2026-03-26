@@ -261,7 +261,7 @@ def _obter_total_vendedores_legado_faturamento(diretorio_importacao, diretorio_s
 
     nome_metadados = _nome_metadados_importacao_por_empresa(empresa_id)
     if nome_metadados:
-        caminho_metadados = diretorio_subscritos / nome_metadados
+        caminho_metadados = diretorio_importacao / nome_metadados
         payload = dict(metadados) if isinstance(metadados, dict) else {}
         payload["empresa_id"] = _normalizar_empresa_id(empresa_id)
         payload["modulo"] = "faturamento"

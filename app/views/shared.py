@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import datetime
+from pathlib import Path
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -59,15 +60,27 @@ def _nome_metadados_importacao_por_empresa(empresa_id):
     return f"{IMPORTACAO_METADATA_FILE_PREFIX}{empresa_id_int}.json"
 
 
-def _ler_metadados_importacao(diretorio_subscritos, modulo, empresa_id):
+def _caminho_metadados_importacao(diretorio_subscritos, empresa_id):
+    diretorio_subscritos = Path(diretorio_subscritos)
     nome_arquivo = _nome_metadados_importacao_por_empresa(empresa_id)
     if not nome_arquivo:
+        return None, None
+    diretorio_importacao = diretorio_subscritos.parent
+    return (diretorio_importacao / nome_arquivo), (diretorio_subscritos / nome_arquivo)
+
+
+def _ler_metadados_importacao(diretorio_subscritos, modulo, empresa_id):
+    caminho_metadados, caminho_metadados_legado = _caminho_metadados_importacao(
+        diretorio_subscritos,
+        empresa_id,
+    )
+    if not caminho_metadados:
         return {}
-    caminho_metadados = diretorio_subscritos / nome_arquivo
-    if not caminho_metadados.exists():
+    caminho_arquivo = caminho_metadados if caminho_metadados.exists() else caminho_metadados_legado
+    if not caminho_arquivo or not caminho_arquivo.exists():
         return {}
     try:
-        payload = json.loads(caminho_metadados.read_text(encoding="utf-8"))
+        payload = json.loads(caminho_arquivo.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
         return {}
     if not isinstance(payload, dict):

@@ -141,7 +141,10 @@ def _registrar_metadados_importacao(
     arquivos,
 ):
     empresa_id = _normalizar_empresa_id(empresa)
-    caminho_metadados = Path(diretorio_subscritos) / _nome_metadados_importacao_por_empresa(empresa_id)
+    caminho_metadados = (
+        Path(diretorio_subscritos).parent
+        / _nome_metadados_importacao_por_empresa(empresa_id)
+    )
     nomes_arquivos = [
         Path(nome_arquivo).name
         for nome_arquivo in (arquivos or [])

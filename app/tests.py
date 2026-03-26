@@ -1464,11 +1464,13 @@ class VendasImportacaoServiceTest(TestCase):
             self.assertFalse((diretorio_importacao / "nao_importar.txt").exists())
             self.assertTrue((diretorio_subscritos / "01.01.2026.xls").exists())
             importar_mock.assert_called_once()
-            caminho_metadados = diretorio_subscritos / f"_ultimo_import_empresa_{self.empresa.id}.json"
+            caminho_metadados = diretorio_importacao / f"_ultimo_import_empresa_{self.empresa.id}.json"
             self.assertTrue(caminho_metadados.exists())
             payload = json.loads(caminho_metadados.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("empresa_id"), self.empresa.id)
             self.assertEqual(payload.get("modulo"), "vendas_por_categoria")
+            caminho_metadados_legado = diretorio_subscritos / f"_ultimo_import_empresa_{self.empresa.id}.json"
+            self.assertFalse(caminho_metadados_legado.exists())
 
     def test_importar_upload_vendas_sem_xls_retorna_erro(self):
         with override_settings(BASE_DIR=self.base_dir):
