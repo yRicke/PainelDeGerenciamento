@@ -1,0 +1,11 @@
+﻿.contas-bancarias-save-status--ok {
+    color: #107c41;
+}
+
+.contas-bancarias-save-status--error {
+    color: #a4262c;
+}
+
+.contas-bancarias-save-status--progress {
+    color: #005a9e;
+}

@@ -5,7 +5,10 @@
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/tabulator-cadastro-ux.css' %}">
 <link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+<link rel="stylesheet" href="{% static 'css/parametros/contas-bancarias-page.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -15,28 +18,33 @@
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
 
-<section class="panel">
-    <h2>Nova Conta Bancaria</h2>
-    <form action="{% url 'criar_conta_bancaria_modulo' empresa.id %}" method="POST" id="contas-bancarias-cadastro-form" class="inline-form inline-form--parceiros">
-        {% csrf_token %}
-        <input type="number" name="agencia" placeholder="Agencia" required>
-        <input type="number" name="numero_conta" placeholder="Numero da conta" required>
-        <input type="text" name="nome_banco" placeholder="Nome do banco" required>
-        <select name="nome_empresa_fantasia" required>
-            <option value="">Nome empresa fantasia</option>
-            {% for opcao in nome_empresa_fantasia_opcoes %}
-            <option value="{{ opcao.id }}">{{ opcao.nome }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn-primary">Cadastrar</button>
-    </form>
-    <p id="contas-bancarias-save-status" class="form-note" aria-live="polite"></p>
-</section>
+<div class="tabulator-cadastro-ux">
+    <section id="sec-cadastro" class="panel module-section">
+        <h2>Novo Cadastro de Conta Bancaria</h2>
+        <p class="form-note">Todos os campos sao obrigatorios. Empresa e vinculada automaticamente.</p>
+        <form action="{% url 'criar_conta_bancaria_modulo' empresa.id %}" method="POST" id="contas-bancarias-cadastro-form" class="inline-form inline-form--parceiros">
+            {% csrf_token %}
+            <input type="number" name="agencia" placeholder="Agencia" required>
+            <input type="number" name="numero_conta" placeholder="Numero da conta" required>
+            <input type="text" name="nome_banco" placeholder="Nome do banco" required>
+            <select name="nome_empresa_fantasia" required>
+                <option value="">Nome empresa fantasia</option>
+                {% for opcao in nome_empresa_fantasia_opcoes %}
+                <option value="{{ opcao.id }}">{{ opcao.nome }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </form>
+        <p id="contas-bancarias-save-status" class="file-status" aria-live="polite"></p>
+    </section>
 
-<section class="panel">
-    <h2>Lista de Contas Bancarias</h2>
-    <div class="table-wrapper"><div id="contas-bancarias-tabulator"></div></div>
-</section>
+    <section id="sec-visualizacao" class="panel module-section">
+        <h2>Lista de Contas Bancarias</h2>
+        <div class="table-wrapper" data-table-label="Contas Bancarias">
+            <div id="contas-bancarias-tabulator"></div>
+        </div>
+    </section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
