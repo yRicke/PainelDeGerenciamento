@@ -12,6 +12,18 @@ def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=None
     return _services().atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=cidade_id)
 
 
+def criar_conta_bancaria_por_dados(empresa, post_data):
+    return _services().criar_conta_bancaria_por_dados(empresa, post_data)
+
+
+def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
+    return _services().atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data)
+
+
+def excluir_conta_bancaria_por_dados(conta_bancaria, empresa):
+    return _services().excluir_conta_bancaria_por_dados(conta_bancaria, empresa)
+
+
 def criar_parametro_margem_vendas(empresa, post_data):
     return _services().criar_parametro_margem_vendas(empresa, post_data)
 
@@ -34,6 +46,18 @@ def atualizar_parametro_margem_logistica(item, empresa, post_data):
 
 def excluir_parametro_margem_logistica(item, empresa):
     return _services().excluir_parametro_margem_logistica(item, empresa)
+
+
+def criar_parametro_margem_financeiro(empresa, post_data):
+    return _services().criar_parametro_margem_financeiro(empresa, post_data)
+
+
+def atualizar_parametro_margem_financeiro(item, empresa, post_data):
+    return _services().atualizar_parametro_margem_financeiro(item, empresa, post_data)
+
+
+def excluir_parametro_margem_financeiro(item, empresa):
+    return _services().excluir_parametro_margem_financeiro(item, empresa)
 
 
 def salvar_parametro_margem_administracao(empresa, post_data):

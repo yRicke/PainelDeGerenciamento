@@ -1322,6 +1322,89 @@ class ParametroNegocios(models.Model):
         return f"Parametro Negocios - {self.empresa.nome}"
 
 
+class ContaBancaria(models.Model):
+    NOME_EMPRESA_SAFIA_DISTRIBUIDORA = 1
+    NOME_EMPRESA_COMERCIAL_ARAGUAIA = 2
+    NOME_EMPRESA_CSM_TRANSPORTES = 4
+    NOME_EMPRESA_FANTASIA_CHOICES = (
+        (NOME_EMPRESA_SAFIA_DISTRIBUIDORA, "1 - SAFIA DISTRIBUIDORA"),
+        (NOME_EMPRESA_COMERCIAL_ARAGUAIA, "2 - COMERCIAL ARAGUAIA"),
+        (NOME_EMPRESA_CSM_TRANSPORTES, "4 - CSM TRANSPORTES"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="contas_bancarias")
+    agencia = models.IntegerField()
+    numero_conta = models.BigIntegerField()
+    nome_banco = models.CharField(max_length=150)
+    nome_empresa_fantasia = models.PositiveSmallIntegerField(choices=NOME_EMPRESA_FANTASIA_CHOICES)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "agencia", "numero_conta"], name="uq_conta_bancaria_empresa_agencia_conta"),
+        ]
+
+    def __str__(self):
+        return f"{self.nome_banco} - Ag {self.agencia} / Conta {self.numero_conta}"
+
+    @classmethod
+    def _proximo_id_normalizado(cls):
+        ultimo_id = cls.objects.order_by("-id").values_list("id", flat=True).first()
+        return int(ultimo_id or 0) + 1
+
+    @classmethod
+    def _normalizar_ids_contiguos(cls):
+        ids = list(cls.objects.order_by("id").values_list("id", flat=True))
+        if ids == list(range(1, len(ids) + 1)):
+            return
+
+        for conta_id in ids:
+            cls.objects.filter(id=conta_id).update(id=-conta_id)
+        for novo_id, conta_id in enumerate(ids, start=1):
+            cls.objects.filter(id=-conta_id).update(id=novo_id)
+
+    @classmethod
+    def criar_conta_bancaria(cls, *, empresa, agencia, numero_conta, nome_banco, nome_empresa_fantasia):
+        with transaction.atomic():
+            item = cls(
+                id=cls._proximo_id_normalizado(),
+                empresa=empresa,
+                agencia=agencia,
+                numero_conta=numero_conta,
+                nome_banco=nome_banco,
+                nome_empresa_fantasia=nome_empresa_fantasia,
+            )
+            item.save(force_insert=True)
+            return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_conta_bancaria(
+        self,
+        *,
+        agencia=UNSET,
+        numero_conta=UNSET,
+        nome_banco=UNSET,
+        nome_empresa_fantasia=UNSET,
+    ):
+        if agencia is not UNSET:
+            self.agencia = agencia
+        if numero_conta is not UNSET:
+            self.numero_conta = numero_conta
+        if nome_banco is not UNSET:
+            self.nome_banco = nome_banco
+        if nome_empresa_fantasia is not UNSET:
+            self.nome_empresa_fantasia = nome_empresa_fantasia
+        self.save()
+
+    def excluir_conta_bancaria(self):
+        with transaction.atomic():
+            cls = type(self)
+            self.delete()
+            cls._normalizar_ids_contiguos()
+
+
 class DescricaoPerfil(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="descricoes_perfil")
     descricao = models.CharField(max_length=220)

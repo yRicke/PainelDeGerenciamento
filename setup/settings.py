@@ -27,11 +27,13 @@ SECRET_KEY = 'django-insecure-@56k@-0keh23n@^rvpvw=j(9j+w$5g_am#nsmuy=bhmv^r7rnq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 IP_MAQUINA = '192.168.100.129'  # exemplo
+IP_RADMIN = '26.111.121.136'
 
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     IP_MAQUINA,
+    IP_RADMIN,
     '.trycloudflare.com',
     'portal.efuturetecnologia.com.br',
     'aplicacao.efuturetecnologia.com.br'
@@ -39,6 +41,7 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     f'http://{IP_MAQUINA}',
+    f'http://{IP_RADMIN}',
     f'https://portal.efuturetecnologia.com.br'
     f'https://aplicacao.efuturetecnologia.com.br'
 ]

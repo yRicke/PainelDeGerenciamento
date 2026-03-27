@@ -18,9 +18,8 @@
 
 <section class="panel module-section">
     <h2>Novo Parametro</h2>
-    <form method="post" action="{% url 'parametros_financeiro' empresa.id %}">
+    <form method="post" action="{% url 'criar_parametro_margem_financeiro_modulo' empresa.id %}">
         {% csrf_token %}
-        <input type="hidden" name="acao" value="criar">
         <div class="parametros-cm-grid">
             <div>
                 <label>Parametro</label>

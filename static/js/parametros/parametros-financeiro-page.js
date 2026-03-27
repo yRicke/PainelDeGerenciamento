@@ -53,25 +53,15 @@
 
     var colunaAcoes = window.TabulatorDefaults.buildSaveDeleteActionColumn({
         submitPost: submitPost,
-        getSaveUrl: function (row) {
-            return row.acao_url;
-        },
-        getDeleteUrl: function (row) {
-            return row.acao_url;
-        },
+        field: "editar_url",
         getSavePayload: function (row) {
             return {
-                acao: "editar",
-                item_id: row.id,
                 parametro: toFieldValue(row.parametro),
                 taxa_ao_mes: toFieldValue(row.taxa_ao_mes),
             };
         },
-        getDeletePayload: function (row) {
-            return {
-                acao: "excluir",
-                item_id: row.id,
-            };
+        getDeleteUrl: function (row) {
+            return row.excluir_url;
         },
         deleteConfirm: "Excluir parametro?",
     });

@@ -23,7 +23,6 @@ from ..models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
-    ParametroMargemFinanceiro,
     Titulo,
 )
 from ..services.financeiro import (
@@ -36,7 +35,6 @@ from ..services.financeiro import (
     atualizar_operacao_por_dados,
     atualizar_orcamento_planejado_por_post,
     atualizar_orcamento_por_post,
-    atualizar_parametro_margem_financeiro,
     atualizar_titulo_por_dados,
     construir_payload_tabela_saldo_dfc,
     criar_adiantamento_por_post,
@@ -48,9 +46,7 @@ from ..services.financeiro import (
     criar_operacao_por_dados,
     criar_orcamento_planejado_por_post,
     criar_orcamento_por_post,
-    criar_parametro_margem_financeiro,
     criar_titulo_por_dados,
-    excluir_parametro_margem_financeiro,
     importar_upload_adiantamentos,
     importar_upload_contas_a_receber,
     importar_upload_dfc,
@@ -72,7 +68,6 @@ from ..tabulator import (
     build_orcamento_tabulator,
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
-    build_parametros_margem_financeiro_tabulator,
     build_titulos_tabulator,
 )
 from ..utils.modulos_permissoes import (
@@ -1118,47 +1113,6 @@ def excluir_contrato_rede_modulo(request, empresa_id, contrato_id):
     contrato.excluir_contrato_rede()
     messages.success(request, "Contrato de rede excluido com sucesso.")
     return redirect("contratos_redes", empresa_id=empresa.id)
-
-
-@login_required(login_url="entrar")
-def parametros_financeiro(request, empresa_id):
-    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Financeiro")
-    if not autorizado:
-        return redirect("index")
-
-    if request.method == "POST":
-        acao = (request.POST.get("acao") or "").strip()
-        if acao == "criar":
-            erro, total_recalculado = criar_parametro_margem_financeiro(empresa, request.POST)
-        elif acao == "editar":
-            item = ParametroMargemFinanceiro.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
-            if not item:
-                messages.error(request, "Parametro nao encontrado.")
-                return redirect("parametros_financeiro", empresa_id=empresa.id)
-            erro, total_recalculado = atualizar_parametro_margem_financeiro(item, empresa, request.POST)
-        elif acao == "excluir":
-            item = ParametroMargemFinanceiro.objects.filter(id=request.POST.get("item_id"), empresa=empresa).first()
-            if not item:
-                messages.error(request, "Parametro nao encontrado.")
-                return redirect("parametros_financeiro", empresa_id=empresa.id)
-            erro, total_recalculado = excluir_parametro_margem_financeiro(item, empresa)
-        else:
-            messages.error(request, "Acao invalida para parametros financeiro.")
-            return redirect("parametros_financeiro", empresa_id=empresa.id)
-
-        if erro:
-            messages.error(request, erro)
-            return redirect("parametros_financeiro", empresa_id=empresa.id)
-        messages.success(request, f"Parametros financeiro atualizados. Registros recalculados: {total_recalculado}.")
-        return redirect("parametros_financeiro", empresa_id=empresa.id)
-
-    parametros_qs = ParametroMargemFinanceiro.objects.filter(empresa=empresa).order_by("id")
-    contexto = {
-        "empresa": empresa,
-        "parametros": parametros_qs,
-        "parametros_financeiro_tabulator": build_parametros_margem_financeiro_tabulator(parametros_qs, empresa.id),
-    }
-    return render(request, "parametros/parametros_financeiro.html", contexto)
 
 
 @login_required(login_url="entrar")

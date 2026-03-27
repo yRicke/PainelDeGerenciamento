@@ -677,13 +677,3 @@ def atualizar_orcamento_planejado_por_post(orcamento_planejado_item, empresa, po
     )
 
 
-def criar_parametro_margem_financeiro(empresa, post_data):
-    return _services().criar_parametro_margem_financeiro(empresa, post_data)
-
-
-def atualizar_parametro_margem_financeiro(item, empresa, post_data):
-    return _services().atualizar_parametro_margem_financeiro(item, empresa, post_data)
-
-
-def excluir_parametro_margem_financeiro(item, empresa):
-    return _services().excluir_parametro_margem_financeiro(item, empresa)

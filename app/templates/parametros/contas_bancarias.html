@@ -1,0 +1,47 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Contas Bancarias{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+    <h1>Contas Bancarias</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Nova Conta Bancaria</h2>
+    <form action="{% url 'criar_conta_bancaria_modulo' empresa.id %}" method="POST" id="contas-bancarias-cadastro-form" class="inline-form inline-form--parceiros">
+        {% csrf_token %}
+        <input type="number" name="agencia" placeholder="Agencia" required>
+        <input type="number" name="numero_conta" placeholder="Numero da conta" required>
+        <input type="text" name="nome_banco" placeholder="Nome do banco" required>
+        <select name="nome_empresa_fantasia" required>
+            <option value="">Nome empresa fantasia</option>
+            {% for opcao in nome_empresa_fantasia_opcoes %}
+            <option value="{{ opcao.id }}">{{ opcao.nome }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
+    <p id="contas-bancarias-save-status" class="form-note" aria-live="polite"></p>
+</section>
+
+<section class="panel">
+    <h2>Lista de Contas Bancarias</h2>
+    <div class="table-wrapper"><div id="contas-bancarias-tabulator"></div></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ contas_bancarias_tabulator|json_script:"contas-bancarias-tabulator-data" }}
+{{ nome_empresa_fantasia_opcoes|json_script:"contas-bancarias-opcoes-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/parametros/contas-bancarias-page.js' %}"></script>
+{% endblock %}

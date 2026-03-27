@@ -23,6 +23,7 @@ from ..models import (
     Carteira,
     Cidade,
     Colaborador,
+    ContaBancaria,
     Descritivo,
     ControleMargem,
     ContasAReceber,
@@ -716,6 +717,86 @@ def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=None
     if Parceiro.objects.filter(empresa=empresa, codigo=codigo).exclude(id=parceiro.id).exists():
         return "Já existe parceiro com este código nesta empresa."
     parceiro.atualizar_parceiro(novo_nome=nome, novo_codigo=codigo, cidade=cidade)
+    return ""
+
+
+def _normalizar_nome_empresa_fantasia_conta_bancaria(valor):
+    codigo = _parse_int_ou_zero(valor)
+    codigos_validos = {
+        ContaBancaria.NOME_EMPRESA_SAFIA_DISTRIBUIDORA,
+        ContaBancaria.NOME_EMPRESA_COMERCIAL_ARAGUAIA,
+        ContaBancaria.NOME_EMPRESA_CSM_TRANSPORTES,
+    }
+    return codigo if codigo in codigos_validos else None
+
+
+def criar_conta_bancaria_por_dados(empresa, post_data):
+    agencia = _parse_int_ou_zero(post_data.get("agencia"))
+    numero_conta = _parse_int64_ou_zero(post_data.get("numero_conta"))
+    nome_banco = (post_data.get("nome_banco") or "").strip()
+    nome_empresa_fantasia = _normalizar_nome_empresa_fantasia_conta_bancaria(
+        post_data.get("nome_empresa_fantasia")
+    )
+
+    if agencia <= 0:
+        return "Agencia e obrigatoria e deve ser maior que zero."
+    if numero_conta <= 0:
+        return "Numero da conta e obrigatorio e deve ser maior que zero."
+    if not nome_banco:
+        return "Nome do banco e obrigatorio."
+    if nome_empresa_fantasia is None:
+        return "Nome da empresa fantasia e obrigatorio."
+    if ContaBancaria.objects.filter(empresa=empresa, agencia=agencia, numero_conta=numero_conta).exists():
+        return "Ja existe conta bancaria com agencia e numero de conta nesta empresa."
+
+    ContaBancaria.criar_conta_bancaria(
+        empresa=empresa,
+        agencia=agencia,
+        numero_conta=numero_conta,
+        nome_banco=nome_banco,
+        nome_empresa_fantasia=nome_empresa_fantasia,
+    )
+    return ""
+
+
+def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
+    agencia = _parse_int_ou_zero(post_data.get("agencia"))
+    numero_conta = _parse_int64_ou_zero(post_data.get("numero_conta"))
+    nome_banco = (post_data.get("nome_banco") or "").strip()
+    nome_empresa_fantasia = _normalizar_nome_empresa_fantasia_conta_bancaria(
+        post_data.get("nome_empresa_fantasia")
+    )
+
+    if conta_bancaria.empresa_id != empresa.id:
+        return "Conta bancaria invalida para esta empresa."
+    if agencia <= 0:
+        return "Agencia e obrigatoria e deve ser maior que zero."
+    if numero_conta <= 0:
+        return "Numero da conta e obrigatorio e deve ser maior que zero."
+    if not nome_banco:
+        return "Nome do banco e obrigatorio."
+    if nome_empresa_fantasia is None:
+        return "Nome da empresa fantasia e obrigatorio."
+    if (
+        ContaBancaria.objects.filter(empresa=empresa, agencia=agencia, numero_conta=numero_conta)
+        .exclude(id=conta_bancaria.id)
+        .exists()
+    ):
+        return "Ja existe conta bancaria com agencia e numero de conta nesta empresa."
+
+    conta_bancaria.atualizar_conta_bancaria(
+        agencia=agencia,
+        numero_conta=numero_conta,
+        nome_banco=nome_banco,
+        nome_empresa_fantasia=nome_empresa_fantasia,
+    )
+    return ""
+
+
+def excluir_conta_bancaria_por_dados(conta_bancaria, empresa):
+    if conta_bancaria.empresa_id != empresa.id:
+        return "Conta bancaria invalida para esta empresa."
+    conta_bancaria.excluir_conta_bancaria()
     return ""
 
 

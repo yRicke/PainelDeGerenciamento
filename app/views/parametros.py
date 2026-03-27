@@ -1,14 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models.deletion import ProtectedError
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from ..models import (
     Cidade,
+    ContaBancaria,
     DescricaoPerfil,
     Motorista,
     Parceiro,
     ParametroMargemAdministracao,
+    ParametroMargemFinanceiro,
     ParametroMargemLogistica,
     ParametroMargemVendas,
     ParametroMeta,
@@ -21,6 +24,8 @@ from ..models import (
 from ..services.parametros import (
     atualizar_motorista_por_dados,
     atualizar_descricao_perfil_por_dados,
+    atualizar_conta_bancaria_por_dados,
+    atualizar_parametro_margem_financeiro,
     atualizar_parametro_meta_por_dados,
     atualizar_parametro_margem_logistica,
     atualizar_parametro_margem_vendas,
@@ -32,6 +37,8 @@ from ..services.parametros import (
     atualizar_unidade_federativa_por_dados,
     criar_motorista_por_dados,
     criar_descricao_perfil_por_dados,
+    criar_conta_bancaria_por_dados,
+    criar_parametro_margem_financeiro,
     criar_parametro_meta_por_dados,
     criar_parametro_margem_logistica,
     criar_parametro_margem_vendas,
@@ -42,13 +49,17 @@ from ..services.parametros import (
     criar_transportadora_por_dados,
     criar_unidade_federativa_por_dados,
     excluir_parametro_margem_logistica,
+    excluir_parametro_margem_financeiro,
     excluir_parametro_margem_vendas,
     excluir_parametro_negocios,
+    excluir_conta_bancaria_por_dados,
     salvar_parametro_margem_administracao,
 )
 from ..tabulator import (
+    build_contas_bancarias_tabulator,
     build_motoristas_tabulator,
     build_descricoes_perfil_tabulator,
+    build_parametros_margem_financeiro_tabulator,
     build_parametros_metas_tabulator,
     build_parametros_margem_logistica_tabulator,
     build_parametros_margem_vendas_tabulator,
@@ -60,6 +71,11 @@ from ..tabulator import (
     build_unidades_federativas_tabulator,
 )
 from ..utils.modulos_permissoes import _modulos_com_acesso, _obter_empresa_e_validar_permissao_modulo
+
+
+def _is_ajax_request(request):
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
 
 @login_required(login_url="entrar")
 def parametros(request):
@@ -85,7 +101,7 @@ def parceiros(request, empresa_id):
         "cidades_js": list(cidades_qs.values("id", "nome", "codigo")),
         "parceiros_tabulator": parceiros_tabulator,
     }
-    return render(request, "financeiro/parceiros.html", contexto)
+    return render(request, "parametros/parceiros.html", contexto)
 
 
 @login_required(login_url="entrar")
@@ -155,6 +171,112 @@ def excluir_parceiro_modulo(request, empresa_id, parceiro_id):
     parceiro.excluir_parceiro()
     messages.success(request, "Parceiro excluÃ­do com sucesso.")
     return redirect("parceiros", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def contas_bancarias(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas Bancarias")
+    if not autorizado:
+        return redirect("index")
+
+    contas_qs = ContaBancaria.objects.filter(empresa=empresa).order_by("id")
+    contexto = {
+        "empresa": empresa,
+        "contas_bancarias_tabulator": build_contas_bancarias_tabulator(contas_qs, empresa.id),
+        "nome_empresa_fantasia_opcoes": [
+            {"id": codigo, "nome": nome}
+            for codigo, nome in ContaBancaria.NOME_EMPRESA_FANTASIA_CHOICES
+        ],
+    }
+    return render(request, "parametros/contas_bancarias.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_conta_bancaria_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas Bancarias")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    erro = criar_conta_bancaria_por_dados(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    conta = ContaBancaria.objects.filter(empresa=empresa).order_by("-id").first()
+    registro = build_contas_bancarias_tabulator([conta], empresa.id)[0] if conta else None
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "registro": registro, "message": "Conta bancaria criada com sucesso."})
+    messages.success(request, "Conta bancaria criada com sucesso.")
+    return redirect("contas_bancarias", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_conta_bancaria_modulo(request, empresa_id, conta_bancaria_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas Bancarias")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    conta_bancaria = ContaBancaria.objects.filter(id=conta_bancaria_id, empresa=empresa).first()
+    if not conta_bancaria:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Conta bancaria nao encontrada."}, status=404)
+        messages.error(request, "Conta bancaria nao encontrada.")
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    erro = atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    conta_bancaria.refresh_from_db()
+    registro = build_contas_bancarias_tabulator([conta_bancaria], empresa.id)[0]
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "registro": registro, "message": "Conta bancaria atualizada com sucesso."})
+    messages.success(request, "Conta bancaria atualizada com sucesso.")
+    return redirect("contas_bancarias", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_conta_bancaria_modulo(request, empresa_id, conta_bancaria_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas Bancarias")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    conta_bancaria = ContaBancaria.objects.filter(id=conta_bancaria_id, empresa=empresa).first()
+    if not conta_bancaria:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Conta bancaria nao encontrada."}, status=404)
+        messages.error(request, "Conta bancaria nao encontrada.")
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    erro = excluir_conta_bancaria_por_dados(conta_bancaria, empresa)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("contas_bancarias", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        contas_qs = ContaBancaria.objects.filter(empresa=empresa).order_by("id")
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Conta bancaria excluida com sucesso.",
+                "registros": build_contas_bancarias_tabulator(contas_qs, empresa.id),
+            }
+        )
+    messages.success(request, "Conta bancaria excluida com sucesso.")
+    return redirect("contas_bancarias", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
@@ -259,6 +381,81 @@ def parametros_administracao(request, empresa_id):
         "parametro": parametro,
     }
     return render(request, "parametros/parametros_administracao.html", contexto)
+
+
+@login_required(login_url="entrar")
+def parametros_financeiro(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Financeiro")
+    if not autorizado:
+        return redirect("index")
+
+    parametros_qs = ParametroMargemFinanceiro.objects.filter(empresa=empresa).order_by("id")
+    contexto = {
+        "empresa": empresa,
+        "parametros_financeiro_tabulator": build_parametros_margem_financeiro_tabulator(parametros_qs, empresa.id),
+    }
+    return render(request, "parametros/parametros_financeiro.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_parametro_margem_financeiro_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Financeiro")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    erro, total_recalculado = criar_parametro_margem_financeiro(empresa, request.POST)
+    if erro:
+        messages.error(request, erro)
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    messages.success(request, f"Parametro financeiro criado. Registros recalculados: {total_recalculado}.")
+    return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_parametro_margem_financeiro_modulo(request, empresa_id, parametro_financeiro_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Financeiro")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    item = ParametroMargemFinanceiro.objects.filter(id=parametro_financeiro_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Parametro nao encontrado.")
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    erro, total_recalculado = atualizar_parametro_margem_financeiro(item, empresa, request.POST)
+    if erro:
+        messages.error(request, erro)
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    messages.success(request, f"Parametro financeiro atualizado. Registros recalculados: {total_recalculado}.")
+    return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_parametro_margem_financeiro_modulo(request, empresa_id, parametro_financeiro_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Parametros Financeiro")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    item = ParametroMargemFinanceiro.objects.filter(id=parametro_financeiro_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Parametro nao encontrado.")
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    erro, total_recalculado = excluir_parametro_margem_financeiro(item, empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("parametros_financeiro", empresa_id=empresa.id)
+
+    messages.success(request, f"Parametro financeiro excluido. Registros recalculados: {total_recalculado}.")
+    return redirect("parametros_financeiro", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

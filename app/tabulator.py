@@ -617,6 +617,28 @@ def build_parceiros_tabulator(parceiros_qs, empresa_id: int):
     ]
 
 
+def build_contas_bancarias_tabulator(contas_qs, empresa_id: int):
+    return [
+        {
+            "id": conta.id,
+            "agencia": conta.agencia,
+            "numero_conta": conta.numero_conta,
+            "nome_banco": conta.nome_banco or "",
+            "nome_empresa_fantasia": conta.nome_empresa_fantasia,
+            "nome_empresa_fantasia_label": conta.get_nome_empresa_fantasia_display(),
+            "editar_url": reverse(
+                "editar_conta_bancaria_modulo",
+                kwargs={"empresa_id": empresa_id, "conta_bancaria_id": conta.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_conta_bancaria_modulo",
+                kwargs={"empresa_id": empresa_id, "conta_bancaria_id": conta.id},
+            ),
+        }
+        for conta in contas_qs
+    ]
+
+
 def build_motoristas_tabulator(motoristas_qs, empresa_id: int):
     return [
         {
@@ -969,14 +991,20 @@ def build_parametros_margem_logistica_tabulator(parametros_qs, empresa_id: int):
 
 
 def build_parametros_margem_financeiro_tabulator(parametros_qs, empresa_id: int):
-    acao_url = reverse("parametros_financeiro", kwargs={"empresa_id": empresa_id})
     return [
         {
             "id": item.id,
             "parametro": item.parametro or "",
             "taxa_ao_mes": float(item.taxa_ao_mes or 0),
             "remuneracao_percentual": float(item.remuneracao_percentual or 0),
-            "acao_url": acao_url,
+            "editar_url": reverse(
+                "editar_parametro_margem_financeiro_modulo",
+                kwargs={"empresa_id": empresa_id, "parametro_financeiro_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_parametro_margem_financeiro_modulo",
+                kwargs={"empresa_id": empresa_id, "parametro_financeiro_id": item.id},
+            ),
         }
         for item in parametros_qs
     ]

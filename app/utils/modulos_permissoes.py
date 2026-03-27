@@ -35,7 +35,7 @@ MODULOS_POR_AREA = {
         {"nome": "Titulos", "url": "titulos", "template": "financeiro/titulos.html"},
         {"nome": "Naturezas", "url": "naturezas", "template": "financeiro/naturezas.html"},
         {"nome": "Operacoes", "url": "operacoes", "template": "financeiro/operacoes.html"},
-        {"nome": "Parceiros", "url": "parceiros", "template": "financeiro/parceiros.html"},
+        {"nome": "Parceiros", "url": "parceiros", "template": "parametros/parceiros.html"},
         {"nome": "Centro Resultado", "url": "centros_resultado", "template": "financeiro/centros_resultado.html"},
         {"nome": "Colaboradores", "url": "colaboradores", "template": "administrativo/colaboradores.html"},
         {"nome": "Projetos", "url": "projetos", "template": "administrativo/projetos.html"},
@@ -52,6 +52,7 @@ MODULOS_POR_AREA = {
         {"nome": "Parametros Administracao", "url": "parametros_administracao", "template": "parametros/parametros_administracao.html"},
         {"nome": "Parametros Financeiro", "url": "parametros_financeiro", "template": "parametros/parametros_financeiro.html"},
         {"nome": "Parametros de Negocios", "url": "parametros_negocios", "template": "parametros/parametros_negocios.html"},
+        {"nome": "Contas Bancarias", "url": "contas_bancarias", "template": "parametros/contas_bancarias.html"},
     ],
     "Operacional": [
         {"nome": "Cargas em Aberto", "url": "cargas_em_aberto", "template": "operacional/cargas_em_aberto.html"},
@@ -75,6 +76,7 @@ NOMES_EXIBICAO_MODULOS = {
     "Regioes": "Regiões",
     "Operador Logistico": "Operador Logístico",
     "Producao": "Produção",
+    "Contas Bancarias": "Contas Bancarias",
 }
 
 PERMISSOES_POR_MODULO = {
