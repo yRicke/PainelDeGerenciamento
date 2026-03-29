@@ -274,18 +274,36 @@
     }
 
     function bindSidebarToggles() {
+        function applySidebarState(shell, toggle, collapse) {
+            if (!shell || !toggle) return;
+            shell.classList.toggle("is-sidebar-collapsed", Boolean(collapse));
+            toggle.setAttribute("aria-expanded", collapse ? "false" : "true");
+        }
+
+        function initializeSidebarState(shell, toggle) {
+            if (!shell || !toggle) return;
+            if (shell.dataset.moduleSidebarStateInitialized === "1") {
+                applySidebarState(shell, toggle, shell.classList.contains("is-sidebar-collapsed"));
+                return;
+            }
+            // Desktop inicia com o menu de filtros fechado por padrao.
+            var shouldCollapse = !window.matchMedia("(max-width: 1100px)").matches;
+            applySidebarState(shell, toggle, shouldCollapse);
+            shell.dataset.moduleSidebarStateInitialized = "1";
+        }
+
         var toggles = document.querySelectorAll(".module-shell-toggle[aria-controls]");
         toggles.forEach(function (toggle) {
             if (toggle.dataset.boundModuleShellToggle === "1") return;
             toggle.dataset.boundModuleShellToggle = "1";
+            initializeSidebarState(toggle.closest(".module-shell"), toggle);
 
             toggle.addEventListener("click", function () {
                 var shell = toggle.closest(".module-shell");
                 if (!shell || window.matchMedia("(max-width: 1100px)").matches) return;
 
                 var collapse = !shell.classList.contains("is-sidebar-collapsed");
-                shell.classList.toggle("is-sidebar-collapsed", collapse);
-                toggle.setAttribute("aria-expanded", collapse ? "false" : "true");
+                applySidebarState(shell, toggle, collapse);
             });
         });
     }
@@ -657,7 +675,7 @@
 
         var shell = document.createElement("div");
         shell.id = shellId;
-        shell.className = "module-shell";
+        shell.className = "module-shell is-sidebar-collapsed";
         shell.dataset.moduleShellUpgraded = "1";
 
         var sidebar = document.createElement("aside");
@@ -679,7 +697,7 @@
         var toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "module-shell-toggle";
-        toggle.setAttribute("aria-expanded", "true");
+        toggle.setAttribute("aria-expanded", "false");
         toggle.setAttribute("aria-controls", sidebarId);
         toggle.innerHTML = '<span aria-hidden="true">&#9776;</span><span>Menu de filtros</span>';
         toolbar.appendChild(toggle);

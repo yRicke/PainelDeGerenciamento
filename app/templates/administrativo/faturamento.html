@@ -280,6 +280,7 @@
                 <div class="dashboard-chart-card dashboard-chart-card--vendedores-resumo">
                     <h3>Vendedores</h3>
                     <div id="faturamento-chart-vendedores-resumo"></div>
+                    <p id="faturamento-vendedores-total-geral" class="vendedores-resumo-total-geral">Total: 0</p>
                     <div class="vendedores-resumo-listas">
                         <section class="vendedores-resumo-lista vendedores-resumo-lista--com-venda">
                             <h4>Com venda <span id="faturamento-vendedores-com-venda-total">0</span></h4>
@@ -366,6 +367,6 @@
 {{ faturamento_tabulator|json_script:"faturamento-tabulator-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-<script src="{% static 'js/administrativo/faturamento-page.js' %}"></script>
+<script src="{% static 'js/administrativo/faturamento-page.js' %}?v=20260329-4"></script>
 {% endblock %}
 

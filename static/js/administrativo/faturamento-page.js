@@ -138,6 +138,7 @@
     var relogioPctEl = document.getElementById("faturamento-reloginho-pct");
     var chartTipoVendaEl = document.getElementById("faturamento-chart-tipo-venda");
     var chartVendedoresResumoEl = document.getElementById("faturamento-chart-vendedores-resumo");
+    var vendedoresTotalGeralEl = document.getElementById("faturamento-vendedores-total-geral");
     var vendedoresComVendaListaEl = document.getElementById("faturamento-vendedores-com-venda-lista");
     var vendedoresSemVendaListaEl = document.getElementById("faturamento-vendedores-sem-venda-lista");
     var vendedoresComVendaTotalEl = document.getElementById("faturamento-vendedores-com-venda-total");
@@ -1270,9 +1271,10 @@
                 colors: ["#2d79c7", "#4da833"],
                 dataLabels: {
                     enabled: true,
-                    formatter: function (_valor, opts) {
-                        var numero = Number(opts.w.config.series[opts.seriesIndex] || 0);
-                        return String(Math.round(numero));
+                    formatter: function (valor) {
+                        var percentual = Number(valor || 0);
+                        if (!Number.isFinite(percentual)) percentual = 0;
+                        return formatPercentual(percentual, 1);
                     },
                     style: {fontSize: "14px", fontWeight: 700},
                     dropShadow: {enabled: false},
@@ -1289,9 +1291,9 @@
                                 total: {
                                     show: true,
                                     showAlways: true,
-                                    label: "Total Vendedores:",
+                                    label: "",
                                     formatter: function (w) {
-                                        return String(
+                                        return "Total: " + String(
                                             w.globals.seriesTotals.reduce(function (acc, curr) {
                                                 return acc + Number(curr || 0);
                                             }, 0)
@@ -1304,18 +1306,9 @@
                 },
                 tooltip: {
                     y: {
-                        formatter: function (valor, opts) {
-                            var numero = Number(valor || 0);
-                            var totais = (
-                                opts && opts.w && opts.w.globals && Array.isArray(opts.w.globals.seriesTotals)
-                            )
-                                ? opts.w.globals.seriesTotals
-                                : [];
-                            var total = totais.reduce(function (acc, atual) {
-                                return acc + Number(atual || 0);
-                            }, 0);
-                            var percentual = total > 0 ? (numero / total) * 100 : 0;
-                            return formatPercentual(percentual, 1);
+                        formatter: function (valor) {
+                            var quantidade = Math.round(Number(valor || 0));
+                            return String(quantidade);
                         },
                     },
                 },
@@ -1512,11 +1505,14 @@
                     pie: {
                         donut: {
                             labels: {
+                                show: true,
+                                name: {show: false},
+                                value: {show: false},
                                 total: {
                                     show: true,
                                     showAlways: true,
-                                    label: "Total Vendedores:",
-                                    formatter: function () { return String(resumoVendedores.total); },
+                                    label: "",
+                                    formatter: function () { return "Total: " + String(resumoVendedores.total); },
                                 },
                             },
                         },
@@ -1524,6 +1520,9 @@
                 },
             });
             chartVendedoresResumo.updateSeries(resumoVendedores.valores);
+        }
+        if (vendedoresTotalGeralEl) {
+            vendedoresTotalGeralEl.textContent = "Total: " + String(resumoVendedores.total || 0);
         }
         renderizarListaVendedores(
             vendedoresComVendaListaEl,

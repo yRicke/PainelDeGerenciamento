@@ -267,6 +267,14 @@
     gap: 0.6rem;
 }
 
+.vendedores-resumo-total-geral {
+    margin: 0.15rem 0 0.4rem;
+    text-align: center;
+    font-size: 0.93rem;
+    font-weight: 700;
+    color: #2b4e6f;
+}
+
 .vendedores-resumo-lista {
     border: 1px solid #d7e3ef;
     border-radius: 10px;
