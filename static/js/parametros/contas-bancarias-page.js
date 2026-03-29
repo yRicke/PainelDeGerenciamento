@@ -8,13 +8,15 @@
 
     var data = JSON.parse(dataElement.textContent || "[]");
     var opcoes = JSON.parse(opcoesElement.textContent || "[]");
-    var nomeEmpresaValues = {};
+    var empresaTitularValues = {};
     var tabela = null;
     var seqByRowId = {};
     var internalUpdate = false;
 
     opcoes.forEach(function (opcao) {
-        nomeEmpresaValues[String(opcao.id)] = String(opcao.nome || "");
+        var codigo = String(opcao.codigo || "").trim();
+        var nome = String(opcao.nome || "").trim();
+        empresaTitularValues[String(opcao.id)] = codigo ? (codigo + " - " + nome) : nome;
     });
 
     function getCookie(name) {
@@ -75,7 +77,7 @@
             agencia: toText(rowData.agencia),
             numero_conta: toText(rowData.numero_conta),
             nome_banco: toText(rowData.nome_banco),
-            nome_empresa_fantasia: toText(rowData.nome_empresa_fantasia),
+            empresa_titular_id: toText(rowData.empresa_titular_id),
         };
     }
 
@@ -90,9 +92,9 @@
         internalUpdate = false;
     }
 
-    function atualizarRotuloNomeEmpresa(rowData) {
-        var key = String(rowData.nome_empresa_fantasia || "");
-        rowData.nome_empresa_fantasia_label = nomeEmpresaValues[key] || "";
+    function atualizarRotuloEmpresaTitular(rowData) {
+        var key = String(rowData.empresa_titular_id || "");
+        rowData.empresa_titular_label = empresaTitularValues[key] || "";
     }
 
     function saveRowAutomatically(cell) {
@@ -103,7 +105,7 @@
         var rowData = row.getData() || {};
         if (!rowData.editar_url) return;
 
-        atualizarRotuloNomeEmpresa(rowData);
+        atualizarRotuloEmpresaTitular(rowData);
 
         var rowId = rowData.id;
         var currentSeq = Number(seqByRowId[rowId] || 0) + 1;
@@ -296,16 +298,16 @@
             {title: "Numero Conta", field: "numero_conta", editor: "input", cellEdited: onCellEdited},
             {title: "Nome Banco", field: "nome_banco", editor: "input", cellEdited: onCellEdited},
             {
-                title: "Empresa Fantasia",
-                field: "nome_empresa_fantasia",
+                title: "Empresa Titular",
+                field: "empresa_titular_id",
                 editor: "list",
                 editorParams: {
-                    values: nomeEmpresaValues,
+                    values: empresaTitularValues,
                     clearable: false,
                 },
                 formatter: function (cell) {
                     var row = cell.getRow().getData() || {};
-                    return row.nome_empresa_fantasia_label || nomeEmpresaValues[String(row.nome_empresa_fantasia || "")] || "";
+                    return row.empresa_titular_label || empresaTitularValues[String(row.empresa_titular_id || "")] || "";
                 },
                 cellEdited: onCellEdited,
             },

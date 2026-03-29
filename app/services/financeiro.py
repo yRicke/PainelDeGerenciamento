@@ -677,3 +677,15 @@ def atualizar_orcamento_planejado_por_post(orcamento_planejado_item, empresa, po
     )
 
 
+def criar_saldo_limite_por_dados(empresa, post_data):
+    return _services().criar_saldo_limite_por_dados(empresa, post_data)
+
+
+def atualizar_saldo_limite_por_dados(item, empresa, post_data):
+    return _services().atualizar_saldo_limite_por_dados(item, empresa, post_data)
+
+
+def excluir_saldo_limite_por_dados(item, empresa):
+    return _services().excluir_saldo_limite_por_dados(item, empresa)
+
+

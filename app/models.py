@@ -1322,21 +1322,47 @@ class ParametroNegocios(models.Model):
         return f"Parametro Negocios - {self.empresa.nome}"
 
 
-class ContaBancaria(models.Model):
-    NOME_EMPRESA_SAFIA_DISTRIBUIDORA = 1
-    NOME_EMPRESA_COMERCIAL_ARAGUAIA = 2
-    NOME_EMPRESA_CSM_TRANSPORTES = 4
-    NOME_EMPRESA_FANTASIA_CHOICES = (
-        (NOME_EMPRESA_SAFIA_DISTRIBUIDORA, "1 - SAFIA DISTRIBUIDORA"),
-        (NOME_EMPRESA_COMERCIAL_ARAGUAIA, "2 - COMERCIAL ARAGUAIA"),
-        (NOME_EMPRESA_CSM_TRANSPORTES, "4 - CSM TRANSPORTES"),
-    )
+class EmpresaTitular(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="empresas_titulares")
+    codigo = models.PositiveSmallIntegerField()
+    nome = models.CharField(max_length=120)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo"], name="uq_empresa_titular_empresa_codigo"),
+            models.UniqueConstraint(fields=["empresa", "nome"], name="uq_empresa_titular_empresa_nome"),
+        ]
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nome}"
+
+    @classmethod
+    def criar_empresa_titular(cls, *, empresa, codigo, nome):
+        item = cls(empresa=empresa, codigo=codigo, nome=nome)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_empresa_titular(self, *, codigo=UNSET, nome=UNSET):
+        if codigo is not UNSET:
+            self.codigo = codigo
+        if nome is not UNSET:
+            self.nome = nome
+        self.save()
+
+    def excluir_empresa_titular(self):
+        self.delete()
+
+
+class ContaBancaria(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="contas_bancarias")
+    empresa_titular = models.ForeignKey(EmpresaTitular, on_delete=models.PROTECT, related_name="contas_bancarias")
     agencia = models.IntegerField()
     numero_conta = models.BigIntegerField()
     nome_banco = models.CharField(max_length=150)
-    nome_empresa_fantasia = models.PositiveSmallIntegerField(choices=NOME_EMPRESA_FANTASIA_CHOICES)
 
     class Meta:
         constraints = [
@@ -1363,15 +1389,15 @@ class ContaBancaria(models.Model):
             cls.objects.filter(id=-conta_id).update(id=novo_id)
 
     @classmethod
-    def criar_conta_bancaria(cls, *, empresa, agencia, numero_conta, nome_banco, nome_empresa_fantasia):
+    def criar_conta_bancaria(cls, *, empresa, empresa_titular, agencia, numero_conta, nome_banco):
         with transaction.atomic():
             item = cls(
                 id=cls._proximo_id_normalizado(),
                 empresa=empresa,
+                empresa_titular=empresa_titular,
                 agencia=agencia,
                 numero_conta=numero_conta,
                 nome_banco=nome_banco,
-                nome_empresa_fantasia=nome_empresa_fantasia,
             )
             item.save(force_insert=True)
             return item
@@ -1383,19 +1409,19 @@ class ContaBancaria(models.Model):
     def atualizar_conta_bancaria(
         self,
         *,
+        empresa_titular=UNSET,
         agencia=UNSET,
         numero_conta=UNSET,
         nome_banco=UNSET,
-        nome_empresa_fantasia=UNSET,
     ):
+        if empresa_titular is not UNSET:
+            self.empresa_titular = empresa_titular
         if agencia is not UNSET:
             self.agencia = agencia
         if numero_conta is not UNSET:
             self.numero_conta = numero_conta
         if nome_banco is not UNSET:
             self.nome_banco = nome_banco
-        if nome_empresa_fantasia is not UNSET:
-            self.nome_empresa_fantasia = nome_empresa_fantasia
         self.save()
 
     def excluir_conta_bancaria(self):
@@ -1403,6 +1429,89 @@ class ContaBancaria(models.Model):
             cls = type(self)
             self.delete()
             cls._normalizar_ids_contiguos()
+
+
+class SaldoLimite(models.Model):
+    TIPO_SALDO_INICIAL = "saldo_inicial"
+    TIPO_LIMITE_INICIAL = "limite_inicial"
+    TIPO_SALDO_FINAL = "saldo_final"
+    TIPO_LIMITE_FINAL = "limite_final"
+    TIPO_ANTECIPACAO = "antecipacao"
+    TIPO_MOVIMENTACAO_CHOICES = (
+        (TIPO_SALDO_INICIAL, "Saldo Inicial"),
+        (TIPO_LIMITE_INICIAL, "Limite Inicial"),
+        (TIPO_SALDO_FINAL, "Saldo Final"),
+        (TIPO_LIMITE_FINAL, "Limite Final"),
+        (TIPO_ANTECIPACAO, "Antecipacao"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="saldos_limites")
+    data = models.DateField()
+    empresa_titular = models.ForeignKey(EmpresaTitular, on_delete=models.PROTECT, related_name="saldos_limites")
+    conta_bancaria = models.ForeignKey(ContaBancaria, on_delete=models.PROTECT, related_name="saldos_limites")
+    tipo_movimentacao = models.CharField(max_length=32, choices=TIPO_MOVIMENTACAO_CHOICES)
+    valor_atual = models.DecimalField(max_digits=16, decimal_places=2)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "data", "empresa_titular", "conta_bancaria", "tipo_movimentacao"],
+                name="uq_saldo_limite_registro",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.data} - {self.get_tipo_movimentacao_display()} - {self.valor_atual}"
+
+    @classmethod
+    def criar_saldo_limite(
+        cls,
+        *,
+        empresa,
+        data,
+        empresa_titular,
+        conta_bancaria,
+        tipo_movimentacao,
+        valor_atual,
+    ):
+        item = cls(
+            empresa=empresa,
+            data=data,
+            empresa_titular=empresa_titular,
+            conta_bancaria=conta_bancaria,
+            tipo_movimentacao=tipo_movimentacao,
+            valor_atual=valor_atual,
+        )
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_saldo_limite(
+        self,
+        *,
+        data=UNSET,
+        empresa_titular=UNSET,
+        conta_bancaria=UNSET,
+        tipo_movimentacao=UNSET,
+        valor_atual=UNSET,
+    ):
+        if data is not UNSET:
+            self.data = data
+        if empresa_titular is not UNSET:
+            self.empresa_titular = empresa_titular
+        if conta_bancaria is not UNSET:
+            self.conta_bancaria = conta_bancaria
+        if tipo_movimentacao is not UNSET:
+            self.tipo_movimentacao = tipo_movimentacao
+        if valor_atual is not UNSET:
+            self.valor_atual = valor_atual
+        self.save()
+
+    def excluir_saldo_limite(self):
+        self.delete()
 
 
 class DescricaoPerfil(models.Model):

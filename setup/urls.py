@@ -100,6 +100,10 @@ urlpatterns = [
     path('parceiros/<int:empresa_id>/criar/', views_parametros.criar_parceiro_modulo, name='criar_parceiro_modulo'),
     path('parceiros/<int:empresa_id>/editar/<int:parceiro_id>/', views_parametros.editar_parceiro_modulo, name='editar_parceiro_modulo'),
     path('parceiros/<int:empresa_id>/excluir/<int:parceiro_id>/', views_parametros.excluir_parceiro_modulo, name='excluir_parceiro_modulo'),
+    path('empresas_titulares/<int:empresa_id>/', views_parametros.empresas_titulares, name='empresas_titulares'),
+    path('empresas_titulares/<int:empresa_id>/criar/', views_parametros.criar_empresa_titular_modulo, name='criar_empresa_titular_modulo'),
+    path('empresas_titulares/<int:empresa_id>/editar/<int:empresa_titular_id>/', views_parametros.editar_empresa_titular_modulo, name='editar_empresa_titular_modulo'),
+    path('empresas_titulares/<int:empresa_id>/excluir/<int:empresa_titular_id>/', views_parametros.excluir_empresa_titular_modulo, name='excluir_empresa_titular_modulo'),
     path('contas_bancarias/<int:empresa_id>/', views_parametros.contas_bancarias, name='contas_bancarias'),
     path('contas_bancarias/<int:empresa_id>/criar/', views_parametros.criar_conta_bancaria_modulo, name='criar_conta_bancaria_modulo'),
     path('contas_bancarias/<int:empresa_id>/editar/<int:conta_bancaria_id>/', views_parametros.editar_conta_bancaria_modulo, name='editar_conta_bancaria_modulo'),
@@ -159,6 +163,10 @@ urlpatterns = [
     path('contratos_redes/<int:empresa_id>/criar/', views_financeiro.criar_contrato_rede_modulo, name='criar_contrato_rede_modulo'),
     path('contratos_redes/<int:empresa_id>/editar/<int:contrato_id>/', views_financeiro.editar_contrato_rede_modulo, name='editar_contrato_rede_modulo'),
     path('contratos_redes/<int:empresa_id>/excluir/<int:contrato_id>/', views_financeiro.excluir_contrato_rede_modulo, name='excluir_contrato_rede_modulo'),
+    path('saldos_e_limites/<int:empresa_id>/', views_financeiro.saldos_e_limites, name='saldos_e_limites'),
+    path('saldos_e_limites/<int:empresa_id>/criar/', views_financeiro.criar_saldo_limite_modulo, name='criar_saldo_limite_modulo'),
+    path('saldos_e_limites/<int:empresa_id>/editar/<int:saldo_limite_id>/', views_financeiro.editar_saldo_limite_modulo, name='editar_saldo_limite_modulo'),
+    path('saldos_e_limites/<int:empresa_id>/excluir/<int:saldo_limite_id>/', views_financeiro.excluir_saldo_limite_modulo, name='excluir_saldo_limite_modulo'),
 
 
     # Modulos - Administrativo

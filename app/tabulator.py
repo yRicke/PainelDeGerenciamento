@@ -624,8 +624,12 @@ def build_contas_bancarias_tabulator(contas_qs, empresa_id: int):
             "agencia": conta.agencia,
             "numero_conta": conta.numero_conta,
             "nome_banco": conta.nome_banco or "",
-            "nome_empresa_fantasia": conta.nome_empresa_fantasia,
-            "nome_empresa_fantasia_label": conta.get_nome_empresa_fantasia_display(),
+            "empresa_titular_id": conta.empresa_titular_id,
+            "empresa_titular_label": (
+                f"{conta.empresa_titular.codigo} - {conta.empresa_titular.nome}"
+                if conta.empresa_titular_id
+                else ""
+            ),
             "editar_url": reverse(
                 "editar_conta_bancaria_modulo",
                 kwargs={"empresa_id": empresa_id, "conta_bancaria_id": conta.id},
@@ -636,6 +640,25 @@ def build_contas_bancarias_tabulator(contas_qs, empresa_id: int):
             ),
         }
         for conta in contas_qs
+    ]
+
+
+def build_empresas_titulares_tabulator(empresas_titulares_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "codigo": item.codigo,
+            "nome": item.nome,
+            "editar_url": reverse(
+                "editar_empresa_titular_modulo",
+                kwargs={"empresa_id": empresa_id, "empresa_titular_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_empresa_titular_modulo",
+                kwargs={"empresa_id": empresa_id, "empresa_titular_id": item.id},
+            ),
+        }
+        for item in empresas_titulares_qs
     ]
 
 
@@ -1023,6 +1046,41 @@ def build_parametros_negocios_tabulator(parametros_qs, empresa_id: int):
             "acao_url": acao_url,
         }
         for item in parametros_qs
+    ]
+
+
+def build_saldos_limites_tabulator(saldos_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "data": _fmt_date_br(item.data),
+            "data_iso": item.data.isoformat() if item.data else "",
+            "empresa_titular_id": item.empresa_titular_id,
+            "empresa_titular_label": (
+                f"{item.empresa_titular.codigo} - {item.empresa_titular.nome}"
+                if item.empresa_titular_id
+                else ""
+            ),
+            "conta_bancaria_id": item.conta_bancaria_id,
+            "conta_label": (
+                f"{item.conta_bancaria.agencia} / {item.conta_bancaria.numero_conta}"
+                if item.conta_bancaria_id
+                else ""
+            ),
+            "banco": item.conta_bancaria.nome_banco if item.conta_bancaria_id else "",
+            "tipo_movimentacao": item.tipo_movimentacao,
+            "tipo_movimentacao_label": item.get_tipo_movimentacao_display(),
+            "valor_atual": float(item.valor_atual or 0),
+            "editar_url": reverse(
+                "editar_saldo_limite_modulo",
+                kwargs={"empresa_id": empresa_id, "saldo_limite_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_saldo_limite_modulo",
+                kwargs={"empresa_id": empresa_id, "saldo_limite_id": item.id},
+            ),
+        }
+        for item in saldos_qs
     ]
 
 

@@ -13,6 +13,7 @@ MODULOS_POR_AREA = {
         {"nome": "DFC", "url": "dfc", "template": "financeiro/dfc.html"},
         {"nome": "Adiantamentos", "url": "adiantamentos", "template": "financeiro/adiantamentos.html"},
         {"nome": "Contratos Redes", "url": "contratos_redes", "template": "financeiro/contratos_redes.html"},
+        {"nome": "Saldos e Limites", "url": "saldos_e_limites", "template": "financeiro/saldos_e_limites.html"},
     ],
     "Administrativo": [
         {"nome": "Plano de Cargos e Salarios", "url": "plano_de_cargos_e_salarios", "template": "administrativo/plano_de_cargos_e_salarios.html"},
@@ -53,6 +54,7 @@ MODULOS_POR_AREA = {
         {"nome": "Parametros Financeiro", "url": "parametros_financeiro", "template": "parametros/parametros_financeiro.html"},
         {"nome": "Parametros de Negocios", "url": "parametros_negocios", "template": "parametros/parametros_negocios.html"},
         {"nome": "Contas Bancarias", "url": "contas_bancarias", "template": "parametros/contas_bancarias.html"},
+        {"nome": "Empresas Titulares", "url": "empresas_titulares", "template": "parametros/empresas_titulares.html"},
     ],
     "Operacional": [
         {"nome": "Cargas em Aberto", "url": "cargas_em_aberto", "template": "operacional/cargas_em_aberto.html"},

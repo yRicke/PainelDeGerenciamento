@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Saldos e Limites{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/saldos-e-limites-page.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Financeiro</span>
+            </div>
+            <h1>Saldos e Limites</h1>
+            <p class="module-hero-subtitle">Cadastro manual, filtros, dashboard e tabela com edicao inline.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</section>
+
+<div id="saldos-limites-module-shell" class="module-shell">
+    <aside id="saldos-limites-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros de Banco, Tipo de Movimentacao e Empresa Titular.</p>
+            <div class="module-filter-columns">
+                <div id="saldos-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="saldos-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="saldos-limites-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Saldos e Limites">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro de Saldos e Limites</h2>
+            <p class="form-note">Todos os campos sao obrigatorios. Empresa e associada automaticamente.</p>
+            <form id="saldos-limites-cadastro-form" action="{% url 'criar_saldo_limite_modulo' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Data</label>
+                        <input type="date" name="data" value="{{ hoje_iso }}" required>
+                    </div>
+                    <div>
+                        <label>Empresa Titular</label>
+                        <select name="empresa_titular_id" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in empresas_titulares_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Conta Bancaria</label>
+                        <select name="conta_bancaria_id" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in contas_bancarias_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.titular_label }} | {{ opcao.banco }} | {{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Tipo de Movimentacao</label>
+                        <select name="tipo_movimentacao" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in tipos_movimentacao_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Valor Atual</label>
+                        <input type="text" name="valor_atual" placeholder="0,00" required>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+            <p id="saldos-limites-save-status" class="file-status" aria-live="polite"></p>
+        </section>
+
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard Saldos e Limites</h2>
+            <div class="saldos-limites-dashboard-controls">
+                <div>
+                    <label for="saldos-limites-data-filtro">Data de Referencia</label>
+                    <input type="date" id="saldos-limites-data-filtro">
+                </div>
+                <button type="button" id="saldos-limites-btn-ultima-data" class="btn-light">Ultima data</button>
+                <button type="button" id="saldos-limites-btn-limpar-data" class="btn-light">Limpar data</button>
+            </div>
+
+            <div class="dashboard-kpi-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Valor Limites Disponivel</h3>
+                    <p id="saldos-kpi-limites-total">R$ 0,00</p>
+                    <div class="saldos-limites-kpi-breakdown">
+                        <span>Inicial: <strong id="saldos-kpi-limite-inicial">R$ 0,00</strong></span>
+                        <span>Final: <strong id="saldos-kpi-limite-final">R$ 0,00</strong></span>
+                    </div>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Valor Saldo Disponivel</h3>
+                    <p id="saldos-kpi-saldos-total">R$ 0,00</p>
+                    <div class="saldos-limites-kpi-breakdown">
+                        <span>Inicial: <strong id="saldos-kpi-saldo-inicial">R$ 0,00</strong></span>
+                        <span>Final: <strong id="saldos-kpi-saldo-final">R$ 0,00</strong></span>
+                    </div>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Valor Antecipacoes</h3>
+                    <p id="saldos-kpi-antecipacoes">R$ 0,00</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Tabela de Saldos e Limites</h2>
+            <div class="table-wrapper">
+                <div id="saldos-limites-tabulator"></div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ saldos_limites_tabulator|json_script:"saldos-limites-tabulator-data" }}
+{{ empresas_titulares_opcoes|json_script:"saldos-limites-empresas-opcoes-data" }}
+{{ contas_bancarias_opcoes|json_script:"saldos-limites-contas-opcoes-data" }}
+{{ tipos_movimentacao_opcoes|json_script:"saldos-limites-tipos-opcoes-data" }}
+{{ ultima_data_iso|json_script:"saldos-limites-ultima-data-iso" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/saldos-e-limites-page.js' %}?v=20260329-3"></script>
+{% endblock %}

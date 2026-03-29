@@ -29,6 +29,7 @@ from ..models import (
     ContasAReceber,
     DescricaoPerfil,
     Empresa,
+    EmpresaTitular,
     Faturamento,
     FluxoDeCaixaDFC,
     Estoque,
@@ -53,6 +54,7 @@ from ..models import (
     PlanoCargoSalario,
     Rota,
     Regiao,
+    SaldoLimite,
     Titulo,
     Transportadora,
     UnidadeFederativa,
@@ -720,23 +722,64 @@ def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=None
     return ""
 
 
-def _normalizar_nome_empresa_fantasia_conta_bancaria(valor):
-    codigo = _parse_int_ou_zero(valor)
-    codigos_validos = {
-        ContaBancaria.NOME_EMPRESA_SAFIA_DISTRIBUIDORA,
-        ContaBancaria.NOME_EMPRESA_COMERCIAL_ARAGUAIA,
-        ContaBancaria.NOME_EMPRESA_CSM_TRANSPORTES,
-    }
-    return codigo if codigo in codigos_validos else None
+def criar_empresa_titular_por_dados(empresa, codigo, nome):
+    codigo_normalizado = _parse_int_ou_zero(codigo)
+    nome_normalizado = (nome or "").strip()
+    if codigo_normalizado <= 0:
+        return "Codigo da empresa titular e obrigatorio e deve ser maior que zero."
+    if not nome_normalizado:
+        return "Nome da empresa titular e obrigatorio."
+    if EmpresaTitular.objects.filter(empresa=empresa, codigo=codigo_normalizado).exists():
+        return "Ja existe empresa titular com este codigo nesta empresa."
+    if EmpresaTitular.objects.filter(empresa=empresa, nome__iexact=nome_normalizado).exists():
+        return "Ja existe empresa titular com este nome nesta empresa."
+    EmpresaTitular.criar_empresa_titular(empresa=empresa, codigo=codigo_normalizado, nome=nome_normalizado)
+    return ""
+
+
+def atualizar_empresa_titular_por_dados(empresa_titular, empresa, codigo, nome):
+    codigo_normalizado = _parse_int_ou_zero(codigo)
+    nome_normalizado = (nome or "").strip()
+    if empresa_titular.empresa_id != empresa.id:
+        return "Empresa titular invalida para esta empresa."
+    if codigo_normalizado <= 0:
+        return "Codigo da empresa titular e obrigatorio e deve ser maior que zero."
+    if not nome_normalizado:
+        return "Nome da empresa titular e obrigatorio."
+    if (
+        EmpresaTitular.objects.filter(empresa=empresa, codigo=codigo_normalizado)
+        .exclude(id=empresa_titular.id)
+        .exists()
+    ):
+        return "Ja existe empresa titular com este codigo nesta empresa."
+    if (
+        EmpresaTitular.objects.filter(empresa=empresa, nome__iexact=nome_normalizado)
+        .exclude(id=empresa_titular.id)
+        .exists()
+    ):
+        return "Ja existe empresa titular com este nome nesta empresa."
+    empresa_titular.atualizar_empresa_titular(codigo=codigo_normalizado, nome=nome_normalizado)
+    return ""
+
+
+def excluir_empresa_titular_por_dados(empresa_titular, empresa):
+    if empresa_titular.empresa_id != empresa.id:
+        return "Empresa titular invalida para esta empresa."
+    empresa_titular.excluir_empresa_titular()
+    return ""
+
+
+def _obter_empresa_titular_por_id(empresa, empresa_titular_id):
+    if not empresa_titular_id:
+        return None
+    return EmpresaTitular.objects.filter(id=empresa_titular_id, empresa=empresa).first()
 
 
 def criar_conta_bancaria_por_dados(empresa, post_data):
     agencia = _parse_int_ou_zero(post_data.get("agencia"))
     numero_conta = _parse_int64_ou_zero(post_data.get("numero_conta"))
     nome_banco = (post_data.get("nome_banco") or "").strip()
-    nome_empresa_fantasia = _normalizar_nome_empresa_fantasia_conta_bancaria(
-        post_data.get("nome_empresa_fantasia")
-    )
+    empresa_titular = _obter_empresa_titular_por_id(empresa, post_data.get("empresa_titular_id"))
 
     if agencia <= 0:
         return "Agencia e obrigatoria e deve ser maior que zero."
@@ -744,17 +787,17 @@ def criar_conta_bancaria_por_dados(empresa, post_data):
         return "Numero da conta e obrigatorio e deve ser maior que zero."
     if not nome_banco:
         return "Nome do banco e obrigatorio."
-    if nome_empresa_fantasia is None:
-        return "Nome da empresa fantasia e obrigatorio."
+    if not empresa_titular:
+        return "Empresa titular e obrigatoria."
     if ContaBancaria.objects.filter(empresa=empresa, agencia=agencia, numero_conta=numero_conta).exists():
         return "Ja existe conta bancaria com agencia e numero de conta nesta empresa."
 
     ContaBancaria.criar_conta_bancaria(
         empresa=empresa,
+        empresa_titular=empresa_titular,
         agencia=agencia,
         numero_conta=numero_conta,
         nome_banco=nome_banco,
-        nome_empresa_fantasia=nome_empresa_fantasia,
     )
     return ""
 
@@ -763,9 +806,7 @@ def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
     agencia = _parse_int_ou_zero(post_data.get("agencia"))
     numero_conta = _parse_int64_ou_zero(post_data.get("numero_conta"))
     nome_banco = (post_data.get("nome_banco") or "").strip()
-    nome_empresa_fantasia = _normalizar_nome_empresa_fantasia_conta_bancaria(
-        post_data.get("nome_empresa_fantasia")
-    )
+    empresa_titular = _obter_empresa_titular_por_id(empresa, post_data.get("empresa_titular_id"))
 
     if conta_bancaria.empresa_id != empresa.id:
         return "Conta bancaria invalida para esta empresa."
@@ -775,8 +816,8 @@ def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
         return "Numero da conta e obrigatorio e deve ser maior que zero."
     if not nome_banco:
         return "Nome do banco e obrigatorio."
-    if nome_empresa_fantasia is None:
-        return "Nome da empresa fantasia e obrigatorio."
+    if not empresa_titular:
+        return "Empresa titular e obrigatoria."
     if (
         ContaBancaria.objects.filter(empresa=empresa, agencia=agencia, numero_conta=numero_conta)
         .exclude(id=conta_bancaria.id)
@@ -785,10 +826,10 @@ def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
         return "Ja existe conta bancaria com agencia e numero de conta nesta empresa."
 
     conta_bancaria.atualizar_conta_bancaria(
+        empresa_titular=empresa_titular,
         agencia=agencia,
         numero_conta=numero_conta,
         nome_banco=nome_banco,
-        nome_empresa_fantasia=nome_empresa_fantasia,
     )
     return ""
 
@@ -797,6 +838,94 @@ def excluir_conta_bancaria_por_dados(conta_bancaria, empresa):
     if conta_bancaria.empresa_id != empresa.id:
         return "Conta bancaria invalida para esta empresa."
     conta_bancaria.excluir_conta_bancaria()
+    return ""
+
+
+def _tipo_movimentacao_saldo_limite_valido(valor):
+    valor_normalizado = str(valor or "").strip()
+    tipos_validos = {item[0] for item in SaldoLimite.TIPO_MOVIMENTACAO_CHOICES}
+    return valor_normalizado if valor_normalizado in tipos_validos else ""
+
+
+def _dados_saldo_limite_from_post(empresa, post_data):
+    data = _parse_date_ou_none(post_data.get("data"))
+    empresa_titular = _obter_empresa_titular_por_id(empresa, post_data.get("empresa_titular_id"))
+    conta_bancaria = ContaBancaria.objects.filter(
+        id=post_data.get("conta_bancaria_id"),
+        empresa=empresa,
+    ).first()
+    tipo_movimentacao = _tipo_movimentacao_saldo_limite_valido(post_data.get("tipo_movimentacao"))
+    valor_atual = _parse_decimal_ou_zero(post_data.get("valor_atual"))
+    return {
+        "data": data,
+        "empresa_titular": empresa_titular,
+        "conta_bancaria": conta_bancaria,
+        "tipo_movimentacao": tipo_movimentacao,
+        "valor_atual": valor_atual,
+    }
+
+
+def criar_saldo_limite_por_dados(empresa, post_data):
+    dados = _dados_saldo_limite_from_post(empresa, post_data)
+    if not dados["data"]:
+        return "Data e obrigatoria."
+    if not dados["empresa_titular"]:
+        return "Empresa titular e obrigatoria."
+    if not dados["conta_bancaria"]:
+        return "Conta bancaria e obrigatoria."
+    if not dados["tipo_movimentacao"]:
+        return "Tipo de movimentacao e obrigatorio."
+    if dados["conta_bancaria"].empresa_titular_id != dados["empresa_titular"].id:
+        return "Conta bancaria nao pertence a empresa titular selecionada."
+    if SaldoLimite.objects.filter(
+        empresa=empresa,
+        data=dados["data"],
+        empresa_titular=dados["empresa_titular"],
+        conta_bancaria=dados["conta_bancaria"],
+        tipo_movimentacao=dados["tipo_movimentacao"],
+    ).exists():
+        return "Ja existe registro para a combinacao de data, empresa titular, conta e tipo."
+
+    SaldoLimite.criar_saldo_limite(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_saldo_limite_por_dados(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    dados = _dados_saldo_limite_from_post(empresa, post_data)
+    if not dados["data"]:
+        return "Data e obrigatoria."
+    if not dados["empresa_titular"]:
+        return "Empresa titular e obrigatoria."
+    if not dados["conta_bancaria"]:
+        return "Conta bancaria e obrigatoria."
+    if not dados["tipo_movimentacao"]:
+        return "Tipo de movimentacao e obrigatorio."
+    if dados["conta_bancaria"].empresa_titular_id != dados["empresa_titular"].id:
+        return "Conta bancaria nao pertence a empresa titular selecionada."
+    if (
+        SaldoLimite.objects.filter(
+            empresa=empresa,
+            data=dados["data"],
+            empresa_titular=dados["empresa_titular"],
+            conta_bancaria=dados["conta_bancaria"],
+            tipo_movimentacao=dados["tipo_movimentacao"],
+        )
+        .exclude(id=item.id)
+        .exists()
+    ):
+        return "Ja existe registro para a combinacao de data, empresa titular, conta e tipo."
+
+    item.atualizar_saldo_limite(**dados)
+    return ""
+
+
+def excluir_saldo_limite_por_dados(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+    item.excluir_saldo_limite()
     return ""
 
 

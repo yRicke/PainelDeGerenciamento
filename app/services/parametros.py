@@ -12,6 +12,18 @@ def atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=None
     return _services().atualizar_parceiro_por_dados(parceiro, nome, codigo, empresa, cidade_id=cidade_id)
 
 
+def criar_empresa_titular_por_dados(empresa, codigo, nome):
+    return _services().criar_empresa_titular_por_dados(empresa, codigo, nome)
+
+
+def atualizar_empresa_titular_por_dados(empresa_titular, empresa, codigo, nome):
+    return _services().atualizar_empresa_titular_por_dados(empresa_titular, empresa, codigo, nome)
+
+
+def excluir_empresa_titular_por_dados(empresa_titular, empresa):
+    return _services().excluir_empresa_titular_por_dados(empresa_titular, empresa)
+
+
 def criar_conta_bancaria_por_dados(empresa, post_data):
     return _services().criar_conta_bancaria_por_dados(empresa, post_data)
 

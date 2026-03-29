@@ -15,7 +15,9 @@ from ..models import (
     Adiantamento,
     CentroResultado,
     ContratoRede,
+    ContaBancaria,
     ContasAReceber,
+    EmpresaTitular,
     Faturamento,
     FluxoDeCaixaDFC,
     Natureza,
@@ -23,6 +25,7 @@ from ..models import (
     Orcamento,
     OrcamentoPlanejado,
     Parceiro,
+    SaldoLimite,
     Titulo,
 )
 from ..services.financeiro import (
@@ -35,6 +38,7 @@ from ..services.financeiro import (
     atualizar_operacao_por_dados,
     atualizar_orcamento_planejado_por_post,
     atualizar_orcamento_por_post,
+    atualizar_saldo_limite_por_dados,
     atualizar_titulo_por_dados,
     construir_payload_tabela_saldo_dfc,
     criar_adiantamento_por_post,
@@ -46,7 +50,9 @@ from ..services.financeiro import (
     criar_operacao_por_dados,
     criar_orcamento_planejado_por_post,
     criar_orcamento_por_post,
+    criar_saldo_limite_por_dados,
     criar_titulo_por_dados,
+    excluir_saldo_limite_por_dados,
     importar_upload_adiantamentos,
     importar_upload_contas_a_receber,
     importar_upload_dfc,
@@ -68,6 +74,7 @@ from ..tabulator import (
     build_orcamento_tabulator,
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
+    build_saldos_limites_tabulator,
     build_titulos_tabulator,
 )
 from ..utils.modulos_permissoes import (
@@ -104,6 +111,17 @@ def _parse_data_dashboard_faturamento(valor):
         except ValueError:
             continue
     return None
+
+
+def _is_ajax_request(request):
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def _payload_saldo_limite(item, empresa_id):
+    registros = build_saldos_limites_tabulator([item], empresa_id)
+    if not registros:
+        return None
+    return registros[0]
 
 
 def _formatar_moeda_br(valor):
@@ -1001,6 +1019,181 @@ def adiantamentos(request, empresa_id):
         ),
     }
     return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def saldos_e_limites(request, empresa_id):
+    modulo = _obter_modulo("Financeiro", "Saldos e Limites")
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not autorizado:
+        return redirect("index")
+
+    saldos_qs = (
+        SaldoLimite.objects.filter(empresa=empresa)
+        .select_related("empresa_titular", "conta_bancaria")
+        .order_by("-data", "-id")
+    )
+    empresas_titulares_qs = EmpresaTitular.objects.filter(empresa=empresa).order_by("codigo", "id")
+    contas_bancarias_qs = (
+        ContaBancaria.objects.filter(empresa=empresa)
+        .select_related("empresa_titular")
+        .order_by("nome_banco", "agencia", "numero_conta", "id")
+    )
+    ultima_data = saldos_qs.aggregate(data_max=Max("data")).get("data_max")
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "saldos_limites_tabulator": build_saldos_limites_tabulator(saldos_qs, empresa.id),
+        "empresas_titulares_opcoes": [
+            {
+                "id": item.id,
+                "codigo": item.codigo,
+                "nome": item.nome,
+                "label": f"{item.codigo} - {item.nome}",
+            }
+            for item in empresas_titulares_qs
+        ],
+        "contas_bancarias_opcoes": [
+            {
+                "id": conta.id,
+                "empresa_titular_id": conta.empresa_titular_id,
+                "label": f"{conta.agencia} / {conta.numero_conta}",
+                "banco": conta.nome_banco or "",
+                "titular_label": f"{conta.empresa_titular.codigo} - {conta.empresa_titular.nome}",
+            }
+            for conta in contas_bancarias_qs
+        ],
+        "tipos_movimentacao_opcoes": [
+            {"value": codigo, "label": nome}
+            for codigo, nome in SaldoLimite.TIPO_MOVIMENTACAO_CHOICES
+        ],
+        "hoje_iso": timezone.localdate().isoformat(),
+        "ultima_data_iso": ultima_data.isoformat() if ultima_data else "",
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def criar_saldo_limite_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Saldos e Limites")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    erro = criar_saldo_limite_por_dados(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    item = (
+        SaldoLimite.objects.filter(
+            empresa=empresa,
+            data=request.POST.get("data"),
+            empresa_titular_id=request.POST.get("empresa_titular_id"),
+            conta_bancaria_id=request.POST.get("conta_bancaria_id"),
+            tipo_movimentacao=request.POST.get("tipo_movimentacao"),
+        )
+        .select_related("empresa_titular", "conta_bancaria")
+        .order_by("-id")
+        .first()
+    )
+    if item is None:
+        item = (
+            SaldoLimite.objects.filter(empresa=empresa)
+            .select_related("empresa_titular", "conta_bancaria")
+            .order_by("-id")
+            .first()
+        )
+
+    if _is_ajax_request(request):
+        if item is None:
+            return JsonResponse(
+                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                status=500,
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro criado com sucesso.",
+                "registro": _payload_saldo_limite(item, empresa.id),
+            }
+        )
+
+    messages.success(request, "Registro criado com sucesso.")
+    return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_saldo_limite_modulo(request, empresa_id, saldo_limite_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Saldos e Limites")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    item = SaldoLimite.objects.filter(id=saldo_limite_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    erro = atualizar_saldo_limite_por_dados(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    item = (
+        SaldoLimite.objects.filter(id=item.id, empresa=empresa)
+        .select_related("empresa_titular", "conta_bancaria")
+        .first()
+    )
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": _payload_saldo_limite(item, empresa.id) if item else None,
+            }
+        )
+
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_saldo_limite_modulo(request, empresa_id, saldo_limite_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Saldos e Limites")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    item = SaldoLimite.objects.filter(id=saldo_limite_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    erro = excluir_saldo_limite_por_dados(item, empresa)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("saldos_e_limites", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": saldo_limite_id})
+
+    messages.success(request, "Registro excluido com sucesso.")
+    return redirect("saldos_e_limites", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

@@ -1,0 +1,53 @@
+@import url("./lancamentos-shared.css");
+
+.saldos-limites-dashboard-controls {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px) auto auto;
+    gap: 0.6rem;
+    align-items: end;
+    margin-bottom: 0.9rem;
+}
+
+.saldos-limites-dashboard-controls > div {
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+}
+
+.saldos-limites-dashboard-controls label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.saldos-limites-kpi-breakdown {
+    margin-top: 0.45rem;
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.92rem;
+    color: #34475a;
+}
+
+.saldos-limites-kpi-breakdown strong {
+    color: #12283f;
+}
+
+#saldos-limites-save-status.saldos-limites-save-status--ok {
+    color: #037847;
+}
+
+#saldos-limites-save-status.saldos-limites-save-status--error {
+    color: #b42318;
+}
+
+#saldos-limites-save-status.saldos-limites-save-status--progress {
+    color: #175cd3;
+}
+
+@media (max-width: 900px) {
+    .saldos-limites-dashboard-controls {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,44 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Empresas Titulares{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/tabulator-cadastro-ux.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+    <h1>Empresas Titulares</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<div class="tabulator-cadastro-ux">
+    <section id="sec-cadastro" class="panel module-section">
+        <h2>Novo Cadastro de Empresa Titular</h2>
+        <p class="form-note">Campos obrigatorios: Codigo e Nome.</p>
+        <form action="{% url 'criar_empresa_titular_modulo' empresa.id %}" method="POST" class="inline-form inline-form--parceiros">
+            {% csrf_token %}
+            <input type="number" name="codigo" placeholder="Codigo" required>
+            <input type="text" name="nome" placeholder="Nome" required>
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </form>
+    </section>
+
+    <section id="sec-visualizacao" class="panel module-section">
+        <h2>Lista de Empresas Titulares</h2>
+        <div class="table-wrapper"><div id="empresas-titulares-tabulator"></div></div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ empresas_titulares_tabulator|json_script:"empresas-titulares-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/empresas-titulares-page.js' %}"></script>
+{% endblock %}
