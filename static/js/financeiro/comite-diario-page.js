@@ -12,6 +12,7 @@
     var cadastroForm = document.getElementById("comite-diario-cadastro-form");
     var saveStatusEl = document.getElementById("comite-diario-save-status");
     var cadastroDecisaoSelect = cadastroForm ? cadastroForm.querySelector('select[name="decisao"]') : null;
+    var cadastroDataProrrogadaInput = cadastroForm ? cadastroForm.querySelector('input[name="data_prorrogada"]') : null;
     var cadastroTransferFields = cadastroForm
         ? [
             cadastroForm.querySelector('select[name="de_banco_id"]'),
@@ -206,7 +207,34 @@
         if (tone) saveStatusEl.classList.add(tone);
     }
 
+    function applyDecisionRulesToRow(rowData) {
+        if (!rowData) return false;
+        var changed = false;
+        var decisao = toText(rowData.decisao);
+
+        if (decisao !== "transferir") {
+            if (toText(rowData.de_banco_id)) changed = true;
+            if (toText(rowData.para_banco_id)) changed = true;
+            if (toText(rowData.para_empresa_id)) changed = true;
+            rowData.de_banco_id = "";
+            rowData.de_banco_label = "";
+            rowData.para_banco_id = "";
+            rowData.para_banco_label = "";
+            rowData.para_empresa_id = "";
+            rowData.para_empresa_label = "";
+        }
+
+        if (decisao !== "adiar") {
+            if (toText(rowData.data_prorrogada_iso)) changed = true;
+            rowData.data_prorrogada_iso = "";
+            rowData.data_prorrogada = "";
+        }
+
+        return changed;
+    }
+
     function updateLocalLabels(rowData) {
+        applyDecisionRulesToRow(rowData);
         var empresaTitularId = String(rowData.empresa_titular_id || "");
         var parceiroId = String(rowData.parceiro_id || "");
         var naturezaId = String(rowData.natureza_id || "");
@@ -274,7 +302,7 @@
     }
 
     function buildPayloadFromRow(rowData) {
-        return {
+        var payload = {
             data_negociacao: toText(rowData.data_negociacao_iso),
             data_vencimento: toText(rowData.data_vencimento_iso),
             receita_despesa: toText(rowData.receita_despesa),
@@ -292,6 +320,17 @@
             para_banco_id: toText(rowData.para_banco_id),
             para_empresa_id: toText(rowData.para_empresa_id),
         };
+
+        if (payload.decisao !== "transferir") {
+            payload.de_banco_id = "";
+            payload.para_banco_id = "";
+            payload.para_empresa_id = "";
+        }
+        if (payload.decisao !== "adiar") {
+            payload.data_prorrogada = "";
+        }
+
+        return payload;
     }
 
     function saveRowAutomatically(cell) {
@@ -391,6 +430,25 @@
 
     function onCellEdited(cell) {
         if (internalUpdate) return;
+        var row = cell && typeof cell.getRow === "function" ? cell.getRow() : null;
+        var rowData = row ? row.getData() : null;
+        var changedByRules = applyDecisionRulesToRow(rowData);
+
+        if (row && rowData) {
+            updateLocalLabels(rowData);
+        }
+
+        if (changedByRules && row && rowData && typeof row.update === "function") {
+            internalUpdate = true;
+            Promise.resolve(row.update(rowData))
+                .finally(function () {
+                    internalUpdate = false;
+                    refreshRowVisual(row);
+                    saveRowAutomatically(cell);
+                });
+            return;
+        }
+
         saveRowAutomatically(cell);
     }
 
@@ -437,6 +495,23 @@
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.parceiro_label : "";
+                },
+            },
+            {
+                key: "centro_resultado_label",
+                label: "Centro Resultado",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.centro_resultado_label : "";
+                },
+            },
+            {
+                key: "data_vencimento",
+                label: "Data Vencimento",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    if (!rowData) return "";
+                    return rowData.data_vencimento || formatDateIsoToBr(rowData.data_vencimento_iso);
                 },
             },
         ];
@@ -538,13 +613,28 @@
         });
     }
 
-    function toggleTransferFieldsRequirement() {
-        if (!cadastroDecisaoSelect || !cadastroTransferFields.length) return;
-        var isTransferir = toText(cadastroDecisaoSelect.value) === "transferir";
+    function toggleDecisionDependentFormFields() {
+        if (!cadastroDecisaoSelect) return;
+        var decisao = toText(cadastroDecisaoSelect.value);
+        var isTransferir = decisao === "transferir";
+        var isAdiar = decisao === "adiar";
+
         cadastroTransferFields.forEach(function (field) {
             if (!field) return;
-            field.required = isTransferir;
+            field.required = false;
+            field.disabled = !isTransferir;
+            if (!isTransferir) {
+                field.value = "";
+            }
         });
+
+        if (cadastroDataProrrogadaInput) {
+            cadastroDataProrrogadaInput.required = false;
+            cadastroDataProrrogadaInput.disabled = !isAdiar;
+            if (!isAdiar) {
+                cadastroDataProrrogadaInput.value = "";
+            }
+        }
     }
 
     function submitCreate(event) {
@@ -582,7 +672,7 @@
                 Promise.resolve(tabela.addData([result.body.registro], true))
                     .then(function () {
                         cadastroForm.reset();
-                        toggleTransferFieldsRequirement();
+                        toggleDecisionDependentFormFields();
                         rebuildExternalFiltersByDate();
                         updateDashboard(getVisibleRowsData());
                         setSaveStatus("Registro criado e tabela atualizada.", "comite-diario-save-status--ok");
@@ -782,6 +872,10 @@
                 field: "data_prorrogada_iso",
                 editor: "input",
                 editorParams: {elementAttributes: {type: "date"}},
+                editable: function (cell) {
+                    var rowData = cell && cell.getRow ? cell.getRow().getData() : null;
+                    return toText(rowData && rowData.decisao) === "adiar";
+                },
                 formatter: function (cell) {
                     return formatDateIsoToBr(cell.getValue());
                 },
@@ -793,6 +887,10 @@
                 field: "de_banco_id",
                 editor: "list",
                 editorParams: {values: bancosValues, clearable: true},
+                editable: function (cell) {
+                    var rowData = cell && cell.getRow ? cell.getRow().getData() : null;
+                    return toText(rowData && rowData.decisao) === "transferir";
+                },
                 formatter: function (cell) {
                     var row = cell.getRow().getData() || {};
                     return row.de_banco_label || bancosValues[String(row.de_banco_id || "")] || "";
@@ -805,6 +903,10 @@
                 field: "para_banco_id",
                 editor: "list",
                 editorParams: {values: bancosValues, clearable: true},
+                editable: function (cell) {
+                    var rowData = cell && cell.getRow ? cell.getRow().getData() : null;
+                    return toText(rowData && rowData.decisao) === "transferir";
+                },
                 formatter: function (cell) {
                     var row = cell.getRow().getData() || {};
                     return row.para_banco_label || bancosValues[String(row.para_banco_id || "")] || "";
@@ -817,6 +919,10 @@
                 field: "para_empresa_id",
                 editor: "list",
                 editorParams: {values: empresasValues, clearable: true},
+                editable: function (cell) {
+                    var rowData = cell && cell.getRow ? cell.getRow().getData() : null;
+                    return toText(rowData && rowData.decisao) === "transferir";
+                },
                 formatter: function (cell) {
                     var row = cell.getRow().getData() || {};
                     return row.para_empresa_label || empresasValues[String(row.para_empresa_id || "")] || "";
@@ -873,11 +979,11 @@
 
     cadastroForm.addEventListener("submit", submitCreate);
     if (cadastroDecisaoSelect) {
-        cadastroDecisaoSelect.addEventListener("change", toggleTransferFieldsRequirement);
+        cadastroDecisaoSelect.addEventListener("change", toggleDecisionDependentFormFields);
     }
 
     bindFilterClearButtons();
-    toggleTransferFieldsRequirement();
+    toggleDecisionDependentFormFields();
     applyDateFilterValue("");
     setSaveStatus("", "");
 })();

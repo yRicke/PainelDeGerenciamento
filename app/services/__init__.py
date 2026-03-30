@@ -999,6 +999,13 @@ def _dados_comite_diario_from_post(empresa, post_data):
     de_banco = _obter_banco_por_id(empresa, post_data.get("de_banco_id"))
     para_banco = _obter_banco_por_id(empresa, post_data.get("para_banco_id"))
 
+    if decisao != ComiteDiario.DECISAO_TRANSFERIR:
+        de_banco = None
+        para_banco = None
+        para_empresa = None
+    if decisao != ComiteDiario.DECISAO_ADIAR:
+        data_prorrogada = None
+
     return {
         "data_negociacao_raw": (post_data.get("data_negociacao") or "").strip(),
         "data_vencimento_raw": (post_data.get("data_vencimento") or "").strip(),
@@ -1048,14 +1055,6 @@ def _validar_dados_comite_diario(dados):
         return "Tipo de movimento e obrigatorio."
     if not dados["decisao"]:
         return "Decisao e obrigatoria."
-
-    if dados["decisao"] == ComiteDiario.DECISAO_TRANSFERIR:
-        if not dados["de_banco"]:
-            return "De banco e obrigatorio quando a decisao for Transferir."
-        if not dados["para_banco"]:
-            return "Para banco e obrigatorio quando a decisao for Transferir."
-        if not dados["para_empresa"]:
-            return "Para empresa e obrigatoria quando a decisao for Transferir."
 
     return ""
 

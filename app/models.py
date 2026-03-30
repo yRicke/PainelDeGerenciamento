@@ -1598,16 +1598,12 @@ class ComiteDiario(models.Model):
 
     def clean(self):
         super().clean()
-        if self.decisao == self.DECISAO_TRANSFERIR:
-            faltantes = {}
-            if not self.de_banco_id:
-                faltantes["de_banco"] = "Campo obrigatorio quando a decisao for Transferir."
-            if not self.para_banco_id:
-                faltantes["para_banco"] = "Campo obrigatorio quando a decisao for Transferir."
-            if not self.para_empresa_id:
-                faltantes["para_empresa"] = "Campo obrigatorio quando a decisao for Transferir."
-            if faltantes:
-                raise ValidationError(faltantes)
+        if self.decisao != self.DECISAO_TRANSFERIR:
+            self.de_banco = None
+            self.para_banco = None
+            self.para_empresa = None
+        if self.decisao != self.DECISAO_ADIAR:
+            self.data_prorrogada = None
 
     @classmethod
     def criar_comite_diario(
