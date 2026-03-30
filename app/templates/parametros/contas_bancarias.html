@@ -26,7 +26,12 @@
             {% csrf_token %}
             <input type="number" name="agencia" placeholder="Agencia" required>
             <input type="number" name="numero_conta" placeholder="Numero da conta" required>
-            <input type="text" name="nome_banco" placeholder="Nome do banco" required>
+            <select name="banco_id" required>
+                <option value="">Banco</option>
+                {% for opcao in bancos_opcoes %}
+                <option value="{{ opcao.id }}">{{ opcao.nome }}</option>
+                {% endfor %}
+            </select>
             <select name="empresa_titular_id" required>
                 <option value="">Empresa titular</option>
                 {% for opcao in empresas_titulares_opcoes %}
@@ -50,6 +55,7 @@
 {% block extra_js %}
 {{ contas_bancarias_tabulator|json_script:"contas-bancarias-tabulator-data" }}
 {{ empresas_titulares_opcoes|json_script:"contas-bancarias-opcoes-data" }}
+{{ bancos_opcoes|json_script:"contas-bancarias-bancos-opcoes-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/parametros/contas-bancarias-page.js' %}"></script>
 {% endblock %}

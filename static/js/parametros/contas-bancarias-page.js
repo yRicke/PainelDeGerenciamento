@@ -1,14 +1,17 @@
-﻿(function () {
+(function () {
     var dataElement = document.getElementById("contas-bancarias-tabulator-data");
     var opcoesElement = document.getElementById("contas-bancarias-opcoes-data");
+    var bancosElement = document.getElementById("contas-bancarias-bancos-opcoes-data");
     var cadastroForm = document.getElementById("contas-bancarias-cadastro-form");
     var saveStatusEl = document.getElementById("contas-bancarias-save-status");
 
-    if (!dataElement || !opcoesElement || !cadastroForm || !window.Tabulator || !window.TabulatorDefaults) return;
+    if (!dataElement || !opcoesElement || !bancosElement || !cadastroForm || !window.Tabulator || !window.TabulatorDefaults) return;
 
     var data = JSON.parse(dataElement.textContent || "[]");
     var opcoes = JSON.parse(opcoesElement.textContent || "[]");
+    var bancosOpcoes = JSON.parse(bancosElement.textContent || "[]");
     var empresaTitularValues = {};
+    var bancoValues = {};
     var tabela = null;
     var seqByRowId = {};
     var internalUpdate = false;
@@ -17,6 +20,13 @@
         var codigo = String(opcao.codigo || "").trim();
         var nome = String(opcao.nome || "").trim();
         empresaTitularValues[String(opcao.id)] = codigo ? (codigo + " - " + nome) : nome;
+    });
+
+    bancosOpcoes.forEach(function (opcao) {
+        var id = String(opcao.id || "").trim();
+        var nome = String(opcao.nome || "").trim();
+        if (!id) return;
+        bancoValues[id] = nome;
     });
 
     function getCookie(name) {
@@ -76,7 +86,7 @@
         return {
             agencia: toText(rowData.agencia),
             numero_conta: toText(rowData.numero_conta),
-            nome_banco: toText(rowData.nome_banco),
+            banco_id: toText(rowData.banco_id),
             empresa_titular_id: toText(rowData.empresa_titular_id),
         };
     }
@@ -92,9 +102,11 @@
         internalUpdate = false;
     }
 
-    function atualizarRotuloEmpresaTitular(rowData) {
-        var key = String(rowData.empresa_titular_id || "");
-        rowData.empresa_titular_label = empresaTitularValues[key] || "";
+    function atualizarRotulos(rowData) {
+        var titularKey = String(rowData.empresa_titular_id || "");
+        var bancoKey = String(rowData.banco_id || "");
+        rowData.empresa_titular_label = empresaTitularValues[titularKey] || "";
+        rowData.banco_nome = bancoValues[bancoKey] || "";
     }
 
     function saveRowAutomatically(cell) {
@@ -105,7 +117,7 @@
         var rowData = row.getData() || {};
         if (!rowData.editar_url) return;
 
-        atualizarRotuloEmpresaTitular(rowData);
+        atualizarRotulos(rowData);
 
         var rowId = rowData.id;
         var currentSeq = Number(seqByRowId[rowId] || 0) + 1;
@@ -296,7 +308,20 @@
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Agencia", field: "agencia", editor: "input", cellEdited: onCellEdited},
             {title: "Numero Conta", field: "numero_conta", editor: "input", cellEdited: onCellEdited},
-            {title: "Nome Banco", field: "nome_banco", editor: "input", cellEdited: onCellEdited},
+            {
+                title: "Banco",
+                field: "banco_id",
+                editor: "list",
+                editorParams: {
+                    values: bancoValues,
+                    clearable: false,
+                },
+                formatter: function (cell) {
+                    var row = cell.getRow().getData() || {};
+                    return row.banco_nome || bancoValues[String(row.banco_id || "")] || "";
+                },
+                cellEdited: onCellEdited,
+            },
             {
                 title: "Empresa Titular",
                 field: "empresa_titular_id",

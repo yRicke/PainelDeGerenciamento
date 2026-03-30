@@ -13,7 +13,9 @@ from django.utils import timezone
 
 from ..models import (
     Adiantamento,
+    Banco,
     CentroResultado,
+    ComiteDiario,
     ContratoRede,
     ContaBancaria,
     ContasAReceber,
@@ -39,6 +41,7 @@ from ..services.financeiro import (
     atualizar_orcamento_planejado_por_post,
     atualizar_orcamento_por_post,
     atualizar_saldo_limite_por_dados,
+    atualizar_comite_diario_por_dados,
     atualizar_titulo_por_dados,
     construir_payload_tabela_saldo_dfc,
     criar_adiantamento_por_post,
@@ -51,8 +54,10 @@ from ..services.financeiro import (
     criar_orcamento_planejado_por_post,
     criar_orcamento_por_post,
     criar_saldo_limite_por_dados,
+    criar_comite_diario_por_dados,
     criar_titulo_por_dados,
     excluir_saldo_limite_por_dados,
+    excluir_comite_diario_por_dados,
     importar_upload_adiantamentos,
     importar_upload_contas_a_receber,
     importar_upload_dfc,
@@ -75,6 +80,7 @@ from ..tabulator import (
     build_orcamento_x_realizado_tabulator,
     build_orcamentos_planejados_tabulator,
     build_saldos_limites_tabulator,
+    build_comite_diario_tabulator,
     build_titulos_tabulator,
 )
 from ..utils.modulos_permissoes import (
@@ -119,6 +125,13 @@ def _is_ajax_request(request):
 
 def _payload_saldo_limite(item, empresa_id):
     registros = build_saldos_limites_tabulator([item], empresa_id)
+    if not registros:
+        return None
+    return registros[0]
+
+
+def _payload_comite_diario(item, empresa_id):
+    registros = build_comite_diario_tabulator([item], empresa_id)
     if not registros:
         return None
     return registros[0]
@@ -191,7 +204,196 @@ def _descrever_filtros_pagina_contas(filtros):
 @login_required(login_url="entrar")
 def comite_diario(request, empresa_id):
     modulo = _obter_modulo("Financeiro", "Comite Diario")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not autorizado:
+        return redirect("index")
+
+    comites_qs = (
+        ComiteDiario.objects.filter(empresa=empresa)
+        .select_related(
+            "empresa_titular",
+            "parceiro",
+            "natureza",
+            "centro_resultado",
+            "de_banco",
+            "para_banco",
+            "para_empresa",
+        )
+        .order_by("-data_negociacao", "-id")
+    )
+    empresas_titulares_qs = EmpresaTitular.objects.filter(empresa=empresa).order_by("codigo", "id")
+    parceiros_qs = Parceiro.objects.filter(empresa=empresa).order_by("codigo", "nome")
+    naturezas_qs = Natureza.objects.filter(empresa=empresa).order_by("codigo", "descricao")
+    centros_resultado_qs = CentroResultado.objects.filter(empresa=empresa).order_by("descricao", "id")
+    bancos_qs = Banco.objects.filter(empresa=empresa).order_by("nome", "id")
+    ultima_data = comites_qs.aggregate(data_max=Max("data_negociacao")).get("data_max")
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "comite_diario_tabulator": build_comite_diario_tabulator(comites_qs, empresa.id),
+        "empresas_titulares_opcoes": [
+            {"id": item.id, "label": f"{item.codigo} - {item.nome}"}
+            for item in empresas_titulares_qs
+        ],
+        "parceiros_opcoes": [
+            {"id": item.id, "label": f"{item.codigo} - {item.nome}"}
+            for item in parceiros_qs
+        ],
+        "naturezas_opcoes": [
+            {"id": item.id, "label": f"{item.codigo} - {item.descricao}"}
+            for item in naturezas_qs
+        ],
+        "centros_resultado_opcoes": [
+            {"id": item.id, "label": item.descricao}
+            for item in centros_resultado_qs
+        ],
+        "bancos_opcoes": [
+            {"id": item.id, "label": item.nome}
+            for item in bancos_qs
+        ],
+        "receita_despesa_opcoes": [
+            {"value": value, "label": label}
+            for value, label in ComiteDiario.RECEITA_DESPESA_CHOICES
+        ],
+        "tipo_movimento_opcoes": [
+            {"value": value, "label": label}
+            for value, label in ComiteDiario.TIPO_MOVIMENTO_CHOICES
+        ],
+        "decisao_opcoes": [
+            {"value": value, "label": label}
+            for value, label in ComiteDiario.DECISAO_CHOICES
+        ],
+        "hoje_iso": timezone.localdate().isoformat(),
+        "ultima_data_iso": ultima_data.isoformat() if ultima_data else "",
+    }
+    return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def criar_comite_diario_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Comite Diario")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    erro = criar_comite_diario_por_dados(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    item = (
+        ComiteDiario.objects.filter(empresa=empresa)
+        .select_related(
+            "empresa_titular",
+            "parceiro",
+            "natureza",
+            "centro_resultado",
+            "de_banco",
+            "para_banco",
+            "para_empresa",
+        )
+        .order_by("-id")
+        .first()
+    )
+
+    if _is_ajax_request(request):
+        if item is None:
+            return JsonResponse(
+                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                status=500,
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro criado com sucesso.",
+                "registro": _payload_comite_diario(item, empresa.id),
+            }
+        )
+
+    messages.success(request, "Registro criado com sucesso.")
+    return redirect("comite_diario", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_comite_diario_modulo(request, empresa_id, comite_diario_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Comite Diario")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    item = ComiteDiario.objects.filter(id=comite_diario_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    erro = atualizar_comite_diario_por_dados(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    item = (
+        ComiteDiario.objects.filter(id=item.id, empresa=empresa)
+        .select_related(
+            "empresa_titular",
+            "parceiro",
+            "natureza",
+            "centro_resultado",
+            "de_banco",
+            "para_banco",
+            "para_empresa",
+        )
+        .first()
+    )
+
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": _payload_comite_diario(item, empresa.id) if item else None,
+            }
+        )
+
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("comite_diario", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_comite_diario_modulo(request, empresa_id, comite_diario_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Comite Diario")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    item = ComiteDiario.objects.filter(id=comite_diario_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    erro = excluir_comite_diario_por_dados(item, empresa)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("comite_diario", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": comite_diario_id})
+
+    messages.success(request, "Registro excluido com sucesso.")
+    return redirect("comite_diario", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")
@@ -1030,14 +1232,14 @@ def saldos_e_limites(request, empresa_id):
 
     saldos_qs = (
         SaldoLimite.objects.filter(empresa=empresa)
-        .select_related("empresa_titular", "conta_bancaria")
+        .select_related("empresa_titular", "conta_bancaria", "conta_bancaria__banco")
         .order_by("-data", "-id")
     )
     empresas_titulares_qs = EmpresaTitular.objects.filter(empresa=empresa).order_by("codigo", "id")
     contas_bancarias_qs = (
         ContaBancaria.objects.filter(empresa=empresa)
-        .select_related("empresa_titular")
-        .order_by("nome_banco", "agencia", "numero_conta", "id")
+        .select_related("empresa_titular", "banco")
+        .order_by("banco__nome", "agencia", "numero_conta", "id")
     )
     ultima_data = saldos_qs.aggregate(data_max=Max("data")).get("data_max")
 
@@ -1059,7 +1261,7 @@ def saldos_e_limites(request, empresa_id):
                 "id": conta.id,
                 "empresa_titular_id": conta.empresa_titular_id,
                 "label": f"{conta.agencia} / {conta.numero_conta}",
-                "banco": conta.nome_banco or "",
+                "banco": conta.banco.nome if conta.banco_id else "",
                 "titular_label": f"{conta.empresa_titular.codigo} - {conta.empresa_titular.nome}",
             }
             for conta in contas_bancarias_qs
@@ -1097,14 +1299,14 @@ def criar_saldo_limite_modulo(request, empresa_id):
             conta_bancaria_id=request.POST.get("conta_bancaria_id"),
             tipo_movimentacao=request.POST.get("tipo_movimentacao"),
         )
-        .select_related("empresa_titular", "conta_bancaria")
+        .select_related("empresa_titular", "conta_bancaria", "conta_bancaria__banco")
         .order_by("-id")
         .first()
     )
     if item is None:
         item = (
             SaldoLimite.objects.filter(empresa=empresa)
-            .select_related("empresa_titular", "conta_bancaria")
+            .select_related("empresa_titular", "conta_bancaria", "conta_bancaria__banco")
             .order_by("-id")
             .first()
         )
@@ -1151,7 +1353,7 @@ def editar_saldo_limite_modulo(request, empresa_id, saldo_limite_id):
 
     item = (
         SaldoLimite.objects.filter(id=item.id, empresa=empresa)
-        .select_related("empresa_titular", "conta_bancaria")
+        .select_related("empresa_titular", "conta_bancaria", "conta_bancaria__banco")
         .first()
     )
     if _is_ajax_request(request):

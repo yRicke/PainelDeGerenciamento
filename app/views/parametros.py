@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from ..models import (
+    Banco,
     Cidade,
     ContaBancaria,
     DescricaoPerfil,
@@ -23,6 +24,7 @@ from ..models import (
     UnidadeFederativa,
 )
 from ..services.parametros import (
+    atualizar_banco_por_dados,
     atualizar_empresa_titular_por_dados,
     atualizar_motorista_por_dados,
     atualizar_descricao_perfil_por_dados,
@@ -38,6 +40,7 @@ from ..services.parametros import (
     atualizar_transportadora_por_dados,
     atualizar_unidade_federativa_por_dados,
     criar_motorista_por_dados,
+    criar_banco_por_dados,
     criar_descricao_perfil_por_dados,
     criar_empresa_titular_por_dados,
     criar_conta_bancaria_por_dados,
@@ -56,10 +59,12 @@ from ..services.parametros import (
     excluir_parametro_margem_vendas,
     excluir_parametro_negocios,
     excluir_conta_bancaria_por_dados,
+    excluir_banco_por_dados,
     excluir_empresa_titular_por_dados,
     salvar_parametro_margem_administracao,
 )
 from ..tabulator import (
+    build_bancos_tabulator,
     build_contas_bancarias_tabulator,
     build_empresas_titulares_tabulator,
     build_motoristas_tabulator,
@@ -268,19 +273,101 @@ def excluir_empresa_titular_modulo(request, empresa_id, empresa_titular_id):
 
 
 @login_required(login_url="entrar")
+def bancos(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Bancos")
+    if not autorizado:
+        return redirect("index")
+
+    bancos_qs = Banco.objects.filter(empresa=empresa).order_by("nome", "id")
+    contexto = {
+        "empresa": empresa,
+        "bancos_tabulator": build_bancos_tabulator(bancos_qs, empresa.id),
+    }
+    return render(request, "parametros/bancos.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_banco_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Bancos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("bancos", empresa_id=empresa.id)
+
+    erro = criar_banco_por_dados(empresa, request.POST.get("nome"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("bancos", empresa_id=empresa.id)
+    messages.success(request, "Banco criado com sucesso.")
+    return redirect("bancos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_banco_modulo(request, empresa_id, banco_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Bancos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("bancos", empresa_id=empresa.id)
+
+    banco = Banco.objects.filter(id=banco_id, empresa=empresa).first()
+    if not banco:
+        messages.error(request, "Banco nao encontrado.")
+        return redirect("bancos", empresa_id=empresa.id)
+
+    erro = atualizar_banco_por_dados(banco, empresa, request.POST.get("nome"))
+    if erro:
+        messages.error(request, erro)
+        return redirect("bancos", empresa_id=empresa.id)
+    messages.success(request, "Banco atualizado com sucesso.")
+    return redirect("bancos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_banco_modulo(request, empresa_id, banco_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Bancos")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("bancos", empresa_id=empresa.id)
+
+    banco = Banco.objects.filter(id=banco_id, empresa=empresa).first()
+    if not banco:
+        messages.error(request, "Banco nao encontrado.")
+        return redirect("bancos", empresa_id=empresa.id)
+
+    try:
+        erro = excluir_banco_por_dados(banco, empresa)
+    except ProtectedError:
+        messages.error(request, "Nao e possivel excluir o banco porque existem registros vinculados.")
+        return redirect("bancos", empresa_id=empresa.id)
+
+    if erro:
+        messages.error(request, erro)
+        return redirect("bancos", empresa_id=empresa.id)
+    messages.success(request, "Banco excluido com sucesso.")
+    return redirect("bancos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def contas_bancarias(request, empresa_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Contas Bancarias")
     if not autorizado:
         return redirect("index")
 
-    contas_qs = ContaBancaria.objects.filter(empresa=empresa).select_related("empresa_titular").order_by("id")
+    contas_qs = ContaBancaria.objects.filter(empresa=empresa).select_related("empresa_titular", "banco").order_by("id")
     empresas_titulares_qs = EmpresaTitular.objects.filter(empresa=empresa).order_by("codigo", "id")
+    bancos_qs = Banco.objects.filter(empresa=empresa).order_by("nome", "id")
     contexto = {
         "empresa": empresa,
         "contas_bancarias_tabulator": build_contas_bancarias_tabulator(contas_qs, empresa.id),
         "empresas_titulares_opcoes": [
             {"id": item.id, "codigo": item.codigo, "nome": item.nome}
             for item in empresas_titulares_qs
+        ],
+        "bancos_opcoes": [
+            {"id": item.id, "nome": item.nome}
+            for item in bancos_qs
         ],
     }
     return render(request, "parametros/contas_bancarias.html", contexto)
@@ -362,7 +449,7 @@ def excluir_conta_bancaria_modulo(request, empresa_id, conta_bancaria_id):
         return redirect("contas_bancarias", empresa_id=empresa.id)
 
     if _is_ajax_request(request):
-        contas_qs = ContaBancaria.objects.filter(empresa=empresa).select_related("empresa_titular").order_by("id")
+        contas_qs = ContaBancaria.objects.filter(empresa=empresa).select_related("empresa_titular", "banco").order_by("id")
         return JsonResponse(
             {
                 "ok": True,

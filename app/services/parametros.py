@@ -24,6 +24,18 @@ def excluir_empresa_titular_por_dados(empresa_titular, empresa):
     return _services().excluir_empresa_titular_por_dados(empresa_titular, empresa)
 
 
+def criar_banco_por_dados(empresa, nome):
+    return _services().criar_banco_por_dados(empresa, nome)
+
+
+def atualizar_banco_por_dados(banco, empresa, nome):
+    return _services().atualizar_banco_por_dados(banco, empresa, nome)
+
+
+def excluir_banco_por_dados(banco, empresa):
+    return _services().excluir_banco_por_dados(banco, empresa)
+
+
 def criar_conta_bancaria_por_dados(empresa, post_data):
     return _services().criar_conta_bancaria_por_dados(empresa, post_data)
 

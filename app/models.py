@@ -1357,12 +1357,43 @@ class EmpresaTitular(models.Model):
         self.delete()
 
 
+class Banco(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="bancos")
+    nome = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "nome"], name="uq_banco_empresa_nome"),
+        ]
+
+    def __str__(self):
+        return self.nome
+
+    @classmethod
+    def criar_banco(cls, *, empresa, nome):
+        item = cls(empresa=empresa, nome=nome)
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_banco(self, *, nome=UNSET):
+        if nome is not UNSET:
+            self.nome = nome
+        self.save()
+
+    def excluir_banco(self):
+        self.delete()
+
+
 class ContaBancaria(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="contas_bancarias")
     empresa_titular = models.ForeignKey(EmpresaTitular, on_delete=models.PROTECT, related_name="contas_bancarias")
     agencia = models.IntegerField()
     numero_conta = models.BigIntegerField()
-    nome_banco = models.CharField(max_length=150)
+    banco = models.ForeignKey(Banco, on_delete=models.PROTECT, related_name="contas_bancarias")
 
     class Meta:
         constraints = [
@@ -1370,7 +1401,7 @@ class ContaBancaria(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.nome_banco} - Ag {self.agencia} / Conta {self.numero_conta}"
+        return f"{self.banco.nome} - Ag {self.agencia} / Conta {self.numero_conta}"
 
     @classmethod
     def _proximo_id_normalizado(cls):
@@ -1389,7 +1420,7 @@ class ContaBancaria(models.Model):
             cls.objects.filter(id=-conta_id).update(id=novo_id)
 
     @classmethod
-    def criar_conta_bancaria(cls, *, empresa, empresa_titular, agencia, numero_conta, nome_banco):
+    def criar_conta_bancaria(cls, *, empresa, empresa_titular, agencia, numero_conta, banco):
         with transaction.atomic():
             item = cls(
                 id=cls._proximo_id_normalizado(),
@@ -1397,7 +1428,7 @@ class ContaBancaria(models.Model):
                 empresa_titular=empresa_titular,
                 agencia=agencia,
                 numero_conta=numero_conta,
-                nome_banco=nome_banco,
+                banco=banco,
             )
             item.save(force_insert=True)
             return item
@@ -1412,7 +1443,7 @@ class ContaBancaria(models.Model):
         empresa_titular=UNSET,
         agencia=UNSET,
         numero_conta=UNSET,
-        nome_banco=UNSET,
+        banco=UNSET,
     ):
         if empresa_titular is not UNSET:
             self.empresa_titular = empresa_titular
@@ -1420,8 +1451,8 @@ class ContaBancaria(models.Model):
             self.agencia = agencia
         if numero_conta is not UNSET:
             self.numero_conta = numero_conta
-        if nome_banco is not UNSET:
-            self.nome_banco = nome_banco
+        if banco is not UNSET:
+            self.banco = banco
         self.save()
 
     def excluir_conta_bancaria(self):
@@ -1511,6 +1542,178 @@ class SaldoLimite(models.Model):
         self.save()
 
     def excluir_saldo_limite(self):
+        self.delete()
+
+
+class ComiteDiario(models.Model):
+    RECEITA = "receita"
+    DESPESA = "despesa"
+    RECEITA_DESPESA_CHOICES = (
+        (RECEITA, "Receita"),
+        (DESPESA, "Despesa"),
+    )
+
+    MOVIMENTO_COMPRA = "compra"
+    MOVIMENTO_FINANCEIRO = "financeiro"
+    TIPO_MOVIMENTO_CHOICES = (
+        (MOVIMENTO_COMPRA, "Compra"),
+        (MOVIMENTO_FINANCEIRO, "Financeiro"),
+    )
+
+    DECISAO_PAGAR = "pagar"
+    DECISAO_ADIAR = "adiar"
+    DECISAO_CORRIGIR = "corrigir"
+    DECISAO_TRANSFERIR = "transferir"
+    DECISAO_CONCILIAR_ADIANTAMENTO = "conciliar_adiantamento"
+    DECISAO_SALDO_EM_CONTA = "saldo_em_conta"
+    DECISAO_CHOICES = (
+        (DECISAO_PAGAR, "Pagar"),
+        (DECISAO_ADIAR, "Adiar"),
+        (DECISAO_CORRIGIR, "Corrigir"),
+        (DECISAO_TRANSFERIR, "Transferir"),
+        (DECISAO_CONCILIAR_ADIANTAMENTO, "Conciliar adiantamento"),
+        (DECISAO_SALDO_EM_CONTA, "Saldo em conta"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="comites_diarios")
+    data_negociacao = models.DateField()
+    data_vencimento = models.DateField()
+    receita_despesa = models.CharField(max_length=20, choices=RECEITA_DESPESA_CHOICES)
+    empresa_titular = models.ForeignKey(EmpresaTitular, on_delete=models.PROTECT, related_name="comites_diarios")
+    parceiro = models.ForeignKey("Parceiro", on_delete=models.PROTECT, related_name="comites_diarios")
+    natureza = models.ForeignKey("Natureza", on_delete=models.PROTECT, related_name="comites_diarios")
+    centro_resultado = models.ForeignKey("CentroResultado", on_delete=models.PROTECT, related_name="comites_diarios")
+    historico = models.CharField(max_length=255)
+    numero_nota = models.IntegerField()
+    valor_liquido = models.DecimalField(max_digits=16, decimal_places=2)
+    tipo_movimento = models.CharField(max_length=20, choices=TIPO_MOVIMENTO_CHOICES)
+    decisao = models.CharField(max_length=40, choices=DECISAO_CHOICES)
+    data_prorrogada = models.DateField(null=True, blank=True)
+    de_banco = models.ForeignKey(Banco, on_delete=models.PROTECT, null=True, blank=True, related_name="comites_transferencia_origem")
+    para_banco = models.ForeignKey(Banco, on_delete=models.PROTECT, null=True, blank=True, related_name="comites_transferencia_destino")
+    para_empresa = models.ForeignKey(EmpresaTitular, on_delete=models.PROTECT, null=True, blank=True, related_name="comites_transferencia_destino")
+
+    def __str__(self):
+        return f"{self.data_negociacao} - {self.get_receita_despesa_display()} - {self.valor_liquido}"
+
+    def clean(self):
+        super().clean()
+        if self.decisao == self.DECISAO_TRANSFERIR:
+            faltantes = {}
+            if not self.de_banco_id:
+                faltantes["de_banco"] = "Campo obrigatorio quando a decisao for Transferir."
+            if not self.para_banco_id:
+                faltantes["para_banco"] = "Campo obrigatorio quando a decisao for Transferir."
+            if not self.para_empresa_id:
+                faltantes["para_empresa"] = "Campo obrigatorio quando a decisao for Transferir."
+            if faltantes:
+                raise ValidationError(faltantes)
+
+    @classmethod
+    def criar_comite_diario(
+        cls,
+        *,
+        empresa,
+        data_negociacao,
+        data_vencimento,
+        receita_despesa,
+        empresa_titular,
+        parceiro,
+        natureza,
+        centro_resultado,
+        historico,
+        numero_nota,
+        valor_liquido,
+        tipo_movimento,
+        decisao,
+        data_prorrogada=None,
+        de_banco=None,
+        para_banco=None,
+        para_empresa=None,
+    ):
+        item = cls(
+            empresa=empresa,
+            data_negociacao=data_negociacao,
+            data_vencimento=data_vencimento,
+            receita_despesa=receita_despesa,
+            empresa_titular=empresa_titular,
+            parceiro=parceiro,
+            natureza=natureza,
+            centro_resultado=centro_resultado,
+            historico=historico,
+            numero_nota=numero_nota,
+            valor_liquido=valor_liquido,
+            tipo_movimento=tipo_movimento,
+            decisao=decisao,
+            data_prorrogada=data_prorrogada,
+            de_banco=de_banco,
+            para_banco=para_banco,
+            para_empresa=para_empresa,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_comite_diario(
+        self,
+        *,
+        data_negociacao=UNSET,
+        data_vencimento=UNSET,
+        receita_despesa=UNSET,
+        empresa_titular=UNSET,
+        parceiro=UNSET,
+        natureza=UNSET,
+        centro_resultado=UNSET,
+        historico=UNSET,
+        numero_nota=UNSET,
+        valor_liquido=UNSET,
+        tipo_movimento=UNSET,
+        decisao=UNSET,
+        data_prorrogada=UNSET,
+        de_banco=UNSET,
+        para_banco=UNSET,
+        para_empresa=UNSET,
+    ):
+        if data_negociacao is not UNSET:
+            self.data_negociacao = data_negociacao
+        if data_vencimento is not UNSET:
+            self.data_vencimento = data_vencimento
+        if receita_despesa is not UNSET:
+            self.receita_despesa = receita_despesa
+        if empresa_titular is not UNSET:
+            self.empresa_titular = empresa_titular
+        if parceiro is not UNSET:
+            self.parceiro = parceiro
+        if natureza is not UNSET:
+            self.natureza = natureza
+        if centro_resultado is not UNSET:
+            self.centro_resultado = centro_resultado
+        if historico is not UNSET:
+            self.historico = historico
+        if numero_nota is not UNSET:
+            self.numero_nota = numero_nota
+        if valor_liquido is not UNSET:
+            self.valor_liquido = valor_liquido
+        if tipo_movimento is not UNSET:
+            self.tipo_movimento = tipo_movimento
+        if decisao is not UNSET:
+            self.decisao = decisao
+        if data_prorrogada is not UNSET:
+            self.data_prorrogada = data_prorrogada
+        if de_banco is not UNSET:
+            self.de_banco = de_banco
+        if para_banco is not UNSET:
+            self.para_banco = para_banco
+        if para_empresa is not UNSET:
+            self.para_empresa = para_empresa
+        self.full_clean()
+        self.save()
+
+    def excluir_comite_diario(self):
         self.delete()
 
 

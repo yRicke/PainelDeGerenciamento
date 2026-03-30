@@ -1,16 +1,249 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Comite Diario{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/comite-diario-page.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Comite Diario</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Financeiro</span>
+            </div>
+            <h1>Comite Diario</h1>
+            <p class="module-hero-subtitle">Cadastro manual, dashboard, filtros e tabela com edicao inline.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Comite Diario</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
-</section>
+<div id="comite-diario-module-shell" class="module-shell">
+    <aside id="comite-diario-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros de Receita/Despesa, Decisao, Empresa Titular e Parceiro.</p>
+            <div class="module-filter-columns">
+                <div id="comite-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="comite-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="comite-diario-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Comite Diario">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro de Comite Diario</h2>
+            <p class="form-note">Empresa e vinculada automaticamente. Todos os campos principais sao obrigatorios.</p>
+            <form id="comite-diario-cadastro-form" action="{% url 'criar_comite_diario_modulo' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Data de Negociacao</label>
+                        <input type="date" name="data_negociacao" value="{{ hoje_iso }}" required>
+                    </div>
+                    <div>
+                        <label>Data de Vencimento</label>
+                        <input type="date" name="data_vencimento" required>
+                    </div>
+                    <div>
+                        <label>Receita/Despesa</label>
+                        <select name="receita_despesa" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in receita_despesa_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Empresa Titular</label>
+                        <select name="empresa_titular_id" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in empresas_titulares_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Parceiro</label>
+                        <select name="parceiro_id" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in parceiros_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Natureza</label>
+                        <select name="natureza_id" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in naturezas_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Centro Resultado</label>
+                        <select name="centro_resultado_id" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in centros_resultado_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Historico</label>
+                        <input type="text" name="historico" required>
+                    </div>
+                    <div>
+                        <label>Numero Nota</label>
+                        <input type="number" name="numero_nota" required>
+                    </div>
+                    <div>
+                        <label>Valor Liquido</label>
+                        <input type="text" name="valor_liquido" placeholder="0,00" required>
+                    </div>
+                    <div>
+                        <label>Tipo Movimento</label>
+                        <select name="tipo_movimento" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in tipo_movimento_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Decisao</label>
+                        <select name="decisao" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in decisao_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Data Prorrogada</label>
+                        <input type="date" name="data_prorrogada">
+                    </div>
+                    <div>
+                        <label>De Banco</label>
+                        <select name="de_banco_id">
+                            <option value="">Selecione</option>
+                            {% for opcao in bancos_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Para Banco</label>
+                        <select name="para_banco_id">
+                            <option value="">Selecione</option>
+                            {% for opcao in bancos_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Para Empresa</label>
+                        <select name="para_empresa_id">
+                            <option value="">Selecione</option>
+                            {% for opcao in empresas_titulares_opcoes %}
+                            <option value="{{ opcao.id }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+            <p id="comite-diario-save-status" class="file-status" aria-live="polite"></p>
+        </section>
+
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard Comite Diario</h2>
+            <div class="comite-diario-dashboard-controls">
+                <div>
+                    <label for="comite-diario-data-filtro">Data de Negociacao</label>
+                    <input type="date" id="comite-diario-data-filtro">
+                </div>
+                <button type="button" id="comite-diario-btn-ultima-data" class="btn-light">Ultima data</button>
+                <button type="button" id="comite-diario-btn-limpar-data" class="btn-light">Limpar data</button>
+            </div>
+
+            <div class="dashboard-kpi-grid comite-diario-kpi-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Total de Registros</h3>
+                    <p id="comite-kpi-total-registros">0</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Valor Receitas</h3>
+                    <p id="comite-kpi-receitas">R$ 0,00</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Valor Despesas</h3>
+                    <p id="comite-kpi-despesas">R$ 0,00</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Saldo Liquido</h3>
+                    <p id="comite-kpi-saldo">R$ 0,00</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Tabela Comite Diario</h2>
+            <div class="table-wrapper">
+                <div id="comite-diario-tabulator"></div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ comite_diario_tabulator|json_script:"comite-diario-tabulator-data" }}
+{{ empresas_titulares_opcoes|json_script:"comite-diario-empresas-opcoes-data" }}
+{{ parceiros_opcoes|json_script:"comite-diario-parceiros-opcoes-data" }}
+{{ naturezas_opcoes|json_script:"comite-diario-naturezas-opcoes-data" }}
+{{ centros_resultado_opcoes|json_script:"comite-diario-centros-opcoes-data" }}
+{{ bancos_opcoes|json_script:"comite-diario-bancos-opcoes-data" }}
+{{ receita_despesa_opcoes|json_script:"comite-diario-receita-despesa-opcoes-data" }}
+{{ tipo_movimento_opcoes|json_script:"comite-diario-tipo-movimento-opcoes-data" }}
+{{ decisao_opcoes|json_script:"comite-diario-decisao-opcoes-data" }}
+{{ ultima_data_iso|json_script:"comite-diario-ultima-data-iso" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/comite-diario-page.js' %}"></script>
 {% endblock %}

@@ -65,6 +65,9 @@ urlpatterns = [
 
     # Modulos - Financeiro
     path('comite_diario/<int:empresa_id>/', views_financeiro.comite_diario, name='comite_diario'),
+    path('comite_diario/<int:empresa_id>/criar/', views_financeiro.criar_comite_diario_modulo, name='criar_comite_diario_modulo'),
+    path('comite_diario/<int:empresa_id>/editar/<int:comite_diario_id>/', views_financeiro.editar_comite_diario_modulo, name='editar_comite_diario_modulo'),
+    path('comite_diario/<int:empresa_id>/excluir/<int:comite_diario_id>/', views_financeiro.excluir_comite_diario_modulo, name='excluir_comite_diario_modulo'),
     path('balanco_patrimonial/<int:empresa_id>/', views_financeiro.balanco_patrimonial, name='balanco_patrimonial'),
     path('dre/<int:empresa_id>/', views_financeiro.dre, name='dre'),
     path('contas_a_receber/<int:empresa_id>/', views_financeiro.contas_a_receber, name='contas_a_receber'),
@@ -104,6 +107,10 @@ urlpatterns = [
     path('empresas_titulares/<int:empresa_id>/criar/', views_parametros.criar_empresa_titular_modulo, name='criar_empresa_titular_modulo'),
     path('empresas_titulares/<int:empresa_id>/editar/<int:empresa_titular_id>/', views_parametros.editar_empresa_titular_modulo, name='editar_empresa_titular_modulo'),
     path('empresas_titulares/<int:empresa_id>/excluir/<int:empresa_titular_id>/', views_parametros.excluir_empresa_titular_modulo, name='excluir_empresa_titular_modulo'),
+    path('bancos/<int:empresa_id>/', views_parametros.bancos, name='bancos'),
+    path('bancos/<int:empresa_id>/criar/', views_parametros.criar_banco_modulo, name='criar_banco_modulo'),
+    path('bancos/<int:empresa_id>/editar/<int:banco_id>/', views_parametros.editar_banco_modulo, name='editar_banco_modulo'),
+    path('bancos/<int:empresa_id>/excluir/<int:banco_id>/', views_parametros.excluir_banco_modulo, name='excluir_banco_modulo'),
     path('contas_bancarias/<int:empresa_id>/', views_parametros.contas_bancarias, name='contas_bancarias'),
     path('contas_bancarias/<int:empresa_id>/criar/', views_parametros.criar_conta_bancaria_modulo, name='criar_conta_bancaria_modulo'),
     path('contas_bancarias/<int:empresa_id>/editar/<int:conta_bancaria_id>/', views_parametros.editar_conta_bancaria_modulo, name='editar_conta_bancaria_modulo'),

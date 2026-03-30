@@ -623,7 +623,8 @@ def build_contas_bancarias_tabulator(contas_qs, empresa_id: int):
             "id": conta.id,
             "agencia": conta.agencia,
             "numero_conta": conta.numero_conta,
-            "nome_banco": conta.nome_banco or "",
+            "banco_id": conta.banco_id,
+            "banco_nome": conta.banco.nome if conta.banco_id else "",
             "empresa_titular_id": conta.empresa_titular_id,
             "empresa_titular_label": (
                 f"{conta.empresa_titular.codigo} - {conta.empresa_titular.nome}"
@@ -640,6 +641,24 @@ def build_contas_bancarias_tabulator(contas_qs, empresa_id: int):
             ),
         }
         for conta in contas_qs
+    ]
+
+
+def build_bancos_tabulator(bancos_qs, empresa_id: int):
+    return [
+        {
+            "id": banco.id,
+            "nome": banco.nome or "",
+            "editar_url": reverse(
+                "editar_banco_modulo",
+                kwargs={"empresa_id": empresa_id, "banco_id": banco.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_banco_modulo",
+                kwargs={"empresa_id": empresa_id, "banco_id": banco.id},
+            ),
+        }
+        for banco in bancos_qs
     ]
 
 
@@ -1067,7 +1086,7 @@ def build_saldos_limites_tabulator(saldos_qs, empresa_id: int):
                 if item.conta_bancaria_id
                 else ""
             ),
-            "banco": item.conta_bancaria.nome_banco if item.conta_bancaria_id else "",
+            "banco": item.conta_bancaria.banco.nome if item.conta_bancaria_id and item.conta_bancaria.banco_id else "",
             "tipo_movimentacao": item.tipo_movimentacao,
             "tipo_movimentacao_label": item.get_tipo_movimentacao_display(),
             "valor_atual": float(item.valor_atual or 0),
@@ -1081,6 +1100,68 @@ def build_saldos_limites_tabulator(saldos_qs, empresa_id: int):
             ),
         }
         for item in saldos_qs
+    ]
+
+
+def build_comite_diario_tabulator(comites_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "data_negociacao": _fmt_date_br(item.data_negociacao),
+            "data_negociacao_iso": item.data_negociacao.isoformat() if item.data_negociacao else "",
+            "data_vencimento": _fmt_date_br(item.data_vencimento),
+            "data_vencimento_iso": item.data_vencimento.isoformat() if item.data_vencimento else "",
+            "receita_despesa": item.receita_despesa,
+            "receita_despesa_label": item.get_receita_despesa_display(),
+            "empresa_titular_id": item.empresa_titular_id or "",
+            "empresa_titular_label": (
+                f"{item.empresa_titular.codigo} - {item.empresa_titular.nome}"
+                if item.empresa_titular_id
+                else ""
+            ),
+            "parceiro_id": item.parceiro_id or "",
+            "parceiro_label": (
+                f"{item.parceiro.codigo} - {item.parceiro.nome}"
+                if item.parceiro_id
+                else ""
+            ),
+            "natureza_id": item.natureza_id or "",
+            "natureza_label": (
+                f"{item.natureza.codigo} - {item.natureza.descricao}"
+                if item.natureza_id
+                else ""
+            ),
+            "centro_resultado_id": item.centro_resultado_id or "",
+            "centro_resultado_label": item.centro_resultado.descricao if item.centro_resultado_id else "",
+            "historico": item.historico or "",
+            "numero_nota": item.numero_nota,
+            "valor_liquido": float(item.valor_liquido or 0),
+            "tipo_movimento": item.tipo_movimento,
+            "tipo_movimento_label": item.get_tipo_movimento_display(),
+            "decisao": item.decisao,
+            "decisao_label": item.get_decisao_display(),
+            "data_prorrogada": _fmt_date_br(item.data_prorrogada),
+            "data_prorrogada_iso": item.data_prorrogada.isoformat() if item.data_prorrogada else "",
+            "de_banco_id": item.de_banco_id or "",
+            "de_banco_label": item.de_banco.nome if item.de_banco_id else "",
+            "para_banco_id": item.para_banco_id or "",
+            "para_banco_label": item.para_banco.nome if item.para_banco_id else "",
+            "para_empresa_id": item.para_empresa_id or "",
+            "para_empresa_label": (
+                f"{item.para_empresa.codigo} - {item.para_empresa.nome}"
+                if item.para_empresa_id
+                else ""
+            ),
+            "editar_url": reverse(
+                "editar_comite_diario_modulo",
+                kwargs={"empresa_id": empresa_id, "comite_diario_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_comite_diario_modulo",
+                kwargs={"empresa_id": empresa_id, "comite_diario_id": item.id},
+            ),
+        }
+        for item in comites_qs
     ]
 
 

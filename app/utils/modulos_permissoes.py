@@ -53,6 +53,7 @@ MODULOS_POR_AREA = {
         {"nome": "Parametros Administracao", "url": "parametros_administracao", "template": "parametros/parametros_administracao.html"},
         {"nome": "Parametros Financeiro", "url": "parametros_financeiro", "template": "parametros/parametros_financeiro.html"},
         {"nome": "Parametros de Negocios", "url": "parametros_negocios", "template": "parametros/parametros_negocios.html"},
+        {"nome": "Bancos", "url": "bancos", "template": "parametros/bancos.html"},
         {"nome": "Contas Bancarias", "url": "contas_bancarias", "template": "parametros/contas_bancarias.html"},
         {"nome": "Empresas Titulares", "url": "empresas_titulares", "template": "parametros/empresas_titulares.html"},
     ],

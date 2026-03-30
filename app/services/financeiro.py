@@ -689,3 +689,14 @@ def excluir_saldo_limite_por_dados(item, empresa):
     return _services().excluir_saldo_limite_por_dados(item, empresa)
 
 
+def criar_comite_diario_por_dados(empresa, post_data):
+    return _services().criar_comite_diario_por_dados(empresa, post_data)
+
+
+def atualizar_comite_diario_por_dados(item, empresa, post_data):
+    return _services().atualizar_comite_diario_por_dados(item, empresa, post_data)
+
+
+def excluir_comite_diario_por_dados(item, empresa):
+    return _services().excluir_comite_diario_por_dados(item, empresa)
+

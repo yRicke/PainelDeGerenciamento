@@ -1,0 +1,55 @@
+@import url("./lancamentos-shared.css");
+
+.comite-diario-dashboard-controls {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px) auto auto;
+    gap: 0.6rem;
+    align-items: end;
+    margin-bottom: 0.9rem;
+}
+
+.comite-diario-dashboard-controls > div {
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.55rem;
+}
+
+.comite-diario-dashboard-controls label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.comite-diario-kpi-grid {
+    grid-template-columns: repeat(4, minmax(210px, 1fr));
+}
+
+#comite-diario-save-status.comite-diario-save-status--ok {
+    color: #037847;
+}
+
+#comite-diario-save-status.comite-diario-save-status--error {
+    color: #b42318;
+}
+
+#comite-diario-save-status.comite-diario-save-status--progress {
+    color: #175cd3;
+}
+
+@media (max-width: 1100px) {
+    .comite-diario-kpi-grid {
+        grid-template-columns: repeat(2, minmax(210px, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .comite-diario-dashboard-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .comite-diario-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}

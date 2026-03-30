@@ -17,7 +17,9 @@ from ..models import (
     Adiantamento,
     Agenda,
     Atividade,
+    Banco,
     CentroResultado,
+    ComiteDiario,
     ContratoRede,
     Cargas,
     Carteira,
@@ -769,24 +771,59 @@ def excluir_empresa_titular_por_dados(empresa_titular, empresa):
     return ""
 
 
+def criar_banco_por_dados(empresa, nome):
+    nome_normalizado = (nome or "").strip()
+    if not nome_normalizado:
+        return "Nome do banco e obrigatorio."
+    if Banco.objects.filter(empresa=empresa, nome__iexact=nome_normalizado).exists():
+        return "Ja existe banco com este nome nesta empresa."
+    Banco.criar_banco(empresa=empresa, nome=nome_normalizado)
+    return ""
+
+
+def atualizar_banco_por_dados(banco, empresa, nome):
+    nome_normalizado = (nome or "").strip()
+    if banco.empresa_id != empresa.id:
+        return "Banco invalido para esta empresa."
+    if not nome_normalizado:
+        return "Nome do banco e obrigatorio."
+    if Banco.objects.filter(empresa=empresa, nome__iexact=nome_normalizado).exclude(id=banco.id).exists():
+        return "Ja existe banco com este nome nesta empresa."
+    banco.atualizar_banco(nome=nome_normalizado)
+    return ""
+
+
+def excluir_banco_por_dados(banco, empresa):
+    if banco.empresa_id != empresa.id:
+        return "Banco invalido para esta empresa."
+    banco.excluir_banco()
+    return ""
+
+
 def _obter_empresa_titular_por_id(empresa, empresa_titular_id):
     if not empresa_titular_id:
         return None
     return EmpresaTitular.objects.filter(id=empresa_titular_id, empresa=empresa).first()
 
 
+def _obter_banco_por_id(empresa, banco_id):
+    if not banco_id:
+        return None
+    return Banco.objects.filter(id=banco_id, empresa=empresa).first()
+
+
 def criar_conta_bancaria_por_dados(empresa, post_data):
     agencia = _parse_int_ou_zero(post_data.get("agencia"))
     numero_conta = _parse_int64_ou_zero(post_data.get("numero_conta"))
-    nome_banco = (post_data.get("nome_banco") or "").strip()
+    banco = _obter_banco_por_id(empresa, post_data.get("banco_id"))
     empresa_titular = _obter_empresa_titular_por_id(empresa, post_data.get("empresa_titular_id"))
 
     if agencia <= 0:
         return "Agencia e obrigatoria e deve ser maior que zero."
     if numero_conta <= 0:
         return "Numero da conta e obrigatorio e deve ser maior que zero."
-    if not nome_banco:
-        return "Nome do banco e obrigatorio."
+    if not banco:
+        return "Banco e obrigatorio."
     if not empresa_titular:
         return "Empresa titular e obrigatoria."
     if ContaBancaria.objects.filter(empresa=empresa, agencia=agencia, numero_conta=numero_conta).exists():
@@ -797,7 +834,7 @@ def criar_conta_bancaria_por_dados(empresa, post_data):
         empresa_titular=empresa_titular,
         agencia=agencia,
         numero_conta=numero_conta,
-        nome_banco=nome_banco,
+        banco=banco,
     )
     return ""
 
@@ -805,7 +842,7 @@ def criar_conta_bancaria_por_dados(empresa, post_data):
 def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
     agencia = _parse_int_ou_zero(post_data.get("agencia"))
     numero_conta = _parse_int64_ou_zero(post_data.get("numero_conta"))
-    nome_banco = (post_data.get("nome_banco") or "").strip()
+    banco = _obter_banco_por_id(empresa, post_data.get("banco_id"))
     empresa_titular = _obter_empresa_titular_por_id(empresa, post_data.get("empresa_titular_id"))
 
     if conta_bancaria.empresa_id != empresa.id:
@@ -814,8 +851,8 @@ def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
         return "Agencia e obrigatoria e deve ser maior que zero."
     if numero_conta <= 0:
         return "Numero da conta e obrigatorio e deve ser maior que zero."
-    if not nome_banco:
-        return "Nome do banco e obrigatorio."
+    if not banco:
+        return "Banco e obrigatorio."
     if not empresa_titular:
         return "Empresa titular e obrigatoria."
     if (
@@ -829,7 +866,7 @@ def atualizar_conta_bancaria_por_dados(conta_bancaria, empresa, post_data):
         empresa_titular=empresa_titular,
         agencia=agencia,
         numero_conta=numero_conta,
-        nome_banco=nome_banco,
+        banco=banco,
     )
     return ""
 
@@ -926,6 +963,134 @@ def excluir_saldo_limite_por_dados(item, empresa):
     if item.empresa_id != empresa.id:
         return "Registro invalido para esta empresa."
     item.excluir_saldo_limite()
+    return ""
+
+
+def _choice_valido(valor, choices):
+    valor_normalizado = str(valor or "").strip()
+    valores_validos = {item[0] for item in choices}
+    return valor_normalizado if valor_normalizado in valores_validos else ""
+
+
+def _dados_comite_diario_from_post(empresa, post_data):
+    receita_despesa = _choice_valido(post_data.get("receita_despesa"), ComiteDiario.RECEITA_DESPESA_CHOICES)
+    tipo_movimento = _choice_valido(post_data.get("tipo_movimento"), ComiteDiario.TIPO_MOVIMENTO_CHOICES)
+    decisao = _choice_valido(post_data.get("decisao"), ComiteDiario.DECISAO_CHOICES)
+
+    data_negociacao = _parse_date_ou_none(post_data.get("data_negociacao"))
+    data_vencimento = _parse_date_ou_none(post_data.get("data_vencimento"))
+    data_prorrogada = _parse_date_ou_none(post_data.get("data_prorrogada"))
+
+    empresa_titular = _obter_empresa_titular_por_id(empresa, post_data.get("empresa_titular_id"))
+    para_empresa = _obter_empresa_titular_por_id(empresa, post_data.get("para_empresa_id"))
+
+    parceiro = Parceiro.objects.filter(
+        id=post_data.get("parceiro_id"),
+        empresa=empresa,
+    ).first()
+    natureza = Natureza.objects.filter(
+        id=post_data.get("natureza_id"),
+        empresa=empresa,
+    ).first()
+    centro_resultado = CentroResultado.objects.filter(
+        id=post_data.get("centro_resultado_id"),
+        empresa=empresa,
+    ).first()
+    de_banco = _obter_banco_por_id(empresa, post_data.get("de_banco_id"))
+    para_banco = _obter_banco_por_id(empresa, post_data.get("para_banco_id"))
+
+    return {
+        "data_negociacao_raw": (post_data.get("data_negociacao") or "").strip(),
+        "data_vencimento_raw": (post_data.get("data_vencimento") or "").strip(),
+        "data_negociacao": data_negociacao,
+        "data_vencimento": data_vencimento,
+        "receita_despesa": receita_despesa,
+        "empresa_titular": empresa_titular,
+        "parceiro": parceiro,
+        "natureza": natureza,
+        "centro_resultado": centro_resultado,
+        "historico": (post_data.get("historico") or "").strip(),
+        "numero_nota": _parse_int_ou_zero(post_data.get("numero_nota")),
+        "valor_liquido": _parse_decimal_ou_zero(post_data.get("valor_liquido")),
+        "tipo_movimento": tipo_movimento,
+        "decisao": decisao,
+        "data_prorrogada": data_prorrogada,
+        "de_banco": de_banco,
+        "para_banco": para_banco,
+        "para_empresa": para_empresa,
+    }
+
+
+def _validar_dados_comite_diario(dados):
+    if not dados["data_negociacao_raw"]:
+        return "Data de negociacao e obrigatoria."
+    if not dados["data_negociacao"]:
+        return "Data de negociacao invalida."
+    if not dados["data_vencimento_raw"]:
+        return "Data de vencimento e obrigatoria."
+    if not dados["data_vencimento"]:
+        return "Data de vencimento invalida."
+    if not dados["receita_despesa"]:
+        return "Receita/Despesa e obrigatorio."
+    if not dados["empresa_titular"]:
+        return "Empresa titular e obrigatoria."
+    if not dados["parceiro"]:
+        return "Parceiro e obrigatorio."
+    if not dados["natureza"]:
+        return "Natureza e obrigatoria."
+    if not dados["centro_resultado"]:
+        return "Centro de resultado e obrigatorio."
+    if not dados["historico"]:
+        return "Historico e obrigatorio."
+    if dados["numero_nota"] <= 0:
+        return "Numero da nota e obrigatorio."
+    if not dados["tipo_movimento"]:
+        return "Tipo de movimento e obrigatorio."
+    if not dados["decisao"]:
+        return "Decisao e obrigatoria."
+
+    if dados["decisao"] == ComiteDiario.DECISAO_TRANSFERIR:
+        if not dados["de_banco"]:
+            return "De banco e obrigatorio quando a decisao for Transferir."
+        if not dados["para_banco"]:
+            return "Para banco e obrigatorio quando a decisao for Transferir."
+        if not dados["para_empresa"]:
+            return "Para empresa e obrigatoria quando a decisao for Transferir."
+
+    return ""
+
+
+def criar_comite_diario_por_dados(empresa, post_data):
+    dados = _dados_comite_diario_from_post(empresa, post_data)
+    erro = _validar_dados_comite_diario(dados)
+    if erro:
+        return erro
+
+    dados.pop("data_negociacao_raw", None)
+    dados.pop("data_vencimento_raw", None)
+    ComiteDiario.criar_comite_diario(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_comite_diario_por_dados(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    dados = _dados_comite_diario_from_post(empresa, post_data)
+    erro = _validar_dados_comite_diario(dados)
+    if erro:
+        return erro
+
+    dados.pop("data_negociacao_raw", None)
+    dados.pop("data_vencimento_raw", None)
+    item.atualizar_comite_diario(**dados)
+    return ""
+
+
+def excluir_comite_diario_por_dados(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+    item.excluir_comite_diario()
     return ""
 
 

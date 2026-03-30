@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bancos{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/tabulator-cadastro-ux.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+    <h1>Bancos</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<div class="tabulator-cadastro-ux">
+    <section id="sec-cadastro" class="panel module-section">
+        <h2>Novo Cadastro de Banco</h2>
+        <p class="form-note">Campos obrigatorios: Nome. Empresa e vinculada automaticamente.</p>
+        <form action="{% url 'criar_banco_modulo' empresa.id %}" method="POST" class="inline-form inline-form--parceiros">
+            {% csrf_token %}
+            <input type="text" name="nome" placeholder="Nome do banco" required>
+            <button type="submit" class="btn-primary">Cadastrar</button>
+        </form>
+    </section>
+
+    <section id="sec-visualizacao" class="panel module-section">
+        <h2>Lista de Bancos</h2>
+        <div class="table-wrapper"><div id="bancos-tabulator"></div></div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ bancos_tabulator|json_script:"bancos-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/bancos-page.js' %}"></script>
+{% endblock %}
