@@ -2,7 +2,7 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import FloatField, Max, Min
+from django.db.models import FloatField, Max, Min, Sum
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
@@ -137,6 +137,115 @@ def _payload_comite_diario(item, empresa_id):
     return registros[0]
 
 
+def _parse_iso_date_safe(valor):
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    try:
+        return datetime.strptime(texto, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _build_lancamentos_bancarios_payload(empresa, data_referencia_iso=""):
+    data_referencia = _parse_iso_date_safe(data_referencia_iso)
+
+    bancos_qs = Banco.objects.filter(empresa=empresa).order_by("nome", "id")
+    bancos = [{"id": banco.id, "nome": banco.nome} for banco in bancos_qs]
+    banco_ids = [item["id"] for item in bancos]
+
+    linhas = {
+        "saldo_atual": {str(banco_id): 0.0 for banco_id in banco_ids},
+        "limite": {str(banco_id): 0.0 for banco_id in banco_ids},
+        "antecipacoes": {str(banco_id): 0.0 for banco_id in banco_ids},
+        "transferencias": {str(banco_id): 0.0 for banco_id in banco_ids},
+    }
+
+    saldos_qs = (
+        SaldoLimite.objects.filter(empresa=empresa)
+        .select_related("conta_bancaria", "conta_bancaria__banco")
+    )
+    data_saldos = data_referencia
+    if data_saldos is None:
+        data_saldos = saldos_qs.aggregate(data_max=Max("data")).get("data_max")
+    if data_saldos:
+        saldos_qs = saldos_qs.filter(data=data_saldos)
+    else:
+        saldos_qs = saldos_qs.none()
+
+    agregados_saldos = (
+        saldos_qs
+        .values("conta_bancaria__banco_id", "tipo_movimentacao")
+        .annotate(valor_total=Sum("valor_atual"))
+    )
+    saldos_por_banco_tipo = {}
+    for item in agregados_saldos:
+        banco_id = item.get("conta_bancaria__banco_id")
+        tipo = str(item.get("tipo_movimentacao") or "").strip()
+        if not banco_id or not tipo:
+            continue
+        chave = (int(banco_id), tipo)
+        saldos_por_banco_tipo[chave] = float(item.get("valor_total") or 0)
+
+    for banco_id in banco_ids:
+        saldo_final = saldos_por_banco_tipo.get((banco_id, SaldoLimite.TIPO_SALDO_FINAL), 0.0)
+        saldo_inicial = saldos_por_banco_tipo.get((banco_id, SaldoLimite.TIPO_SALDO_INICIAL), 0.0)
+        limite_final = saldos_por_banco_tipo.get((banco_id, SaldoLimite.TIPO_LIMITE_FINAL), 0.0)
+        limite_inicial = saldos_por_banco_tipo.get((banco_id, SaldoLimite.TIPO_LIMITE_INICIAL), 0.0)
+        antecipacoes = saldos_por_banco_tipo.get((banco_id, SaldoLimite.TIPO_ANTECIPACAO), 0.0)
+
+        linhas["saldo_atual"][str(banco_id)] = saldo_final if saldo_final != 0 else saldo_inicial
+        linhas["limite"][str(banco_id)] = limite_final if limite_final != 0 else limite_inicial
+        linhas["antecipacoes"][str(banco_id)] = antecipacoes
+
+    comite_qs = ComiteDiario.objects.filter(empresa=empresa, decisao=ComiteDiario.DECISAO_TRANSFERIR)
+    data_transferencias = data_referencia
+    if data_transferencias is None:
+        data_transferencias = comite_qs.aggregate(data_max=Max("data_negociacao")).get("data_max")
+    if data_transferencias:
+        comite_qs = comite_qs.filter(data_negociacao=data_transferencias)
+    else:
+        comite_qs = comite_qs.none()
+
+    saidas = {
+        int(item["de_banco_id"]): float(item["valor_total"] or 0)
+        for item in (
+            comite_qs
+            .exclude(de_banco_id__isnull=True)
+            .values("de_banco_id")
+            .annotate(valor_total=Sum("valor_liquido"))
+        )
+        if item.get("de_banco_id")
+    }
+    entradas = {
+        int(item["para_banco_id"]): float(item["valor_total"] or 0)
+        for item in (
+            comite_qs
+            .exclude(para_banco_id__isnull=True)
+            .values("para_banco_id")
+            .annotate(valor_total=Sum("valor_liquido"))
+        )
+        if item.get("para_banco_id")
+    }
+
+    for banco_id in banco_ids:
+        transferencia_liquida = float(saidas.get(banco_id, 0.0)) - float(entradas.get(banco_id, 0.0))
+        linhas["transferencias"][str(banco_id)] = transferencia_liquida
+
+    for chave in ("saldo_atual", "limite", "antecipacoes", "transferencias"):
+        linhas[chave]["todos"] = sum(float(valor or 0) for valor in linhas[chave].values())
+
+    return {
+        "bancos": bancos,
+        "linhas": linhas,
+        "meta": {
+            "data_referencia_filtro": data_referencia.isoformat() if data_referencia else "",
+            "data_saldos": data_saldos.isoformat() if data_saldos else "",
+            "data_transferencias": data_transferencias.isoformat() if data_transferencias else "",
+        },
+    }
+
+
 def _formatar_moeda_br(valor):
     numero = float(valor or 0)
     valor_formatado = f"{numero:,.2f}"
@@ -232,6 +341,7 @@ def comite_diario(request, empresa_id):
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
         "comite_diario_tabulator": build_comite_diario_tabulator(comites_qs, empresa.id),
+        "lancamentos_bancarios_payload": _build_lancamentos_bancarios_payload(empresa),
         "empresas_titulares_opcoes": [
             {"id": item.id, "label": f"{item.codigo} - {item.nome}"}
             for item in empresas_titulares_qs
@@ -268,6 +378,17 @@ def comite_diario(request, empresa_id):
         "ultima_data_iso": ultima_data.isoformat() if ultima_data else "",
     }
     return render(request, modulo["template"], contexto)
+
+
+@login_required(login_url="entrar")
+def comite_diario_lancamentos_dashboard_data(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Comite Diario")
+    if not autorizado:
+        return JsonResponse({"ok": False, "message": "Sem permissao."}, status=403)
+
+    data_referencia_iso = str(request.GET.get("data") or "").strip()
+    payload = _build_lancamentos_bancarios_payload(empresa, data_referencia_iso)
+    return JsonResponse({"ok": True, "payload": payload})
 
 
 @login_required(login_url="entrar")

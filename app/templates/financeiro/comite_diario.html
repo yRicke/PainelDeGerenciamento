@@ -194,31 +194,24 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Comite Diario</h2>
-            <div class="comite-diario-dashboard-controls">
-                <div>
-                    <label for="comite-diario-data-filtro">Data de Negociacao</label>
-                    <input type="date" id="comite-diario-data-filtro">
-                </div>
-                <button type="button" id="comite-diario-btn-ultima-data" class="btn-light">Ultima data</button>
-                <button type="button" id="comite-diario-btn-limpar-data" class="btn-light">Limpar data</button>
-            </div>
+            <div class="comite-dashboard-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Lancamentos Bancarios</h3>
+                    <div
+                        id="comite-lancamentos-bancarios-wrapper"
+                        class="comite-lancamentos-bancarios-wrapper"
+                        data-endpoint-url="{% url 'comite_diario_lancamentos_dashboard_data' empresa.id %}"
+                    ></div>
+                </article>
 
-            <div class="dashboard-kpi-grid comite-diario-kpi-grid">
                 <article class="dashboard-kpi-card">
-                    <h3>Total de Registros</h3>
-                    <p id="comite-kpi-total-registros">0</p>
+                    <h3>Contas a Pagar, Correcoes, Transferencias e Conciliar Adiantamentos</h3>
+                    <p class="form-note">Bloco em construcao para a proxima etapa.</p>
                 </article>
+
                 <article class="dashboard-kpi-card">
-                    <h3>Valor Receitas</h3>
-                    <p id="comite-kpi-receitas">R$ 0,00</p>
-                </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Valor Despesas</h3>
-                    <p id="comite-kpi-despesas">R$ 0,00</p>
-                </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Saldo Liquido</h3>
-                    <p id="comite-kpi-saldo">R$ 0,00</p>
+                    <h3>Grafico</h3>
+                    <p class="form-note">Bloco em construcao para a proxima etapa.</p>
                 </article>
             </div>
         </section>
@@ -244,6 +237,7 @@
 {{ tipo_movimento_opcoes|json_script:"comite-diario-tipo-movimento-opcoes-data" }}
 {{ decisao_opcoes|json_script:"comite-diario-decisao-opcoes-data" }}
 {{ ultima_data_iso|json_script:"comite-diario-ultima-data-iso" }}
+{{ lancamentos_bancarios_payload|json_script:"comite-diario-lancamentos-bancarios-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/comite-diario-page.js' %}"></script>
 {% endblock %}

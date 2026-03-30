@@ -9,6 +9,8 @@
     var tipoMovimentoElement = document.getElementById("comite-diario-tipo-movimento-opcoes-data");
     var decisaoElement = document.getElementById("comite-diario-decisao-opcoes-data");
     var ultimaDataElement = document.getElementById("comite-diario-ultima-data-iso");
+    var lancamentosPayloadElement = document.getElementById("comite-diario-lancamentos-bancarios-data");
+    var lancamentosWrapper = document.getElementById("comite-lancamentos-bancarios-wrapper");
     var cadastroForm = document.getElementById("comite-diario-cadastro-form");
     var saveStatusEl = document.getElementById("comite-diario-save-status");
     var cadastroDecisaoSelect = cadastroForm ? cadastroForm.querySelector('select[name="decisao"]') : null;
@@ -31,6 +33,8 @@
         !receitaDespesaElement ||
         !tipoMovimentoElement ||
         !decisaoElement ||
+        !lancamentosPayloadElement ||
+        !lancamentosWrapper ||
         !cadastroForm ||
         !window.Tabulator ||
         !window.TabulatorDefaults
@@ -53,6 +57,7 @@
     var receitaDespesaOpcoes = JSON.parse(receitaDespesaElement.textContent || "[]");
     var tipoMovimentoOpcoes = JSON.parse(tipoMovimentoElement.textContent || "[]");
     var decisaoOpcoes = JSON.parse(decisaoElement.textContent || "[]");
+    var lancamentosPayload = JSON.parse(lancamentosPayloadElement.textContent || "{}");
     var ultimaDataIso = "";
     try {
         ultimaDataIso = JSON.parse(ultimaDataElement ? (ultimaDataElement.textContent || "\"\"") : "\"\"");
@@ -66,6 +71,11 @@
     var secFiltros = document.getElementById("sec-filtros");
     var filtrosColunaEsquerda = document.getElementById("comite-filtros-coluna-esquerda");
     var filtrosColunaDireita = document.getElementById("comite-filtros-coluna-direita");
+
+    var lancamentosEndpointUrl = toText(lancamentosWrapper.getAttribute("data-endpoint-url"));
+    var lancamentosUsarLimite = false;
+    var lancamentosRefreshInFlight = false;
+    var lancamentosPollingTimer = null;
 
     var kpiTotalEl = document.getElementById("comite-kpi-total-registros");
     var kpiReceitasEl = document.getElementById("comite-kpi-receitas");
@@ -205,6 +215,145 @@
         );
         saveStatusEl.textContent = text || "";
         if (tone) saveStatusEl.classList.add(tone);
+    }
+
+    function getLinhaLancamentos(payload, chave) {
+        var linhas = payload && payload.linhas ? payload.linhas : {};
+        return linhas[chave] || {};
+    }
+
+    function getBancoValor(linha, bancoId) {
+        if (!linha) return 0;
+        return toNumber(linha[String(bancoId)] || 0);
+    }
+
+    function renderLancamentosBancarios(payload) {
+        if (!lancamentosWrapper) return;
+        var dados = payload && typeof payload === "object" ? payload : {};
+        var bancos = Array.isArray(dados.bancos) ? dados.bancos : [];
+
+        var linhaSaldo = getLinhaLancamentos(dados, "saldo_atual");
+        var linhaLimite = getLinhaLancamentos(dados, "limite");
+        var linhaAntecipacoes = getLinhaLancamentos(dados, "antecipacoes");
+        var linhaTransferencias = getLinhaLancamentos(dados, "transferencias");
+
+        var html = [];
+        html.push('<table class="comite-lancamentos-table">');
+        html.push("<thead><tr><th>Linha</th>");
+        bancos.forEach(function (banco) {
+            html.push("<th>" + toText(banco.nome) + "</th>");
+        });
+        html.push("<th>Todos</th></tr></thead>");
+        html.push("<tbody>");
+
+        function renderLinha(chave, label, linhaValores, includeToggle) {
+            var total = 0;
+            html.push("<tr>");
+            if (includeToggle) {
+                var checkedAttr = lancamentosUsarLimite ? " checked" : "";
+                html.push(
+                    '<td><span class="comite-lancamentos-row-label">' +
+                    label +
+                    '<label class="comite-lancamentos-row-toggle">' +
+                    '<input type="checkbox" id="comite-lancamentos-usar-limite"' + checkedAttr + ">" +
+                    "<span>Usar limite</span>" +
+                    "</label></span></td>"
+                );
+            } else {
+                html.push("<td>" + label + "</td>");
+            }
+
+            bancos.forEach(function (banco) {
+                var valor = getBancoValor(linhaValores, banco.id);
+                total += valor;
+                html.push("<td>" + formatMoney(valor) + "</td>");
+            });
+            html.push("<td>" + formatMoney(total) + "</td>");
+            html.push("</tr>");
+        }
+
+        renderLinha("saldo_atual", "Saldo atual", linhaSaldo, false);
+        renderLinha("limite", "Limite", linhaLimite, true);
+        renderLinha("antecipacoes", "Antecipacoes", linhaAntecipacoes, false);
+        renderLinha("transferencias", "Transferencias", linhaTransferencias, false);
+
+        var totalSaldoDisponivel = 0;
+        html.push("<tr>");
+        html.push("<td>Saldo disponivel</td>");
+        bancos.forEach(function (banco) {
+            var saldo = getBancoValor(linhaSaldo, banco.id);
+            var limite = lancamentosUsarLimite ? getBancoValor(linhaLimite, banco.id) : 0;
+            var antecipacao = getBancoValor(linhaAntecipacoes, banco.id);
+            var transferencia = getBancoValor(linhaTransferencias, banco.id);
+            var saldoDisponivel = saldo + limite + antecipacao - transferencia;
+            totalSaldoDisponivel += saldoDisponivel;
+            html.push("<td>" + formatMoney(saldoDisponivel) + "</td>");
+        });
+        html.push("<td>" + formatMoney(totalSaldoDisponivel) + "</td>");
+        html.push("</tr>");
+
+        html.push("</tbody></table>");
+
+        var meta = dados.meta || {};
+        var legenda = [];
+        if (toText(meta.data_saldos)) legenda.push("Saldos/Limites: " + formatDateIsoToBr(meta.data_saldos));
+        if (toText(meta.data_transferencias)) legenda.push("Transferencias: " + formatDateIsoToBr(meta.data_transferencias));
+        if (legenda.length) {
+            html.push('<div class="comite-lancamentos-meta">' + legenda.join(" | ") + "</div>");
+        }
+
+        lancamentosWrapper.innerHTML = html.join("");
+
+        var checkboxLimite = document.getElementById("comite-lancamentos-usar-limite");
+        if (checkboxLimite) {
+            checkboxLimite.addEventListener("change", function () {
+                lancamentosUsarLimite = !!checkboxLimite.checked;
+                renderLancamentosBancarios(lancamentosPayload);
+            });
+        }
+    }
+
+    function refreshLancamentosBancarios(options) {
+        var opts = options || {};
+        if (!lancamentosEndpointUrl || lancamentosRefreshInFlight) return Promise.resolve();
+
+        lancamentosRefreshInFlight = true;
+        var url = new URL(lancamentosEndpointUrl, window.location.origin);
+        if (selectedDateIso) {
+            url.searchParams.set("data", selectedDateIso);
+        }
+
+        return fetch(url.toString(), {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {"X-Requested-With": "XMLHttpRequest"},
+        })
+            .then(parseJsonResponse)
+            .then(function (result) {
+                if (!result.ok || !result.body || result.body.ok === false || !result.body.payload) {
+                    return;
+                }
+                lancamentosPayload = result.body.payload;
+                renderLancamentosBancarios(lancamentosPayload);
+            })
+            .catch(function () {
+                if (!opts.silent) {
+                    setSaveStatus("Falha ao atualizar lancamentos bancarios.", "comite-diario-save-status--error");
+                }
+            })
+            .finally(function () {
+                lancamentosRefreshInFlight = false;
+            });
+    }
+
+    function iniciarPollingLancamentosBancarios() {
+        if (lancamentosPollingTimer) {
+            window.clearInterval(lancamentosPollingTimer);
+        }
+        lancamentosPollingTimer = window.setInterval(function () {
+            if (document.hidden) return;
+            refreshLancamentosBancarios({silent: true});
+        }, 10000);
     }
 
     function applyDecisionRulesToRow(rowData) {
@@ -404,6 +553,7 @@
 
                         rebuildExternalFiltersByDate();
                         updateDashboard(getVisibleRowsData());
+                        refreshLancamentosBancarios({silent: true});
                         setSaveStatus("Salvo automaticamente.", "comite-diario-save-status--ok");
                     })
                     .catch(function () {
@@ -592,6 +742,7 @@
         }
         rebuildExternalFiltersByDate();
         updateDashboard(getVisibleRowsData());
+        refreshLancamentosBancarios({silent: true});
     }
 
     function bindFilterClearButtons() {
@@ -675,6 +826,7 @@
                         toggleDecisionDependentFormFields();
                         rebuildExternalFiltersByDate();
                         updateDashboard(getVisibleRowsData());
+                        refreshLancamentosBancarios({silent: true});
                         setSaveStatus("Registro criado e tabela atualizada.", "comite-diario-save-status--ok");
                     })
                     .catch(function () {
@@ -727,6 +879,7 @@
                     .then(function () {
                         rebuildExternalFiltersByDate();
                         updateDashboard(getVisibleRowsData());
+                        refreshLancamentosBancarios({silent: true});
                         setSaveStatus("Registro excluido e tabela atualizada.", "comite-diario-save-status--ok");
                     })
                     .catch(function () {
@@ -984,6 +1137,8 @@
 
     bindFilterClearButtons();
     toggleDecisionDependentFormFields();
+    renderLancamentosBancarios(lancamentosPayload);
+    iniciarPollingLancamentosBancarios();
     applyDateFilterValue("");
     setSaveStatus("", "");
 })();

@@ -26,6 +26,65 @@
     grid-template-columns: repeat(4, minmax(210px, 1fr));
 }
 
+.comite-dashboard-grid {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.comite-lancamentos-bancarios-wrapper {
+    overflow-x: auto;
+}
+
+.comite-lancamentos-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+}
+
+.comite-lancamentos-table th,
+.comite-lancamentos-table td {
+    border: 1px solid #d8dee4;
+    padding: 0.45rem 0.55rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.comite-lancamentos-table th:first-child,
+.comite-lancamentos-table td:first-child {
+    text-align: left;
+}
+
+.comite-lancamentos-table thead th {
+    background: #f8fafc;
+    color: #1f2937;
+    font-weight: 700;
+}
+
+.comite-lancamentos-table tbody tr:last-child td {
+    background: #f9fafb;
+    font-weight: 700;
+}
+
+.comite-lancamentos-row-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.comite-lancamentos-row-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: #334155;
+}
+
+.comite-lancamentos-meta {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
 #comite-diario-save-status.comite-diario-save-status--ok {
     color: #037847;
 }
@@ -41,6 +100,10 @@
 @media (max-width: 1100px) {
     .comite-diario-kpi-grid {
         grid-template-columns: repeat(2, minmax(210px, 1fr));
+    }
+
+    .comite-lancamentos-table {
+        min-width: 560px;
     }
 }
 
