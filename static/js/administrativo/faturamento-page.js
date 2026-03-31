@@ -1618,7 +1618,7 @@
         });
 
         var incluirPendentes = incluirPedidosPendentesEl ? incluirPedidosPendentesEl.checked : false;
-        var numeradorMetaDiaria = gapFaturamento + (incluirPendentes ? totalPedidosPendentes : 0);
+        var numeradorMetaDiaria = gapFaturamento - (incluirPendentes ? totalPedidosPendentes : 0);
         var metaDiaria = diasUteisRestantes > 0 ? (numeradorMetaDiaria / diasUteisRestantes) : 0;
 
         var totalMesSelecionado = 0;
