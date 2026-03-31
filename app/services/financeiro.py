@@ -41,6 +41,11 @@ def preparar_diretorios_orcamento(empresa):
     return services._preparar_diretorios_importacao(area="financeiro", modulo="orcamento", empresa=empresa)
 
 
+def preparar_diretorios_comite_diario(empresa):
+    services = _services()
+    return services._preparar_diretorios_importacao(area="financeiro", modulo="comite_diario", empresa=empresa)
+
+
 def importar_upload_dfc(
     *,
     empresa,
@@ -575,6 +580,78 @@ def importar_upload_orcamento(
     )
 
 
+def importar_upload_comite_diario(
+    *,
+    empresa,
+    arquivo,
+    confirmar_substituicao,
+    diretorio_importacao,
+    diretorio_subscritos,
+    usuario=None,
+):
+    if not arquivo:
+        return False, "Selecione um arquivo .xls para importar.", ""
+
+    nome_arquivo = Path(arquivo.name).name
+    if not nome_arquivo.lower().endswith(".xls"):
+        return False, "Formato invalido. Envie apenas arquivo .xls.", ""
+
+    arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
+    if arquivos_existentes and not confirmar_substituicao:
+        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar.", ""
+
+    for arquivo_antigo in arquivos_existentes:
+        destino_subscrito = diretorio_subscritos / arquivo_antigo.name
+        if destino_subscrito.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
+        arquivo_antigo.rename(destino_subscrito)
+
+    destino = diretorio_importacao / nome_arquivo
+    with destino.open("wb+") as file_out:
+        for chunk in arquivo.chunks():
+            file_out.write(chunk)
+
+    try:
+        services = _services()
+        resultado = services.importar_comite_diario_do_diretorio(
+            empresa=empresa,
+            diretorio=str(diretorio_importacao),
+            limpar_antes=True,
+        )
+    except Exception as exc:
+        return False, f"Falha ao importar Comite Diario: {exc}", ""
+
+    try:
+        services._registrar_metadados_importacao(
+            diretorio_subscritos=diretorio_subscritos,
+            empresa=empresa,
+            modulo="comite_diario",
+            usuario=usuario,
+            arquivos=[nome_arquivo],
+        )
+    except Exception:
+        pass
+
+    detalhe = services._detalhe_erro_importacao(
+        resultado,
+        "comite_diario",
+        "registros de Comite Diario importados",
+    )
+    if detalhe:
+        return False, detalhe, ""
+
+    data_vencimento_referencia = str(resultado.get("data_vencimento_referencia") or "").strip()
+    return (
+        True,
+        (
+            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, comite diario: {resultado['comite_diario']}."
+        ),
+        data_vencimento_referencia,
+    )
+
+
 def criar_titulo_por_dados(empresa, tipo_titulo_codigo, descricao):
     return _services().criar_titulo_por_dados(empresa, tipo_titulo_codigo, descricao)
 
@@ -699,4 +776,3 @@ def atualizar_comite_diario_por_dados(item, empresa, post_data):
 
 def excluir_comite_diario_por_dados(item, empresa):
     return _services().excluir_comite_diario_por_dados(item, empresa)
-

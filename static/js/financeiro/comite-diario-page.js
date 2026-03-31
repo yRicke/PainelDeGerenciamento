@@ -1,5 +1,93 @@
 (function () {
+    var form = document.getElementById("upload-comite-diario-form");
+    if (!form) return;
+
+    var dropzone = document.getElementById("dropzone-comite-diario");
+    var input = document.getElementById("arquivo-comite-diario-input");
+    var confirmInput = document.getElementById("confirmar-substituicao-input");
+    var fileStatus = document.getElementById("nome-arquivo-comite-diario-selecionado");
+    var temArquivoExistente = form.dataset.temArquivoExistente === "1";
+
+    if (!dropzone || !input) return;
+
+    function atualizarNomeArquivo() {
+        if (!fileStatus) return;
+        if (!input.files || !input.files.length) {
+            fileStatus.textContent = "";
+            return;
+        }
+        fileStatus.textContent = "Arquivo selecionado: " + input.files[0].name;
+    }
+
+    function validarExtensaoXls(file) {
+        return !!(file && file.name && file.name.toLowerCase().endsWith(".xls"));
+    }
+
+    function confirmarSubstituicaoSeNecessario() {
+        if (!temArquivoExistente) {
+            if (confirmInput) confirmInput.value = "0";
+            return true;
+        }
+        if (!window.confirm("Ja existe um arquivo na pasta. Deseja substituir o arquivo atual?")) return false;
+        if (confirmInput) confirmInput.value = "1";
+        return true;
+    }
+
+    dropzone.addEventListener("click", function () {
+        input.click();
+    });
+
+    dropzone.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        dropzone.classList.add("dragover");
+    });
+
+    dropzone.addEventListener("dragleave", function () {
+        dropzone.classList.remove("dragover");
+    });
+
+    dropzone.addEventListener("drop", function (event) {
+        event.preventDefault();
+        dropzone.classList.remove("dragover");
+        var files = event.dataTransfer.files;
+        if (!files || !files.length) return;
+        if (!validarExtensaoXls(files[0])) {
+            window.alert("Envie apenas arquivo .xls.");
+            return;
+        }
+        input.files = files;
+        atualizarNomeArquivo();
+    });
+
+    input.addEventListener("change", function () {
+        if (!input.files || !input.files.length) return;
+        if (!validarExtensaoXls(input.files[0])) {
+            window.alert("Envie apenas arquivo .xls.");
+            input.value = "";
+        }
+        atualizarNomeArquivo();
+    });
+
+    form.addEventListener("submit", function (event) {
+        if (!input.files || !input.files.length) {
+            event.preventDefault();
+            window.alert("Selecione um arquivo .xls para continuar.");
+            return;
+        }
+        if (!validarExtensaoXls(input.files[0])) {
+            event.preventDefault();
+            window.alert("Envie apenas arquivo .xls.");
+            return;
+        }
+        if (temArquivoExistente && (!confirmInput || confirmInput.value !== "1") && !confirmarSubstituicaoSeNecessario()) {
+            event.preventDefault();
+        }
+    });
+})();
+
+(function () {
     var dataElement = document.getElementById("comite-diario-tabulator-data");
+    var configElement = document.getElementById("comite-diario-config");
     var empresasElement = document.getElementById("comite-diario-empresas-opcoes-data");
     var parceirosElement = document.getElementById("comite-diario-parceiros-opcoes-data");
     var naturezasElement = document.getElementById("comite-diario-naturezas-opcoes-data");
@@ -9,6 +97,7 @@
     var tipoMovimentoElement = document.getElementById("comite-diario-tipo-movimento-opcoes-data");
     var decisaoElement = document.getElementById("comite-diario-decisao-opcoes-data");
     var ultimaDataElement = document.getElementById("comite-diario-ultima-data-iso");
+    var dashboardDataInicialElement = document.getElementById("comite-diario-dashboard-data-inicial-iso");
     var lancamentosPayloadElement = document.getElementById("comite-diario-lancamentos-bancarios-data");
     var lancamentosWrapper = document.getElementById("comite-lancamentos-bancarios-wrapper");
     var comiteResumoWrapper = document.getElementById("comite-resumo-wrapper");
@@ -42,7 +131,6 @@
         !decisaoElement ||
         !lancamentosPayloadElement ||
         !lancamentosWrapper ||
-        !cadastroForm ||
         !window.Tabulator ||
         !window.TabulatorDefaults
     ) {
@@ -54,6 +142,7 @@
     var internalUpdate = false;
     var externalFilters = null;
     var selectedDateIso = "";
+    var canEdit = String(configElement ? (configElement.getAttribute("data-can-edit") || "1") : "1") === "1";
 
     var data = JSON.parse(dataElement.textContent || "[]");
     var empresasOpcoes = JSON.parse(empresasElement.textContent || "[]");
@@ -66,10 +155,18 @@
     var decisaoOpcoes = JSON.parse(decisaoElement.textContent || "[]");
     var lancamentosPayload = JSON.parse(lancamentosPayloadElement.textContent || "{}");
     var ultimaDataIso = "";
+    var dashboardDataInicialIso = "";
     try {
         ultimaDataIso = JSON.parse(ultimaDataElement ? (ultimaDataElement.textContent || "\"\"") : "\"\"");
     } catch (_error) {
         ultimaDataIso = "";
+    }
+    try {
+        dashboardDataInicialIso = JSON.parse(
+            dashboardDataInicialElement ? (dashboardDataInicialElement.textContent || "\"\"") : "\"\""
+        );
+    } catch (_error) {
+        dashboardDataInicialIso = "";
     }
 
     var filtroDataInput = document.getElementById("comite-diario-data-filtro");
@@ -84,6 +181,7 @@
     var lancamentosRefreshInFlight = false;
     var lancamentosPollingTimer = null;
     var comiteDecisaoChart = null;
+    var lancamentosDataReferenciaIso = toText(dashboardDataInicialIso);
 
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
 
@@ -674,8 +772,8 @@
 
         lancamentosRefreshInFlight = true;
         var url = new URL(lancamentosEndpointUrl, window.location.origin);
-        if (selectedDateIso) {
-            url.searchParams.set("data", selectedDateIso);
+        if (lancamentosDataReferenciaIso) {
+            url.searchParams.set("data", lancamentosDataReferenciaIso);
         }
 
         return fetch(url.toString(), {
@@ -935,6 +1033,12 @@
     }
 
     function onCellEdited(cell) {
+        if (!canEdit) {
+            var valorAnterior = typeof cell.getOldValue === "function" ? cell.getOldValue() : null;
+            restoreCellValue(cell, valorAnterior);
+            setSaveStatus("Edicao manual desabilitada para esta empresa neste modulo.", "comite-diario-save-status--error");
+            return;
+        }
         if (internalUpdate) return;
         var row = cell && typeof cell.getRow === "function" ? cell.getRow() : null;
         var rowData = row ? row.getData() : null;
@@ -1163,6 +1267,7 @@
     function submitCreate(event) {
         if (!event) return;
         event.preventDefault();
+        if (!cadastroForm) return;
         if (!tabela || typeof tabela.addData !== "function") return;
 
         var url = cadastroForm.getAttribute("action");
@@ -1461,10 +1566,14 @@
                 width: 120,
                 headerSort: false,
                 hozAlign: "center",
-                formatter: function () {
+                formatter: function (cell) {
+                    if (!canEdit) return "";
+                    var rowData = cell && cell.getRow ? (cell.getRow().getData() || {}) : {};
+                    if (!rowData.excluir_url) return "";
                     return '<button type="button" class="btn-danger">Excluir</button>';
                 },
                 cellClick: function (event, cell) {
+                    if (!canEdit) return;
                     event.preventDefault();
                     deleteRowByCell(cell);
                 },
@@ -1506,7 +1615,9 @@
         dashboardPdfButtonEl.addEventListener("click", submitDashboardPdfExport);
     }
 
-    cadastroForm.addEventListener("submit", submitCreate);
+    if (cadastroForm) {
+        cadastroForm.addEventListener("submit", submitCreate);
+    }
     if (cadastroDecisaoSelect) {
         cadastroDecisaoSelect.addEventListener("change", toggleDecisionDependentFormFields);
     }
@@ -1516,5 +1627,6 @@
     renderLancamentosBancarios(lancamentosPayload);
     iniciarPollingLancamentosBancarios();
     applyDateFilterValue("");
+    refreshLancamentosBancarios({silent: true});
     setSaveStatus("", "");
 })();

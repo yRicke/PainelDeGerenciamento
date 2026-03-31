@@ -1103,9 +1103,10 @@ def build_saldos_limites_tabulator(saldos_qs, empresa_id: int):
     ]
 
 
-def build_comite_diario_tabulator(comites_qs, empresa_id: int):
-    return [
-        {
+def build_comite_diario_tabulator(comites_qs, empresa_id: int, permitir_edicao: bool = True):
+    resultado = []
+    for item in comites_qs:
+        row = {
             "id": item.id,
             "data_negociacao": _fmt_date_br(item.data_negociacao),
             "data_negociacao_iso": item.data_negociacao.isoformat() if item.data_negociacao else "",
@@ -1152,17 +1153,18 @@ def build_comite_diario_tabulator(comites_qs, empresa_id: int):
                 if item.para_empresa_id
                 else ""
             ),
-            "editar_url": reverse(
+        }
+        if permitir_edicao:
+            row["editar_url"] = reverse(
                 "editar_comite_diario_modulo",
                 kwargs={"empresa_id": empresa_id, "comite_diario_id": item.id},
-            ),
-            "excluir_url": reverse(
+            )
+            row["excluir_url"] = reverse(
                 "excluir_comite_diario_modulo",
                 kwargs={"empresa_id": empresa_id, "comite_diario_id": item.id},
-            ),
-        }
-        for item in comites_qs
-    ]
+            )
+        resultado.append(row)
+    return resultado
 
 
 def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):

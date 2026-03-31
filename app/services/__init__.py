@@ -84,6 +84,7 @@ from ..utils.comercial_importacao import (
 )
 from ..utils.financeiro_importacao import (
     importar_adiantamentos_do_diretorio,
+    importar_comite_diario_do_diretorio,
     importar_contas_a_receber_do_diretorio,
     importar_dfc_do_diretorio,
     importar_faturamento_do_diretorio,
@@ -101,11 +102,13 @@ from ..utils.operacional_importacao import (
 )
 from .financeiro import (
     importar_upload_adiantamentos,
+    importar_upload_comite_diario,
     importar_upload_contas_a_receber,
     importar_upload_dfc,
     importar_upload_faturamento,
     importar_upload_orcamento,
     preparar_diretorios_adiantamentos,
+    preparar_diretorios_comite_diario,
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_dfc,
     preparar_diretorios_faturamento,

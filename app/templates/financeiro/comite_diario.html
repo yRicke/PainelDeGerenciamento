@@ -11,7 +11,7 @@
 
 {% block content %}
 <section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
-    <div class="module-hero-grid module-hero-grid--single">
+    <div class="module-hero-grid">
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
@@ -26,6 +26,49 @@
                 </div>
             </dl>
         </div>
+
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Comite Diario">
+            <div class="module-hero-import-head">
+                <h2>Importacao de Comite Diario</h2>
+                <span class="module-hero-import-badge">.xls</span>
+            </div>
+
+            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+
+            {% if resumo_importacao.tem_arquivos %}
+            <div class="importacao-resumo">
+                <p class="file-status">
+                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <span class="importacao-resumo-sep">|</span>
+                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                </p>
+                <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
+            </div>
+            {% else %}
+            <p class="file-status">Nenhum arquivo carregado na pasta.</p>
+            {% endif %}
+
+            <form
+                id="upload-comite-diario-form"
+                class="upload-form"
+                method="post"
+                enctype="multipart/form-data"
+                data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}"
+            >
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="importar_comite_diario">
+                <input type="file" id="arquivo-comite-diario-input" name="arquivo_comite_diario" accept=".xls" hidden>
+                <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
+                <div id="dropzone-comite-diario" class="dropzone">
+                    <strong>Arraste e solte o arquivo aqui</strong>
+                    <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
+                </div>
+                <div class="upload-actions">
+                    <button type="submit" class="btn-primary">Enviar e importar</button>
+                    <span id="nome-arquivo-comite-diario-selecionado" class="file-status"></span>
+                </div>
+            </form>
+        </section>
     </div>
 </section>
 
@@ -56,7 +99,10 @@
                 <span>Menu de filtros</span>
             </button>
             <nav class="module-sections-nav" aria-label="Navegacao de secoes de Comite Diario">
+                {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
+                {% endif %}
+                <a href="#sec-importacao">Importacao</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
                 <a href="#sec-visualizacao">Visualizacao</a>
@@ -64,6 +110,7 @@
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
 
+        {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
             <h2>Novo Registro de Comite Diario</h2>
             <p class="form-note">Empresa e vinculada automaticamente. Todos os campos principais sao obrigatorios.</p>
@@ -191,6 +238,7 @@
             </form>
             <p id="comite-diario-save-status" class="file-status" aria-live="polite"></p>
         </section>
+        {% endif %}
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Comite Diario</h2>
@@ -255,6 +303,10 @@
 {% endblock %}
 
 {% block extra_js %}
+<div
+    id="comite-diario-config"
+    data-can-edit="{% if not bloquear_cadastro_edicao_importacao %}1{% else %}0{% endif %}"
+></div>
 {{ comite_diario_tabulator|json_script:"comite-diario-tabulator-data" }}
 {{ empresas_titulares_opcoes|json_script:"comite-diario-empresas-opcoes-data" }}
 {{ parceiros_opcoes|json_script:"comite-diario-parceiros-opcoes-data" }}
@@ -265,6 +317,7 @@
 {{ tipo_movimento_opcoes|json_script:"comite-diario-tipo-movimento-opcoes-data" }}
 {{ decisao_opcoes|json_script:"comite-diario-decisao-opcoes-data" }}
 {{ ultima_data_iso|json_script:"comite-diario-ultima-data-iso" }}
+{{ dashboard_data_inicial_iso|json_script:"comite-diario-dashboard-data-inicial-iso" }}
 {{ lancamentos_bancarios_payload|json_script:"comite-diario-lancamentos-bancarios-data" }}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>

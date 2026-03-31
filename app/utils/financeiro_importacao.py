@@ -16,7 +16,9 @@ from ..models import (
     Carteira,
     CentroResultado,
     Cidade,
+    ComiteDiario,
     ContasAReceber,
+    EmpresaTitular,
     Faturamento,
     Frete,
     FluxoDeCaixaDFC,
@@ -363,6 +365,97 @@ def _split_codigo_nome_texto(valor):
         codigo, nome = texto.split(" - ", 1)
         return _normalizar_codigo(codigo), _normalizar_texto(nome)
     return "", texto
+
+
+def _empresa_titular_get_create_por_codigo_nome(empresa, codigo_raw, nome_raw, cache_empresas_titulares):
+    codigo = _normalizar_codigo(codigo_raw)
+    nome = _normalizar_texto(nome_raw)
+    chave_cache = _normalizar_nome_coluna(f"{codigo}|{nome}")
+    if chave_cache in cache_empresas_titulares:
+        return cache_empresas_titulares[chave_cache]
+
+    codigo_int = 0
+    if codigo.isdigit():
+        codigo_int = int(codigo)
+
+    empresa_titular = None
+    if codigo_int > 0:
+        empresa_titular = EmpresaTitular.objects.filter(empresa=empresa, codigo=codigo_int).first()
+    if empresa_titular is None and nome:
+        empresa_titular = EmpresaTitular.objects.filter(empresa=empresa, nome__iexact=nome).first()
+
+    if empresa_titular is None:
+        if codigo_int <= 0:
+            codigo_int = int(EmpresaTitular.objects.filter(empresa=empresa).aggregate(max_codigo=Max("codigo")).get("max_codigo") or 0) + 1
+        nome_criacao = nome or f"Empresa Titular {codigo_int}"
+        empresa_titular = EmpresaTitular.criar_empresa_titular(
+            empresa=empresa,
+            codigo=codigo_int,
+            nome=nome_criacao,
+        )
+    else:
+        campos_update = []
+        if nome and empresa_titular.nome != nome:
+            empresa_titular.nome = nome
+            campos_update.append("nome")
+        if codigo_int > 0 and empresa_titular.codigo != codigo_int:
+            conflito = EmpresaTitular.objects.filter(
+                empresa=empresa,
+                codigo=codigo_int,
+            ).exclude(id=empresa_titular.id).exists()
+            if not conflito:
+                empresa_titular.codigo = codigo_int
+                campos_update.append("codigo")
+        if campos_update:
+            empresa_titular.save(update_fields=campos_update)
+
+    cache_empresas_titulares[chave_cache] = empresa_titular
+    return empresa_titular
+
+
+def _receita_despesa_comite(valor):
+    token = _normalizar_nome_coluna(valor)
+    if not token:
+        return ""
+    if token in {"d", "despesa"} or token.startswith("d"):
+        return ComiteDiario.DESPESA
+    if token in {"r", "receita"} or token.startswith("r"):
+        return ComiteDiario.RECEITA
+    return ""
+
+
+def _tipo_movimento_comite(valor):
+    token = _normalizar_nome_coluna(valor)
+    if not token:
+        return ""
+    if "compra" in token or token.startswith("c"):
+        return ComiteDiario.MOVIMENTO_COMPRA
+    if "financeiro" in token or token.startswith("i"):
+        return ComiteDiario.MOVIMENTO_FINANCEIRO
+    # Legado possui tipos extras (ex.: D-Devolucao de venda); no Comite Diario
+    # esses casos entram como financeiro para nao perder o lancamento.
+    if "devolucao" in token or token.startswith("d"):
+        return ComiteDiario.MOVIMENTO_FINANCEIRO
+    return ComiteDiario.MOVIMENTO_FINANCEIRO
+
+
+def _decisao_comite(valor):
+    token = _normalizar_nome_coluna(valor)
+    if not token:
+        return ComiteDiario.DECISAO_PAGAR
+    if "adiar" in token:
+        return ComiteDiario.DECISAO_ADIAR
+    if "corrigir" in token:
+        return ComiteDiario.DECISAO_CORRIGIR
+    if "transfer" in token:
+        return ComiteDiario.DECISAO_TRANSFERIR
+    if "conciliar" in token and ("adiant" in token or "adiantameno" in token):
+        return ComiteDiario.DECISAO_CONCILIAR_ADIANTAMENTO
+    if "saldoemconta" in token:
+        return ComiteDiario.DECISAO_SALDO_EM_CONTA
+    if "pagar" in token:
+        return ComiteDiario.DECISAO_PAGAR
+    return ComiteDiario.DECISAO_PAGAR
 
 
 def _split_codigo_descricao_produto(valor):
@@ -1390,6 +1483,237 @@ def importar_adiantamentos_do_diretorio(
         "arquivos": len(arquivos),
         "linhas": total_linhas,
         "adiantamentos": total_adiantamentos,
+        "avisos": avisos,
+    }
+
+
+@transaction.atomic
+def importar_comite_diario_do_diretorio(
+    empresa,
+    diretorio: str = "importacoes/financeiro/comite_diario",
+    limpar_antes: bool = True,
+):
+    base = Path(diretorio)
+    arquivos = sorted(base.glob("*.xls"))
+    if not arquivos:
+        return {
+            "arquivos": 0,
+            "linhas": 0,
+            "comite_diario": 0,
+            "empresas_titulares": 0,
+            "parceiros": 0,
+            "naturezas": 0,
+            "centros_resultado": 0,
+            "data_vencimento_referencia": "",
+            "avisos": [],
+        }
+
+    if limpar_antes:
+        ComiteDiario.objects.filter(empresa=empresa).delete()
+
+    total_linhas = 0
+    total_comite = 0
+    objetos: list[ComiteDiario] = []
+    datas_vencimento: set[date] = set()
+    avisos: list[str] = []
+
+    cache_empresas_titulares: dict[str, EmpresaTitular] = {}
+    cache_parceiros: dict[str, Parceiro] = {}
+    cache_naturezas: dict[str, Natureza] = {}
+    cache_centros: dict[str, CentroResultado] = {}
+
+    mapeamento_colunas = {
+        "data_negociacao": ["dtnegociacao"],
+        "data_vencimento": ["dtvencimento"],
+        "empresa_codigo": ["empresa"],
+        "empresa_nome": ["nomefantasiaempresa"],
+        "parceiro_codigo": ["parceiro"],
+        "parceiro_nome": ["nomeparceiroparceiro", "nomeparceiro"],
+        "numero_nota": ["nronota", "numeronota"],
+        "valor_liquido": ["valorliquido", "valor"],
+        "natureza_codigo": ["natureza"],
+        "natureza_descricao": ["descricaonatureza"],
+        "historico": ["historico"],
+        "centro_resultado_descricao": ["descricaocentroderesultado", "centroresultado"],
+        "receita_despesa": ["receitadespesa"],
+        "tipo_movimento": ["tipodemovimento"],
+        "decisao": ["decisao"],
+    }
+    obrigatorias = {
+        "data_negociacao",
+        "data_vencimento",
+        "empresa_codigo",
+        "empresa_nome",
+        "parceiro_codigo",
+        "parceiro_nome",
+        "natureza_codigo",
+        "natureza_descricao",
+        "numero_nota",
+        "valor_liquido",
+        "receita_despesa",
+        "tipo_movimento",
+    }
+
+    for arquivo in arquivos:
+        if xlrd is None:
+            raise RuntimeError("Dependencia 'xlrd' nao encontrada. Instale com: pip install xlrd==2.0.1")
+
+        workbook = xlrd.open_workbook(str(arquivo))
+        if workbook.nsheets <= 0:
+            continue
+
+        planilha = None
+        for nome_planilha in workbook.sheet_names():
+            if "newsheet" in _normalizar_nome_coluna(nome_planilha):
+                planilha = workbook.sheet_by_name(nome_planilha)
+                break
+        if planilha is None:
+            planilha = workbook.sheet_by_index(0)
+
+        if planilha.nrows <= 2:
+            _registrar_aviso_colunas(
+                avisos,
+                nome_arquivo=arquivo.name,
+                faltantes=list(mapeamento_colunas.keys()),
+                obrigatorias=obrigatorias,
+            )
+            continue
+
+        cabecalho = planilha.row_values(2)
+        cabecalho_normalizado = [_normalizar_nome_coluna(coluna) for coluna in cabecalho]
+        indices = {}
+        for chave, aliases in mapeamento_colunas.items():
+            indices[chave] = next((i for i, token in enumerate(cabecalho_normalizado) if token in aliases), None)
+
+        faltantes = _colunas_nao_identificadas(indices, mapeamento_colunas.keys())
+        _registrar_aviso_colunas(
+            avisos,
+            nome_arquivo=arquivo.name,
+            faltantes=faltantes,
+            obrigatorias=obrigatorias,
+        )
+        if any(indices.get(chave) is None for chave in obrigatorias):
+            continue
+
+        def _valor_por_indice(linha_valores, chave):
+            idx = indices.get(chave)
+            if idx is None or idx >= len(linha_valores):
+                return ""
+            return linha_valores[idx]
+
+        for row_idx in range(3, planilha.nrows):
+            linha = planilha.row_values(row_idx)
+            if not any(_normalizar_texto(valor) for valor in linha):
+                continue
+
+            data_negociacao = _excel_date(_valor_por_indice(linha, "data_negociacao"))
+            if not data_negociacao:
+                # Regra do legado: descartar erro/nulo em data de negociacao.
+                continue
+
+            data_vencimento = _excel_date(_valor_por_indice(linha, "data_vencimento"))
+            if not data_vencimento:
+                continue
+
+            empresa_titular = _empresa_titular_get_create_por_codigo_nome(
+                empresa,
+                _valor_por_indice(linha, "empresa_codigo"),
+                _valor_por_indice(linha, "empresa_nome"),
+                cache_empresas_titulares,
+            )
+            if empresa_titular is None:
+                continue
+
+            parceiro = _parceiro_get_create_com_cidade(
+                empresa,
+                _valor_por_indice(linha, "parceiro_codigo"),
+                _valor_por_indice(linha, "parceiro_nome"),
+                None,
+                cache_parceiros,
+            )
+            if parceiro is None:
+                continue
+
+            natureza_codigo = _normalizar_codigo(_valor_por_indice(linha, "natureza_codigo"))
+            natureza_descricao = _normalizar_texto(_valor_por_indice(linha, "natureza_descricao"))
+            natureza = None
+            if natureza_codigo:
+                natureza = cache_naturezas.get(natureza_codigo)
+                if natureza is None:
+                    natureza = Natureza.obter_ou_criar_por_codigo_descricao(
+                        empresa=empresa,
+                        codigo=natureza_codigo,
+                        descricao=natureza_descricao,
+                    )
+                    cache_naturezas[natureza_codigo] = natureza
+            else:
+                natureza = _natureza_get_create_por_descricao(empresa, natureza_descricao, cache_naturezas)
+            if natureza is None:
+                continue
+
+            centro_descricao = _descricao_textual_ou_vazio(_valor_por_indice(linha, "centro_resultado_descricao"))
+            if not centro_descricao:
+                centro_descricao = CENTRO_RESULTADO_PADRAO
+            centro_resultado = _centro_resultado_get_create(
+                empresa,
+                centro_descricao,
+                cache_centros,
+            )
+            if centro_resultado is None:
+                continue
+
+            receita_despesa = _receita_despesa_comite(_valor_por_indice(linha, "receita_despesa"))
+            if not receita_despesa:
+                continue
+
+            tipo_movimento = _tipo_movimento_comite(_valor_por_indice(linha, "tipo_movimento"))
+            if not tipo_movimento:
+                continue
+
+            historico = _normalizar_texto(_valor_por_indice(linha, "historico")) or "-"
+            numero_nota = _to_int64(_valor_por_indice(linha, "numero_nota"))
+            valor_liquido = abs(_to_decimal(_valor_por_indice(linha, "valor_liquido")))
+            decisao = _decisao_comite(_valor_por_indice(linha, "decisao"))
+
+            objetos.append(
+                ComiteDiario(
+                    empresa=empresa,
+                    data_negociacao=data_negociacao,
+                    data_vencimento=data_vencimento,
+                    receita_despesa=receita_despesa,
+                    empresa_titular=empresa_titular,
+                    parceiro=parceiro,
+                    natureza=natureza,
+                    centro_resultado=centro_resultado,
+                    historico=historico,
+                    numero_nota=numero_nota,
+                    valor_liquido=valor_liquido,
+                    tipo_movimento=tipo_movimento,
+                    decisao=decisao,
+                )
+            )
+            total_linhas += 1
+            datas_vencimento.add(data_vencimento)
+
+            if len(objetos) >= 1000:
+                ComiteDiario.objects.bulk_create(objetos, batch_size=1000)
+                total_comite += len(objetos)
+                objetos = []
+
+    if objetos:
+        ComiteDiario.objects.bulk_create(objetos, batch_size=1000)
+        total_comite += len(objetos)
+
+    data_vencimento_referencia = max(datas_vencimento).isoformat() if datas_vencimento else ""
+    return {
+        "arquivos": len(arquivos),
+        "linhas": total_linhas,
+        "comite_diario": total_comite,
+        "empresas_titulares": len(cache_empresas_titulares),
+        "parceiros": len(cache_parceiros),
+        "naturezas": len(cache_naturezas),
+        "centros_resultado": len(cache_centros),
+        "data_vencimento_referencia": data_vencimento_referencia,
         "avisos": avisos,
     }
 

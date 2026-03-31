@@ -60,10 +60,12 @@ from ..services.financeiro import (
     excluir_saldo_limite_por_dados,
     excluir_comite_diario_por_dados,
     importar_upload_adiantamentos,
+    importar_upload_comite_diario,
     importar_upload_contas_a_receber,
     importar_upload_dfc,
     importar_upload_orcamento,
     preparar_diretorios_adiantamentos,
+    preparar_diretorios_comite_diario,
     preparar_diretorios_contas_a_receber,
     preparar_diretorios_dfc,
     preparar_diretorios_orcamento,
@@ -202,9 +204,9 @@ def _build_lancamentos_bancarios_payload(empresa, data_referencia_iso=""):
     comite_qs = ComiteDiario.objects.filter(empresa=empresa, decisao=ComiteDiario.DECISAO_TRANSFERIR)
     data_transferencias = data_referencia
     if data_transferencias is None:
-        data_transferencias = comite_qs.aggregate(data_max=Max("data_negociacao")).get("data_max")
+        data_transferencias = comite_qs.aggregate(data_max=Max("data_vencimento")).get("data_max")
     if data_transferencias:
-        comite_qs = comite_qs.filter(data_negociacao=data_transferencias)
+        comite_qs = comite_qs.filter(data_vencimento=data_transferencias)
     else:
         comite_qs = comite_qs.none()
 
@@ -429,6 +431,33 @@ def comite_diario(request, empresa_id):
     if not autorizado:
         return redirect("index")
 
+    diretorio_importacao, diretorio_subscritos = preparar_diretorios_comite_diario(empresa)
+    dashboard_data_inicial_iso = str(request.GET.get("dashboard_data") or "").strip()
+
+    if request.method == "POST":
+        acao = str(request.POST.get("acao") or "").strip()
+        if acao == "importar_comite_diario":
+            arquivo = request.FILES.get("arquivo_comite_diario")
+            confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
+            ok, mensagem, data_vencimento_referencia = importar_upload_comite_diario(
+                empresa=empresa,
+                arquivo=arquivo,
+                confirmar_substituicao=confirmou_substituicao,
+                diretorio_importacao=diretorio_importacao,
+                diretorio_subscritos=diretorio_subscritos,
+                usuario=request.user,
+            )
+            if ok:
+                messages.success(request, mensagem)
+            else:
+                messages.error(request, mensagem)
+
+            redirect_url = reverse("comite_diario", kwargs={"empresa_id": empresa.id})
+            if ok and data_vencimento_referencia:
+                redirect_url = f"{redirect_url}?dashboard_data={data_vencimento_referencia}"
+            return redirect(redirect_url)
+        return redirect("comite_diario", empresa_id=empresa.id)
+
     comites_qs = (
         ComiteDiario.objects.filter(empresa=empresa)
         .select_related(
@@ -468,11 +497,31 @@ def comite_diario(request, empresa_id):
         contas_receber_ate_90_qs.count(),
     )
     contas_receber_ate_90_valor = resumo_contas_receber_ate_90.get("valor_data_mais_recente") or 0
+    bloquear_cadastro_edicao = _empresa_bloqueia_cadastro_edicao_importacao(empresa)
+    arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])
+    arquivo_existente_texto, tem_arquivo_existente = _resumir_arquivos_existentes(arquivos_existentes)
+    resumo_importacao = _montar_resumo_importacao(
+        diretorio_importacao=diretorio_importacao,
+        diretorio_subscritos=diretorio_subscritos,
+        modulo="comite_diario",
+        empresa_id=empresa.id,
+        extensoes={".xls"},
+    )
 
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
-        "comite_diario_tabulator": build_comite_diario_tabulator(comites_qs, empresa.id),
+        "bloquear_cadastro_edicao_importacao": bloquear_cadastro_edicao,
+        "tipo_importacao_texto": TIPO_IMPORTACAO_POR_MODULO["comite_diario"],
+        "resumo_importacao": resumo_importacao,
+        "arquivo_existente": arquivo_existente_texto,
+        "tem_arquivo_existente": tem_arquivo_existente,
+        "dashboard_data_inicial_iso": dashboard_data_inicial_iso,
+        "comite_diario_tabulator": build_comite_diario_tabulator(
+            comites_qs,
+            empresa.id,
+            permitir_edicao=not bloquear_cadastro_edicao,
+        ),
         "lancamentos_bancarios_payload": _build_lancamentos_bancarios_payload(empresa),
         "comite_dashboard_pdf_url": reverse(
             "comite_diario_dashboard_pdf",
@@ -564,6 +613,13 @@ def criar_comite_diario_modulo(request, empresa_id):
         return redirect("index")
     if request.method != "POST":
         return redirect("comite_diario", empresa_id=empresa.id)
+    if _bloquear_criar_em_modulo_com_importacao_se_necessario(
+        request,
+        empresa,
+        "criar_comite_diario",
+        {"criar_comite_diario"},
+    ):
+        return redirect("comite_diario", empresa_id=empresa.id)
 
     erro = criar_comite_diario_por_dados(empresa, request.POST)
     if erro:
@@ -612,6 +668,13 @@ def editar_comite_diario_modulo(request, empresa_id, comite_diario_id):
         return redirect("index")
     if request.method != "POST":
         return redirect("comite_diario", empresa_id=empresa.id)
+    bloqueio_redirect = _bloquear_edicao_em_modulo_com_importacao_se_necessario(
+        request,
+        empresa,
+        "comite_diario",
+    )
+    if bloqueio_redirect:
+        return bloqueio_redirect
 
     item = ComiteDiario.objects.filter(id=comite_diario_id, empresa=empresa).first()
     if not item:
@@ -661,6 +724,13 @@ def excluir_comite_diario_modulo(request, empresa_id, comite_diario_id):
         return redirect("index")
     if request.method != "POST":
         return redirect("comite_diario", empresa_id=empresa.id)
+    bloqueio_redirect = _bloquear_edicao_em_modulo_com_importacao_se_necessario(
+        request,
+        empresa,
+        "comite_diario",
+    )
+    if bloqueio_redirect:
+        return bloqueio_redirect
 
     item = ComiteDiario.objects.filter(id=comite_diario_id, empresa=empresa).first()
     if not item:
