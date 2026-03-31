@@ -311,6 +311,7 @@
 
 .module-shell.is-sidebar-collapsed {
     grid-template-columns: minmax(0, 0) minmax(0, 1fr);
+    gap: 0;
 }
 
 .module-shell.is-sidebar-collapsed .module-shell-sidebar {
