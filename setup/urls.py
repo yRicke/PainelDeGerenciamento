@@ -66,6 +66,7 @@ urlpatterns = [
     # Modulos - Financeiro
     path('comite_diario/<int:empresa_id>/', views_financeiro.comite_diario, name='comite_diario'),
     path('comite_diario/<int:empresa_id>/dashboard/lancamentos/', views_financeiro.comite_diario_lancamentos_dashboard_data, name='comite_diario_lancamentos_dashboard_data'),
+    path('comite_diario/<int:empresa_id>/dashboard-pdf/', views_financeiro.comite_diario_dashboard_pdf, name='comite_diario_dashboard_pdf'),
     path('comite_diario/<int:empresa_id>/criar/', views_financeiro.criar_comite_diario_modulo, name='criar_comite_diario_modulo'),
     path('comite_diario/<int:empresa_id>/editar/<int:comite_diario_id>/', views_financeiro.editar_comite_diario_modulo, name='editar_comite_diario_modulo'),
     path('comite_diario/<int:empresa_id>/excluir/<int:comite_diario_id>/', views_financeiro.excluir_comite_diario_modulo, name='excluir_comite_diario_modulo'),

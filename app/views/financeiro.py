@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from django.contrib import messages
@@ -310,6 +311,117 @@ def _descrever_filtros_pagina_contas(filtros):
     return linhas or ["- Nenhum filtro de pagina aplicado."]
 
 
+def _carregar_payload_dashboard_comite_pdf(request):
+    bruto = request.POST.get("payload_json")
+    if not bruto:
+        return {}
+    try:
+        payload = json.loads(bruto)
+    except (TypeError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _texto_pdf_comite(valor, fallback="-", limite=220):
+    texto = str(valor or "").strip()
+    if not texto:
+        return fallback
+    if len(texto) <= limite:
+        return texto
+    return texto[: limite - 3].rstrip() + "..."
+
+
+def _normalizar_linhas_pdf_comite(lista_linhas, limite_linhas=5000, limite_colunas=30):
+    if not isinstance(lista_linhas, list):
+        return []
+    saida = []
+    for linha in lista_linhas[:limite_linhas]:
+        if isinstance(linha, dict):
+            valores = linha.get("values")
+        else:
+            valores = linha
+        if not isinstance(valores, list):
+            continue
+        saida.append(
+            [_texto_pdf_comite(item, fallback="", limite=200) for item in valores[:limite_colunas]]
+        )
+    return saida
+
+
+def _montar_contexto_dashboard_comite_pdf(empresa, payload):
+    top_kpis = []
+    for item in payload.get("top_kpis") if isinstance(payload.get("top_kpis"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        label = _texto_pdf_comite(item.get("label"), fallback="", limite=100)
+        value = _texto_pdf_comite(item.get("value"), fallback="", limite=120)
+        if not label:
+            continue
+        top_kpis.append({"label": label, "value": value or "-"})
+        if len(top_kpis) >= 10:
+            break
+
+    lancamentos = payload.get("lancamentos") if isinstance(payload.get("lancamentos"), dict) else {}
+    lancamentos_headers = [
+        _texto_pdf_comite(item, fallback="", limite=90)
+        for item in (lancamentos.get("headers") if isinstance(lancamentos.get("headers"), list) else [])[:30]
+    ]
+    lancamentos_rows = _normalizar_linhas_pdf_comite(lancamentos.get("rows"), limite_linhas=120, limite_colunas=30)
+    lancamentos_meta = _texto_pdf_comite(lancamentos.get("meta"), fallback="", limite=300)
+
+    resumo_rows = []
+    for item in payload.get("resumo_rows") if isinstance(payload.get("resumo_rows"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        label = _texto_pdf_comite(item.get("label"), fallback="", limite=100)
+        value = _texto_pdf_comite(item.get("value"), fallback="", limite=120)
+        if not label:
+            continue
+        resumo_rows.append({"label": label, "value": value or "-"})
+        if len(resumo_rows) >= 20:
+            break
+
+    tabela = payload.get("table") if isinstance(payload.get("table"), dict) else {}
+    tabela_headers = [
+        _texto_pdf_comite(item, fallback="", limite=90)
+        for item in (tabela.get("headers") if isinstance(tabela.get("headers"), list) else [])[:30]
+    ]
+    tabela_rows = _normalizar_linhas_pdf_comite(tabela.get("rows"), limite_linhas=8000, limite_colunas=30)
+    tabela_total_linhas = int(tabela.get("total_linhas") or len(tabela_rows))
+
+    filtros_ativos = []
+    for item in payload.get("filters") if isinstance(payload.get("filters"), list) else []:
+        texto = _texto_pdf_comite(item, fallback="", limite=180)
+        if texto:
+            filtros_ativos.append(texto)
+        if len(filtros_ativos) >= 120:
+            break
+
+    chart_img_uri = str(payload.get("chart_img_uri") or "").strip()
+    if not chart_img_uri.startswith("data:image/"):
+        chart_img_uri = ""
+
+    return {
+        "empresa": empresa,
+        "gerado_em": timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+        "titulo_dashboard": _texto_pdf_comite(
+            payload.get("title"),
+            fallback="Dashboard Comite Diario",
+            limite=120,
+        ),
+        "top_kpis": top_kpis,
+        "lancamentos_headers": lancamentos_headers,
+        "lancamentos_rows": lancamentos_rows,
+        "lancamentos_meta": lancamentos_meta,
+        "resumo_rows": resumo_rows,
+        "chart_img_uri": chart_img_uri,
+        "filtros_ativos": filtros_ativos,
+        "tabela_headers": tabela_headers,
+        "tabela_rows": tabela_rows,
+        "tabela_total_linhas": tabela_total_linhas,
+    }
+
+
 @login_required(login_url="entrar")
 def comite_diario(request, empresa_id):
     modulo = _obter_modulo("Financeiro", "Comite Diario")
@@ -362,6 +474,10 @@ def comite_diario(request, empresa_id):
         "modulo_nome": modulo["nome"],
         "comite_diario_tabulator": build_comite_diario_tabulator(comites_qs, empresa.id),
         "lancamentos_bancarios_payload": _build_lancamentos_bancarios_payload(empresa),
+        "comite_dashboard_pdf_url": reverse(
+            "comite_diario_dashboard_pdf",
+            kwargs={"empresa_id": empresa.id},
+        ),
         "comite_saldo_adiantamentos_texto": _formatar_moeda_br(saldo_adiantamentos_total),
         "comite_contas_receber_90_texto": _formatar_moeda_br(contas_receber_ate_90_valor),
         "empresas_titulares_opcoes": [
@@ -411,6 +527,34 @@ def comite_diario_lancamentos_dashboard_data(request, empresa_id):
     data_referencia_iso = str(request.GET.get("data") or "").strip()
     payload = _build_lancamentos_bancarios_payload(empresa, data_referencia_iso)
     return JsonResponse({"ok": True, "payload": payload})
+
+
+@login_required(login_url="entrar")
+def comite_diario_dashboard_pdf(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Comite Diario")
+    if not autorizado:
+        return JsonResponse({"detail": "Acesso negado."}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"detail": "Metodo nao permitido."}, status=405)
+
+    payload = _carregar_payload_dashboard_comite_pdf(request)
+    contexto = _montar_contexto_dashboard_comite_pdf(empresa, payload)
+
+    try:
+        pdf_bytes = render_template_to_pdf_bytes(
+            "dashboards_pdf/financeiro/comite_diario.html",
+            context=contexto,
+            request=request,
+        )
+    except RuntimeError as erro:
+        return JsonResponse({"detail": str(erro)}, status=500)
+
+    resposta = HttpResponse(pdf_bytes, content_type="application/pdf")
+    sufixo = timezone.localtime().strftime("%Y%m%d-%H%M%S")
+    resposta["Content-Disposition"] = (
+        f'attachment; filename="dashboard-comite-diario-{sufixo}.pdf"'
+    )
+    return resposta
 
 
 @login_required(login_url="entrar")

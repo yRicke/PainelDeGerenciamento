@@ -228,6 +228,20 @@
                     <div id="comite-decisao-chart" class="comite-decisao-chart"></div>
                 </article>
             </div>
+            <div class="comite-dashboard-actions">
+                <button type="button" id="comite-dashboard-exportar-pdf" class="btn-light">
+                    Baixar PDF do Dashboard
+                </button>
+                <form
+                    id="comite-dashboard-pdf-form"
+                    action="{{ comite_dashboard_pdf_url }}"
+                    method="post"
+                    class="comite-dashboard-pdf-form"
+                >
+                    {% csrf_token %}
+                    <input type="hidden" name="payload_json" id="comite-dashboard-pdf-payload">
+                </form>
+            </div>
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">

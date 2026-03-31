@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>Dashboard Comite Diario</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #193250;
+            background: #f2f4f7;
+        }
+
+        .page {
+            min-height: calc(297mm - 24mm);
+            page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        .title {
+            margin: 0 0 10px;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
+        }
+
+        .meta {
+            margin: 0 0 14px;
+            font-size: 12px;
+            color: #35547a;
+        }
+
+        .section {
+            border: 1px solid #c4cedc;
+            border-radius: 12px;
+            background: #f3f5f8;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .section h2 {
+            margin: 0 0 9px;
+            font-size: 14px;
+            font-weight: 800;
+            color: #1b3456;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .kpi-card {
+            border: 1px solid #c9defe;
+            border-radius: 10px;
+            background: #eef7ff;
+            padding: 10px;
+        }
+
+        .kpi-label {
+            margin: 0 0 6px;
+            font-size: 12px;
+            color: #23406a;
+            font-weight: 700;
+        }
+
+        .kpi-value {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .resumo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 7px;
+        }
+
+        .resumo-item {
+            border: 1px solid #d8dee4;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px 9px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .resumo-item strong {
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .table-wrap {
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid #d6deea;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8px;
+            table-layout: fixed;
+        }
+
+        th, td {
+            border: 1px solid #d8dee4;
+            padding: 3px 4px;
+            text-align: left;
+            vertical-align: top;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        th {
+            background: #edf2f7;
+            color: #1b3456;
+            font-weight: 700;
+        }
+
+        .muted {
+            margin-top: 7px;
+            font-size: 10px;
+            color: #5f748d;
+        }
+
+        .chart-box {
+            border: 1px solid #d6deea;
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .chart-box img {
+            width: 100%;
+            max-height: 270px;
+            object-fit: contain;
+        }
+
+        .filtros-lista {
+            margin: 0;
+            padding-left: 16px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #1f3c62;
+        }
+
+        .sem-dados {
+            margin: 0;
+            font-size: 11px;
+            color: #52647a;
+        }
+    </style>
+</head>
+<body>
+    <section class="page">
+        <h1 class="title">{{ titulo_dashboard }}</h1>
+        <p class="meta">Empresa: {{ empresa.nome }} | Gerado em: {{ gerado_em }}</p>
+
+        <article class="section">
+            <h2>Indicadores Iniciais</h2>
+            <div class="kpi-grid">
+                {% for item in top_kpis %}
+                <div class="kpi-card">
+                    <p class="kpi-label">{{ item.label }}</p>
+                    <p class="kpi-value">{{ item.value }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="section">
+            <h2>Lancamentos Bancarios</h2>
+            {% if lancamentos_headers and lancamentos_rows %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            {% for col in lancamentos_headers %}
+                            <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in lancamentos_rows %}
+                        <tr>
+                            {% for value in row %}
+                            <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="sem-dados">Sem dados de lancamentos bancarios para exibir.</p>
+            {% endif %}
+            {% if lancamentos_meta %}
+            <p class="muted">{{ lancamentos_meta }}</p>
+            {% endif %}
+        </article>
+
+        <article class="section">
+            <h2>Resumo de Decisoes</h2>
+            {% if resumo_rows %}
+            <div class="resumo-grid">
+                {% for item in resumo_rows %}
+                <div class="resumo-item">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="sem-dados">Sem resumo para exibir.</p>
+            {% endif %}
+        </article>
+
+        <article class="section">
+            <h2>Grafico de Decisoes</h2>
+            {% if chart_img_uri %}
+            <div class="chart-box">
+                <img src="{{ chart_img_uri }}" alt="Grafico de decisoes">
+            </div>
+            {% else %}
+            <p class="sem-dados">Grafico indisponivel no momento da exportacao.</p>
+            {% endif %}
+        </article>
+
+        <article class="section">
+            <h2>Filtros Ativos</h2>
+            {% if filtros_ativos %}
+            <ul class="filtros-lista">
+                {% for filtro in filtros_ativos %}
+                <li>{{ filtro }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="sem-dados">Nenhum filtro ativo.</p>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="page">
+        <h2 class="title" style="font-size: 26px;">Tabela Comite Diario</h2>
+        <p class="meta">Total de linhas exportadas: {{ tabela_total_linhas }}</p>
+
+        {% if tabela_headers and tabela_rows %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        {% for col in tabela_headers %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in tabela_rows %}
+                    <tr>
+                        {% for value in row %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="sem-dados">Sem linhas na tabela para exportar.</p>
+        {% endif %}
+    </section>
+</body>
+</html>

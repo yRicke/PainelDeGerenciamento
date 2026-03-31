@@ -15,6 +15,11 @@
     var comiteDecisaoChartEl = document.getElementById("comite-decisao-chart");
     var cadastroForm = document.getElementById("comite-diario-cadastro-form");
     var saveStatusEl = document.getElementById("comite-diario-save-status");
+    var kpiSaldoAdiantamentosEl = document.getElementById("comite-kpi-saldo-adiantamentos");
+    var kpiContasReceber90El = document.getElementById("comite-kpi-contas-receber-90");
+    var dashboardPdfButtonEl = document.getElementById("comite-dashboard-exportar-pdf");
+    var dashboardPdfFormEl = document.getElementById("comite-dashboard-pdf-form");
+    var dashboardPdfPayloadEl = document.getElementById("comite-dashboard-pdf-payload");
     var cadastroDecisaoSelect = cadastroForm ? cadastroForm.querySelector('select[name="decisao"]') : null;
     var cadastroDataProrrogadaInput = cadastroForm ? cadastroForm.querySelector('input[name="data_prorrogada"]') : null;
     var cadastroTransferFields = cadastroForm
@@ -168,6 +173,194 @@
         var parts = text.split("-");
         if (parts.length !== 3) return text;
         return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+
+    function normalizeSpaces(value) {
+        return toText(value).replace(/\s+/g, " ").trim();
+    }
+
+    function collectActiveFilterLabels() {
+        var labels = [];
+        if (selectedDateIso) {
+            labels.push("Data de Negociacao: " + formatDateIsoToBr(selectedDateIso));
+        }
+
+        var chips = document.querySelectorAll("#sec-filtros .module-filter-chip.is-active");
+        chips.forEach(function (chip) {
+            var text = normalizeSpaces(chip.textContent || "");
+            if (!text) return;
+            labels.push(text);
+        });
+
+        var unique = [];
+        var seen = {};
+        labels.forEach(function (item) {
+            if (seen[item]) return;
+            seen[item] = true;
+            unique.push(item);
+        });
+
+        return unique;
+    }
+
+    function extractLancamentosSnapshot() {
+        var tableEl = lancamentosWrapper ? lancamentosWrapper.querySelector(".comite-lancamentos-table") : null;
+        if (!tableEl) {
+            return {headers: [], rows: [], meta: ""};
+        }
+
+        var headers = [];
+        tableEl.querySelectorAll("thead th").forEach(function (th) {
+            headers.push(normalizeSpaces(th.textContent || ""));
+        });
+
+        var rows = [];
+        tableEl.querySelectorAll("tbody tr").forEach(function (tr) {
+            var values = [];
+            tr.querySelectorAll("td").forEach(function (td) {
+                values.push(normalizeSpaces(td.textContent || ""));
+            });
+            if (values.length) rows.push({values: values});
+        });
+
+        var metaEl = lancamentosWrapper ? lancamentosWrapper.querySelector(".comite-lancamentos-meta") : null;
+        var meta = metaEl ? normalizeSpaces(metaEl.textContent || "") : "";
+
+        return {headers: headers, rows: rows, meta: meta};
+    }
+
+    function extractResumoSnapshot() {
+        var rows = [];
+        if (!comiteResumoWrapper) return rows;
+
+        comiteResumoWrapper.querySelectorAll(".comite-resumo-row").forEach(function (item) {
+            var labelEl = item.querySelector(".comite-resumo-label");
+            var valueEl = item.querySelector(".comite-resumo-value");
+            var label = normalizeSpaces(labelEl ? labelEl.textContent : "");
+            var value = normalizeSpaces(valueEl ? valueEl.textContent : "");
+            if (!label) return;
+            rows.push({label: label, value: value || "-"});
+        });
+
+        return rows;
+    }
+
+    function extractTableSnapshot() {
+        var headers = [
+            "ID",
+            "Data Negociacao",
+            "Data Vencimento",
+            "Receita/Despesa",
+            "Empresa Titular",
+            "Parceiro",
+            "Natureza",
+            "Centro Resultado",
+            "Historico",
+            "Numero Nota",
+            "Valor Liquido",
+            "Tipo Movimento",
+            "Decisao",
+            "Data Prorrogada",
+            "De Banco",
+            "Para Banco",
+            "Para Empresa",
+        ];
+
+        var visibleRows = getVisibleRowsData();
+        var rows = (visibleRows || []).map(function (item) {
+            return {
+                values: [
+                    normalizeSpaces(item && item.id),
+                    normalizeSpaces((item && item.data_negociacao) || formatDateIsoToBr(item && item.data_negociacao_iso)),
+                    normalizeSpaces((item && item.data_vencimento) || formatDateIsoToBr(item && item.data_vencimento_iso)),
+                    normalizeSpaces((item && item.receita_despesa_label) || (item && item.receita_despesa)),
+                    normalizeSpaces(item && item.empresa_titular_label),
+                    normalizeSpaces(item && item.parceiro_label),
+                    normalizeSpaces(item && item.natureza_label),
+                    normalizeSpaces(item && item.centro_resultado_label),
+                    normalizeSpaces(item && item.historico),
+                    normalizeSpaces(item && item.numero_nota),
+                    formatMoney(item && item.valor_liquido),
+                    normalizeSpaces((item && item.tipo_movimento_label) || (item && item.tipo_movimento)),
+                    normalizeSpaces((item && item.decisao_label) || (item && item.decisao)),
+                    normalizeSpaces((item && item.data_prorrogada) || formatDateIsoToBr(item && item.data_prorrogada_iso)),
+                    normalizeSpaces(item && item.de_banco_label),
+                    normalizeSpaces(item && item.para_banco_label),
+                    normalizeSpaces(item && item.para_empresa_label),
+                ],
+            };
+        });
+
+        return {
+            headers: headers,
+            rows: rows,
+            total_linhas: rows.length,
+        };
+    }
+
+    function collectChartDataUri() {
+        if (!comiteDecisaoChart || typeof comiteDecisaoChart.dataURI !== "function") {
+            return Promise.resolve("");
+        }
+
+        return Promise.resolve(comiteDecisaoChart.dataURI())
+            .then(function (result) {
+                if (result && typeof result === "object" && result.imgURI) {
+                    return String(result.imgURI);
+                }
+                return "";
+            })
+            .catch(function () {
+                return "";
+            });
+    }
+
+    function buildDashboardPdfPayload(chartImgUri) {
+        return {
+            title: "Dashboard Comite Diario",
+            top_kpis: [
+                {
+                    label: "Saldo Adiantamentos",
+                    value: normalizeSpaces(kpiSaldoAdiantamentosEl ? kpiSaldoAdiantamentosEl.textContent : "") || "-",
+                },
+                {
+                    label: "Contas a Receber (Ate 90 dias)",
+                    value: normalizeSpaces(kpiContasReceber90El ? kpiContasReceber90El.textContent : "") || "-",
+                },
+            ],
+            lancamentos: extractLancamentosSnapshot(),
+            resumo_rows: extractResumoSnapshot(),
+            table: extractTableSnapshot(),
+            filters: collectActiveFilterLabels(),
+            chart_img_uri: toText(chartImgUri),
+        };
+    }
+
+    function submitDashboardPdfExport(event) {
+        if (event && typeof event.preventDefault === "function") {
+            event.preventDefault();
+        }
+        if (!dashboardPdfButtonEl || !dashboardPdfFormEl || !dashboardPdfPayloadEl) return;
+
+        var textoOriginal = dashboardPdfButtonEl.textContent || "Baixar PDF do Dashboard";
+        dashboardPdfButtonEl.disabled = true;
+        dashboardPdfButtonEl.textContent = "Gerando PDF...";
+
+        collectChartDataUri()
+            .then(function (chartImgUri) {
+                var payload = buildDashboardPdfPayload(chartImgUri);
+                dashboardPdfPayloadEl.value = JSON.stringify(payload);
+                dashboardPdfFormEl.submit();
+            })
+            .catch(function () {
+                setSaveStatus("Falha ao preparar exportacao do PDF.", "comite-diario-save-status--error");
+            })
+            .finally(function () {
+                window.setTimeout(function () {
+                    dashboardPdfButtonEl.disabled = false;
+                    dashboardPdfButtonEl.textContent = textoOriginal;
+                }, 1200);
+            });
     }
 
     function getCookie(name) {
@@ -1278,6 +1471,10 @@
         btnLimparData.addEventListener("click", function () {
             applyDateFilterValue("");
         });
+    }
+
+    if (dashboardPdfButtonEl) {
+        dashboardPdfButtonEl.addEventListener("click", submitDashboardPdfExport);
     }
 
     cadastroForm.addEventListener("submit", submitCreate);

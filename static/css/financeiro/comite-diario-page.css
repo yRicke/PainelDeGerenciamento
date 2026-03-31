@@ -151,6 +151,18 @@
     font-size: 0.92rem;
 }
 
+.comite-dashboard-actions {
+    margin-top: 0.8rem;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.comite-dashboard-pdf-form {
+    display: none;
+}
+
 #comite-diario-save-status.comite-diario-save-status--ok {
     color: #037847;
 }
@@ -180,5 +192,13 @@
 
     .comite-resumo-row {
         padding: 0.45rem;
+    }
+
+    .comite-dashboard-actions {
+        justify-content: stretch;
+    }
+
+    .comite-dashboard-actions .btn-light {
+        width: 100%;
     }
 }
