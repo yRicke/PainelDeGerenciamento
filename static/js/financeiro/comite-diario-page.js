@@ -843,7 +843,7 @@
 
         var totalAPagar = valores.pagar + valores.transferir + valores.saldo_em_conta;
         var saldoDisponivelTodos = calcularSaldoDisponivelTodos(lancamentosPayload);
-        var saldoComite = saldoDisponivelTodos - totalAPagar;
+        var saldoComite = saldoDisponivelTodos - valores.pagar - valores.saldo_em_conta;
 
         var html = [];
         html.push(buildResumoRow("Pagar", valores.pagar, ""));
