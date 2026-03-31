@@ -8,6 +8,21 @@
     margin-bottom: 0.9rem;
 }
 
+.saldos-limites-dashboard-layout {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.saldos-limites-dashboard-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.saldos-limites-dashboard-cta {
+    min-width: 210px;
+    text-align: center;
+}
+
 .saldos-limites-dashboard-controls > div {
     border: 1px solid #d8dee4;
     border-radius: 8px;
@@ -49,5 +64,13 @@
 @media (max-width: 900px) {
     .saldos-limites-dashboard-controls {
         grid-template-columns: 1fr;
+    }
+
+    .saldos-limites-dashboard-footer {
+        justify-content: stretch;
+    }
+
+    .saldos-limites-dashboard-cta {
+        width: 100%;
     }
 }

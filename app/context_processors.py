@@ -63,6 +63,15 @@ def _build_module_context_by_segment():
             "module_label": "Agenda",
         }
 
+    # Contas Bancarias agora pertence ao fluxo do Financeiro.
+    contas_ctx = mapping.get("contas_bancarias")
+    if contas_ctx:
+        mapping["contas_bancarias"] = {
+            "category_slug": "financeiro",
+            "category_label": CATEGORY_LABELS["financeiro"],
+            "module_label": contas_ctx["module_label"],
+        }
+
     return mapping
 
 

@@ -14,7 +14,7 @@
     <div class="module-hero-grid module-hero-grid--single">
         <div class="module-hero-main">
             <div class="module-hero-topline">
-                <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
+                <a href="{% url 'comite_diario' empresa.id %}" class="module-hero-back-link">Voltar</a>
                 <span class="module-hero-pill">Modulo Financeiro</span>
             </div>
             <h1>Saldos e Limites</h1>
@@ -115,36 +115,43 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Saldos e Limites</h2>
-            <div class="saldos-limites-dashboard-controls">
-                <div>
-                    <label for="saldos-limites-data-filtro">Data de Referencia</label>
-                    <input type="date" id="saldos-limites-data-filtro">
+            <div class="saldos-limites-dashboard-layout">
+                <div class="saldos-limites-dashboard-controls">
+                    <div>
+                        <label for="saldos-limites-data-filtro">Data de Referencia</label>
+                        <input type="date" id="saldos-limites-data-filtro">
+                    </div>
+                    <button type="button" id="saldos-limites-btn-ultima-data" class="btn-light">Ultima data</button>
+                    <button type="button" id="saldos-limites-btn-limpar-data" class="btn-light">Limpar data</button>
                 </div>
-                <button type="button" id="saldos-limites-btn-ultima-data" class="btn-light">Ultima data</button>
-                <button type="button" id="saldos-limites-btn-limpar-data" class="btn-light">Limpar data</button>
-            </div>
 
-            <div class="dashboard-kpi-grid">
-                <article class="dashboard-kpi-card">
-                    <h3>Valor Limites Disponivel</h3>
-                    <p id="saldos-kpi-limites-total">R$ 0,00</p>
-                    <div class="saldos-limites-kpi-breakdown">
-                        <span>Inicial: <strong id="saldos-kpi-limite-inicial">R$ 0,00</strong></span>
-                        <span>Final: <strong id="saldos-kpi-limite-final">R$ 0,00</strong></span>
-                    </div>
-                </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Valor Saldo Disponivel</h3>
-                    <p id="saldos-kpi-saldos-total">R$ 0,00</p>
-                    <div class="saldos-limites-kpi-breakdown">
-                        <span>Inicial: <strong id="saldos-kpi-saldo-inicial">R$ 0,00</strong></span>
-                        <span>Final: <strong id="saldos-kpi-saldo-final">R$ 0,00</strong></span>
-                    </div>
-                </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Valor Antecipacoes</h3>
-                    <p id="saldos-kpi-antecipacoes">R$ 0,00</p>
-                </article>
+                <div class="dashboard-kpi-grid">
+                    <article class="dashboard-kpi-card">
+                        <h3>Valor Limites Disponivel</h3>
+                        <p id="saldos-kpi-limites-total">R$ 0,00</p>
+                        <div class="saldos-limites-kpi-breakdown">
+                            <span>Inicial: <strong id="saldos-kpi-limite-inicial">R$ 0,00</strong></span>
+                            <span>Final: <strong id="saldos-kpi-limite-final">R$ 0,00</strong></span>
+                        </div>
+                    </article>
+                    <article class="dashboard-kpi-card">
+                        <h3>Valor Saldo Disponivel</h3>
+                        <p id="saldos-kpi-saldos-total">R$ 0,00</p>
+                        <div class="saldos-limites-kpi-breakdown">
+                            <span>Inicial: <strong id="saldos-kpi-saldo-inicial">R$ 0,00</strong></span>
+                            <span>Final: <strong id="saldos-kpi-saldo-final">R$ 0,00</strong></span>
+                        </div>
+                    </article>
+                    <article class="dashboard-kpi-card">
+                        <h3>Valor Antecipacoes</h3>
+                        <p id="saldos-kpi-antecipacoes">R$ 0,00</p>
+                    </article>
+                </div>
+                <div class="saldos-limites-dashboard-footer">
+                    <a href="{% url 'contas_bancarias' empresa.id %}" class="btn-primary saldos-limites-dashboard-cta">
+                        Contas Bancarias
+                    </a>
+                </div>
             </div>
         </section>
 
