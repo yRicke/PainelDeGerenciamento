@@ -340,13 +340,13 @@
 
     function buildDecisaoChartDataset(linhas) {
         var categorias = [
-            {key: "adiar", label: "Adiar", count: 0},
-            {key: "corrigir", label: "Corrigir", count: 0},
-            {key: "pagar", label: "Pagar", count: 0},
-            {key: "transferir", label: "Transferir", count: 0},
-            {key: "conciliar_adiantamento", label: "Conciliar Adiantamento", count: 0},
-            {key: "saldo_em_conta", label: "Saldo em Conta", count: 0},
-            {key: "sem_resposta", label: "Sem resposta", count: 0},
+            {key: "adiar", label: "Adiar", valor: 0},
+            {key: "corrigir", label: "Corrigir", valor: 0},
+            {key: "pagar", label: "Pagar", valor: 0},
+            {key: "transferir", label: "Transferir", valor: 0},
+            {key: "conciliar_adiantamento", label: "Conciliar Adiantamento", valor: 0},
+            {key: "saldo_em_conta", label: "Saldo em Conta", valor: 0},
+            {key: "sem_resposta", label: "Sem resposta", valor: 0},
         ];
         var indicePorChave = {};
         categorias.forEach(function (item, index) {
@@ -355,13 +355,14 @@
 
         (linhas || []).forEach(function (item) {
             var decisao = toText(item && item.decisao);
+            var valorLiquido = toNumber(item && item.valor_liquido);
             var chave = decisao && Object.prototype.hasOwnProperty.call(indicePorChave, decisao) ? decisao : "sem_resposta";
-            categorias[indicePorChave[chave]].count += 1;
+            categorias[indicePorChave[chave]].valor += valorLiquido;
         });
 
         return {
             labels: categorias.map(function (item) { return item.label; }),
-            series: categorias.map(function (item) { return item.count; }),
+            series: categorias.map(function (item) { return item.valor; }),
         };
     }
 
@@ -369,7 +370,6 @@
         if (!comiteDecisaoChartEl) return;
 
         var dataset = buildDecisaoChartDataset(linhas);
-        var total = dataset.series.reduce(function (acc, valor) { return acc + toNumber(valor); }, 0);
 
         if (!window.ApexCharts) {
             comiteDecisaoChartEl.innerHTML = '<p class="comite-decisao-chart-fallback">Grafico indisponivel no momento.</p>';
@@ -387,7 +387,7 @@
             tooltip: {
                 y: {
                     formatter: function (value) {
-                        return String(toNumber(value)) + " registros";
+                        return formatMoney(value);
                     },
                 },
             },
@@ -397,18 +397,27 @@
                         size: "58%",
                         labels: {
                             show: true,
+                            value: {
+                                show: true,
+                                formatter: function (value) {
+                                    return formatMoney(value);
+                                },
+                            },
                             total: {
                                 show: true,
                                 label: "Total",
-                                formatter: function () {
-                                    return String(total);
+                                formatter: function (w) {
+                                    var soma = (w && w.globals && Array.isArray(w.globals.seriesTotals))
+                                        ? w.globals.seriesTotals.reduce(function (acc, valor) { return acc + toNumber(valor); }, 0)
+                                        : 0;
+                                    return formatMoney(soma);
                                 },
                             },
                         },
                     },
                 },
             },
-            noData: {text: "Sem registros"},
+            noData: {text: "Sem valores"},
         };
 
         if (!comiteDecisaoChart) {
