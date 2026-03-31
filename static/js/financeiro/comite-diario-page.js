@@ -11,6 +11,8 @@
     var ultimaDataElement = document.getElementById("comite-diario-ultima-data-iso");
     var lancamentosPayloadElement = document.getElementById("comite-diario-lancamentos-bancarios-data");
     var lancamentosWrapper = document.getElementById("comite-lancamentos-bancarios-wrapper");
+    var comiteResumoWrapper = document.getElementById("comite-resumo-wrapper");
+    var comiteDecisaoChartEl = document.getElementById("comite-decisao-chart");
     var cadastroForm = document.getElementById("comite-diario-cadastro-form");
     var saveStatusEl = document.getElementById("comite-diario-save-status");
     var cadastroDecisaoSelect = cadastroForm ? cadastroForm.querySelector('select[name="decisao"]') : null;
@@ -76,11 +78,8 @@
     var lancamentosUsarLimite = false;
     var lancamentosRefreshInFlight = false;
     var lancamentosPollingTimer = null;
+    var comiteDecisaoChart = null;
 
-    var kpiTotalEl = document.getElementById("comite-kpi-total-registros");
-    var kpiReceitasEl = document.getElementById("comite-kpi-receitas");
-    var kpiDespesasEl = document.getElementById("comite-kpi-despesas");
-    var kpiSaldoEl = document.getElementById("comite-kpi-saldo");
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
 
     var empresasValues = {};
@@ -309,8 +308,117 @@
             checkboxLimite.addEventListener("change", function () {
                 lancamentosUsarLimite = !!checkboxLimite.checked;
                 renderLancamentosBancarios(lancamentosPayload);
+                updateDashboard(getVisibleRowsData());
             });
         }
+    }
+
+    function calcularSaldoDisponivelTodos(payload) {
+        var dados = payload && typeof payload === "object" ? payload : {};
+        var linhaSaldo = getLinhaLancamentos(dados, "saldo_atual");
+        var linhaLimite = getLinhaLancamentos(dados, "limite");
+        var linhaAntecipacoes = getLinhaLancamentos(dados, "antecipacoes");
+        var linhaTransferencias = getLinhaLancamentos(dados, "transferencias");
+
+        var saldo = getBancoValor(linhaSaldo, "todos");
+        var limite = lancamentosUsarLimite ? getBancoValor(linhaLimite, "todos") : 0;
+        var antecipacoes = getBancoValor(linhaAntecipacoes, "todos");
+        var transferencias = getBancoValor(linhaTransferencias, "todos");
+        return saldo + limite + antecipacoes - transferencias;
+    }
+
+    function buildResumoRow(label, valor, extraClass) {
+        var classes = ["comite-resumo-row"];
+        if (extraClass) classes.push(extraClass);
+        return (
+            '<div class="' + classes.join(" ") + '">' +
+            '<span class="comite-resumo-label">' + label + "</span>" +
+            '<strong class="comite-resumo-value">' + formatMoney(valor) + "</strong>" +
+            "</div>"
+        );
+    }
+
+    function buildDecisaoChartDataset(linhas) {
+        var categorias = [
+            {key: "adiar", label: "Adiar", count: 0},
+            {key: "corrigir", label: "Corrigir", count: 0},
+            {key: "pagar", label: "Pagar", count: 0},
+            {key: "transferir", label: "Transferir", count: 0},
+            {key: "conciliar_adiantamento", label: "Conciliar Adiantamento", count: 0},
+            {key: "saldo_em_conta", label: "Saldo em Conta", count: 0},
+            {key: "sem_resposta", label: "Sem resposta", count: 0},
+        ];
+        var indicePorChave = {};
+        categorias.forEach(function (item, index) {
+            indicePorChave[item.key] = index;
+        });
+
+        (linhas || []).forEach(function (item) {
+            var decisao = toText(item && item.decisao);
+            var chave = decisao && Object.prototype.hasOwnProperty.call(indicePorChave, decisao) ? decisao : "sem_resposta";
+            categorias[indicePorChave[chave]].count += 1;
+        });
+
+        return {
+            labels: categorias.map(function (item) { return item.label; }),
+            series: categorias.map(function (item) { return item.count; }),
+        };
+    }
+
+    function renderOrUpdateDecisaoChart(linhas) {
+        if (!comiteDecisaoChartEl) return;
+
+        var dataset = buildDecisaoChartDataset(linhas);
+        var total = dataset.series.reduce(function (acc, valor) { return acc + toNumber(valor); }, 0);
+
+        if (!window.ApexCharts) {
+            comiteDecisaoChartEl.innerHTML = '<p class="comite-decisao-chart-fallback">Grafico indisponivel no momento.</p>';
+            return;
+        }
+
+        var options = {
+            chart: {type: "donut", height: 320, toolbar: {show: false}},
+            labels: dataset.labels,
+            series: dataset.series,
+            colors: ["#2563eb", "#f97316", "#10b981", "#e11d48", "#7c3aed", "#0ea5e9", "#94a3b8"],
+            legend: {position: "bottom"},
+            dataLabels: {enabled: true},
+            stroke: {width: 1},
+            tooltip: {
+                y: {
+                    formatter: function (value) {
+                        return String(toNumber(value)) + " registros";
+                    },
+                },
+            },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: "58%",
+                        labels: {
+                            show: true,
+                            total: {
+                                show: true,
+                                label: "Total",
+                                formatter: function () {
+                                    return String(total);
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            noData: {text: "Sem registros"},
+        };
+
+        if (!comiteDecisaoChart) {
+            comiteDecisaoChart = new window.ApexCharts(comiteDecisaoChartEl, options);
+            comiteDecisaoChart.render();
+            return;
+        }
+
+        comiteDecisaoChart.updateOptions({labels: dataset.labels}, false, true);
+        comiteDecisaoChart.updateSeries(dataset.series, true);
     }
 
     function refreshLancamentosBancarios(options) {
@@ -335,6 +443,7 @@
                 }
                 lancamentosPayload = result.body.payload;
                 renderLancamentosBancarios(lancamentosPayload);
+                updateDashboard(getVisibleRowsData());
             })
             .catch(function () {
                 if (!opts.silent) {
@@ -715,24 +824,40 @@
     }
 
     function updateDashboard(linhas) {
-        var totalRegistros = 0;
-        var totalReceitas = 0;
-        var totalDespesas = 0;
+        var valores = {
+            pagar: 0,
+            adiar: 0,
+            saldo_em_conta: 0,
+            corrigir: 0,
+            transferir: 0,
+            conciliar_adiantamento: 0,
+        };
 
         (linhas || []).forEach(function (item) {
-            totalRegistros += 1;
-            var valor = toNumber(item.valor_liquido);
-            var tipo = String(item.receita_despesa || "");
-            if (tipo === "receita") totalReceitas += valor;
-            if (tipo === "despesa") totalDespesas += valor;
+            var decisao = toText(item && item.decisao);
+            var valor = toNumber(item && item.valor_liquido);
+            if (Object.prototype.hasOwnProperty.call(valores, decisao)) {
+                valores[decisao] += valor;
+            }
         });
 
-        var saldoLiquido = totalReceitas - totalDespesas;
+        var totalAPagar = valores.pagar + valores.transferir + valores.saldo_em_conta;
+        var saldoDisponivelTodos = calcularSaldoDisponivelTodos(lancamentosPayload);
+        var saldoComite = saldoDisponivelTodos - totalAPagar;
 
-        if (kpiTotalEl) kpiTotalEl.textContent = String(totalRegistros);
-        if (kpiReceitasEl) kpiReceitasEl.textContent = formatMoney(totalReceitas);
-        if (kpiDespesasEl) kpiDespesasEl.textContent = formatMoney(totalDespesas);
-        if (kpiSaldoEl) kpiSaldoEl.textContent = formatMoney(saldoLiquido);
+        var html = [];
+        html.push(buildResumoRow("Pagar", valores.pagar, ""));
+        html.push(buildResumoRow("Prorrogado", valores.adiar, ""));
+        html.push(buildResumoRow("Saldo em Conta", valores.saldo_em_conta, ""));
+        html.push(buildResumoRow("Correcoes", valores.corrigir, ""));
+        html.push(buildResumoRow("Transferencias", valores.transferir, ""));
+        html.push(buildResumoRow("Conciliar Adiantamento", valores.conciliar_adiantamento, ""));
+        html.push(buildResumoRow("Total a Pagar", totalAPagar, "is-total"));
+        html.push(buildResumoRow("Saldo Comite", saldoComite, "is-saldo"));
+        if (comiteResumoWrapper) {
+            comiteResumoWrapper.innerHTML = html.join("");
+        }
+        renderOrUpdateDecisaoChart(linhas);
     }
 
     function applyDateFilterValue(nextDateIso) {

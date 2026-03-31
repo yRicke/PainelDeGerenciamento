@@ -206,12 +206,12 @@
 
                 <article class="dashboard-kpi-card">
                     <h3>Contas a Pagar, Correcoes, Transferencias e Conciliar Adiantamentos</h3>
-                    <p class="form-note">Bloco em construcao para a proxima etapa.</p>
+                    <div id="comite-resumo-wrapper" class="comite-resumo-wrapper"></div>
                 </article>
 
                 <article class="dashboard-kpi-card">
                     <h3>Grafico</h3>
-                    <p class="form-note">Bloco em construcao para a proxima etapa.</p>
+                    <div id="comite-decisao-chart" class="comite-decisao-chart"></div>
                 </article>
             </div>
         </section>
@@ -238,6 +238,7 @@
 {{ decisao_opcoes|json_script:"comite-diario-decisao-opcoes-data" }}
 {{ ultima_data_iso|json_script:"comite-diario-ultima-data-iso" }}
 {{ lancamentos_bancarios_payload|json_script:"comite-diario-lancamentos-bancarios-data" }}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/comite-diario-page.js' %}"></script>
 {% endblock %}
