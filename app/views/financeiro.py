@@ -340,6 +340,22 @@ def comite_diario(request, empresa_id):
         Adiantamento.objects.filter(empresa=empresa).aggregate(total=Sum("saldo_real_em_reais")).get("total")
         or 0
     )
+    filtros_intervalo_ate_90 = [
+        {
+            "field": "intervalo",
+            "type": "in",
+            "value": "0-5 (CML)||6-20 (FIN)||21-30 (POL)||31-60 (POL)||61-90 (POL)",
+        }
+    ]
+    contas_receber_ate_90_qs = _aplicar_filtros_contas_a_receber(
+        ContasAReceber.objects.filter(empresa=empresa),
+        filtros_intervalo_ate_90,
+    )
+    resumo_contas_receber_ate_90 = _resumo_contas_a_receber(
+        contas_receber_ate_90_qs,
+        contas_receber_ate_90_qs.count(),
+    )
+    contas_receber_ate_90_valor = resumo_contas_receber_ate_90.get("valor_data_mais_recente") or 0
 
     contexto = {
         "empresa": empresa,
@@ -347,6 +363,7 @@ def comite_diario(request, empresa_id):
         "comite_diario_tabulator": build_comite_diario_tabulator(comites_qs, empresa.id),
         "lancamentos_bancarios_payload": _build_lancamentos_bancarios_payload(empresa),
         "comite_saldo_adiantamentos_texto": _formatar_moeda_br(saldo_adiantamentos_total),
+        "comite_contas_receber_90_texto": _formatar_moeda_br(contas_receber_ate_90_valor),
         "empresas_titulares_opcoes": [
             {"id": item.id, "label": f"{item.codigo} - {item.nome}"}
             for item in empresas_titulares_qs
