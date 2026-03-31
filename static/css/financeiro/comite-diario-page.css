@@ -5,6 +5,18 @@
     gap: 0.8rem;
 }
 
+.comite-dashboard-intro-grid {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+    margin-bottom: 0.8rem;
+}
+
+.comite-kpi-highlight {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0.25rem 0 0.35rem;
+    color: #0f172a;
+}
+
 .comite-lancamentos-bancarios-wrapper {
     overflow-x: auto;
 }
@@ -146,6 +158,10 @@
 }
 
 @media (max-width: 900px) {
+    .comite-dashboard-intro-grid {
+        grid-template-columns: 1fr;
+    }
+
     .comite-resumo-row {
         padding: 0.45rem;
     }

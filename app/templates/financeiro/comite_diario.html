@@ -194,6 +194,17 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Comite Diario</h2>
+            <div class="dashboard-kpi-grid comite-dashboard-intro-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Saldo Adiantamentos</h3>
+                    <p id="comite-kpi-saldo-adiantamentos" class="comite-kpi-highlight">{{ comite_saldo_adiantamentos_texto }}</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Contas a Receber (Ate 90 dias)</h3>
+                    <p id="comite-kpi-contas-receber-90" class="comite-kpi-highlight">--</p>
+                </article>
+            </div>
+
             <div class="comite-dashboard-grid">
                 <article class="dashboard-kpi-card">
                     <h3>Lancamentos Bancarios</h3>

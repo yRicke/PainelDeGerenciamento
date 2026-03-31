@@ -336,12 +336,17 @@ def comite_diario(request, empresa_id):
     centros_resultado_qs = CentroResultado.objects.filter(empresa=empresa).order_by("descricao", "id")
     bancos_qs = Banco.objects.filter(empresa=empresa).order_by("nome", "id")
     ultima_data = comites_qs.aggregate(data_max=Max("data_negociacao")).get("data_max")
+    saldo_adiantamentos_total = (
+        Adiantamento.objects.filter(empresa=empresa).aggregate(total=Sum("saldo_real_em_reais")).get("total")
+        or 0
+    )
 
     contexto = {
         "empresa": empresa,
         "modulo_nome": modulo["nome"],
         "comite_diario_tabulator": build_comite_diario_tabulator(comites_qs, empresa.id),
         "lancamentos_bancarios_payload": _build_lancamentos_bancarios_payload(empresa),
+        "comite_saldo_adiantamentos_texto": _formatar_moeda_br(saldo_adiantamentos_total),
         "empresas_titulares_opcoes": [
             {"id": item.id, "label": f"{item.codigo} - {item.nome}"}
             for item in empresas_titulares_qs
