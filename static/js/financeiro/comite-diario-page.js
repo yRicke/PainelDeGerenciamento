@@ -327,12 +327,28 @@
         return saldo + limite + antecipacoes - transferencias;
     }
 
-    function buildResumoRow(label, valor, extraClass) {
+    function getResumoIconSvg(iconKey) {
+        var icones = {
+            pagar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.3 13.3l-3-3 1.4-1.4 1.6 1.6 4.6-4.6 1.4 1.4-6 6z"/></svg>',
+            adiar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8A10.2 10.2 0 112.8 12 10.21 10.21 0 0112 1.8zm0 2a8.2 8.2 0 108.2 8.2A8.21 8.21 0 0012 3.8zm1 3v5.2l3.6 2.2-1 1.7L11 13V6.8h2z"/></svg>',
+            saldo_em_conta: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 015.5 4h13A2.5 2.5 0 0121 6.5v11a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 17.5v-11zm2.5-.5a.5.5 0 00-.5.5V8h14V6.5a.5.5 0 00-.5-.5h-13zM19 10H5v7.5a.5.5 0 00.5.5h13a.5.5 0 00.5-.5V10zm-3.8 2.2a2.3 2.3 0 110 4.6 2.3 2.3 0 010-4.6z"/></svg>',
+            corrigir: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.2V21h3.8l11-11-3.8-3.8-11 11zM20.7 7a1 1 0 000-1.4l-2.3-2.3a1 1 0 00-1.4 0l-1.8 1.8L18.9 8.8 20.7 7z"/></svg>',
+            transferir: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h9.2l-2.1-2.1 1.4-1.4L20 8l-4.5 4.5-1.4-1.4L16.2 9H7V7zm10 10H7.8l2.1 2.1-1.4 1.4L4 16l4.5-4.5 1.4 1.4L7.8 15H17v2z"/></svg>',
+            conciliar_adiantamento: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6a6 6 0 016 6c0 1.01-.25 1.96-.69 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zM5.69 4.2L4.23 5.66A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3a6 6 0 01-6-6c0-1.01.25-1.96.69-2.8z"/></svg>',
+        };
+        return icones[iconKey] || "";
+    }
+
+    function buildResumoRow(label, valor, extraClass, iconKey) {
         var classes = ["comite-resumo-row"];
         if (extraClass) classes.push(extraClass);
+        var iconSvg = getResumoIconSvg(iconKey);
+        var labelContent = iconSvg
+            ? '<span class="comite-resumo-label-group"><span class="comite-resumo-icon" aria-hidden="true">' + iconSvg + "</span><span>" + label + "</span></span>"
+            : '<span class="comite-resumo-label-group"><span>' + label + "</span></span>";
         return (
             '<div class="' + classes.join(" ") + '">' +
-            '<span class="comite-resumo-label">' + label + "</span>" +
+            '<span class="comite-resumo-label">' + labelContent + "</span>" +
             '<strong class="comite-resumo-value">' + formatMoney(valor) + "</strong>" +
             "</div>"
         );
@@ -855,12 +871,12 @@
         var saldoComite = saldoDisponivelTodos - valores.pagar - valores.saldo_em_conta;
 
         var html = [];
-        html.push(buildResumoRow("Pagar", valores.pagar, ""));
-        html.push(buildResumoRow("Prorrogado", valores.adiar, ""));
-        html.push(buildResumoRow("Saldo em Conta", valores.saldo_em_conta, ""));
-        html.push(buildResumoRow("Correcoes", valores.corrigir, ""));
-        html.push(buildResumoRow("Transferencias", valores.transferir, ""));
-        html.push(buildResumoRow("Conciliar Adiantamento", valores.conciliar_adiantamento, ""));
+        html.push(buildResumoRow("Pagar", valores.pagar, "", "pagar"));
+        html.push(buildResumoRow("Prorrogado", valores.adiar, "", "adiar"));
+        html.push(buildResumoRow("Saldo em Conta", valores.saldo_em_conta, "", "saldo_em_conta"));
+        html.push(buildResumoRow("Correcoes", valores.corrigir, "", "corrigir"));
+        html.push(buildResumoRow("Transferencias", valores.transferir, "", "transferir"));
+        html.push(buildResumoRow("Conciliar Adiantamento", valores.conciliar_adiantamento, "", "conciliar_adiantamento"));
         html.push(buildResumoRow("Total a Pagar", totalAPagar, "is-total"));
         html.push(buildResumoRow("Saldo Comite", saldoComite, "is-saldo"));
         if (comiteResumoWrapper) {
