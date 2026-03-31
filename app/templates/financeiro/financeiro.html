@@ -17,6 +17,7 @@
     <h2>Modulos</h2>
     <ul class="module-list">
         {% for modulo in modulos %}
+        {% if modulo.nome != "Saldos e Limites" %}
         <li>
             <a
                 href="{% if user.empresa_id %}{% url modulo.url user.empresa_id %}{% else %}#{% endif %}"
@@ -27,8 +28,8 @@
                 {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
             </a>
         </li>
+        {% endif %}
         {% endfor %}
     </ul>
 </section>
 {% endblock %}
-

@@ -17,6 +17,18 @@
     color: #0f172a;
 }
 
+.comite-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.45rem;
+}
+
+.comite-card-head h3 {
+    margin: 0;
+}
+
 .comite-lancamentos-bancarios-wrapper {
     overflow-x: auto;
 }
@@ -160,6 +172,10 @@
 @media (max-width: 900px) {
     .comite-dashboard-intro-grid {
         grid-template-columns: 1fr;
+    }
+
+    .comite-card-head {
+        flex-wrap: wrap;
     }
 
     .comite-resumo-row {
