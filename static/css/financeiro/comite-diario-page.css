@@ -5,6 +5,10 @@
     gap: 0.8rem;
 }
 
+.comite-dashboard-grid > .dashboard-kpi-card {
+    min-width: 0;
+}
+
 .comite-dashboard-intro-grid {
     grid-template-columns: repeat(2, minmax(240px, 1fr));
     margin-bottom: 0.8rem;
@@ -30,7 +34,10 @@
 }
 
 .comite-lancamentos-bancarios-wrapper {
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .comite-lancamentos-table {
@@ -97,6 +104,7 @@
     border-radius: 8px;
     background: #fff;
     padding: 0.45rem 0.55rem;
+    min-width: 0;
 }
 
 .comite-resumo-row.is-total {
@@ -112,12 +120,21 @@
 
 .comite-resumo-label {
     color: #1f2937;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .comite-resumo-label-group {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
+    min-width: 0;
+}
+
+.comite-resumo-label-group span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .comite-resumo-icon {
@@ -139,10 +156,19 @@
 .comite-resumo-value {
     color: #0f172a;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .comite-decisao-chart {
     min-height: 320px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.comite-decisao-chart .apexcharts-canvas,
+.comite-decisao-chart .apexcharts-svg {
+    max-width: 100% !important;
 }
 
 .comite-decisao-chart-fallback {
@@ -190,8 +216,13 @@
         flex-wrap: wrap;
     }
 
+    .comite-lancamentos-table {
+        min-width: 520px;
+    }
+
     .comite-resumo-row {
         padding: 0.45rem;
+        flex-wrap: wrap;
     }
 
     .comite-dashboard-actions {
@@ -200,5 +231,28 @@
 
     .comite-dashboard-actions .btn-light {
         width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .comite-lancamentos-table {
+        min-width: 460px;
+        font-size: 0.84rem;
+    }
+
+    .comite-lancamentos-table th,
+    .comite-lancamentos-table td {
+        padding: 0.38rem 0.42rem;
+    }
+
+    .comite-lancamentos-row-label {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+    }
+
+    .comite-decisao-chart {
+        min-height: 280px;
     }
 }

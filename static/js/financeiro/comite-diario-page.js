@@ -590,7 +590,14 @@
             labels: dataset.labels,
             series: dataset.series,
             colors: ["#2563eb", "#f97316", "#10b981", "#e11d48", "#7c3aed", "#0ea5e9", "#94a3b8"],
-            legend: {position: "bottom"},
+            legend: {
+                position: "bottom",
+                fontSize: "12px",
+                itemMargin: {
+                    horizontal: 10,
+                    vertical: 4,
+                },
+            },
             dataLabels: {enabled: true},
             stroke: {width: 1},
             tooltip: {
@@ -626,6 +633,28 @@
                     },
                 },
             },
+            responsive: [
+                {
+                    breakpoint: 900,
+                    options: {
+                        chart: {height: 300},
+                        legend: {fontSize: "11px"},
+                    },
+                },
+                {
+                    breakpoint: 640,
+                    options: {
+                        chart: {height: 280},
+                        legend: {
+                            fontSize: "10px",
+                            itemMargin: {
+                                horizontal: 8,
+                                vertical: 3,
+                            },
+                        },
+                    },
+                },
+            ],
             noData: {text: "Sem valores"},
         };
 
