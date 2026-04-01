@@ -1167,6 +1167,39 @@ def build_comite_diario_tabulator(comites_qs, empresa_id: int, permitir_edicao: 
     return resultado
 
 
+def build_balanco_patrimonial_tabulator(registros_qs, empresa_id: int, permitir_edicao: bool = True):
+    resultado = []
+    for item in registros_qs:
+        row = {
+            "id": item.id,
+            "numero_registro": item.numero_registro,
+            "data_lancamento": _fmt_date_br(item.data_lancamento),
+            "data_lancamento_iso": item.data_lancamento.isoformat() if item.data_lancamento else "",
+            "data_balanco_patrimonial": _fmt_date_br(item.data_balanco_patrimonial),
+            "data_balanco_patrimonial_iso": (
+                item.data_balanco_patrimonial.isoformat() if item.data_balanco_patrimonial else ""
+            ),
+            "empresa_balanco_patrimonial": item.empresa_balanco_patrimonial,
+            "empresa_balanco_patrimonial_label": item.get_empresa_balanco_patrimonial_display(),
+            "tipo_movimentacao": item.tipo_movimentacao,
+            "tipo_movimentacao_label": item.get_tipo_movimentacao_display(),
+            "descricao": item.descricao or "",
+            "valor": float(item.valor or 0),
+            "observacao": item.observacao or "",
+        }
+        if permitir_edicao:
+            row["editar_url"] = reverse(
+                "editar_balanco_patrimonial_modulo",
+                kwargs={"empresa_id": empresa_id, "balanco_patrimonial_id": item.id},
+            )
+            row["excluir_url"] = reverse(
+                "excluir_balanco_patrimonial_modulo",
+                kwargs={"empresa_id": empresa_id, "balanco_patrimonial_id": item.id},
+            )
+        resultado.append(row)
+    return resultado
+
+
 def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for dfc_item in dfc_qs:

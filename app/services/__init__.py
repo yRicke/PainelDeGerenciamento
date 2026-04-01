@@ -17,6 +17,7 @@ from ..models import (
     Adiantamento,
     Agenda,
     Atividade,
+    BalancoPatrimonial,
     Banco,
     CentroResultado,
     ComiteDiario,
@@ -1093,6 +1094,86 @@ def excluir_comite_diario_por_dados(item, empresa):
     if item.empresa_id != empresa.id:
         return "Registro invalido para esta empresa."
     item.excluir_comite_diario()
+    return ""
+
+
+def _dados_balanco_patrimonial_from_post(post_data):
+    data_lancamento_raw = (post_data.get("data_lancamento") or "").strip()
+    data_balanco_raw = (post_data.get("data_balanco_patrimonial") or "").strip()
+    valor_raw = (post_data.get("valor") or "").strip()
+
+    return {
+        "data_lancamento_raw": data_lancamento_raw,
+        "data_lancamento": _parse_date_ou_none(data_lancamento_raw),
+        "data_balanco_patrimonial_raw": data_balanco_raw,
+        "data_balanco_patrimonial": _parse_date_ou_none(data_balanco_raw),
+        "empresa_balanco_patrimonial": _choice_valido(
+            post_data.get("empresa_balanco_patrimonial"),
+            BalancoPatrimonial.EMPRESA_BALANCO_PATRIMONIAL_CHOICES,
+        ),
+        "tipo_movimentacao": _choice_valido(
+            post_data.get("tipo_movimentacao"),
+            BalancoPatrimonial.TIPO_MOVIMENTACAO_CHOICES,
+        ),
+        "descricao": (post_data.get("descricao") or "").strip(),
+        "valor_raw": valor_raw,
+        "valor": _parse_decimal_ou_zero(valor_raw),
+        "observacao": (post_data.get("observacao") or "").strip(),
+    }
+
+
+def _validar_dados_balanco_patrimonial(dados):
+    if dados["data_lancamento_raw"] and not dados["data_lancamento"]:
+        return "Data lancamento invalida."
+    if not dados["data_balanco_patrimonial_raw"]:
+        return "Data BP e obrigatoria."
+    if not dados["data_balanco_patrimonial"]:
+        return "Data BP invalida."
+    if not dados["empresa_balanco_patrimonial"]:
+        return "Empresa BP e obrigatoria."
+    if not dados["tipo_movimentacao"]:
+        return "Tipo movimentacao e obrigatorio."
+    if not dados["descricao"]:
+        return "Descricao BP e obrigatoria."
+    if not dados["valor_raw"]:
+        return "Valor e obrigatorio."
+    return ""
+
+
+def criar_balanco_patrimonial_por_dados(empresa, post_data):
+    dados = _dados_balanco_patrimonial_from_post(post_data)
+    erro = _validar_dados_balanco_patrimonial(dados)
+    if erro:
+        return erro
+
+    dados.pop("data_lancamento_raw", None)
+    dados.pop("data_balanco_patrimonial_raw", None)
+    dados.pop("valor_raw", None)
+    dados["numero_registro"] = BalancoPatrimonial.proximo_numero_registro(empresa)
+    BalancoPatrimonial.criar_balanco_patrimonial(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_balanco_patrimonial_por_dados(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    dados = _dados_balanco_patrimonial_from_post(post_data)
+    erro = _validar_dados_balanco_patrimonial(dados)
+    if erro:
+        return erro
+
+    dados.pop("data_lancamento_raw", None)
+    dados.pop("data_balanco_patrimonial_raw", None)
+    dados.pop("valor_raw", None)
+    item.atualizar_balanco_patrimonial(**dados)
+    return ""
+
+
+def excluir_balanco_patrimonial_por_dados(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+    item.excluir_balanco_patrimonial()
     return ""
 
 

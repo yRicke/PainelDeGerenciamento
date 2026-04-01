@@ -1,16 +1,164 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Balanco Patrimonial{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/balanco-patrimonial-page.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Balanco Patrimonial</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Financeiro</span>
+            </div>
+            <h1>Balanco Patrimonial</h1>
+            <p class="module-hero-subtitle">Modulo estruturado no padrao dos demais, com dashboard e visualizacao em tabela.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Balanco Patrimonial</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
-</section>
+<div id="balanco-patrimonial-module-shell" class="module-shell">
+    <aside id="balanco-patrimonial-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros por Empresa BP, Tipo Movimentacao e Descricao BP.</p>
+            <div class="module-filter-columns">
+                <div id="balanco-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="balanco-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="balanco-patrimonial-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Balanco Patrimonial">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro de Balanco Patrimonial</h2>
+            <p class="form-note">Empresa e vinculada automaticamente. Numero de registro e sequencial e nao editavel.</p>
+            <form id="balanco-patrimonial-cadastro-form" action="{% url 'criar_balanco_patrimonial_modulo' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Numero Registro</label>
+                        <input type="text" id="balanco-patrimonial-numero-registro" value="{{ balanco_patrimonial_proximo_numero_registro }}" readonly>
+                    </div>
+                    <div>
+                        <label>Data Lancamento</label>
+                        <input type="date" name="data_lancamento" value="{{ hoje_iso }}">
+                    </div>
+                    <div>
+                        <label>Data BP</label>
+                        <input type="date" name="data_balanco_patrimonial" required>
+                    </div>
+                    <div>
+                        <label>Empresa BP</label>
+                        <select name="empresa_balanco_patrimonial" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in balanco_patrimonial_empresas_bp_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="balanco-patrimonial-radio-wrap">
+                        <label>Tipo Movimentacao</label>
+                        <div class="balanco-patrimonial-radio-group">
+                            {% for opcao in balanco_patrimonial_tipo_movimentacao_opcoes %}
+                            <label class="balanco-patrimonial-radio-item">
+                                <input type="radio" name="tipo_movimentacao" value="{{ opcao.value }}" required>
+                                <span>{{ opcao.label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div>
+                        <label>Descricao BP</label>
+                        <input type="text" name="descricao" required>
+                    </div>
+                    <div>
+                        <label>Valor (R$)</label>
+                        <input type="text" name="valor" id="balanco-patrimonial-valor-input" placeholder="R$ 0,00" required>
+                    </div>
+                    <div>
+                        <label>Observacao</label>
+                        <input type="text" name="observacao">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+            <p id="balanco-patrimonial-save-status" class="file-status" aria-live="polite"></p>
+        </section>
+
+        <section id="sec-dashboard" class="panel module-section">
+            <h2>Dashboard Balanco Patrimonial</h2>
+            <div class="dashboard-kpi-grid balanco-kpi-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Total Ativo</h3>
+                    <p id="balanco-kpi-ativo">R$ 0,00</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Total Passivo</h3>
+                    <p id="balanco-kpi-passivo">R$ 0,00</p>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Saldo (Ativo - Passivo)</h3>
+                    <p id="balanco-kpi-saldo">R$ 0,00</p>
+                </article>
+            </div>
+            <p class="file-status balanco-dashboard-note">Valores recalculados conforme filtros aplicados na tabela.</p>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Tabela Balanco Patrimonial</h2>
+            <div class="table-wrapper">
+                <div id="balanco-patrimonial-tabulator"></div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<div
+    id="balanco-patrimonial-config"
+    data-proximo-numero-registro="{{ balanco_patrimonial_proximo_numero_registro }}"
+></div>
+{{ balanco_patrimonial_tabulator|json_script:"balanco-patrimonial-tabulator-data" }}
+{{ balanco_patrimonial_empresas_bp_opcoes|json_script:"balanco-patrimonial-empresas-opcoes-data" }}
+{{ balanco_patrimonial_tipo_movimentacao_opcoes|json_script:"balanco-patrimonial-tipo-opcoes-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/balanco-patrimonial-page.js' %}"></script>
 {% endblock %}

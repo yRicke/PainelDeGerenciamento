@@ -1,0 +1,40 @@
+@import url("../shared/module-crud.css");
+
+.balanco-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.balanco-dashboard-note {
+    margin-top: 0.65rem;
+}
+
+.balanco-patrimonial-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: 0.4rem;
+}
+
+.balanco-patrimonial-radio-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+}
+
+#balanco-patrimonial-save-status.balanco-patrimonial-save-status--ok {
+    color: #127a2e;
+}
+
+#balanco-patrimonial-save-status.balanco-patrimonial-save-status--error {
+    color: #b42318;
+}
+
+#balanco-patrimonial-save-status.balanco-patrimonial-save-status--progress {
+    color: #4b5565;
+}
+
+#balanco-patrimonial-tabulator .tabulator-col-title {
+    white-space: normal;
+    line-height: 1.2;
+}

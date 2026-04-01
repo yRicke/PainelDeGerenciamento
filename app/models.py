@@ -1713,6 +1713,119 @@ class ComiteDiario(models.Model):
         self.delete()
 
 
+class BalancoPatrimonial(models.Model):
+    EMPRESA_BP_MMTG = "mmtg"
+    EMPRESA_BP_SAFIA = "safia_distribuidora"
+    EMPRESA_BP_CA = "ca"
+    EMPRESA_BP_CSM = "csm"
+    EMPRESA_BALANCO_PATRIMONIAL_CHOICES = (
+        (EMPRESA_BP_MMTG, "1 - MMTG"),
+        (EMPRESA_BP_SAFIA, "1 - SAFIA DISTRIBUIDORA"),
+        (EMPRESA_BP_CA, "2 - C.A"),
+        (EMPRESA_BP_CSM, "3 - CSM"),
+    )
+
+    TIPO_MOVIMENTACAO_ATIVO = "ativo"
+    TIPO_MOVIMENTACAO_PASSIVO = "passivo"
+    TIPO_MOVIMENTACAO_CHOICES = (
+        (TIPO_MOVIMENTACAO_ATIVO, "Ativo"),
+        (TIPO_MOVIMENTACAO_PASSIVO, "Passivo"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="balancos_patrimoniais")
+    numero_registro = models.IntegerField()
+    data_lancamento = models.DateField(null=True, blank=True)
+    data_balanco_patrimonial = models.DateField()
+    empresa_balanco_patrimonial = models.CharField(max_length=32, choices=EMPRESA_BALANCO_PATRIMONIAL_CHOICES)
+    tipo_movimentacao = models.CharField(max_length=16, choices=TIPO_MOVIMENTACAO_CHOICES)
+    descricao = models.CharField(max_length=255)
+    valor = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    observacao = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "numero_registro"],
+                name="uq_balanco_patrimonial_empresa_numero_registro",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.numero_registro} - {self.get_tipo_movimentacao_display()} - "
+            f"{self.get_empresa_balanco_patrimonial_display()}"
+        )
+
+    @classmethod
+    def proximo_numero_registro(cls, empresa):
+        ultimo = cls.objects.filter(empresa=empresa).aggregate(ultimo=models.Max("numero_registro")).get("ultimo")
+        return int(ultimo or 0) + 1
+
+    @classmethod
+    def criar_balanco_patrimonial(
+        cls,
+        *,
+        empresa,
+        numero_registro,
+        data_lancamento=None,
+        data_balanco_patrimonial,
+        empresa_balanco_patrimonial,
+        tipo_movimentacao,
+        descricao,
+        valor,
+        observacao="",
+    ):
+        item = cls(
+            empresa=empresa,
+            numero_registro=numero_registro,
+            data_lancamento=data_lancamento,
+            data_balanco_patrimonial=data_balanco_patrimonial,
+            empresa_balanco_patrimonial=empresa_balanco_patrimonial,
+            tipo_movimentacao=tipo_movimentacao,
+            descricao=descricao,
+            valor=valor,
+            observacao=observacao,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_balanco_patrimonial(
+        self,
+        *,
+        data_lancamento=UNSET,
+        data_balanco_patrimonial=UNSET,
+        empresa_balanco_patrimonial=UNSET,
+        tipo_movimentacao=UNSET,
+        descricao=UNSET,
+        valor=UNSET,
+        observacao=UNSET,
+    ):
+        if data_lancamento is not UNSET:
+            self.data_lancamento = data_lancamento
+        if data_balanco_patrimonial is not UNSET:
+            self.data_balanco_patrimonial = data_balanco_patrimonial
+        if empresa_balanco_patrimonial is not UNSET:
+            self.empresa_balanco_patrimonial = empresa_balanco_patrimonial
+        if tipo_movimentacao is not UNSET:
+            self.tipo_movimentacao = tipo_movimentacao
+        if descricao is not UNSET:
+            self.descricao = descricao
+        if valor is not UNSET:
+            self.valor = valor
+        if observacao is not UNSET:
+            self.observacao = observacao
+        self.full_clean()
+        self.save()
+
+    def excluir_balanco_patrimonial(self):
+        self.delete()
+
+
 class DescricaoPerfil(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="descricoes_perfil")
     descricao = models.CharField(max_length=220)
