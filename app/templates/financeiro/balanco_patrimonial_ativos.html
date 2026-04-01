@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Balanco Patrimonial - Ativos{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/financeiro/balanco-patrimonial-ativos-page.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'balanco_patrimonial' empresa.id %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Submodulo Financeiro</span>
+            </div>
+            <h1>Balanco Patrimonial - Ativos</h1>
+            <p class="module-hero-subtitle">Cadastro com foco em UX, filtros externos e tabela com edicao inline.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</section>
+
+<div id="balanco-patrimonial-ativos-module-shell" class="module-shell">
+    <aside id="balanco-patrimonial-ativos-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros por Empresa BP, Categoria e Status.</p>
+            <div class="module-filter-columns">
+                <div id="balanco-ativos-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="balanco-ativos-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="balanco-patrimonial-ativos-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Balanco Patrimonial Ativos">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro de Ativo</h2>
+            <p class="form-note">Placa so habilita para categoria Veiculos. Local e Renda so habilitam para categoria Imovel.</p>
+            <form id="balanco-patrimonial-ativos-cadastro-form" action="{% url 'criar_balanco_patrimonial_ativo_modulo' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid balanco-ativos-form-grid">
+                    <div>
+                        <label>Empresa BP</label>
+                        <select name="empresa_bp" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in balanco_patrimonial_ativos_empresas_bp_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Categoria</label>
+                        <select id="balanco-ativos-categoria-input" name="categoria" required>
+                            <option value="">Selecione</option>
+                            {% for opcao in balanco_patrimonial_ativos_categorias_opcoes %}
+                            <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Sub-Categoria</label>
+                        <input type="text" name="sub_categoria">
+                    </div>
+                    <div>
+                        <label>Secao</label>
+                        <input type="text" name="secao">
+                    </div>
+                    <div>
+                        <label>Nivel</label>
+                        <input type="text" name="nivel">
+                    </div>
+                    <div>
+                        <label>Data Aquisicao</label>
+                        <input type="date" name="data_aquisicao" value="{{ hoje_iso }}">
+                    </div>
+                    <div class="balanco-ativos-grid-span-2">
+                        <label>Patrimonio</label>
+                        <input type="text" name="patrimonio">
+                    </div>
+                    <div>
+                        <label>Placa</label>
+                        <input id="balanco-ativos-placa-input" type="text" name="placa" disabled>
+                    </div>
+                    <div>
+                        <label>Local</label>
+                        <input id="balanco-ativos-local-input" type="text" name="local" disabled>
+                    </div>
+                    <div>
+                        <label>Renda (R$)</label>
+                        <input id="balanco-ativos-renda-input" class="ativo-money-input" type="text" name="renda" placeholder="R$ 0,00" disabled>
+                    </div>
+                    <div>
+                        <label>Ano</label>
+                        <input id="balanco-ativos-ano-input" type="text" name="ano" disabled>
+                    </div>
+                    <div>
+                        <label>Valor do Bem (R$)</label>
+                        <input class="ativo-money-input" type="text" name="valor_bem" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label>Valor Real (Atual) (R$)</label>
+                        <input class="ativo-money-input" type="text" name="valor_real_atual" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label>Valor Venda Forcada (R$)</label>
+                        <input class="ativo-money-input" type="text" name="valor_venda_forcada" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label>Valor Declarado IR (R$)</label>
+                        <input class="ativo-money-input" type="text" name="valor_declarado_ir" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label>Valor de Avaliacao (R$)</label>
+                        <input class="ativo-money-input" type="text" name="valor_avaliacao" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label>Status (Financiado)</label>
+                        <select id="balanco-ativos-status-financiado-input" name="status_financiado">
+                            <option value="false" selected>FALSO</option>
+                            <option value="true">VERDADEIRO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Quitacao (R$)</label>
+                        <input class="ativo-money-input ativo-financiado-field" type="text" name="quitacao" placeholder="R$ 0,00" disabled>
+                    </div>
+                    <div>
+                        <label>Alienacao (R$)</label>
+                        <input class="ativo-money-input ativo-financiado-field" type="text" name="alienacao" placeholder="R$ 0,00" disabled>
+                    </div>
+                    <div>
+                        <label>Parcelas</label>
+                        <input class="ativo-financiado-field" type="number" name="parcelas" min="0" step="1" disabled>
+                    </div>
+                    <div>
+                        <label>Valor da Parcela (R$)</label>
+                        <input class="ativo-money-input ativo-financiado-field" type="text" name="valor_parcela" placeholder="R$ 0,00" disabled>
+                    </div>
+                    <div>
+                        <label>Passivo (R$)</label>
+                        <input class="ativo-money-input ativo-financiado-field" type="text" name="passivo" placeholder="R$ 0,00" disabled>
+                    </div>
+                    <div>
+                        <label>Valor Liquido (R$)</label>
+                        <input class="ativo-money-input" type="text" name="valor_liquido" placeholder="R$ 0,00">
+                    </div>
+                    <div>
+                        <label>Status</label>
+                        <input type="text" name="status" placeholder="Ex.: Em Uso / A Venda">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+            <p id="balanco-patrimonial-ativos-save-status" class="file-status" aria-live="polite"></p>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Tabela de Ativos</h2>
+            <div class="table-wrapper">
+                <div id="balanco-patrimonial-ativos-tabulator"></div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ balanco_patrimonial_ativos_tabulator|json_script:"balanco-patrimonial-ativos-tabulator-data" }}
+{{ balanco_patrimonial_ativos_empresas_bp_opcoes|json_script:"balanco-patrimonial-ativos-empresas-opcoes-data" }}
+{{ balanco_patrimonial_ativos_categorias_opcoes|json_script:"balanco-patrimonial-ativos-categorias-opcoes-data" }}
+{{ balanco_patrimonial_ativos_status_opcoes|json_script:"balanco-patrimonial-ativos-status-opcoes-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/balanco-patrimonial-ativos-page.js' %}"></script>
+{% endblock %}

@@ -1200,6 +1200,58 @@ def build_balanco_patrimonial_tabulator(registros_qs, empresa_id: int, permitir_
     return resultado
 
 
+def build_balanco_patrimonial_ativos_tabulator(registros_qs, empresa_id: int, permitir_edicao: bool = True):
+    def _money_or_blank(valor):
+        if valor is None:
+            return ""
+        return float(valor)
+
+    resultado = []
+    for item in registros_qs:
+        row = {
+            "id": item.id,
+            "empresa_bp": item.empresa_bp or "",
+            "empresa_bp_label": item.get_empresa_bp_display() if item.empresa_bp else "",
+            "categoria": item.categoria or "",
+            "categoria_label": item.get_categoria_display() if item.categoria else "",
+            "sub_categoria": item.sub_categoria or "",
+            "secao": item.secao or "",
+            "nivel": item.nivel or "",
+            "data_aquisicao": _fmt_date_br(item.data_aquisicao),
+            "data_aquisicao_iso": item.data_aquisicao.isoformat() if item.data_aquisicao else "",
+            "patrimonio": item.patrimonio or "",
+            "placa": item.placa or "",
+            "local": item.local or "",
+            "renda": _money_or_blank(item.renda),
+            "ano": item.ano or "",
+            "valor_bem": _money_or_blank(item.valor_bem),
+            "valor_real_atual": _money_or_blank(item.valor_real_atual),
+            "valor_venda_forcada": _money_or_blank(item.valor_venda_forcada),
+            "valor_declarado_ir": _money_or_blank(item.valor_declarado_ir),
+            "valor_avaliacao": _money_or_blank(item.valor_avaliacao),
+            "quitacao": _money_or_blank(item.quitacao),
+            "alienacao": _money_or_blank(item.alienacao),
+            "parcelas": item.parcelas or "",
+            "valor_parcela": _money_or_blank(item.valor_parcela),
+            "passivo": _money_or_blank(item.passivo),
+            "valor_liquido": _money_or_blank(item.valor_liquido),
+            "status_financiado": bool(item.status_financiado),
+            "status_financiado_label": "VERDADEIRO" if item.status_financiado else "FALSO",
+            "status": item.status or "",
+        }
+        if permitir_edicao:
+            row["editar_url"] = reverse(
+                "editar_balanco_patrimonial_ativo_modulo",
+                kwargs={"empresa_id": empresa_id, "ativo_id": item.id},
+            )
+            row["excluir_url"] = reverse(
+                "excluir_balanco_patrimonial_ativo_modulo",
+                kwargs={"empresa_id": empresa_id, "ativo_id": item.id},
+            )
+        resultado.append(row)
+    return resultado
+
+
 def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for dfc_item in dfc_qs:

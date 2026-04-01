@@ -1826,6 +1826,209 @@ class BalancoPatrimonial(models.Model):
         self.delete()
 
 
+class BalancoPatrimonialAtivo(models.Model):
+    EMPRESA_BP_MMTG = "mmtg"
+    EMPRESA_BP_SAFIA = "safia"
+    EMPRESA_BP_CA = "ca"
+    EMPRESA_BP_CSM = "csm"
+    EMPRESA_BP_CHOICES = (
+        (EMPRESA_BP_MMTG, "MMTG"),
+        (EMPRESA_BP_SAFIA, "SAFIA"),
+        (EMPRESA_BP_CA, "CA"),
+        (EMPRESA_BP_CSM, "CSM"),
+    )
+
+    CATEGORIA_VEICULOS = "veiculos"
+    CATEGORIA_MAQUINAS = "maquinas"
+    CATEGORIA_INDUSTRIA = "industria"
+    CATEGORIA_IMOVEL = "imovel"
+    CATEGORIA_OUTROS = "outros"
+    CATEGORIA_CHOICES = (
+        (CATEGORIA_VEICULOS, "Veiculos"),
+        (CATEGORIA_MAQUINAS, "Maquinas"),
+        (CATEGORIA_INDUSTRIA, "Industria"),
+        (CATEGORIA_IMOVEL, "Imovel"),
+        (CATEGORIA_OUTROS, "Outros"),
+    )
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="balancos_patrimoniais_ativos")
+    empresa_bp = models.CharField(max_length=16, choices=EMPRESA_BP_CHOICES, blank=True, default="")
+    categoria = models.CharField(max_length=32, choices=CATEGORIA_CHOICES, blank=True, default="")
+    sub_categoria = models.CharField(max_length=120, blank=True, default="")
+    secao = models.CharField(max_length=120, blank=True, default="")
+    nivel = models.CharField(max_length=120, blank=True, default="")
+    data_aquisicao = models.DateField(null=True, blank=True)
+    patrimonio = models.CharField(max_length=255, blank=True, default="")
+    placa = models.CharField(max_length=40, blank=True, default="")
+    local = models.CharField(max_length=255, blank=True, default="")
+    renda = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    ano = models.CharField(max_length=32, blank=True, default="")
+    valor_bem = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    valor_real_atual = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    valor_venda_forcada = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    valor_declarado_ir = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    valor_avaliacao = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    quitacao = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    alienacao = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    parcelas = models.IntegerField(null=True, blank=True)
+    valor_parcela = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    passivo = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    valor_liquido = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    status_financiado = models.BooleanField(default=False)
+    status = models.CharField(max_length=120, blank=True, default="")
+
+    def __str__(self):
+        base = self.patrimonio or self.placa or f"Ativo {self.id}"
+        return f"{self.get_empresa_bp_display() or '-'} - {base}"
+
+    @classmethod
+    def criar_balanco_patrimonial_ativo(
+        cls,
+        *,
+        empresa,
+        empresa_bp="",
+        categoria="",
+        sub_categoria="",
+        secao="",
+        nivel="",
+        data_aquisicao=None,
+        patrimonio="",
+        placa="",
+        local="",
+        renda=None,
+        ano="",
+        valor_bem=None,
+        valor_real_atual=None,
+        valor_venda_forcada=None,
+        valor_declarado_ir=None,
+        valor_avaliacao=None,
+        quitacao=None,
+        alienacao=None,
+        parcelas=None,
+        valor_parcela=None,
+        passivo=None,
+        valor_liquido=None,
+        status_financiado=False,
+        status="",
+    ):
+        item = cls(
+            empresa=empresa,
+            empresa_bp=empresa_bp,
+            categoria=categoria,
+            sub_categoria=sub_categoria,
+            secao=secao,
+            nivel=nivel,
+            data_aquisicao=data_aquisicao,
+            patrimonio=patrimonio,
+            placa=placa,
+            local=local,
+            renda=renda,
+            ano=ano,
+            valor_bem=valor_bem,
+            valor_real_atual=valor_real_atual,
+            valor_venda_forcada=valor_venda_forcada,
+            valor_declarado_ir=valor_declarado_ir,
+            valor_avaliacao=valor_avaliacao,
+            quitacao=quitacao,
+            alienacao=alienacao,
+            parcelas=parcelas,
+            valor_parcela=valor_parcela,
+            passivo=passivo,
+            valor_liquido=valor_liquido,
+            status_financiado=bool(status_financiado),
+            status=status,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_balanco_patrimonial_ativo(
+        self,
+        *,
+        empresa_bp=UNSET,
+        categoria=UNSET,
+        sub_categoria=UNSET,
+        secao=UNSET,
+        nivel=UNSET,
+        data_aquisicao=UNSET,
+        patrimonio=UNSET,
+        placa=UNSET,
+        local=UNSET,
+        renda=UNSET,
+        ano=UNSET,
+        valor_bem=UNSET,
+        valor_real_atual=UNSET,
+        valor_venda_forcada=UNSET,
+        valor_declarado_ir=UNSET,
+        valor_avaliacao=UNSET,
+        quitacao=UNSET,
+        alienacao=UNSET,
+        parcelas=UNSET,
+        valor_parcela=UNSET,
+        passivo=UNSET,
+        valor_liquido=UNSET,
+        status_financiado=UNSET,
+        status=UNSET,
+    ):
+        if empresa_bp is not UNSET:
+            self.empresa_bp = empresa_bp
+        if categoria is not UNSET:
+            self.categoria = categoria
+        if sub_categoria is not UNSET:
+            self.sub_categoria = sub_categoria
+        if secao is not UNSET:
+            self.secao = secao
+        if nivel is not UNSET:
+            self.nivel = nivel
+        if data_aquisicao is not UNSET:
+            self.data_aquisicao = data_aquisicao
+        if patrimonio is not UNSET:
+            self.patrimonio = patrimonio
+        if placa is not UNSET:
+            self.placa = placa
+        if local is not UNSET:
+            self.local = local
+        if renda is not UNSET:
+            self.renda = renda
+        if ano is not UNSET:
+            self.ano = ano
+        if valor_bem is not UNSET:
+            self.valor_bem = valor_bem
+        if valor_real_atual is not UNSET:
+            self.valor_real_atual = valor_real_atual
+        if valor_venda_forcada is not UNSET:
+            self.valor_venda_forcada = valor_venda_forcada
+        if valor_declarado_ir is not UNSET:
+            self.valor_declarado_ir = valor_declarado_ir
+        if valor_avaliacao is not UNSET:
+            self.valor_avaliacao = valor_avaliacao
+        if quitacao is not UNSET:
+            self.quitacao = quitacao
+        if alienacao is not UNSET:
+            self.alienacao = alienacao
+        if parcelas is not UNSET:
+            self.parcelas = parcelas
+        if valor_parcela is not UNSET:
+            self.valor_parcela = valor_parcela
+        if passivo is not UNSET:
+            self.passivo = passivo
+        if valor_liquido is not UNSET:
+            self.valor_liquido = valor_liquido
+        if status_financiado is not UNSET:
+            self.status_financiado = bool(status_financiado)
+        if status is not UNSET:
+            self.status = status
+        self.full_clean()
+        self.save()
+
+    def excluir_balanco_patrimonial_ativo(self):
+        self.delete()
+
+
 class DescricaoPerfil(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="descricoes_perfil")
     descricao = models.CharField(max_length=220)

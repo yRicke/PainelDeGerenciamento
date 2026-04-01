@@ -18,6 +18,7 @@ from ..models import (
     Agenda,
     Atividade,
     BalancoPatrimonial,
+    BalancoPatrimonialAtivo,
     Banco,
     CentroResultado,
     ComiteDiario,
@@ -1174,6 +1175,108 @@ def excluir_balanco_patrimonial_por_dados(item, empresa):
     if item.empresa_id != empresa.id:
         return "Registro invalido para esta empresa."
     item.excluir_balanco_patrimonial()
+    return ""
+
+
+def _parse_bool_like(valor):
+    texto = str(valor or "").strip().lower()
+    return texto in {"1", "true", "on", "sim", "yes", "verdadeiro"}
+
+
+def _dados_balanco_patrimonial_ativo_from_post(post_data):
+    data_aquisicao_raw = (post_data.get("data_aquisicao") or "").strip()
+    categoria = _choice_valido(post_data.get("categoria"), BalancoPatrimonialAtivo.CATEGORIA_CHOICES)
+    empresa_bp = _choice_valido(post_data.get("empresa_bp"), BalancoPatrimonialAtivo.EMPRESA_BP_CHOICES)
+    status_financiado = _parse_bool_like(post_data.get("status_financiado"))
+
+    parcelas_raw = (post_data.get("parcelas") or "").strip()
+    parcelas = _parse_int_ou_zero(parcelas_raw) if parcelas_raw else None
+    if parcelas is not None and parcelas <= 0:
+        parcelas = None
+
+    dados = {
+        "data_aquisicao_raw": data_aquisicao_raw,
+        "data_aquisicao": _parse_date_ou_none(data_aquisicao_raw),
+        "empresa_bp": empresa_bp,
+        "categoria": categoria,
+        "sub_categoria": (post_data.get("sub_categoria") or "").strip(),
+        "secao": (post_data.get("secao") or "").strip(),
+        "nivel": (post_data.get("nivel") or "").strip(),
+        "patrimonio": (post_data.get("patrimonio") or "").strip(),
+        "placa": (post_data.get("placa") or "").strip().upper(),
+        "local": (post_data.get("local") or "").strip(),
+        "renda": _parse_decimal_ou_none(post_data.get("renda")),
+        "ano": (post_data.get("ano") or "").strip(),
+        "valor_bem": _parse_decimal_ou_none(post_data.get("valor_bem")),
+        "valor_real_atual": _parse_decimal_ou_none(post_data.get("valor_real_atual")),
+        "valor_venda_forcada": _parse_decimal_ou_none(post_data.get("valor_venda_forcada")),
+        "valor_declarado_ir": _parse_decimal_ou_none(post_data.get("valor_declarado_ir")),
+        "valor_avaliacao": _parse_decimal_ou_none(post_data.get("valor_avaliacao")),
+        "quitacao": _parse_decimal_ou_none(post_data.get("quitacao")),
+        "alienacao": _parse_decimal_ou_none(post_data.get("alienacao")),
+        "parcelas": parcelas,
+        "valor_parcela": _parse_decimal_ou_none(post_data.get("valor_parcela")),
+        "passivo": _parse_decimal_ou_none(post_data.get("passivo")),
+        "valor_liquido": _parse_decimal_ou_none(post_data.get("valor_liquido")),
+        "status_financiado": status_financiado,
+        "status": (post_data.get("status") or "").strip(),
+    }
+
+    if categoria != BalancoPatrimonialAtivo.CATEGORIA_VEICULOS:
+        dados["placa"] = ""
+        dados["ano"] = ""
+    if categoria != BalancoPatrimonialAtivo.CATEGORIA_IMOVEL:
+        dados["local"] = ""
+        dados["renda"] = None
+    if not status_financiado:
+        dados["quitacao"] = None
+        dados["alienacao"] = None
+        dados["parcelas"] = None
+        dados["valor_parcela"] = None
+        dados["passivo"] = None
+
+    return dados
+
+
+def _validar_dados_balanco_patrimonial_ativo(dados):
+    if dados["data_aquisicao_raw"] and not dados["data_aquisicao"]:
+        return "Data aquisicao invalida."
+    if not dados["empresa_bp"]:
+        return "Empresa BP e obrigatoria."
+    if not dados["categoria"]:
+        return "Categoria e obrigatoria."
+    return ""
+
+
+def criar_balanco_patrimonial_ativo_por_dados(empresa, post_data):
+    dados = _dados_balanco_patrimonial_ativo_from_post(post_data)
+    erro = _validar_dados_balanco_patrimonial_ativo(dados)
+    if erro:
+        return erro
+
+    dados.pop("data_aquisicao_raw", None)
+    BalancoPatrimonialAtivo.criar_balanco_patrimonial_ativo(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_balanco_patrimonial_ativo_por_dados(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    dados = _dados_balanco_patrimonial_ativo_from_post(post_data)
+    erro = _validar_dados_balanco_patrimonial_ativo(dados)
+    if erro:
+        return erro
+
+    dados.pop("data_aquisicao_raw", None)
+    item.atualizar_balanco_patrimonial_ativo(**dados)
+    return ""
+
+
+def excluir_balanco_patrimonial_ativo_por_dados(item, empresa):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+    item.excluir_balanco_patrimonial_ativo()
     return ""
 
 

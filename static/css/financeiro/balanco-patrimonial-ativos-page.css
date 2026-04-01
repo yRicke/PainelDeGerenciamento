@@ -1,0 +1,49 @@
+@import url("../shared/module-crud.css");
+
+.balanco-ativos-form-grid {
+    grid-template-columns: repeat(5, minmax(160px, 1fr));
+}
+
+.balanco-ativos-grid-span-2 {
+    grid-column: span 2;
+}
+
+#balanco-patrimonial-ativos-cadastro-form input:disabled,
+#balanco-patrimonial-ativos-cadastro-form select:disabled {
+    background: #f5f7fb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+#balanco-patrimonial-ativos-save-status.balanco-ativos-save-status--ok {
+    color: #127a2e;
+}
+
+#balanco-patrimonial-ativos-save-status.balanco-ativos-save-status--error {
+    color: #b42318;
+}
+
+#balanco-patrimonial-ativos-save-status.balanco-ativos-save-status--progress {
+    color: #4b5565;
+}
+
+#balanco-patrimonial-ativos-tabulator .tabulator-col-title {
+    white-space: normal;
+    line-height: 1.2;
+}
+
+@media (max-width: 1180px) {
+    .balanco-ativos-form-grid {
+        grid-template-columns: repeat(3, minmax(170px, 1fr));
+    }
+}
+
+@media (max-width: 820px) {
+    .balanco-ativos-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .balanco-ativos-grid-span-2 {
+        grid-column: auto;
+    }
+}

@@ -15,6 +15,7 @@ from django.utils import timezone
 from ..models import (
     Adiantamento,
     BalancoPatrimonial,
+    BalancoPatrimonialAtivo,
     Banco,
     CentroResultado,
     ComiteDiario,
@@ -35,6 +36,7 @@ from ..models import (
 from ..services.financeiro import (
     atualizar_adiantamento_por_post,
     atualizar_balanco_patrimonial_por_dados,
+    atualizar_balanco_patrimonial_ativo_por_dados,
     atualizar_centro_resultado_por_dados,
     atualizar_contas_a_receber_por_post,
     atualizar_contrato_rede_por_post,
@@ -49,6 +51,7 @@ from ..services.financeiro import (
     construir_payload_tabela_saldo_dfc,
     criar_adiantamento_por_post,
     criar_balanco_patrimonial_por_dados,
+    criar_balanco_patrimonial_ativo_por_dados,
     criar_centro_resultado_por_dados,
     criar_contas_a_receber_por_post,
     criar_contrato_rede_por_post,
@@ -62,6 +65,7 @@ from ..services.financeiro import (
     criar_titulo_por_dados,
     excluir_saldo_limite_por_dados,
     excluir_balanco_patrimonial_por_dados,
+    excluir_balanco_patrimonial_ativo_por_dados,
     excluir_comite_diario_por_dados,
     importar_upload_adiantamentos,
     importar_upload_comite_diario,
@@ -78,6 +82,7 @@ from ..services.financeiro import (
 from ..tabulator import (
     build_adiantamentos_tabulator,
     build_balanco_patrimonial_tabulator,
+    build_balanco_patrimonial_ativos_tabulator,
     build_centros_resultado_tabulator,
     build_contas_a_receber_tabulator,
     build_contratos_redes_tabulator,
@@ -147,6 +152,13 @@ def _payload_comite_diario(item, empresa_id):
 
 def _payload_balanco_patrimonial(item, empresa_id):
     registros = build_balanco_patrimonial_tabulator([item], empresa_id)
+    if not registros:
+        return None
+    return registros[0]
+
+
+def _payload_balanco_patrimonial_ativo(item, empresa_id):
+    registros = build_balanco_patrimonial_ativos_tabulator([item], empresa_id)
     if not registros:
         return None
     return registros[0]
@@ -791,6 +803,7 @@ def balanco_patrimonial(request, empresa_id):
             for value, label in BalancoPatrimonial.TIPO_MOVIMENTACAO_CHOICES
         ],
         "balanco_patrimonial_proximo_numero_registro": BalancoPatrimonial.proximo_numero_registro(empresa),
+        "balanco_patrimonial_ativos_url": reverse("balanco_patrimonial_ativos", kwargs={"empresa_id": empresa.id}),
         "hoje_iso": timezone.localdate().isoformat(),
     }
     return render(request, modulo["template"], contexto)
@@ -901,6 +914,140 @@ def excluir_balanco_patrimonial_modulo(request, empresa_id, balanco_patrimonial_
 
     messages.success(request, "Registro excluido com sucesso.")
     return redirect("balanco_patrimonial", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def balanco_patrimonial_ativos(request, empresa_id):
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Balanco Patrimonial")
+    if not permitido:
+        return redirect("index")
+
+    registros_qs = BalancoPatrimonialAtivo.objects.filter(empresa=empresa).order_by("-id")
+    status_opcoes = []
+    for status in (
+        registros_qs.exclude(status__isnull=True)
+        .exclude(status__exact="")
+        .values_list("status", flat=True)
+        .distinct()
+        .order_by("status")
+    ):
+        status_opcoes.append({"value": status, "label": status})
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": "Balanco Patrimonial - Ativos",
+        "balanco_patrimonial_ativos_tabulator": build_balanco_patrimonial_ativos_tabulator(registros_qs, empresa.id),
+        "balanco_patrimonial_ativos_empresas_bp_opcoes": [
+            {"value": value, "label": label}
+            for value, label in BalancoPatrimonialAtivo.EMPRESA_BP_CHOICES
+        ],
+        "balanco_patrimonial_ativos_categorias_opcoes": [
+            {"value": value, "label": label}
+            for value, label in BalancoPatrimonialAtivo.CATEGORIA_CHOICES
+        ],
+        "balanco_patrimonial_ativos_status_opcoes": status_opcoes,
+        "hoje_iso": timezone.localdate().isoformat(),
+    }
+    return render(request, "financeiro/balanco_patrimonial_ativos.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_balanco_patrimonial_ativo_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Balanco Patrimonial")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    erro = criar_balanco_patrimonial_ativo_por_dados(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    item = BalancoPatrimonialAtivo.objects.filter(empresa=empresa).order_by("-id").first()
+    if _is_ajax_request(request):
+        if item is None:
+            return JsonResponse(
+                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                status=500,
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro criado com sucesso.",
+                "registro": _payload_balanco_patrimonial_ativo(item, empresa.id),
+            }
+        )
+
+    messages.success(request, "Registro criado com sucesso.")
+    return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_balanco_patrimonial_ativo_modulo(request, empresa_id, ativo_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Balanco Patrimonial")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    item = BalancoPatrimonialAtivo.objects.filter(id=ativo_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    erro = atualizar_balanco_patrimonial_ativo_por_dados(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    item = BalancoPatrimonialAtivo.objects.filter(id=item.id, empresa=empresa).first()
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": _payload_balanco_patrimonial_ativo(item, empresa.id) if item else None,
+            }
+        )
+
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_balanco_patrimonial_ativo_modulo(request, empresa_id, ativo_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Balanco Patrimonial")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    item = BalancoPatrimonialAtivo.objects.filter(id=ativo_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    erro = excluir_balanco_patrimonial_ativo_por_dados(item, empresa)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": ativo_id})
+
+    messages.success(request, "Registro excluido com sucesso.")
+    return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

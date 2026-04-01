@@ -788,3 +788,15 @@ def atualizar_balanco_patrimonial_por_dados(item, empresa, post_data):
 
 def excluir_balanco_patrimonial_por_dados(item, empresa):
     return _services().excluir_balanco_patrimonial_por_dados(item, empresa)
+
+
+def criar_balanco_patrimonial_ativo_por_dados(empresa, post_data):
+    return _services().criar_balanco_patrimonial_ativo_por_dados(empresa, post_data)
+
+
+def atualizar_balanco_patrimonial_ativo_por_dados(item, empresa, post_data):
+    return _services().atualizar_balanco_patrimonial_ativo_por_dados(item, empresa, post_data)
+
+
+def excluir_balanco_patrimonial_ativo_por_dados(item, empresa):
+    return _services().excluir_balanco_patrimonial_ativo_por_dados(item, empresa)
