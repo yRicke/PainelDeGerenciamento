@@ -1737,7 +1737,7 @@ class BalancoPatrimonial(models.Model):
     data_lancamento = models.DateField(null=True, blank=True)
     data_balanco_patrimonial = models.DateField()
     empresa_balanco_patrimonial = models.CharField(max_length=32, choices=EMPRESA_BALANCO_PATRIMONIAL_CHOICES)
-    tipo_movimentacao = models.CharField(max_length=16, choices=TIPO_MOVIMENTACAO_CHOICES)
+    tipo_movimentacao = models.CharField(max_length=16, choices=TIPO_MOVIMENTACAO_CHOICES, blank=True, default="")
     descricao = models.CharField(max_length=255)
     valor = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     observacao = models.CharField(max_length=255, blank=True, default="")

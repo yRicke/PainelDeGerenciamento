@@ -799,6 +799,8 @@ def balanco_patrimonial(request, empresa_id):
             for value, label in BalancoPatrimonial.EMPRESA_BALANCO_PATRIMONIAL_CHOICES
         ],
         "balanco_patrimonial_tipo_movimentacao_opcoes": [
+            {"value": "", "label": "Sem tipo"},
+        ] + [
             {"value": value, "label": label}
             for value, label in BalancoPatrimonial.TIPO_MOVIMENTACAO_CHOICES
         ],

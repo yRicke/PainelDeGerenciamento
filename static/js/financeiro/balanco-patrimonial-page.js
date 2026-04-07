@@ -10,9 +10,15 @@
     var secFiltros = document.getElementById("sec-filtros");
     var filtrosColunaEsquerda = document.getElementById("balanco-filtros-coluna-esquerda");
     var filtrosColunaDireita = document.getElementById("balanco-filtros-coluna-direita");
-    var kpiAtivoEl = document.getElementById("balanco-kpi-ativo");
-    var kpiPassivoEl = document.getElementById("balanco-kpi-passivo");
-    var kpiSaldoEl = document.getElementById("balanco-kpi-saldo");
+    var dashboardDataReferenciaInput = document.getElementById("balanco-dashboard-data-referencia");
+    var dashboardDataEvolucaoInput = document.getElementById("balanco-dashboard-data-evolucao");
+    var dashboardDataInfoEl = document.getElementById("balanco-dashboard-data-info");
+    var dashboardAtivoTableWrapEl = document.getElementById("balanco-dashboard-ativo-table");
+    var dashboardPassivoTableWrapEl = document.getElementById("balanco-dashboard-passivo-table");
+    var kpiPlReferenciaEl = document.getElementById("balanco-kpi-pl-referencia");
+    var kpiPlEvolucaoEl = document.getElementById("balanco-kpi-pl-evolucao");
+    var kpiPlEvolucaoValorEl = document.getElementById("balanco-kpi-pl-evolucao-valor");
+    var kpiPlEvolucaoPercentualEl = document.getElementById("balanco-kpi-pl-evolucao-percentual");
 
     if (!dataElement || !empresasElement || !tiposElement || !window.Tabulator) return;
 
@@ -26,6 +32,56 @@
     var empresasValues = {};
     var tiposValues = {};
     var proximoNumeroRegistro = 1;
+    var dashboardDataReferenciaIso = "";
+    var dashboardDataEvolucaoIso = "";
+
+    var ATIVO_GROUPS = [
+        {
+            title: "Disponibilidades",
+            rows: [{label: "Caixa"}, {label: "Bancos"}, {label: "Adiantamentos"}],
+        },
+        {
+            title: "Contas a Receber",
+            rows: [
+                {label: "Contas a Receber Holding"},
+                {label: "Contas a Receber CA"},
+                {label: "Contas a Receber A Vencer"},
+                {label: "Contas a Receber Vencidos"},
+            ],
+        },
+        {
+            title: "Estoques",
+            rows: [
+                {label: "Insumos"},
+                {label: "Estoque Produto Importado"},
+                {label: "Estoque Insumos MP"},
+                {label: "Estoque Insumos Embalagens"},
+                {label: "Estoque Produto Acabado"},
+                {label: "Estoque Geral"},
+            ],
+        },
+        {
+            title: "Outros Ativos",
+            rows: [{label: "Adiantamentos de socios"}, {label: "Creditos de Impostos"}],
+        },
+        {
+            title: "Imobilizado",
+            rows: [{label: "Imoveis"}, {label: "Veiculos"}, {label: "Equipamentos"}],
+        },
+    ];
+
+    var PASSIVO_COMPONENT_ROWS = [
+        {label: "Emprestimos"},
+        {label: "Impostos"},
+        {label: "Forncedores", aliases: ["Fornecedores"]},
+        {label: "Contas a Receber Antecipado"},
+        {label: "Contas a Pagar Vencer"},
+        {label: "Contas a Pagar Vencido"},
+        {label: "Saldo Emprestimos"},
+        {label: "Contas a Pagar Impostos"},
+        {label: "Contas a Pagar Safia"},
+        {label: "Contas a Pagar CA"},
+    ];
 
     function toText(value) {
         if (value === null || value === undefined) return "";
@@ -54,6 +110,15 @@
         var parts = text.split("-");
         if (parts.length !== 3) return text;
         return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+
+    function normalizeText(value) {
+        var text = toText(value).toLowerCase();
+        if (!text) return "";
+        if (typeof text.normalize === "function") {
+            text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+        return text.replace(/\s+/g, " ").trim();
     }
 
     function extractDigits(value) {
@@ -208,22 +273,276 @@
         return tabela.getData("active") || [];
     }
 
-    function updateDashboard(linhas) {
-        var ativo = 0;
-        var passivo = 0;
+    function getSortedDateIsos(linhas) {
+        var seen = {};
+        var values = [];
         (linhas || []).forEach(function (item) {
-            var tipo = toText(item.tipo_movimentacao);
-            var valor = toNumber(item.valor);
-            if (tipo === "ativo") {
-                ativo += valor;
-            } else if (tipo === "passivo") {
-                passivo += valor;
-            }
+            var iso = toText(item && item.data_balanco_patrimonial_iso);
+            if (!iso || seen[iso]) return;
+            seen[iso] = true;
+            values.push(iso);
         });
-        var saldo = ativo - passivo;
-        if (kpiAtivoEl) kpiAtivoEl.textContent = formatMoney(ativo);
-        if (kpiPassivoEl) kpiPassivoEl.textContent = formatMoney(passivo);
-        if (kpiSaldoEl) kpiSaldoEl.textContent = formatMoney(saldo);
+        return values.sort();
+    }
+
+    function sumByDescription(rows, tipoEsperado) {
+        var totals = {};
+        (rows || []).forEach(function (item) {
+            if (toText(item && item.tipo_movimentacao) !== tipoEsperado) return;
+            var descNorm = normalizeText(item && item.descricao);
+            if (!descNorm) return;
+            totals[descNorm] = (totals[descNorm] || 0) + toNumber(item && item.valor);
+        });
+        return totals;
+    }
+
+    function sumTotalByType(rows, tipoEsperado) {
+        return (rows || []).reduce(function (acc, item) {
+            if (toText(item && item.tipo_movimentacao) !== tipoEsperado) return acc;
+            return acc + toNumber(item && item.valor);
+        }, 0);
+    }
+
+    function sumForRowDefinition(totalsByDescription, rowDefinition) {
+        if (!rowDefinition) return 0;
+        var labels = [rowDefinition.label].concat(rowDefinition.aliases || []);
+        return labels.reduce(function (acc, label) {
+            return acc + toNumber(totalsByDescription[normalizeText(label)] || 0);
+        }, 0);
+    }
+
+    function buildAtivoSections(referenceTotalsByDescription, evolucaoTotalsByDescription) {
+        var usedKeys = {};
+        var sections = [];
+
+        ATIVO_GROUPS.forEach(function (group) {
+            var sectionRows = [];
+            var subtotalReferencia = 0;
+            var subtotalEvolucao = 0;
+            group.rows.forEach(function (rowDefinition) {
+                var valueReferencia = sumForRowDefinition(referenceTotalsByDescription, rowDefinition);
+                var valueEvolucao = sumForRowDefinition(evolucaoTotalsByDescription, rowDefinition);
+                sectionRows.push({
+                    label: rowDefinition.label,
+                    valueReferencia: valueReferencia,
+                    valueEvolucao: valueEvolucao,
+                });
+                subtotalReferencia += valueReferencia;
+                subtotalEvolucao += valueEvolucao;
+                [rowDefinition.label].concat(rowDefinition.aliases || []).forEach(function (label) {
+                    usedKeys[normalizeText(label)] = true;
+                });
+            });
+            sections.push({
+                title: group.title,
+                subtotalReferencia: subtotalReferencia,
+                subtotalEvolucao: subtotalEvolucao,
+                rows: sectionRows,
+            });
+        });
+
+        var outrosReferencia = 0;
+        var outrosEvolucao = 0;
+        Object.keys(referenceTotalsByDescription || {}).forEach(function (key) {
+            if (!usedKeys[key]) outrosReferencia += toNumber(referenceTotalsByDescription[key]);
+        });
+        Object.keys(evolucaoTotalsByDescription || {}).forEach(function (key) {
+            if (!usedKeys[key]) outrosEvolucao += toNumber(evolucaoTotalsByDescription[key]);
+        });
+
+        if (outrosReferencia !== 0 || outrosEvolucao !== 0) {
+            sections.push({
+                title: "Outros Ativos",
+                subtotalReferencia: outrosReferencia,
+                subtotalEvolucao: outrosEvolucao,
+                rows: [{
+                    label: "Outros Ativos",
+                    valueReferencia: outrosReferencia,
+                    valueEvolucao: outrosEvolucao,
+                }],
+            });
+        }
+
+        return sections;
+    }
+
+    function sumPassivoComponentes(totalsByDescription) {
+        return PASSIVO_COMPONENT_ROWS.reduce(function (acc, rowDefinition) {
+            return acc + sumForRowDefinition(totalsByDescription, rowDefinition);
+        }, 0);
+    }
+
+    function buildPassivoRows(referenceTotalsByDescription, evolucaoTotalsByDescription) {
+        var rows = [];
+        var contasAPagarReferencia = sumPassivoComponentes(referenceTotalsByDescription);
+        var contasAPagarEvolucao = sumPassivoComponentes(evolucaoTotalsByDescription);
+        rows.push({
+            label: "Contas a Pagar",
+            valueReferencia: contasAPagarReferencia,
+            valueEvolucao: contasAPagarEvolucao,
+            isGroup: true,
+        });
+
+        PASSIVO_COMPONENT_ROWS.forEach(function (rowDefinition) {
+            var valueReferencia = sumForRowDefinition(referenceTotalsByDescription, rowDefinition);
+            var valueEvolucao = sumForRowDefinition(evolucaoTotalsByDescription, rowDefinition);
+            rows.push({label: rowDefinition.label, valueReferencia: valueReferencia, valueEvolucao: valueEvolucao});
+        });
+
+        return rows;
+    }
+
+    function renderAtivoTable(sections, totalAtivoReferencia, totalAtivoEvolucao) {
+        if (!dashboardAtivoTableWrapEl) return;
+        var html = [
+            '<table class="balanco-dashboard-table balanco-dashboard-table--ativo">',
+            "<thead><tr><th>Descricao</th><th>Valor Referencia</th><th>Valor Evolucao</th></tr></thead>",
+            "<tbody>",
+        ];
+
+        (sections || []).forEach(function (section) {
+            html.push(
+                '<tr class="balanco-group-row"><td>' +
+                section.title +
+                "</td><td>" +
+                formatMoney(section.subtotalReferencia) +
+                "</td><td>" +
+                formatMoney(section.subtotalEvolucao) +
+                "</td></tr>"
+            );
+            (section.rows || []).forEach(function (row) {
+                html.push(
+                    "<tr><td>" +
+                    row.label +
+                    "</td><td>" +
+                    formatMoney(row.valueReferencia) +
+                    "</td><td>" +
+                    formatMoney(row.valueEvolucao) +
+                    "</td></tr>"
+                );
+            });
+            html.push("<tr><td></td><td></td><td></td></tr>");
+        });
+
+        html.push(
+            '<tr class="balanco-total-row"><td>Total Ativo</td><td>' +
+            formatMoney(totalAtivoReferencia) +
+            "</td><td>" +
+            formatMoney(totalAtivoEvolucao) +
+            "</td></tr>"
+        );
+        html.push("</tbody></table>");
+        dashboardAtivoTableWrapEl.innerHTML = html.join("");
+    }
+
+    function renderPassivoTable(rows, totalPassivoReferencia, totalPassivoEvolucao) {
+        if (!dashboardPassivoTableWrapEl) return;
+        var html = [
+            '<table class="balanco-dashboard-table balanco-dashboard-table--passivo">',
+            "<thead><tr><th>Descricao</th><th>Valor Referencia</th><th>Valor Evolucao</th></tr></thead>",
+            "<tbody>",
+        ];
+
+        (rows || []).forEach(function (row) {
+            var cssClass = row.isGroup ? ' class="balanco-group-row"' : "";
+            html.push(
+                "<tr" +
+                cssClass +
+                "><td>" +
+                row.label +
+                "</td><td>" +
+                formatMoney(row.valueReferencia) +
+                "</td><td>" +
+                formatMoney(row.valueEvolucao) +
+                "</td></tr>"
+            );
+        });
+
+        html.push(
+            '<tr class="balanco-total-row"><td>Total Passivo</td><td>' +
+            formatMoney(totalPassivoReferencia) +
+            "</td><td>" +
+            formatMoney(totalPassivoEvolucao) +
+            "</td></tr>"
+        );
+        html.push("</tbody></table>");
+        dashboardPassivoTableWrapEl.innerHTML = html.join("");
+    }
+
+    function formatPercent(value) {
+        if (!Number.isFinite(value)) return "0,00%";
+        return value.toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + "%";
+    }
+
+    function setEvolucaoStyles(diffValue, diffPercent) {
+        [kpiPlEvolucaoValorEl, kpiPlEvolucaoPercentualEl].forEach(function (el) {
+            if (!el) return;
+            el.classList.remove("balanco-kpi-positive", "balanco-kpi-negative");
+            var base = Number.isFinite(diffPercent) ? diffPercent : diffValue;
+            if (base > 0) el.classList.add("balanco-kpi-positive");
+            else if (base < 0) el.classList.add("balanco-kpi-negative");
+        });
+    }
+    function renderDataInfo(referenciaDateIso, evolucaoDateIso, referenciaRows, evolucaoRows) {
+        if (!dashboardDataInfoEl) return;
+        if (!referenciaDateIso && !evolucaoDateIso) {
+            dashboardDataInfoEl.textContent = "Sem dados para as datas selecionadas.";
+            return;
+        }
+        var texto = "Referencia: " + formatDateIsoToBr(referenciaDateIso);
+        texto += " | Evolucao: " + formatDateIsoToBr(evolucaoDateIso);
+        texto += " | Registros ref/evo: " + String(referenciaRows || 0) + "/" + String(evolucaoRows || 0);
+        dashboardDataInfoEl.textContent = texto;
+    }
+
+    function updateDashboard(linhas) {
+        var allRows = Array.isArray(linhas) ? linhas : [];
+        var selectedReferenciaIso = toText(
+            (dashboardDataReferenciaInput && dashboardDataReferenciaInput.value) || dashboardDataReferenciaIso
+        );
+        var selectedEvolucaoIso = toText(
+            (dashboardDataEvolucaoInput && dashboardDataEvolucaoInput.value) || dashboardDataEvolucaoIso
+        );
+
+        var referenciaRows = selectedReferenciaIso
+            ? allRows.filter(function (item) { return toText(item.data_balanco_patrimonial_iso) === selectedReferenciaIso; })
+            : [];
+        var evolucaoRows = selectedEvolucaoIso
+            ? allRows.filter(function (item) { return toText(item.data_balanco_patrimonial_iso) === selectedEvolucaoIso; })
+            : [];
+
+        var ativoReferenciaTotalsByDesc = sumByDescription(referenciaRows, "ativo");
+        var ativoEvolucaoTotalsByDesc = sumByDescription(evolucaoRows, "ativo");
+        var passivoReferenciaTotalsByDesc = sumByDescription(referenciaRows, "passivo");
+        var passivoEvolucaoTotalsByDesc = sumByDescription(evolucaoRows, "passivo");
+
+        var totalAtivoReferencia = sumTotalByType(referenciaRows, "ativo");
+        var totalAtivoEvolucao = sumTotalByType(evolucaoRows, "ativo");
+        var totalPassivoReferencia = sumPassivoComponentes(passivoReferenciaTotalsByDesc);
+        var totalPassivoEvolucao = sumPassivoComponentes(passivoEvolucaoTotalsByDesc);
+        var plReferencia = totalAtivoReferencia - totalPassivoReferencia;
+        var plEvolucao = totalAtivoEvolucao - totalPassivoEvolucao;
+
+        var plEvolucaoValor = plEvolucao - plReferencia;
+        var plEvolucaoPercentual = plReferencia !== 0 ? (plEvolucaoValor / Math.abs(plReferencia)) * 100 : 0;
+
+        renderAtivoTable(
+            buildAtivoSections(ativoReferenciaTotalsByDesc, ativoEvolucaoTotalsByDesc),
+            totalAtivoReferencia,
+            totalAtivoEvolucao
+        );
+        renderPassivoTable(
+            buildPassivoRows(passivoReferenciaTotalsByDesc, passivoEvolucaoTotalsByDesc),
+            totalPassivoReferencia,
+            totalPassivoEvolucao
+        );
+
+        if (kpiPlReferenciaEl) kpiPlReferenciaEl.textContent = formatMoney(plReferencia);
+        if (kpiPlEvolucaoEl) kpiPlEvolucaoEl.textContent = formatMoney(plEvolucao);
+        if (kpiPlEvolucaoValorEl) kpiPlEvolucaoValorEl.textContent = formatMoney(plEvolucaoValor);
+        if (kpiPlEvolucaoPercentualEl) kpiPlEvolucaoPercentualEl.textContent = formatPercent(plEvolucaoPercentual);
+        setEvolucaoStyles(plEvolucaoValor, plEvolucaoPercentual);
+        renderDataInfo(selectedReferenciaIso, selectedEvolucaoIso, referenciaRows.length, evolucaoRows.length);
     }
 
     function createFilterDefinitions() {
@@ -308,6 +627,43 @@
         buttons.forEach(function (button) {
             button.addEventListener("click", clearAll);
         });
+    }
+
+    function setDashboardDateInputs(referenciaIso, evolucaoIso) {
+        dashboardDataReferenciaIso = toText(referenciaIso);
+        dashboardDataEvolucaoIso = toText(evolucaoIso);
+        if (dashboardDataReferenciaInput) dashboardDataReferenciaInput.value = dashboardDataReferenciaIso;
+        if (dashboardDataEvolucaoInput) dashboardDataEvolucaoInput.value = dashboardDataEvolucaoIso;
+    }
+
+    function getLatestDateIsoFromData() {
+        var dates = getSortedDateIsos(data || []);
+        return dates.length ? dates[dates.length - 1] : "";
+    }
+
+    function getPreviousDateIso(dateIso, rows) {
+        var dates = getSortedDateIsos(rows || data || []);
+        return dates.filter(function (candidate) {
+            return dateIso && candidate < dateIso;
+        }).pop() || dateIso || "";
+    }
+
+    function bindDashboardDateControls() {
+        if (dashboardDataReferenciaInput) {
+            dashboardDataReferenciaInput.addEventListener("change", function () {
+                var evolucaoValue = dashboardDataEvolucaoInput ? dashboardDataEvolucaoInput.value : dashboardDataEvolucaoIso;
+                setDashboardDateInputs(dashboardDataReferenciaInput.value, evolucaoValue);
+                updateDashboard(getVisibleRowsData());
+            });
+        }
+
+        if (dashboardDataEvolucaoInput) {
+            dashboardDataEvolucaoInput.addEventListener("change", function () {
+                var referenciaValue = dashboardDataReferenciaInput ? dashboardDataReferenciaInput.value : dashboardDataReferenciaIso;
+                setDashboardDateInputs(referenciaValue, dashboardDataEvolucaoInput.value);
+                updateDashboard(getVisibleRowsData());
+            });
+        }
     }
 
     function buildPayloadFromRow(rowData) {
@@ -595,8 +951,7 @@
         (Array.isArray(tiposOpcoes) ? tiposOpcoes : []).forEach(function (item) {
             var value = toText(item && item.value);
             var label = toText(item && item.label);
-            if (!value) return;
-            tiposValues[value] = label || value;
+            tiposValues[value] = label || value || "Sem tipo";
         });
     } catch (_error) {
         tiposValues = {};
@@ -606,6 +961,9 @@
         configElement ? configElement.getAttribute("data-proximo-numero-registro") : "1"
     ) || 1;
     updateNumeroRegistroInput();
+    var latestDateIso = getLatestDateIsoFromData();
+    var previousDateIso = getPreviousDateIso(latestDateIso);
+    setDashboardDateInputs(previousDateIso, latestDateIso);
 
     var createTable = (window.TabulatorDefaults && typeof window.TabulatorDefaults.create === "function")
         ? window.TabulatorDefaults.create
@@ -663,12 +1021,12 @@
                 editor: "list",
                 editorParams: {
                     values: tiposValues,
-                    clearable: false,
+                    clearable: true,
                 },
                 formatter: function (cell) {
                     var row = cell.getRow().getData() || {};
                     var value = toText(row.tipo_movimentacao);
-                    return tiposValues[value] || row.tipo_movimentacao_label || value;
+                    return tiposValues[value] || row.tipo_movimentacao_label || value || "Sem tipo";
                 },
                 cellEdited: onCellEdited,
                 minWidth: 180,
@@ -727,6 +1085,7 @@
 
     if (cadastroForm) cadastroForm.addEventListener("submit", submitCreate);
     bindClearFilterButtons();
+    bindDashboardDateControls();
     bindValorMask();
     setupExternalFilters();
     updateDashboard(getVisibleRowsData());

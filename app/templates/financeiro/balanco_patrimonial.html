@@ -97,7 +97,7 @@
                         <div class="balanco-patrimonial-radio-group">
                             {% for opcao in balanco_patrimonial_tipo_movimentacao_opcoes %}
                             <label class="balanco-patrimonial-radio-item">
-                                <input type="radio" name="tipo_movimentacao" value="{{ opcao.value }}" required>
+                                <input type="radio" name="tipo_movimentacao" value="{{ opcao.value }}">
                                 <span>{{ opcao.label }}</span>
                             </label>
                             {% endfor %}
@@ -125,21 +125,62 @@
 
         <section id="sec-dashboard" class="panel module-section">
             <h2>Dashboard Balanco Patrimonial</h2>
-            <div class="dashboard-kpi-grid balanco-kpi-grid">
-                <article class="dashboard-kpi-card">
-                    <h3>Total Ativo</h3>
-                    <p id="balanco-kpi-ativo">R$ 0,00</p>
+            <div class="balanco-dashboard-data-base">
+                <div class="balanco-dashboard-data-base-field">
+                    <div>
+                        <label for="balanco-dashboard-data-referencia">Data Referencia</label>
+                        <input type="date" id="balanco-dashboard-data-referencia">
+                    </div>
+                    <div>
+                        <label for="balanco-dashboard-data-evolucao">Data Evolucao</label>
+                        <input type="date" id="balanco-dashboard-data-evolucao">
+                    </div>
+                </div>
+            </div>
+            <p id="balanco-dashboard-data-info" class="file-status balanco-dashboard-data-info"></p>
+
+            <div class="balanco-dashboard-grid">
+                <article class="dashboard-kpi-card balanco-dashboard-card">
+                    <h3>Ativo</h3>
+                    <div id="balanco-dashboard-ativo-table" class="balanco-dashboard-table-wrap"></div>
                 </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Total Passivo</h3>
-                    <p id="balanco-kpi-passivo">R$ 0,00</p>
-                </article>
-                <article class="dashboard-kpi-card">
-                    <h3>Saldo (Ativo - Passivo)</h3>
-                    <p id="balanco-kpi-saldo">R$ 0,00</p>
+                <article class="dashboard-kpi-card balanco-dashboard-card">
+                    <h3>Passivo</h3>
+                    <div id="balanco-dashboard-passivo-table" class="balanco-dashboard-table-wrap"></div>
                 </article>
             </div>
-            <p class="file-status balanco-dashboard-note">Valores recalculados conforme filtros aplicados na tabela.</p>
+
+            <div class="dashboard-kpi-grid balanco-kpi-grid">
+                <article class="dashboard-kpi-card">
+                    <h3>Patrimonio Liquido</h3>
+                    <div class="balanco-kpi-list">
+                        <div class="balanco-kpi-list-item">
+                            <span>Referencia</span>
+                            <strong id="balanco-kpi-pl-referencia">R$ 0,00</strong>
+                        </div>
+                        <div class="balanco-kpi-list-item">
+                            <span>Evolucao</span>
+                            <strong id="balanco-kpi-pl-evolucao">R$ 0,00</strong>
+                        </div>
+                    </div>
+                </article>
+                <article class="dashboard-kpi-card">
+                    <h3>Evolucao do PL</h3>
+                    <div class="balanco-kpi-list">
+                        <div class="balanco-kpi-list-item">
+                            <span>Valor</span>
+                            <strong id="balanco-kpi-pl-evolucao-valor">R$ 0,00</strong>
+                        </div>
+                        <div class="balanco-kpi-list-item">
+                            <span>Percentual</span>
+                            <strong id="balanco-kpi-pl-evolucao-percentual">0,00%</strong>
+                        </div>
+                    </div>
+                </article>
+            </div>
+            <p class="file-status balanco-dashboard-note">
+                Valores recalculados conforme filtros aplicados na tabela e datas selecionadas.
+            </p>
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">

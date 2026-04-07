@@ -1132,8 +1132,6 @@ def _validar_dados_balanco_patrimonial(dados):
         return "Data BP invalida."
     if not dados["empresa_balanco_patrimonial"]:
         return "Empresa BP e obrigatoria."
-    if not dados["tipo_movimentacao"]:
-        return "Tipo movimentacao e obrigatorio."
     if not dados["descricao"]:
         return "Descricao BP e obrigatoria."
     if not dados["valor_raw"]:

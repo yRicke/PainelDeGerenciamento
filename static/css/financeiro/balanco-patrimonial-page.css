@@ -1,7 +1,140 @@
-@import url("../shared/module-crud.css");
+@import url("./lancamentos-shared.css");
 
 .balanco-kpi-grid {
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    margin-top: 0.35rem;
+}
+
+.balanco-kpi-grid .dashboard-kpi-card {
+    min-width: 0;
+}
+
+.balanco-kpi-list {
+    margin-top: 0.15rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.balanco-kpi-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 0.95rem;
+}
+
+.balanco-kpi-list-item span {
+    color: #556070;
+    font-weight: 500;
+}
+
+.balanco-kpi-list-item strong {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.balanco-dashboard-data-base {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 0.7rem;
+    margin-bottom: 0.55rem;
+}
+
+.balanco-dashboard-data-base-field {
+    display: grid;
+    gap: 0.55rem;
+    grid-template-columns: repeat(2, minmax(220px, 280px));
+}
+
+.balanco-dashboard-data-info {
+    margin-top: 0;
+    margin-bottom: 0.65rem;
+}
+
+.balanco-dashboard-grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 0.8rem;
+}
+
+.balanco-dashboard-card {
+    min-width: 0;
+}
+
+.balanco-dashboard-table-wrap {
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+.balanco-dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+}
+
+.balanco-dashboard-table th,
+.balanco-dashboard-table td {
+    border: 1px solid #d8dee4;
+    padding: 0.36rem 0.48rem;
+    font-size: 0.86rem;
+}
+
+.balanco-dashboard-table th {
+    background: #f8fafc;
+    color: #111827;
+    font-weight: 700;
+}
+
+.balanco-dashboard-table th:first-child {
+    text-align: left;
+}
+
+.balanco-dashboard-table th:nth-child(2),
+.balanco-dashboard-table th:nth-child(3) {
+    text-align: right;
+}
+
+.balanco-dashboard-table td:first-child {
+    text-align: left;
+}
+
+.balanco-dashboard-table td:nth-child(2),
+.balanco-dashboard-table td:nth-child(3) {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.balanco-dashboard-table .balanco-group-row td {
+    font-weight: 700;
+    background: #f9fafb;
+}
+
+.balanco-dashboard-table .balanco-total-row td {
+    font-weight: 700;
+}
+
+.balanco-dashboard-table--ativo .balanco-total-row td {
+    background: #e9f1ff;
+    color: #0f3b82;
+}
+
+.balanco-dashboard-table--passivo .balanco-total-row td {
+    background: #fff1f1;
+    color: #8c1d1d;
+}
+
+.balanco-kpi-positive {
+    color: #127a2e;
+}
+
+.balanco-kpi-negative {
+    color: #b42318;
 }
 
 .balanco-dashboard-note {
@@ -37,4 +170,20 @@
 #balanco-patrimonial-tabulator .tabulator-col-title {
     white-space: normal;
     line-height: 1.2;
+}
+
+@media (max-width: 1000px) {
+    .balanco-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .balanco-dashboard-data-base-field {
+        grid-template-columns: 1fr;
+    }
+
+    .balanco-dashboard-table {
+        min-width: 460px;
+    }
 }
