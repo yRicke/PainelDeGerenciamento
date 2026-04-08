@@ -2029,6 +2029,665 @@ class BalancoPatrimonialAtivo(models.Model):
         self.delete()
 
 
+class PrecificacaoCenario(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="precificacao_cenarios")
+    nome = models.CharField(max_length=120, default="Cenario padrao")
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "nome"], name="uq_precificacao_cenario_empresa_nome"),
+        ]
+
+    def __str__(self):
+        return f"{self.empresa.nome} - {self.nome}"
+
+    @classmethod
+    def criar_precificacao_cenario(cls, empresa, nome="Cenario padrao", ativo=True):
+        item = cls(empresa=empresa, nome=nome, ativo=bool(ativo))
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_precificacao_cenario(self, nome=UNSET, ativo=UNSET):
+        if nome is not UNSET:
+            self.nome = nome
+        if ativo is not UNSET:
+            self.ativo = bool(ativo)
+        self.full_clean()
+        self.save()
+
+    def excluir_precificacao_cenario(self):
+        self.delete()
+
+
+class PrecificacaoCalculadoraPrecoMedio(models.Model):
+    cenario = models.ForeignKey(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="calculadora_preco_medio_linhas",
+    )
+    ordem = models.PositiveIntegerField(default=0)
+    origem = models.CharField(max_length=80)
+    volume = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    preco = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    prazo = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    preco_liquido = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    financeiro = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    frete = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    total = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cenario", "origem"],
+                name="uq_precificacao_calc_preco_medio_cenario_origem",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.cenario} - {self.origem}"
+
+    @classmethod
+    def criar_linha(
+        cls,
+        *,
+        cenario,
+        ordem,
+        origem,
+        volume=0,
+        preco=0,
+        prazo=0,
+        preco_liquido=0,
+        financeiro=0,
+        frete=0,
+        total=0,
+    ):
+        item = cls(
+            cenario=cenario,
+            ordem=ordem,
+            origem=origem,
+            volume=volume,
+            preco=preco,
+            prazo=prazo,
+            preco_liquido=preco_liquido,
+            financeiro=financeiro,
+            frete=frete,
+            total=total,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_linha(
+        self,
+        *,
+        volume=UNSET,
+        preco=UNSET,
+        prazo=UNSET,
+        frete=UNSET,
+        preco_liquido=UNSET,
+        financeiro=UNSET,
+        total=UNSET,
+    ):
+        if volume is not UNSET:
+            self.volume = volume
+        if preco is not UNSET:
+            self.preco = preco
+        if prazo is not UNSET:
+            self.prazo = prazo
+        if frete is not UNSET:
+            self.frete = frete
+        if preco_liquido is not UNSET:
+            self.preco_liquido = preco_liquido
+        if financeiro is not UNSET:
+            self.financeiro = financeiro
+        if total is not UNSET:
+            self.total = total
+        self.full_clean()
+        self.save()
+
+
+class PrecificacaoSimulacaoCompraVenda(models.Model):
+    cenario = models.OneToOneField(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="simulacao_compra_venda",
+    )
+    margem_requerida_compra = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.035"))
+    margem_requerida_venda = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.035"))
+    frete_compra = models.DecimalField(max_digits=18, decimal_places=4, default=Decimal("4.7"))
+    frete_venda = models.DecimalField(max_digits=18, decimal_places=4, default=Decimal("66.5"))
+    mp = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    preco_total = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+
+    def __str__(self):
+        return f"{self.cenario} - Simulacao"
+
+    @classmethod
+    def criar_item(
+        cls,
+        *,
+        cenario,
+        margem_requerida_compra=Decimal("0.035"),
+        margem_requerida_venda=Decimal("0.035"),
+        frete_compra=Decimal("4.7"),
+        frete_venda=Decimal("66.5"),
+        mp=0,
+        preco_total=0,
+    ):
+        item = cls(
+            cenario=cenario,
+            margem_requerida_compra=margem_requerida_compra,
+            margem_requerida_venda=margem_requerida_venda,
+            frete_compra=frete_compra,
+            frete_venda=frete_venda,
+            mp=mp,
+            preco_total=preco_total,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_item(
+        self,
+        *,
+        margem_requerida_compra=UNSET,
+        margem_requerida_venda=UNSET,
+        frete_compra=UNSET,
+        frete_venda=UNSET,
+        mp=UNSET,
+        preco_total=UNSET,
+    ):
+        if margem_requerida_compra is not UNSET:
+            self.margem_requerida_compra = margem_requerida_compra
+        if margem_requerida_venda is not UNSET:
+            self.margem_requerida_venda = margem_requerida_venda
+        if frete_compra is not UNSET:
+            self.frete_compra = frete_compra
+        if frete_venda is not UNSET:
+            self.frete_venda = frete_venda
+        if mp is not UNSET:
+            self.mp = mp
+        if preco_total is not UNSET:
+            self.preco_total = preco_total
+        self.full_clean()
+        self.save()
+
+
+class PrecificacaoMateriaPrima(models.Model):
+    cenario = models.ForeignKey(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="materia_prima_linhas",
+    )
+    chave = models.CharField(max_length=40)
+    ordem = models.PositiveIntegerField(default=0)
+    descricao = models.CharField(max_length=120)
+    ativo = models.BooleanField(default=True)
+    valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    frete_mp = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    sub_total = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    credito = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.07"))
+    custo_ex_works = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["cenario", "chave"], name="uq_precificacao_materia_prima_cenario_chave"),
+        ]
+
+    def __str__(self):
+        return f"{self.cenario} - MP - {self.descricao}"
+
+    @classmethod
+    def criar_linha(
+        cls,
+        *,
+        cenario,
+        chave,
+        ordem,
+        descricao,
+        ativo=True,
+        valor=0,
+        frete_mp=0,
+        sub_total=0,
+        credito=Decimal("0.07"),
+        custo_ex_works=0,
+    ):
+        item = cls(
+            cenario=cenario,
+            chave=chave,
+            ordem=ordem,
+            descricao=descricao,
+            ativo=bool(ativo),
+            valor=valor,
+            frete_mp=frete_mp,
+            sub_total=sub_total,
+            credito=credito,
+            custo_ex_works=custo_ex_works,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_linha(
+        self,
+        *,
+        ativo=UNSET,
+        valor=UNSET,
+        frete_mp=UNSET,
+        sub_total=UNSET,
+        credito=UNSET,
+        custo_ex_works=UNSET,
+    ):
+        if ativo is not UNSET:
+            self.ativo = bool(ativo)
+        if valor is not UNSET:
+            self.valor = valor
+        if frete_mp is not UNSET:
+            self.frete_mp = frete_mp
+        if sub_total is not UNSET:
+            self.sub_total = sub_total
+        if credito is not UNSET:
+            self.credito = credito
+        if custo_ex_works is not UNSET:
+            self.custo_ex_works = custo_ex_works
+        self.full_clean()
+        self.save()
+
+
+class PrecificacaoProdutoAcabadoCMV(models.Model):
+    cenario = models.ForeignKey(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="produto_acabado_cmv_linhas",
+    )
+    chave = models.CharField(max_length=20)
+    ordem = models.PositiveIntegerField(default=0)
+    descricao = models.CharField(max_length=60)
+    acucar_quebra = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.005"))
+    acucar_qtd = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    acucar_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    acucar_valor_ex_works = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    emb_primaria_quebra = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.015"))
+    emb_primaria_qtd = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    emb_primaria_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    emb_primaria_valor_ex_works = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    emb_secundaria_quebra = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.015"))
+    emb_secundaria_qtd = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    emb_secundaria_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    emb_secundaria_valor_ex_works = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    cmv = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    cmv_ex_works = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["cenario", "chave"], name="uq_precificacao_produto_cmv_cenario_chave"),
+        ]
+
+    def __str__(self):
+        return f"{self.cenario} - CMV - {self.descricao}"
+
+    @classmethod
+    def criar_linha(cls, *, cenario, chave, ordem, descricao):
+        item = cls(cenario=cenario, chave=chave, ordem=ordem, descricao=descricao)
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_linha(
+        self,
+        *,
+        acucar_quebra=UNSET,
+        emb_primaria_quebra=UNSET,
+        emb_secundaria_quebra=UNSET,
+        acucar_qtd=UNSET,
+        acucar_valor=UNSET,
+        acucar_valor_ex_works=UNSET,
+        emb_primaria_qtd=UNSET,
+        emb_primaria_valor=UNSET,
+        emb_primaria_valor_ex_works=UNSET,
+        emb_secundaria_qtd=UNSET,
+        emb_secundaria_valor=UNSET,
+        emb_secundaria_valor_ex_works=UNSET,
+        cmv=UNSET,
+        cmv_ex_works=UNSET,
+    ):
+        if acucar_quebra is not UNSET:
+            self.acucar_quebra = acucar_quebra
+        if emb_primaria_quebra is not UNSET:
+            self.emb_primaria_quebra = emb_primaria_quebra
+        if emb_secundaria_quebra is not UNSET:
+            self.emb_secundaria_quebra = emb_secundaria_quebra
+        if acucar_qtd is not UNSET:
+            self.acucar_qtd = acucar_qtd
+        if acucar_valor is not UNSET:
+            self.acucar_valor = acucar_valor
+        if acucar_valor_ex_works is not UNSET:
+            self.acucar_valor_ex_works = acucar_valor_ex_works
+        if emb_primaria_qtd is not UNSET:
+            self.emb_primaria_qtd = emb_primaria_qtd
+        if emb_primaria_valor is not UNSET:
+            self.emb_primaria_valor = emb_primaria_valor
+        if emb_primaria_valor_ex_works is not UNSET:
+            self.emb_primaria_valor_ex_works = emb_primaria_valor_ex_works
+        if emb_secundaria_qtd is not UNSET:
+            self.emb_secundaria_qtd = emb_secundaria_qtd
+        if emb_secundaria_valor is not UNSET:
+            self.emb_secundaria_valor = emb_secundaria_valor
+        if emb_secundaria_valor_ex_works is not UNSET:
+            self.emb_secundaria_valor_ex_works = emb_secundaria_valor_ex_works
+        if cmv is not UNSET:
+            self.cmv = cmv
+        if cmv_ex_works is not UNSET:
+            self.cmv_ex_works = cmv_ex_works
+        self.full_clean()
+        self.save()
+
+
+class PrecificacaoProdutoAcabadoDespesa(models.Model):
+    cenario = models.ForeignKey(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="produto_acabado_despesa_linhas",
+    )
+    chave = models.CharField(max_length=20)
+    ordem = models.PositiveIntegerField(default=0)
+    descricao = models.CharField(max_length=60)
+    prazo_dias = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    financeiro_taxa = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.02"))
+    financeiro_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    inadimplencia_taxa = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.0015"))
+    inadimplencia_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    administracao_taxa = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.0075"))
+    administracao_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    producao_ativo = models.BooleanField(default=True)
+    producao_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    cif_ativo = models.BooleanField(default=False)
+    cif_manual_ativo = models.BooleanField(default=False)
+    cif_rota = models.CharField(max_length=120, blank=True, default="")
+    cif_manual_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    log_frete_rota = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    log_frete_rota_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    log_op_logistica_ativo = models.BooleanField(default=True)
+    log_op_logistica_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    subtotal = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cenario", "chave"],
+                name="uq_precificacao_produto_despesa_cenario_chave",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.cenario} - Despesa - {self.descricao}"
+
+    @classmethod
+    def criar_linha(cls, *, cenario, chave, ordem, descricao):
+        item = cls(cenario=cenario, chave=chave, ordem=ordem, descricao=descricao)
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_linha(
+        self,
+        *,
+        prazo_dias=UNSET,
+        financeiro_taxa=UNSET,
+        inadimplencia_taxa=UNSET,
+        administracao_taxa=UNSET,
+        producao_ativo=UNSET,
+        producao_valor=UNSET,
+        cif_ativo=UNSET,
+        cif_manual_ativo=UNSET,
+        cif_rota=UNSET,
+        cif_manual_valor=UNSET,
+        log_frete_rota=UNSET,
+        log_op_logistica_ativo=UNSET,
+        financeiro_valor=UNSET,
+        inadimplencia_valor=UNSET,
+        administracao_valor=UNSET,
+        log_frete_rota_valor=UNSET,
+        log_op_logistica_valor=UNSET,
+        subtotal=UNSET,
+    ):
+        if prazo_dias is not UNSET:
+            self.prazo_dias = prazo_dias
+        if financeiro_taxa is not UNSET:
+            self.financeiro_taxa = financeiro_taxa
+        if inadimplencia_taxa is not UNSET:
+            self.inadimplencia_taxa = inadimplencia_taxa
+        if administracao_taxa is not UNSET:
+            self.administracao_taxa = administracao_taxa
+        if producao_ativo is not UNSET:
+            self.producao_ativo = bool(producao_ativo)
+        if producao_valor is not UNSET:
+            self.producao_valor = producao_valor
+        if cif_ativo is not UNSET:
+            self.cif_ativo = bool(cif_ativo)
+        if cif_manual_ativo is not UNSET:
+            self.cif_manual_ativo = bool(cif_manual_ativo)
+        if cif_rota is not UNSET:
+            self.cif_rota = cif_rota
+        if cif_manual_valor is not UNSET:
+            self.cif_manual_valor = cif_manual_valor
+        if log_frete_rota is not UNSET:
+            self.log_frete_rota = log_frete_rota
+        if log_op_logistica_ativo is not UNSET:
+            self.log_op_logistica_ativo = bool(log_op_logistica_ativo)
+        if financeiro_valor is not UNSET:
+            self.financeiro_valor = financeiro_valor
+        if inadimplencia_valor is not UNSET:
+            self.inadimplencia_valor = inadimplencia_valor
+        if administracao_valor is not UNSET:
+            self.administracao_valor = administracao_valor
+        if log_frete_rota_valor is not UNSET:
+            self.log_frete_rota_valor = log_frete_rota_valor
+        if log_op_logistica_valor is not UNSET:
+            self.log_op_logistica_valor = log_op_logistica_valor
+        if subtotal is not UNSET:
+            self.subtotal = subtotal
+        self.full_clean()
+        self.save()
+
+
+class PrecificacaoProdutoAcabadoImposto(models.Model):
+    cenario = models.ForeignKey(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="produto_acabado_imposto_linhas",
+    )
+    chave = models.CharField(max_length=20)
+    ordem = models.PositiveIntegerField(default=0)
+    descricao = models.CharField(max_length=60)
+    interno_ativo = models.BooleanField(default=True)
+    imposto_aliquota = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.11"))
+    imposto_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    imposto_interno_aliquota = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.07"))
+    imposto_interno_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    subtotal_interno = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    pro_goias_ativo = models.BooleanField(default=True)
+    pro_goias_aliquota_a = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.00256"))
+    pro_goias_aliquota_b = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.01864"))
+    pro_goias_valor_a = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    pro_goias_valor_b = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    subtotal_pro_goias = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    total = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cenario", "chave"],
+                name="uq_precificacao_produto_imposto_cenario_chave",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.cenario} - Imposto - {self.descricao}"
+
+    @classmethod
+    def criar_linha(cls, *, cenario, chave, ordem, descricao):
+        item = cls(cenario=cenario, chave=chave, ordem=ordem, descricao=descricao)
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_linha(
+        self,
+        *,
+        interno_ativo=UNSET,
+        imposto_aliquota=UNSET,
+        imposto_interno_aliquota=UNSET,
+        pro_goias_ativo=UNSET,
+        pro_goias_aliquota_a=UNSET,
+        pro_goias_aliquota_b=UNSET,
+        imposto_valor=UNSET,
+        imposto_interno_valor=UNSET,
+        subtotal_interno=UNSET,
+        pro_goias_valor_a=UNSET,
+        pro_goias_valor_b=UNSET,
+        subtotal_pro_goias=UNSET,
+        total=UNSET,
+    ):
+        if interno_ativo is not UNSET:
+            self.interno_ativo = bool(interno_ativo)
+        if imposto_aliquota is not UNSET:
+            self.imposto_aliquota = imposto_aliquota
+        if imposto_interno_aliquota is not UNSET:
+            self.imposto_interno_aliquota = imposto_interno_aliquota
+        if pro_goias_ativo is not UNSET:
+            self.pro_goias_ativo = bool(pro_goias_ativo)
+        if pro_goias_aliquota_a is not UNSET:
+            self.pro_goias_aliquota_a = pro_goias_aliquota_a
+        if pro_goias_aliquota_b is not UNSET:
+            self.pro_goias_aliquota_b = pro_goias_aliquota_b
+        if imposto_valor is not UNSET:
+            self.imposto_valor = imposto_valor
+        if imposto_interno_valor is not UNSET:
+            self.imposto_interno_valor = imposto_interno_valor
+        if subtotal_interno is not UNSET:
+            self.subtotal_interno = subtotal_interno
+        if pro_goias_valor_a is not UNSET:
+            self.pro_goias_valor_a = pro_goias_valor_a
+        if pro_goias_valor_b is not UNSET:
+            self.pro_goias_valor_b = pro_goias_valor_b
+        if subtotal_pro_goias is not UNSET:
+            self.subtotal_pro_goias = subtotal_pro_goias
+        if total is not UNSET:
+            self.total = total
+        self.full_clean()
+        self.save()
+
+
+class PrecificacaoProdutoAcabadoPrecoVenda(models.Model):
+    SITUACAO_DIRECAO = "direcao"
+    SITUACAO_GERENTE_COMERCIAL = "gerente_comercial"
+    SITUACAO_SUPERVISOR = "supervisor"
+    SITUACAO_VENDEDOR = "vendedor"
+    SITUACAO_CHOICES = (
+        (SITUACAO_DIRECAO, "DIRECAO"),
+        (SITUACAO_GERENTE_COMERCIAL, "GERENTE CML"),
+        (SITUACAO_SUPERVISOR, "SUPERVISOR"),
+        (SITUACAO_VENDEDOR, "VENDEDOR"),
+    )
+
+    cenario = models.ForeignKey(
+        PrecificacaoCenario,
+        on_delete=models.CASCADE,
+        related_name="produto_acabado_preco_venda_linhas",
+    )
+    chave = models.CharField(max_length=20)
+    ordem = models.PositiveIntegerField(default=0)
+    descricao = models.CharField(max_length=60)
+    pv_bruto = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    cmv_estimado = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    interno_ativo = models.BooleanField(default=True)
+    comissao_aliquota = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal("0.0115"))
+    comissao_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    contrato_aliquota = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    contrato_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    subtotal = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    lucro_valor = models.DecimalField(max_digits=18, decimal_places=6, default=0)
+    lucro_percentual = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    situacao = models.CharField(max_length=24, choices=SITUACAO_CHOICES, default=SITUACAO_DIRECAO)
+    situacao_cor = models.CharField(max_length=24, blank=True, default="roxo")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cenario", "chave"],
+                name="uq_precificacao_produto_preco_venda_cenario_chave",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.cenario} - Preco - {self.descricao}"
+
+    @classmethod
+    def criar_linha(cls, *, cenario, chave, ordem, descricao, pv_bruto=0):
+        item = cls(
+            cenario=cenario,
+            chave=chave,
+            ordem=ordem,
+            descricao=descricao,
+            pv_bruto=pv_bruto,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    def atualizar_linha(
+        self,
+        *,
+        pv_bruto=UNSET,
+        interno_ativo=UNSET,
+        comissao_aliquota=UNSET,
+        contrato_aliquota=UNSET,
+        cmv_estimado=UNSET,
+        comissao_valor=UNSET,
+        contrato_valor=UNSET,
+        subtotal=UNSET,
+        lucro_valor=UNSET,
+        lucro_percentual=UNSET,
+        situacao=UNSET,
+        situacao_cor=UNSET,
+    ):
+        if pv_bruto is not UNSET:
+            self.pv_bruto = pv_bruto
+        if interno_ativo is not UNSET:
+            self.interno_ativo = bool(interno_ativo)
+        if comissao_aliquota is not UNSET:
+            self.comissao_aliquota = comissao_aliquota
+        if contrato_aliquota is not UNSET:
+            self.contrato_aliquota = contrato_aliquota
+        if cmv_estimado is not UNSET:
+            self.cmv_estimado = cmv_estimado
+        if comissao_valor is not UNSET:
+            self.comissao_valor = comissao_valor
+        if contrato_valor is not UNSET:
+            self.contrato_valor = contrato_valor
+        if subtotal is not UNSET:
+            self.subtotal = subtotal
+        if lucro_valor is not UNSET:
+            self.lucro_valor = lucro_valor
+        if lucro_percentual is not UNSET:
+            self.lucro_percentual = lucro_percentual
+        if situacao is not UNSET:
+            self.situacao = situacao
+        if situacao_cor is not UNSET:
+            self.situacao_cor = situacao_cor
+        self.full_clean()
+        self.save()
+
+
 class DescricaoPerfil(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="descricoes_perfil")
     descricao = models.CharField(max_length=220)

@@ -50,6 +50,14 @@ from ..models import (
     ParametroMargemVendas,
     ParametroNegocios,
     ParametroMeta,
+    PrecificacaoCalculadoraPrecoMedio,
+    PrecificacaoCenario,
+    PrecificacaoMateriaPrima,
+    PrecificacaoProdutoAcabadoCMV,
+    PrecificacaoProdutoAcabadoDespesa,
+    PrecificacaoProdutoAcabadoImposto,
+    PrecificacaoProdutoAcabadoPrecoVenda,
+    PrecificacaoSimulacaoCompraVenda,
     PedidoPendente,
     Motorista,
     Producao,
@@ -2213,6 +2221,760 @@ def recalcular_controle_margem_por_empresa(empresa):
         batch_size=1000,
     )
     return len(itens)
+
+
+PRECIFICACAO_PRODUTOS_CONFIG = [
+    {
+        "chave": "30x1",
+        "descricao": "30x1",
+        "acucar_base": Decimal("30"),
+        "emb_primaria_base": Decimal("0.15"),
+        "emb_secundaria_base": Decimal("0.042"),
+        "emb_primaria_chave": "emb_primaria_kg",
+        "emb_secundaria_chave": "emb_secundaria_kg",
+        "peso_base": Decimal("30"),
+        "default_pv_bruto": Decimal("63.21"),
+        "default_producao_valor": Decimal("1.4"),
+        "default_interno_imposto": True,
+    },
+    {
+        "chave": "15x2",
+        "descricao": "15x2",
+        "acucar_base": Decimal("30"),
+        "emb_primaria_base": Decimal("0.105"),
+        "emb_secundaria_base": Decimal("0.042"),
+        "emb_primaria_chave": "emb_primaria_kg",
+        "emb_secundaria_chave": "emb_secundaria_kg",
+        "peso_base": Decimal("30"),
+        "default_pv_bruto": Decimal("81"),
+        "default_producao_valor": Decimal("1.4"),
+        "default_interno_imposto": True,
+    },
+    {
+        "chave": "6x5",
+        "descricao": "6x5",
+        "acucar_base": Decimal("30"),
+        "emb_primaria_base": Decimal("0.09"),
+        "emb_secundaria_base": Decimal("0.042"),
+        "emb_primaria_chave": "emb_primaria_kg",
+        "emb_secundaria_chave": "emb_secundaria_kg",
+        "peso_base": Decimal("30"),
+        "default_pv_bruto": Decimal("68"),
+        "default_producao_valor": Decimal("1.4"),
+        "default_interno_imposto": True,
+    },
+    {
+        "chave": "25",
+        "descricao": "25",
+        "acucar_base": Decimal("25"),
+        "emb_primaria_base": Decimal("1"),
+        "emb_secundaria_base": Decimal("0"),
+        "emb_primaria_chave": "sacaria_25_un",
+        "emb_secundaria_chave": "",
+        "peso_base": Decimal("25"),
+        "default_pv_bruto": Decimal("0"),
+        "default_producao_valor": Decimal("1.4"),
+        "default_interno_imposto": False,
+    },
+    {
+        "chave": "50",
+        "descricao": "50",
+        "acucar_base": Decimal("50"),
+        "emb_primaria_base": Decimal("1"),
+        "emb_secundaria_base": Decimal("0"),
+        "emb_primaria_chave": "sacaria_50_un",
+        "emb_secundaria_chave": "",
+        "peso_base": Decimal("50"),
+        "default_pv_bruto": Decimal("0"),
+        "default_producao_valor": Decimal("2"),
+        "default_interno_imposto": False,
+    },
+]
+
+PRECIFICACAO_MATERIA_PRIMA_BASE_FRETE_CHAVES = {
+    "emb_primaria_kg",
+    "emb_secundaria_kg",
+    "sacaria_25_un",
+    "sacaria_50_un",
+}
+
+PRECIFICACAO_MATERIA_PRIMA_CAMPOS_PROTEGIDOS = {
+    "acucar_sc": {"valor", "frete_mp"},
+    "acucar_kg": {"valor"},
+}
+
+
+def _precificacao_decimal(valor, default=Decimal("0")):
+    if valor in (None, ""):
+        return default
+    if isinstance(valor, Decimal):
+        return valor
+    try:
+        return Decimal(str(valor))
+    except (InvalidOperation, TypeError, ValueError):
+        return default
+
+
+def _precificacao_quantize(valor, casas=6):
+    numero = _precificacao_decimal(valor, Decimal("0"))
+    try:
+        casas_int = int(casas)
+    except (TypeError, ValueError):
+        casas_int = 6
+    if casas_int < 0:
+        casas_int = 6
+    passo = Decimal("1").scaleb(-casas_int)
+    try:
+        return numero.quantize(passo, rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def _precificacao_bool(valor):
+    texto = str(valor or "").strip().lower()
+    return texto in {"1", "true", "on", "sim", "yes", "verdadeiro"}
+
+
+def _seed_precificacao_cenario(cenario):
+    origens_padrao = [
+        ("GOIASA", Decimal("4071.11"), Decimal("88"), Decimal("0"), Decimal("6.2")),
+        ("SONORA", Decimal("18888"), Decimal("93.5"), Decimal("0"), Decimal("0")),
+        ("CAMBUI", Decimal("1669.72"), Decimal("88"), Decimal("0"), Decimal("6.2")),
+        ("VALE", Decimal("15728.04"), Decimal("87.86"), Decimal("0"), Decimal("6.2")),
+    ]
+    for ordem, (origem, volume, preco, prazo, frete) in enumerate(origens_padrao, start=1):
+        PrecificacaoCalculadoraPrecoMedio.objects.get_or_create(
+            cenario=cenario,
+            origem=origem,
+            defaults={
+                "ordem": ordem,
+                "volume": volume,
+                "preco": preco,
+                "prazo": prazo,
+                "frete": frete,
+            },
+        )
+
+    PrecificacaoSimulacaoCompraVenda.objects.get_or_create(
+        cenario=cenario,
+        defaults={
+            "margem_requerida_compra": Decimal("0.035"),
+            "margem_requerida_venda": Decimal("0.035"),
+            "frete_compra": Decimal("4.7"),
+            "frete_venda": Decimal("66.5"),
+        },
+    )
+
+    materias_primas = [
+        ("acucar_sc", "Acucar (SC)", True, Decimal("0"), Decimal("0"), Decimal("0.07")),
+        ("acucar_kg", "Acucar (Kg)", True, Decimal("0"), Decimal("0"), Decimal("0.07")),
+        ("emb_primaria_kg", "Emb. Primaria (Kg)", True, Decimal("0"), Decimal("14.92"), Decimal("0.07")),
+        ("emb_secundaria_kg", "Emb. Secundaria (Kg)", True, Decimal("0"), Decimal("12.35"), Decimal("0.07")),
+        ("sacaria_25_un", "Sacaria 25 KG (Un)", True, Decimal("0"), Decimal("1.03"), Decimal("0.07")),
+        ("sacaria_50_un", "Sacaria 50 KG (Un)", True, Decimal("0"), Decimal("1.37"), Decimal("0.07")),
+    ]
+    for ordem, (chave, descricao, ativo, valor, frete_mp, credito) in enumerate(materias_primas, start=1):
+        PrecificacaoMateriaPrima.objects.get_or_create(
+            cenario=cenario,
+            chave=chave,
+            defaults={
+                "ordem": ordem,
+                "descricao": descricao,
+                "ativo": ativo,
+                "valor": valor,
+                "frete_mp": frete_mp,
+                "credito": credito,
+            },
+        )
+
+    for ordem, conf in enumerate(PRECIFICACAO_PRODUTOS_CONFIG, start=1):
+        chave = conf["chave"]
+        descricao = conf["descricao"]
+        PrecificacaoProdutoAcabadoCMV.objects.get_or_create(
+            cenario=cenario,
+            chave=chave,
+            defaults={
+                "ordem": ordem,
+                "descricao": descricao,
+                "acucar_quebra": Decimal("0.005"),
+                "emb_primaria_quebra": Decimal("0.015") if chave in {"30x1", "15x2", "6x5"} else Decimal("0"),
+                "emb_secundaria_quebra": Decimal("0.015") if chave in {"30x1", "15x2", "6x5"} else Decimal("0"),
+            },
+        )
+        PrecificacaoProdutoAcabadoDespesa.objects.get_or_create(
+            cenario=cenario,
+            chave=chave,
+            defaults={
+                "ordem": ordem,
+                "descricao": descricao,
+                "prazo_dias": Decimal("0"),
+                "financeiro_taxa": Decimal("0.02"),
+                "inadimplencia_taxa": Decimal("0.0015"),
+                "administracao_taxa": Decimal("0.0075"),
+                "producao_ativo": True,
+                "producao_valor": conf["default_producao_valor"],
+                "cif_ativo": False,
+                "cif_manual_ativo": False,
+                "cif_rota": "BRASILIA",
+                "log_op_logistica_ativo": True,
+            },
+        )
+        PrecificacaoProdutoAcabadoImposto.objects.get_or_create(
+            cenario=cenario,
+            chave=chave,
+            defaults={
+                "ordem": ordem,
+                "descricao": descricao,
+                "interno_ativo": conf["default_interno_imposto"],
+                "imposto_aliquota": Decimal("0.11"),
+                "imposto_interno_aliquota": Decimal("0.07"),
+                "pro_goias_ativo": True,
+                "pro_goias_aliquota_a": Decimal("0.00256"),
+                "pro_goias_aliquota_b": Decimal("0.01864"),
+            },
+        )
+        PrecificacaoProdutoAcabadoPrecoVenda.objects.get_or_create(
+            cenario=cenario,
+            chave=chave,
+            defaults={
+                "ordem": ordem,
+                "descricao": descricao,
+                "pv_bruto": conf["default_pv_bruto"],
+                "interno_ativo": True,
+                "comissao_aliquota": Decimal("0.0115"),
+                "contrato_aliquota": Decimal("0"),
+            },
+        )
+
+
+def obter_ou_criar_cenario_precificacao(empresa):
+    cenario = (
+        PrecificacaoCenario.objects.filter(empresa=empresa, ativo=True)
+        .order_by("id")
+        .first()
+    )
+    if not cenario:
+        cenario = PrecificacaoCenario.criar_precificacao_cenario(empresa=empresa, nome="Cenario padrao", ativo=True)
+    _seed_precificacao_cenario(cenario)
+    recalcular_precificacao_cenario(cenario)
+    return cenario
+
+
+def listar_tabelas_precificacao(cenario):
+    return {
+        "calculadora": PrecificacaoCalculadoraPrecoMedio.objects.filter(cenario=cenario).order_by("ordem", "id"),
+        "simulacao": PrecificacaoSimulacaoCompraVenda.objects.filter(cenario=cenario).order_by("id"),
+        "materia_prima": PrecificacaoMateriaPrima.objects.filter(cenario=cenario).order_by("ordem", "id"),
+        "produto_cmv": PrecificacaoProdutoAcabadoCMV.objects.filter(cenario=cenario).order_by("ordem", "id"),
+        "produto_despesas": PrecificacaoProdutoAcabadoDespesa.objects.filter(cenario=cenario).order_by("ordem", "id"),
+        "produto_impostos": PrecificacaoProdutoAcabadoImposto.objects.filter(cenario=cenario).order_by("ordem", "id"),
+        "produto_preco_venda": PrecificacaoProdutoAcabadoPrecoVenda.objects.filter(cenario=cenario).order_by("ordem", "id"),
+    }
+
+
+def _precificacao_situacao_por_percentual(percentual):
+    valor = _precificacao_decimal(percentual)
+    if valor <= Decimal("0.02"):
+        return (
+            PrecificacaoProdutoAcabadoPrecoVenda.SITUACAO_DIRECAO,
+            "roxo",
+        )
+    if valor <= Decimal("0.04"):
+        return (
+            PrecificacaoProdutoAcabadoPrecoVenda.SITUACAO_GERENTE_COMERCIAL,
+            "vermelho",
+        )
+    if valor <= Decimal("0.05"):
+        return (
+            PrecificacaoProdutoAcabadoPrecoVenda.SITUACAO_SUPERVISOR,
+            "amarelo",
+        )
+    return (
+        PrecificacaoProdutoAcabadoPrecoVenda.SITUACAO_VENDEDOR,
+        "verde",
+    )
+
+
+def recalcular_precificacao_cenario(cenario):
+    calculadora = list(PrecificacaoCalculadoraPrecoMedio.objects.filter(cenario=cenario).order_by("ordem", "id"))
+    materia_prima = list(PrecificacaoMateriaPrima.objects.filter(cenario=cenario).order_by("ordem", "id"))
+    cmv_rows = list(PrecificacaoProdutoAcabadoCMV.objects.filter(cenario=cenario).order_by("ordem", "id"))
+    despesas_rows = list(
+        PrecificacaoProdutoAcabadoDespesa.objects.filter(cenario=cenario).order_by("ordem", "id")
+    )
+    impostos_rows = list(
+        PrecificacaoProdutoAcabadoImposto.objects.filter(cenario=cenario).order_by("ordem", "id")
+    )
+    preco_rows = list(
+        PrecificacaoProdutoAcabadoPrecoVenda.objects.filter(cenario=cenario).order_by("ordem", "id")
+    )
+    simulacao = PrecificacaoSimulacaoCompraVenda.objects.filter(cenario=cenario).first()
+
+    if simulacao is None:
+        simulacao = PrecificacaoSimulacaoCompraVenda.criar_item(cenario=cenario)
+
+    for linha in calculadora:
+        preco = _precificacao_decimal(linha.preco)
+        prazo = _precificacao_decimal(linha.prazo)
+        frete = _precificacao_decimal(linha.frete)
+        preco_liquido = preco - prazo
+        financeiro = (Decimal("0.02") / Decimal("30")) * prazo * preco
+        total = preco_liquido + frete
+        linha.preco_liquido = _precificacao_quantize(preco_liquido, casas=4)
+        linha.financeiro = _precificacao_quantize(financeiro, casas=4)
+        linha.total = _precificacao_quantize(total, casas=4)
+    if calculadora:
+        PrecificacaoCalculadoraPrecoMedio.objects.bulk_update(
+            calculadora,
+            ["preco_liquido", "financeiro", "total"],
+            batch_size=100,
+        )
+
+    volume_total = Decimal("0")
+    weighted_preco_liquido = Decimal("0")
+    weighted_frete = Decimal("0")
+    for linha in calculadora:
+        volume = _precificacao_decimal(linha.volume)
+        if volume <= 0:
+            continue
+        volume_total += volume
+        weighted_preco_liquido += volume * _precificacao_decimal(linha.preco_liquido)
+        weighted_frete += volume * _precificacao_decimal(linha.frete)
+    media_preco_liquido = (weighted_preco_liquido / volume_total) if volume_total > 0 else Decimal("0")
+    media_frete = (weighted_frete / volume_total) if volume_total > 0 else Decimal("0")
+    subtotal_acucar_sc = media_preco_liquido + media_frete
+
+    materia_por_chave = {item.chave: item for item in materia_prima}
+    acucar_sc = materia_por_chave.get("acucar_sc")
+    acucar_kg = materia_por_chave.get("acucar_kg")
+    if acucar_sc:
+        acucar_sc.ativo = True
+        acucar_sc.valor = _precificacao_quantize(media_preco_liquido)
+        acucar_sc.frete_mp = _precificacao_quantize(media_frete)
+    if acucar_kg:
+        acucar_kg.ativo = True
+        acucar_kg.valor = _precificacao_quantize(subtotal_acucar_sc / Decimal("50"))
+        acucar_kg.frete_mp = Decimal("0")
+
+    for linha in materia_prima:
+        valor = _precificacao_decimal(linha.valor)
+        frete = _precificacao_decimal(linha.frete_mp)
+        credito = _precificacao_decimal(linha.credito)
+
+        # Compatibilidade com cenarios antigos: embalagens/sacarias eram salvas em "valor"
+        # e no legado a base dessa faixa sempre fica na coluna equivalente ao "frete_mp".
+        if linha.chave in PRECIFICACAO_MATERIA_PRIMA_BASE_FRETE_CHAVES and frete == 0 and valor > 0:
+            frete = valor
+            linha.frete_mp = _precificacao_quantize(frete)
+        if linha.chave in PRECIFICACAO_MATERIA_PRIMA_BASE_FRETE_CHAVES and valor != 0:
+            valor = Decimal("0")
+            linha.valor = Decimal("0")
+
+        if linha.chave == "acucar_sc":
+            sub_total = valor + frete
+            base_custo = sub_total
+        elif linha.chave == "acucar_kg":
+            sub_total = Decimal("0")
+            base_custo = valor
+        elif linha.chave in PRECIFICACAO_MATERIA_PRIMA_BASE_FRETE_CHAVES:
+            sub_total = Decimal("0")
+            base_custo = frete
+        else:
+            sub_total = valor + frete
+            base_custo = sub_total
+
+        custo_ex_works = (Decimal("1") - credito) * base_custo
+        linha.sub_total = _precificacao_quantize(sub_total)
+        linha.custo_ex_works = _precificacao_quantize(custo_ex_works)
+
+    if materia_prima:
+        PrecificacaoMateriaPrima.objects.bulk_update(
+            materia_prima,
+            ["ativo", "valor", "frete_mp", "sub_total", "custo_ex_works"],
+            batch_size=100,
+        )
+
+    materia_por_chave = {item.chave: item for item in materia_prima}
+
+    def _valor_material(chave, ex_works=False):
+        if not chave:
+            return Decimal("0")
+        item = materia_por_chave.get(chave)
+        if not item or not item.ativo:
+            return Decimal("0")
+        if ex_works:
+            return _precificacao_decimal(item.custo_ex_works)
+        if chave in PRECIFICACAO_MATERIA_PRIMA_BASE_FRETE_CHAVES:
+            return _precificacao_decimal(item.frete_mp)
+        return _precificacao_decimal(item.valor)
+
+    conf_por_chave = {item["chave"]: item for item in PRECIFICACAO_PRODUTOS_CONFIG}
+    cmv_por_chave = {item.chave: item for item in cmv_rows}
+
+    for linha in cmv_rows:
+        conf = conf_por_chave.get(linha.chave)
+        if not conf:
+            continue
+        acucar_qtd = (Decimal("1") + _precificacao_decimal(linha.acucar_quebra)) * conf["acucar_base"]
+        acucar_valor = acucar_qtd * _valor_material("acucar_kg", ex_works=False)
+        acucar_valor_ex = acucar_qtd * _valor_material("acucar_kg", ex_works=True)
+
+        emb_primaria_qtd = (Decimal("1") + _precificacao_decimal(linha.emb_primaria_quebra)) * conf["emb_primaria_base"]
+        emb_primaria_valor = emb_primaria_qtd * _valor_material(conf["emb_primaria_chave"], ex_works=False)
+        emb_primaria_valor_ex = emb_primaria_qtd * _valor_material(conf["emb_primaria_chave"], ex_works=True)
+
+        emb_sec_qtd = (Decimal("1") + _precificacao_decimal(linha.emb_secundaria_quebra)) * conf["emb_secundaria_base"]
+        emb_sec_valor = emb_sec_qtd * _valor_material(conf["emb_secundaria_chave"], ex_works=False)
+        emb_sec_valor_ex = emb_sec_qtd * _valor_material(conf["emb_secundaria_chave"], ex_works=True)
+
+        cmv = acucar_valor + emb_primaria_valor + emb_sec_valor
+        cmv_ex = acucar_valor_ex + emb_primaria_valor_ex + emb_sec_valor_ex
+
+        linha.acucar_qtd = _precificacao_quantize(acucar_qtd)
+        linha.acucar_valor = _precificacao_quantize(acucar_valor)
+        linha.acucar_valor_ex_works = _precificacao_quantize(acucar_valor_ex)
+        linha.emb_primaria_qtd = _precificacao_quantize(emb_primaria_qtd)
+        linha.emb_primaria_valor = _precificacao_quantize(emb_primaria_valor)
+        linha.emb_primaria_valor_ex_works = _precificacao_quantize(emb_primaria_valor_ex)
+        linha.emb_secundaria_qtd = _precificacao_quantize(emb_sec_qtd)
+        linha.emb_secundaria_valor = _precificacao_quantize(emb_sec_valor)
+        linha.emb_secundaria_valor_ex_works = _precificacao_quantize(emb_sec_valor_ex)
+        linha.cmv = _precificacao_quantize(cmv)
+        linha.cmv_ex_works = _precificacao_quantize(cmv_ex)
+
+    if cmv_rows:
+        PrecificacaoProdutoAcabadoCMV.objects.bulk_update(
+            cmv_rows,
+            [
+                "acucar_qtd",
+                "acucar_valor",
+                "acucar_valor_ex_works",
+                "emb_primaria_qtd",
+                "emb_primaria_valor",
+                "emb_primaria_valor_ex_works",
+                "emb_secundaria_qtd",
+                "emb_secundaria_valor",
+                "emb_secundaria_valor_ex_works",
+                "cmv",
+                "cmv_ex_works",
+            ],
+            batch_size=100,
+        )
+
+    preco_por_chave = {item.chave: item for item in preco_rows}
+    for linha in preco_rows:
+        cmv_item = cmv_por_chave.get(linha.chave)
+        pv_bruto = _precificacao_decimal(linha.pv_bruto)
+        cmv = _precificacao_decimal(cmv_item.cmv if cmv_item else 0)
+        comissao_valor = _precificacao_decimal(linha.comissao_aliquota) * pv_bruto
+        contrato_valor = _precificacao_decimal(linha.contrato_aliquota) * pv_bruto
+        subtotal = pv_bruto - comissao_valor - contrato_valor
+        cmv_estimado = (cmv / pv_bruto) if pv_bruto > 0 else Decimal("0")
+        linha.comissao_valor = _precificacao_quantize(comissao_valor)
+        linha.contrato_valor = _precificacao_quantize(contrato_valor)
+        linha.subtotal = _precificacao_quantize(subtotal)
+        linha.cmv_estimado = _precificacao_quantize(cmv_estimado)
+
+    if preco_rows:
+        PrecificacaoProdutoAcabadoPrecoVenda.objects.bulk_update(
+            preco_rows,
+            ["comissao_valor", "contrato_valor", "subtotal", "cmv_estimado"],
+            batch_size=100,
+        )
+
+    despesas_por_chave = {item.chave: item for item in despesas_rows}
+    for linha in despesas_rows:
+        conf = conf_por_chave.get(linha.chave) or {}
+        pv_item = preco_por_chave.get(linha.chave)
+        pv_bruto = _precificacao_decimal(pv_item.pv_bruto if pv_item else 0)
+        prazo_dias = _precificacao_decimal(linha.prazo_dias)
+        financeiro_valor = (_precificacao_decimal(linha.financeiro_taxa) / Decimal("30")) * (prazo_dias + Decimal("10")) * pv_bruto
+        inadimplencia_valor = _precificacao_decimal(linha.inadimplencia_taxa) * pv_bruto
+        administracao_valor = _precificacao_decimal(linha.administracao_taxa) * pv_bruto
+        producao_valor = _precificacao_decimal(linha.producao_valor) if linha.producao_ativo else Decimal("0")
+
+        if linha.cif_manual_ativo:
+            log_frete_rota = _precificacao_decimal(linha.cif_manual_valor)
+        else:
+            log_frete_rota = _precificacao_decimal(simulacao.frete_venda)
+
+        if linha.cif_ativo:
+            peso_base = _precificacao_decimal(conf.get("peso_base", 0))
+            log_frete_rota_valor = (log_frete_rota / Decimal("1000")) * peso_base
+        else:
+            log_frete_rota_valor = Decimal("0")
+
+        if linha.log_op_logistica_ativo:
+            peso_base = _precificacao_decimal(conf.get("peso_base", 0))
+            log_op_logistica_valor = (Decimal("25") / Decimal("1000")) * peso_base
+        else:
+            log_op_logistica_valor = Decimal("0")
+
+        subtotal = (
+            financeiro_valor
+            + inadimplencia_valor
+            + administracao_valor
+            + producao_valor
+            + log_frete_rota_valor
+            + log_op_logistica_valor
+        )
+        linha.financeiro_valor = _precificacao_quantize(financeiro_valor)
+        linha.inadimplencia_valor = _precificacao_quantize(inadimplencia_valor)
+        linha.administracao_valor = _precificacao_quantize(administracao_valor)
+        linha.log_frete_rota = _precificacao_quantize(log_frete_rota)
+        linha.log_frete_rota_valor = _precificacao_quantize(log_frete_rota_valor)
+        linha.log_op_logistica_valor = _precificacao_quantize(log_op_logistica_valor)
+        linha.subtotal = _precificacao_quantize(subtotal)
+
+    if despesas_rows:
+        PrecificacaoProdutoAcabadoDespesa.objects.bulk_update(
+            despesas_rows,
+            [
+                "financeiro_valor",
+                "inadimplencia_valor",
+                "administracao_valor",
+                "log_frete_rota",
+                "log_frete_rota_valor",
+                "log_op_logistica_valor",
+                "subtotal",
+            ],
+            batch_size=100,
+        )
+
+    impostos_por_chave = {item.chave: item for item in impostos_rows}
+    for linha in impostos_rows:
+        pv_item = preco_por_chave.get(linha.chave)
+        pv_bruto = _precificacao_decimal(pv_item.pv_bruto if pv_item else 0)
+        imposto_valor = _precificacao_decimal(linha.imposto_aliquota) * pv_bruto
+        imposto_interno_valor = _precificacao_decimal(linha.imposto_interno_aliquota) * pv_bruto
+        subtotal_interno = imposto_interno_valor if linha.interno_ativo else imposto_valor
+
+        pro_goias_valor_a = _precificacao_decimal(linha.pro_goias_aliquota_a) * pv_bruto
+        pro_goias_valor_b = _precificacao_decimal(linha.pro_goias_aliquota_b) * pv_bruto
+        subtotal_pro_goias = pro_goias_valor_a if linha.interno_ativo else pro_goias_valor_b
+        total = subtotal_pro_goias if linha.pro_goias_ativo else subtotal_interno
+
+        linha.imposto_valor = _precificacao_quantize(imposto_valor)
+        linha.imposto_interno_valor = _precificacao_quantize(imposto_interno_valor)
+        linha.subtotal_interno = _precificacao_quantize(subtotal_interno)
+        linha.pro_goias_valor_a = _precificacao_quantize(pro_goias_valor_a)
+        linha.pro_goias_valor_b = _precificacao_quantize(pro_goias_valor_b)
+        linha.subtotal_pro_goias = _precificacao_quantize(subtotal_pro_goias)
+        linha.total = _precificacao_quantize(total)
+
+    if impostos_rows:
+        PrecificacaoProdutoAcabadoImposto.objects.bulk_update(
+            impostos_rows,
+            [
+                "imposto_valor",
+                "imposto_interno_valor",
+                "subtotal_interno",
+                "pro_goias_valor_a",
+                "pro_goias_valor_b",
+                "subtotal_pro_goias",
+                "total",
+            ],
+            batch_size=100,
+        )
+
+    for linha in preco_rows:
+        cmv_item = cmv_por_chave.get(linha.chave)
+        despesa_item = despesas_por_chave.get(linha.chave)
+        imposto_item = impostos_por_chave.get(linha.chave)
+
+        subtotal = _precificacao_decimal(linha.subtotal)
+        cmv = _precificacao_decimal(cmv_item.cmv if cmv_item else 0)
+        cmv_ex_works = _precificacao_decimal(cmv_item.cmv_ex_works if cmv_item else 0)
+        despesa = _precificacao_decimal(despesa_item.subtotal if despesa_item else 0)
+        imposto_total = _precificacao_decimal(imposto_item.total if imposto_item else 0)
+        usa_cmv_padrao = bool(imposto_item.pro_goias_ativo) if imposto_item else True
+        base_cmv = cmv if usa_cmv_padrao else cmv_ex_works
+
+        lucro_valor = subtotal - base_cmv - despesa - imposto_total
+        pv_bruto = _precificacao_decimal(linha.pv_bruto)
+        lucro_percentual = (lucro_valor / pv_bruto) if pv_bruto > 0 else Decimal("0")
+        situacao, situacao_cor = _precificacao_situacao_por_percentual(lucro_percentual)
+
+        linha.lucro_valor = _precificacao_quantize(lucro_valor)
+        linha.lucro_percentual = _precificacao_quantize(lucro_percentual)
+        linha.situacao = situacao
+        linha.situacao_cor = situacao_cor
+
+    if preco_rows:
+        PrecificacaoProdutoAcabadoPrecoVenda.objects.bulk_update(
+            preco_rows,
+            ["lucro_valor", "lucro_percentual", "situacao", "situacao_cor"],
+            batch_size=100,
+        )
+
+    # Pr.Total segue o encadeamento do legado (base 6x5 -> converte para 50kg):
+    # d52 = pv_bruto_6x5 - (margem_requerida_compra * pv_bruto_6x5)
+    # d53 = impostos_total_6x5 + comissao_6x5 + contrato_6x5 + despesas_6x5
+    # d55 = emb_primaria_valor_6x5 + emb_secundaria_valor_6x5
+    # d56 = d52 - d53 - d55
+    # d57 = d56 / acucar_qtd_6x5
+    # d58 = d57 * 50
+    item_6x5_preco = preco_por_chave.get("6x5")
+    item_6x5_cmv = cmv_por_chave.get("6x5")
+    item_6x5_despesa = despesas_por_chave.get("6x5")
+    item_6x5_imposto = impostos_por_chave.get("6x5")
+
+    pv_bruto_6x5 = _precificacao_decimal(item_6x5_preco.pv_bruto if item_6x5_preco else 0)
+    margem_requerida_compra = _precificacao_decimal(simulacao.margem_requerida_compra)
+    d52 = pv_bruto_6x5 - (margem_requerida_compra * pv_bruto_6x5)
+
+    d53 = (
+        _precificacao_decimal(item_6x5_imposto.total if item_6x5_imposto else 0)
+        + _precificacao_decimal(item_6x5_preco.comissao_valor if item_6x5_preco else 0)
+        + _precificacao_decimal(item_6x5_preco.contrato_valor if item_6x5_preco else 0)
+        + _precificacao_decimal(item_6x5_despesa.financeiro_valor if item_6x5_despesa else 0)
+        + _precificacao_decimal(item_6x5_despesa.inadimplencia_valor if item_6x5_despesa else 0)
+        + _precificacao_decimal(item_6x5_despesa.administracao_valor if item_6x5_despesa else 0)
+        + _precificacao_decimal(item_6x5_despesa.producao_valor if item_6x5_despesa else 0)
+        + _precificacao_decimal(item_6x5_despesa.log_frete_rota_valor if item_6x5_despesa else 0)
+        + _precificacao_decimal(item_6x5_despesa.log_op_logistica_valor if item_6x5_despesa else 0)
+    )
+
+    d55 = (
+        _precificacao_decimal(item_6x5_cmv.emb_primaria_valor if item_6x5_cmv else 0)
+        + _precificacao_decimal(item_6x5_cmv.emb_secundaria_valor if item_6x5_cmv else 0)
+    )
+    d56 = d52 - d53 - d55
+
+    acucar_qtd_6x5 = _precificacao_decimal(item_6x5_cmv.acucar_qtd if item_6x5_cmv else 0)
+    d57 = (d56 / acucar_qtd_6x5) if acucar_qtd_6x5 > 0 else Decimal("0")
+
+    simulacao.preco_total = _precificacao_quantize(d57 * Decimal("50"), casas=4)
+    simulacao.mp = _precificacao_quantize(
+        _precificacao_decimal(simulacao.preco_total) - _precificacao_decimal(simulacao.frete_compra),
+        casas=4,
+    )
+    simulacao.full_clean()
+    simulacao.save(update_fields=["mp", "preco_total"])
+
+
+def atualizar_linha_precificacao(cenario, tabela, registro_id, post_data):
+    tabela_norm = str(tabela or "").strip().lower()
+    try:
+        registro_id_int = int(registro_id)
+    except (TypeError, ValueError):
+        return "Registro invalido."
+
+    try:
+        if tabela_norm == "calculadora":
+            item = PrecificacaoCalculadoraPrecoMedio.objects.filter(id=registro_id_int, cenario=cenario).first()
+            if not item:
+                return "Registro nao encontrado."
+            item.atualizar_linha(
+                volume=_parse_decimal_ou_zero(post_data.get("volume")),
+                preco=_parse_decimal_ou_zero(post_data.get("preco")),
+                prazo=_parse_decimal_ou_zero(post_data.get("prazo")),
+                frete=_parse_decimal_ou_zero(post_data.get("frete")),
+            )
+        elif tabela_norm == "simulacao":
+            item = PrecificacaoSimulacaoCompraVenda.objects.filter(id=registro_id_int, cenario=cenario).first()
+            if not item:
+                return "Registro nao encontrado."
+            item.atualizar_item(
+                margem_requerida_compra=_parse_decimal_ou_zero(post_data.get("margem_requerida_compra")),
+                margem_requerida_venda=_parse_decimal_ou_zero(post_data.get("margem_requerida_venda")),
+                frete_compra=_parse_decimal_ou_zero(post_data.get("frete_compra")),
+                frete_venda=_parse_decimal_ou_zero(post_data.get("frete_venda")),
+            )
+        elif tabela_norm == "materia_prima":
+            item = PrecificacaoMateriaPrima.objects.filter(id=registro_id_int, cenario=cenario).first()
+            if not item:
+                return "Registro nao encontrado."
+
+            campos_protegidos = PRECIFICACAO_MATERIA_PRIMA_CAMPOS_PROTEGIDOS.get(item.chave, set())
+            kwargs_update = {
+                "ativo": _precificacao_bool(post_data.get("ativo")),
+                "credito": _parse_decimal_ou_zero(post_data.get("credito")),
+            }
+            if "valor" not in campos_protegidos:
+                kwargs_update["valor"] = _parse_decimal_ou_zero(post_data.get("valor"))
+            if "frete_mp" not in campos_protegidos:
+                kwargs_update["frete_mp"] = _parse_decimal_ou_zero(post_data.get("frete_mp"))
+
+            item.atualizar_linha(**kwargs_update)
+        elif tabela_norm == "produto_cmv":
+            item = PrecificacaoProdutoAcabadoCMV.objects.filter(id=registro_id_int, cenario=cenario).first()
+            if not item:
+                return "Registro nao encontrado."
+            item.atualizar_linha(
+                acucar_quebra=_parse_decimal_ou_zero(post_data.get("acucar_quebra")),
+                emb_primaria_quebra=_parse_decimal_ou_zero(post_data.get("emb_primaria_quebra")),
+                emb_secundaria_quebra=_parse_decimal_ou_zero(post_data.get("emb_secundaria_quebra")),
+            )
+        elif tabela_norm == "produto_despesas":
+            if _precificacao_bool(post_data.get("aplicar_global_cif")) or _precificacao_bool(post_data.get("aplicar_global_despesas")):
+                cif_ativo = _precificacao_bool(post_data.get("cif_ativo"))
+                cif_manual_ativo = _precificacao_bool(post_data.get("cif_manual_ativo"))
+                cif_rota = (post_data.get("cif_rota") or "").strip()
+                cif_manual_valor = _parse_decimal_ou_zero(post_data.get("cif_manual_valor"))
+                prazo_dias = _parse_decimal_ou_zero(post_data.get("prazo_dias"))
+
+                itens = list(PrecificacaoProdutoAcabadoDespesa.objects.filter(cenario=cenario).order_by("ordem", "id"))
+                for item in itens:
+                    item.prazo_dias = prazo_dias
+                    item.cif_ativo = cif_ativo
+                    item.cif_manual_ativo = cif_manual_ativo
+                    item.cif_rota = cif_rota
+                    item.cif_manual_valor = cif_manual_valor
+                if itens:
+                    PrecificacaoProdutoAcabadoDespesa.objects.bulk_update(
+                        itens,
+                        ["prazo_dias", "cif_ativo", "cif_manual_ativo", "cif_rota", "cif_manual_valor"],
+                        batch_size=100,
+                    )
+            else:
+                item = PrecificacaoProdutoAcabadoDespesa.objects.filter(id=registro_id_int, cenario=cenario).first()
+                if not item:
+                    return "Registro nao encontrado."
+                item.atualizar_linha(
+                    financeiro_taxa=_parse_decimal_ou_zero(post_data.get("financeiro_taxa")),
+                    inadimplencia_taxa=_parse_decimal_ou_zero(post_data.get("inadimplencia_taxa")),
+                    administracao_taxa=_parse_decimal_ou_zero(post_data.get("administracao_taxa")),
+                    producao_ativo=_precificacao_bool(post_data.get("producao_ativo")),
+                    producao_valor=_parse_decimal_ou_zero(post_data.get("producao_valor")),
+                    log_op_logistica_ativo=_precificacao_bool(post_data.get("log_op_logistica_ativo")),
+                )
+        elif tabela_norm == "produto_impostos":
+            item = PrecificacaoProdutoAcabadoImposto.objects.filter(id=registro_id_int, cenario=cenario).first()
+            if not item:
+                return "Registro nao encontrado."
+            item.atualizar_linha(
+                interno_ativo=_precificacao_bool(post_data.get("interno_ativo")),
+                imposto_aliquota=_parse_decimal_ou_zero(post_data.get("imposto_aliquota")),
+                imposto_interno_aliquota=_parse_decimal_ou_zero(post_data.get("imposto_interno_aliquota")),
+                pro_goias_ativo=_precificacao_bool(post_data.get("pro_goias_ativo")),
+                pro_goias_aliquota_a=_parse_decimal_ou_zero(post_data.get("pro_goias_aliquota_a")),
+                pro_goias_aliquota_b=_parse_decimal_ou_zero(post_data.get("pro_goias_aliquota_b")),
+            )
+        elif tabela_norm == "produto_preco_venda":
+            item = PrecificacaoProdutoAcabadoPrecoVenda.objects.filter(id=registro_id_int, cenario=cenario).first()
+            if not item:
+                return "Registro nao encontrado."
+            item.atualizar_linha(
+                pv_bruto=_parse_decimal_ou_zero(post_data.get("pv_bruto")),
+                interno_ativo=_precificacao_bool(post_data.get("interno_ativo")),
+                comissao_aliquota=_parse_decimal_ou_zero(post_data.get("comissao_aliquota")),
+                contrato_aliquota=_parse_decimal_ou_zero(post_data.get("contrato_aliquota")),
+            )
+        else:
+            return "Tabela invalida."
+
+        recalcular_precificacao_cenario(cenario)
+    except ValidationError as exc:
+        if hasattr(exc, "message_dict") and exc.message_dict:
+            for mensagens in exc.message_dict.values():
+                if mensagens:
+                    return str(mensagens[0])
+        if getattr(exc, "messages", None):
+            return str(exc.messages[0])
+        return "Dados invalidos para salvar."
+
+    return ""
 
 
 def criar_parametro_margem_vendas(empresa, post_data):

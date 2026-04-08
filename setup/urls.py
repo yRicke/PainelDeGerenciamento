@@ -243,6 +243,11 @@ urlpatterns = [
     path('vendas_por_categoria/<int:empresa_id>/editar/<int:venda_id>/', views_comercial.editar_venda_modulo, name='editar_venda_modulo'),
     path('vendas_por_categoria/<int:empresa_id>/excluir/<int:venda_id>/', views_comercial.excluir_venda_modulo, name='excluir_venda_modulo'),
     path('precificacao/<int:empresa_id>/', views_comercial.precificacao, name='precificacao'),
+    path(
+        'precificacao/<int:empresa_id>/editar/<str:tabela>/<int:registro_id>/',
+        views_comercial.editar_precificacao_linha_modulo,
+        name='editar_precificacao_linha_modulo',
+    ),
     path('controle_de_margem/<int:empresa_id>/', views_comercial.controle_de_margem, name='controle_de_margem'),
     path('controle_de_margem/<int:empresa_id>/editar/<int:controle_id>/', views_comercial.editar_controle_margem_modulo, name='editar_controle_margem_modulo'),
     path('controle_de_margem/<int:empresa_id>/excluir/<int:controle_id>/', views_comercial.excluir_controle_margem_modulo, name='excluir_controle_margem_modulo'),

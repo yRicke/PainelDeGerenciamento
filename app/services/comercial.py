@@ -148,3 +148,15 @@ def criar_controle_margem_por_post(empresa, post_data):
 
 def atualizar_controle_margem_por_post(controle, empresa, post_data):
     return _services().atualizar_controle_margem_por_post(controle, empresa, post_data)
+
+
+def obter_ou_criar_cenario_precificacao(empresa):
+    return _services().obter_ou_criar_cenario_precificacao(empresa)
+
+
+def listar_tabelas_precificacao(cenario):
+    return _services().listar_tabelas_precificacao(cenario)
+
+
+def atualizar_linha_precificacao(cenario, tabela, registro_id, post_data):
+    return _services().atualizar_linha_precificacao(cenario, tabela, registro_id, post_data)

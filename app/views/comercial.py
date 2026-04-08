@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import FloatField
 from django.db.models.functions import Cast
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from ..models import (
@@ -22,6 +23,7 @@ from ..services.comercial import (
     atualizar_agenda_por_post,
     atualizar_carteira_por_post,
     atualizar_cidade_por_dados,
+    atualizar_linha_precificacao,
     atualizar_controle_margem_por_post,
     atualizar_pedido_pendente_por_post,
     atualizar_regiao_por_dados,
@@ -37,6 +39,8 @@ from ..services.comercial import (
     importar_upload_controle_margem,
     importar_upload_pedidos_pendentes,
     importar_upload_vendas,
+    listar_tabelas_precificacao,
+    obter_ou_criar_cenario_precificacao,
     preparar_diretorios_carteira,
     preparar_diretorios_controle_margem,
     preparar_diretorios_pedidos_pendentes,
@@ -45,6 +49,14 @@ from ..services.comercial import (
 from ..tabulator import (
     build_agenda_tabulator,
     build_cidades_tabulator,
+    build_precificacao_calculadora_tabulator,
+    build_precificacao_lucro_tabulator,
+    build_precificacao_materia_prima_tabulator,
+    build_precificacao_produto_cmv_tabulator,
+    build_precificacao_produto_despesas_tabulator,
+    build_precificacao_produto_impostos_tabulator,
+    build_precificacao_produto_preco_venda_tabulator,
+    build_precificacao_simulacao_tabulator,
     build_controle_margem_tabulator,
     build_pedidos_pendentes_tabulator,
     build_regioes_tabulator,
@@ -82,6 +94,10 @@ def _descricoes_perfil_empresa(empresa):
         ],
         key=lambda item: item.lower(),
     )
+
+
+def _is_ajax_request(request):
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
 
 
 @login_required(login_url="entrar")
@@ -821,7 +837,81 @@ def excluir_venda_modulo(request, empresa_id, venda_id):
 @login_required(login_url="entrar")
 def precificacao(request, empresa_id):
     modulo = _obter_modulo("Comercial", "Precificacao")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    cenario = obter_ou_criar_cenario_precificacao(empresa)
+    contexto = {
+        "empresa": empresa,
+        "precificacao_cenario_nome": cenario.nome,
+        **_montar_contexto_precificacao_payload(empresa.id, cenario),
+    }
+    return render(request, modulo["template"], contexto)
+
+
+def _montar_contexto_precificacao_payload(empresa_id, cenario):
+    tabelas = listar_tabelas_precificacao(cenario)
+    calculadora = list(tabelas["calculadora"])
+    simulacao = list(tabelas["simulacao"])
+    materia_prima = list(tabelas["materia_prima"])
+    produto_cmv = list(tabelas["produto_cmv"])
+    produto_despesas = list(tabelas["produto_despesas"])
+    produto_impostos = list(tabelas["produto_impostos"])
+    produto_preco_venda = list(tabelas["produto_preco_venda"])
+
+    return {
+        "precificacao_calculadora_tabulator": build_precificacao_calculadora_tabulator(calculadora, empresa_id),
+        "precificacao_simulacao_tabulator": build_precificacao_simulacao_tabulator(simulacao, empresa_id),
+        "precificacao_materia_prima_tabulator": build_precificacao_materia_prima_tabulator(materia_prima, empresa_id),
+        "precificacao_produto_cmv_tabulator": build_precificacao_produto_cmv_tabulator(produto_cmv, empresa_id),
+        "precificacao_produto_despesas_tabulator": build_precificacao_produto_despesas_tabulator(
+            produto_despesas, empresa_id
+        ),
+        "precificacao_produto_impostos_tabulator": build_precificacao_produto_impostos_tabulator(
+            produto_impostos, empresa_id
+        ),
+        "precificacao_produto_preco_venda_tabulator": build_precificacao_produto_preco_venda_tabulator(
+            produto_preco_venda, empresa_id
+        ),
+        "precificacao_lucro_tabulator": build_precificacao_lucro_tabulator(
+            produto_preco_venda, produto_impostos
+        ),
+    }
+
+
+@login_required(login_url="entrar")
+def editar_precificacao_linha_modulo(request, empresa_id, tabela, registro_id):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "message": "Metodo invalido."}, status=405)
+
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Precificacao")
+    if not permitido:
+        return JsonResponse({"ok": False, "message": "Acesso negado."}, status=403)
+
+    cenario = obter_ou_criar_cenario_precificacao(empresa)
+    erro = atualizar_linha_precificacao(cenario, tabela, registro_id, request.POST)
+    if erro:
+        return JsonResponse({"ok": False, "message": erro}, status=400)
+
+    payload = _montar_contexto_precificacao_payload(empresa.id, cenario)
+    response = {
+        "ok": True,
+        "message": "Salvo automaticamente.",
+        "payload": {
+            "calculadora": payload["precificacao_calculadora_tabulator"],
+            "simulacao": payload["precificacao_simulacao_tabulator"],
+            "materia_prima": payload["precificacao_materia_prima_tabulator"],
+            "produto_cmv": payload["precificacao_produto_cmv_tabulator"],
+            "produto_despesas": payload["precificacao_produto_despesas_tabulator"],
+            "produto_impostos": payload["precificacao_produto_impostos_tabulator"],
+            "produto_preco_venda": payload["precificacao_produto_preco_venda_tabulator"],
+            "lucro": payload["precificacao_lucro_tabulator"],
+        },
+    }
+    if _is_ajax_request(request):
+        return JsonResponse(response)
+    return JsonResponse(response)
 
 
 @login_required(login_url="entrar")

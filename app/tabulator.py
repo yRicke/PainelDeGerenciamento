@@ -1715,3 +1715,243 @@ def build_orcamento_x_realizado_tabulator(orcamentos_realizados_qs, orcamentos_p
     linhas.append(linha_grand_total)
 
     return linhas
+
+
+def _to_float_precificacao(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def build_precificacao_calculadora_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "origem": item.origem or "",
+                "volume": _to_float_precificacao(item.volume),
+                "preco": _to_float_precificacao(item.preco),
+                "prazo": _to_float_precificacao(item.prazo),
+                "preco_liquido": _to_float_precificacao(item.preco_liquido),
+                "financeiro": _to_float_precificacao(item.financeiro),
+                "frete": _to_float_precificacao(item.frete),
+                "total": _to_float_precificacao(item.total),
+                "editar_url": reverse(
+                    "editar_precificacao_linha_modulo",
+                    kwargs={"empresa_id": empresa_id, "tabela": "calculadora", "registro_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_precificacao_simulacao_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        editar_url = reverse(
+            "editar_precificacao_linha_modulo",
+            kwargs={"empresa_id": empresa_id, "tabela": "simulacao", "registro_id": item.id},
+        )
+        resultado.append(
+            {
+                "id": f"{item.id}-compra",
+                "registro_id": item.id,
+                "tipo": "compra",
+                "linha": "Compra",
+                "margem_requerida": _to_float_precificacao(item.margem_requerida_compra),
+                "frete": _to_float_precificacao(item.frete_compra),
+                "mp": _to_float_precificacao(item.mp),
+                "preco_total": _to_float_precificacao(item.preco_total),
+                "editar_url": editar_url,
+            }
+        )
+        resultado.append(
+            {
+                "id": f"{item.id}-venda",
+                "registro_id": item.id,
+                "tipo": "venda",
+                "linha": "Venda",
+                "margem_requerida": _to_float_precificacao(item.margem_requerida_venda),
+                "frete": _to_float_precificacao(item.frete_venda),
+                "mp": _to_float_precificacao(item.mp),
+                "preco_total": _to_float_precificacao(item.preco_total),
+                "editar_url": editar_url,
+            }
+        )
+    return resultado
+
+
+def build_precificacao_materia_prima_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "chave": item.chave,
+                "descricao": item.descricao or "",
+                "ativo": bool(item.ativo),
+                "valor": _to_float_precificacao(item.valor),
+                "frete_mp": _to_float_precificacao(item.frete_mp),
+                "sub_total": _to_float_precificacao(item.sub_total),
+                "credito": _to_float_precificacao(item.credito),
+                "custo_ex_works": _to_float_precificacao(item.custo_ex_works),
+                "editar_url": reverse(
+                    "editar_precificacao_linha_modulo",
+                    kwargs={"empresa_id": empresa_id, "tabela": "materia_prima", "registro_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_precificacao_produto_cmv_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "chave": item.chave,
+                "descricao": item.descricao or "",
+                "acucar_quebra": _to_float_precificacao(item.acucar_quebra),
+                "acucar_qtd": _to_float_precificacao(item.acucar_qtd),
+                "acucar_valor": _to_float_precificacao(item.acucar_valor),
+                "acucar_valor_ex_works": _to_float_precificacao(item.acucar_valor_ex_works),
+                "emb_primaria_quebra": _to_float_precificacao(item.emb_primaria_quebra),
+                "emb_primaria_qtd": _to_float_precificacao(item.emb_primaria_qtd),
+                "emb_primaria_valor": _to_float_precificacao(item.emb_primaria_valor),
+                "emb_primaria_valor_ex_works": _to_float_precificacao(item.emb_primaria_valor_ex_works),
+                "emb_secundaria_quebra": _to_float_precificacao(item.emb_secundaria_quebra),
+                "emb_secundaria_qtd": _to_float_precificacao(item.emb_secundaria_qtd),
+                "emb_secundaria_valor": _to_float_precificacao(item.emb_secundaria_valor),
+                "emb_secundaria_valor_ex_works": _to_float_precificacao(item.emb_secundaria_valor_ex_works),
+                "cmv": _to_float_precificacao(item.cmv),
+                "cmv_ex_works": _to_float_precificacao(item.cmv_ex_works),
+                "editar_url": reverse(
+                    "editar_precificacao_linha_modulo",
+                    kwargs={"empresa_id": empresa_id, "tabela": "produto_cmv", "registro_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_precificacao_produto_despesas_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "chave": item.chave,
+                "descricao": item.descricao or "",
+                "prazo_dias": _to_float_precificacao(item.prazo_dias),
+                "financeiro_taxa": _to_float_precificacao(item.financeiro_taxa),
+                "financeiro_valor": _to_float_precificacao(item.financeiro_valor),
+                "inadimplencia_taxa": _to_float_precificacao(item.inadimplencia_taxa),
+                "inadimplencia_valor": _to_float_precificacao(item.inadimplencia_valor),
+                "administracao_taxa": _to_float_precificacao(item.administracao_taxa),
+                "administracao_valor": _to_float_precificacao(item.administracao_valor),
+                "producao_ativo": bool(item.producao_ativo),
+                "producao_valor": _to_float_precificacao(item.producao_valor),
+                "cif_ativo": bool(item.cif_ativo),
+                "cif_manual_ativo": bool(item.cif_manual_ativo),
+                "cif_rota": item.cif_rota or "",
+                "cif_manual_valor": _to_float_precificacao(item.cif_manual_valor),
+                "log_frete_rota": _to_float_precificacao(item.log_frete_rota),
+                "log_frete_rota_valor": _to_float_precificacao(item.log_frete_rota_valor),
+                "log_op_logistica_ativo": bool(item.log_op_logistica_ativo),
+                "log_op_logistica_valor": _to_float_precificacao(item.log_op_logistica_valor),
+                "subtotal": _to_float_precificacao(item.subtotal),
+                "editar_url": reverse(
+                    "editar_precificacao_linha_modulo",
+                    kwargs={"empresa_id": empresa_id, "tabela": "produto_despesas", "registro_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_precificacao_produto_impostos_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "chave": item.chave,
+                "descricao": item.descricao or "",
+                "interno_ativo": bool(item.interno_ativo),
+                "imposto_aliquota": _to_float_precificacao(item.imposto_aliquota),
+                "imposto_valor": _to_float_precificacao(item.imposto_valor),
+                "imposto_interno_aliquota": _to_float_precificacao(item.imposto_interno_aliquota),
+                "imposto_interno_valor": _to_float_precificacao(item.imposto_interno_valor),
+                "subtotal_interno": _to_float_precificacao(item.subtotal_interno),
+                "pro_goias_ativo": bool(item.pro_goias_ativo),
+                "pro_goias_aliquota_a": _to_float_precificacao(item.pro_goias_aliquota_a),
+                "pro_goias_aliquota_b": _to_float_precificacao(item.pro_goias_aliquota_b),
+                "pro_goias_valor_a": _to_float_precificacao(item.pro_goias_valor_a),
+                "pro_goias_valor_b": _to_float_precificacao(item.pro_goias_valor_b),
+                "subtotal_pro_goias": _to_float_precificacao(item.subtotal_pro_goias),
+                "total": _to_float_precificacao(item.total),
+                "editar_url": reverse(
+                    "editar_precificacao_linha_modulo",
+                    kwargs={"empresa_id": empresa_id, "tabela": "produto_impostos", "registro_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_precificacao_produto_preco_venda_tabulator(registros_qs, empresa_id: int):
+    resultado = []
+    for item in registros_qs:
+        resultado.append(
+            {
+                "id": item.id,
+                "chave": item.chave,
+                "descricao": item.descricao or "",
+                "pv_bruto": _to_float_precificacao(item.pv_bruto),
+                "cmv_estimado": _to_float_precificacao(item.cmv_estimado),
+                "interno_ativo": bool(item.interno_ativo),
+                "comissao_aliquota": _to_float_precificacao(item.comissao_aliquota),
+                "comissao_valor": _to_float_precificacao(item.comissao_valor),
+                "contrato_aliquota": _to_float_precificacao(item.contrato_aliquota),
+                "contrato_valor": _to_float_precificacao(item.contrato_valor),
+                "subtotal": _to_float_precificacao(item.subtotal),
+                "editar_url": reverse(
+                    "editar_precificacao_linha_modulo",
+                    kwargs={"empresa_id": empresa_id, "tabela": "produto_preco_venda", "registro_id": item.id},
+                ),
+            }
+        )
+    return resultado
+
+
+def build_precificacao_lucro_tabulator(preco_venda_qs, impostos_qs):
+    situacao_labels = {
+        "direcao": "DIREÇÃO",
+        "gerente_comercial": "GERENTE CML",
+        "supervisor": "SUPERVISOR",
+        "vendedor": "VENDEDOR",
+    }
+    impostos_por_chave = {
+        (item.chave or ""): _to_float_precificacao(getattr(item, "total", 0))
+        for item in impostos_qs
+    }
+    resultado = []
+    for item in preco_venda_qs:
+        situacao = item.situacao or ""
+        resultado.append(
+            {
+                "id": item.id,
+                "chave": item.chave or "",
+                "descricao": item.descricao or "",
+                "impostos_total": impostos_por_chave.get(item.chave or "", 0.0),
+                "lucro_valor": _to_float_precificacao(item.lucro_valor),
+                "lucro_percentual": _to_float_precificacao(item.lucro_percentual),
+                "situacao": situacao,
+                "situacao_label": situacao_labels.get(situacao, situacao),
+                "situacao_cor": item.situacao_cor or "",
+            }
+        )
+    return resultado

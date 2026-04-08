@@ -1,16 +1,144 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Precificacao{% endblock %}
 
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/comercial/precificacao.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Precificacao</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Comercial</span>
+            </div>
+            <h1>Precificacao</h1>
+            <p class="module-hero-subtitle">Edicao inline com salvamento automatico e recalculo imediato de todas as tabelas.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+                <div>
+                    <dt>Cenario</dt>
+                    <dd>{{ precificacao_cenario_nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Precificacao</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section class="panel module-section">
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes de Precificacao">
+        <a href="#sec-calculadora">Calculadora</a>
+        <a href="#sec-materia-prima">Materia Prima</a>
+        <a href="#sec-produto-cmv">Produto Acabado CMV</a>
+        <a href="#sec-produto-despesas">Produto Despesas</a>
+        <a href="#sec-produto-impostos">Produto Impostos</a>
+        <a href="#sec-produto-venda">Produto Preco de Venda</a>
+        <a href="#sec-lucro">Lucro</a>
+    </nav>
+    <p class="form-note">Alterou uma celula, o sistema salva e recalcula automaticamente.</p>
+    <p id="precificacao-save-status" class="file-status" aria-live="polite"></p>
 </section>
+
+<section id="sec-calculadora" class="panel module-section">
+    <h2>Calculadora Preco Medio e Simulacao</h2>
+    <div class="precificacao-grid-2">
+        <article>
+            <h3>Calculadora Preco Medio</h3>
+            <div class="table-wrapper">
+                <div id="precificacao-calculadora-tabulator"></div>
+            </div>
+        </article>
+        <article>
+            <h3>Simulacao Preco Compra e Venda</h3>
+            <div class="table-wrapper">
+                <div id="precificacao-simulacao-tabulator"></div>
+            </div>
+        </article>
+    </div>
+</section>
+
+<section id="sec-materia-prima" class="panel module-section">
+    <h2>Materia Prima</h2>
+    <div class="table-wrapper">
+        <div id="precificacao-materia-prima-tabulator"></div>
+    </div>
+</section>
+
+<section id="sec-produto-cmv" class="panel module-section">
+    <h2>Produto Acabado - CMV</h2>
+    <div class="table-wrapper">
+        <div id="precificacao-produto-cmv-tabulator"></div>
+    </div>
+</section>
+
+<section id="sec-produto-despesas" class="panel module-section">
+    <h2>Produto Acabado - Despesas</h2>
+    <div class="precificacao-despesas-globais">
+        <label>
+            <span>Prazo Dias (todas as linhas)</span>
+            <input type="number" id="precificacao-despesas-prazo-dias" class="form-control" step="0.01" min="0">
+        </label>
+        <label class="precificacao-despesas-globais__check">
+            <input type="checkbox" id="precificacao-despesas-cif-ativo">
+            CIF (todas as linhas)
+        </label>
+        <label class="precificacao-despesas-globais__check">
+            <input type="checkbox" id="precificacao-despesas-cif-manual-ativo">
+            Manual (todas as linhas)
+        </label>
+        <label>
+            <span>Rota (todas as linhas)</span>
+            <input type="text" id="precificacao-despesas-cif-rota" class="form-control" maxlength="120">
+        </label>
+        <label>
+            <span>Valor Manual (todas as linhas)</span>
+            <input type="number" id="precificacao-despesas-cif-manual-valor" class="form-control" step="0.0001" min="0">
+        </label>
+    </div>
+    <div class="table-wrapper">
+        <div id="precificacao-produto-despesas-tabulator"></div>
+    </div>
+</section>
+
+<section id="sec-produto-impostos" class="panel module-section">
+    <h2>Produto Acabado - Impostos</h2>
+    <div class="table-wrapper">
+        <div id="precificacao-produto-impostos-tabulator"></div>
+    </div>
+</section>
+
+<section id="sec-produto-venda" class="panel module-section">
+    <h2>Produto Acabado - Preco de Venda</h2>
+    <div class="table-wrapper">
+        <div id="precificacao-produto-preco-venda-tabulator"></div>
+    </div>
+</section>
+
+<section id="sec-lucro" class="panel module-section">
+    <h2>Lucro</h2>
+    <div class="table-wrapper">
+        <div id="precificacao-lucro-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ precificacao_calculadora_tabulator|json_script:"precificacao-calculadora-tabulator-data" }}
+{{ precificacao_simulacao_tabulator|json_script:"precificacao-simulacao-tabulator-data" }}
+{{ precificacao_materia_prima_tabulator|json_script:"precificacao-materia-prima-tabulator-data" }}
+{{ precificacao_produto_cmv_tabulator|json_script:"precificacao-produto-cmv-tabulator-data" }}
+{{ precificacao_produto_despesas_tabulator|json_script:"precificacao-produto-despesas-tabulator-data" }}
+{{ precificacao_produto_impostos_tabulator|json_script:"precificacao-produto-impostos-tabulator-data" }}
+{{ precificacao_produto_preco_venda_tabulator|json_script:"precificacao-produto-preco-venda-tabulator-data" }}
+{{ precificacao_lucro_tabulator|json_script:"precificacao-lucro-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/comercial/precificacao-page.js' %}"></script>
 {% endblock %}
