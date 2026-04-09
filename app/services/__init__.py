@@ -6,6 +6,7 @@ from pathlib import Path
 import json
 import shutil
 import re
+import unicodedata
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -2335,6 +2336,58 @@ def _precificacao_bool(valor):
     return texto in {"1", "true", "on", "sim", "yes", "verdadeiro"}
 
 
+def _precificacao_normalizar_texto(valor):
+    texto = str(valor or "").strip().lower()
+    if not texto:
+        return ""
+    texto = unicodedata.normalize("NFKD", texto)
+    return "".join(char for char in texto if not unicodedata.combining(char))
+
+
+def _precificacao_indexar_fretes_empresa(empresa):
+    fretes = list(Frete.objects.filter(empresa=empresa).select_related("cidade"))
+    fretes_por_id = {}
+    fretes_por_cidade = {}
+    for frete in fretes:
+        fretes_por_id[str(frete.id)] = frete
+        cidade_nome = (frete.cidade.nome if frete.cidade else "").strip()
+        if not cidade_nome:
+            continue
+        fretes_por_cidade[_precificacao_normalizar_texto(cidade_nome)] = frete
+    return fretes_por_id, fretes_por_cidade
+
+
+def _precificacao_resolver_frete_rota(rota_salva, fretes_por_id, fretes_por_cidade):
+    rota_texto = str(rota_salva or "").strip()
+    if not rota_texto:
+        return None, ""
+
+    frete_rota = fretes_por_id.get(rota_texto)
+    if frete_rota is not None:
+        return frete_rota, str(frete_rota.id)
+
+    frete_rota = fretes_por_cidade.get(_precificacao_normalizar_texto(rota_texto))
+    if frete_rota is not None:
+        return frete_rota, str(frete_rota.id)
+
+    return None, rota_texto
+
+
+def _precificacao_validar_cif_rota_empresa(cif_rota_raw, empresa):
+    rota_texto = str(cif_rota_raw or "").strip()
+    if not rota_texto:
+        return "", ""
+    try:
+        rota_id = int(rota_texto)
+    except (TypeError, ValueError):
+        return "", "Rota invalida para a empresa."
+
+    frete_rota = Frete.objects.filter(id=rota_id, empresa=empresa).only("id").first()
+    if not frete_rota:
+        return "", "Rota invalida para a empresa."
+    return str(frete_rota.id), ""
+
+
 def _seed_precificacao_cenario(cenario):
     origens_padrao = [
         ("GOIASA", Decimal("4071.11"), Decimal("88"), Decimal("0"), Decimal("6.2")),
@@ -2512,6 +2565,8 @@ def recalcular_precificacao_cenario(cenario):
 
     if simulacao is None:
         simulacao = PrecificacaoSimulacaoCompraVenda.criar_item(cenario=cenario)
+
+    fretes_por_id, fretes_por_cidade = _precificacao_indexar_fretes_empresa(cenario.empresa)
 
     for linha in calculadora:
         preco = _precificacao_decimal(linha.preco)
@@ -2696,7 +2751,17 @@ def recalcular_precificacao_cenario(cenario):
         if linha.cif_manual_ativo:
             log_frete_rota = _precificacao_decimal(linha.cif_manual_valor)
         else:
-            log_frete_rota = _precificacao_decimal(simulacao.frete_venda)
+            frete_rota, rota_resolvida = _precificacao_resolver_frete_rota(
+                linha.cif_rota,
+                fretes_por_id,
+                fretes_por_cidade,
+            )
+            if frete_rota is not None and rota_resolvida != str(linha.cif_rota or "").strip():
+                # Compatibilidade: converte registros antigos (cidade) para id do frete.
+                linha.cif_rota = rota_resolvida
+            log_frete_rota = _precificacao_decimal(
+                frete_rota.valor_frete_comercial if frete_rota else 0
+            )
 
         if linha.cif_ativo:
             peso_base = _precificacao_decimal(conf.get("peso_base", 0))
@@ -2733,6 +2798,7 @@ def recalcular_precificacao_cenario(cenario):
                 "financeiro_valor",
                 "inadimplencia_valor",
                 "administracao_valor",
+                "cif_rota",
                 "log_frete_rota",
                 "log_frete_rota_valor",
                 "log_op_logistica_valor",
@@ -2910,7 +2976,12 @@ def atualizar_linha_precificacao(cenario, tabela, registro_id, post_data):
             if _precificacao_bool(post_data.get("aplicar_global_cif")) or _precificacao_bool(post_data.get("aplicar_global_despesas")):
                 cif_ativo = _precificacao_bool(post_data.get("cif_ativo"))
                 cif_manual_ativo = _precificacao_bool(post_data.get("cif_manual_ativo"))
-                cif_rota = (post_data.get("cif_rota") or "").strip()
+                cif_rota, erro_rota = _precificacao_validar_cif_rota_empresa(
+                    post_data.get("cif_rota"),
+                    cenario.empresa,
+                )
+                if erro_rota:
+                    return erro_rota
                 cif_manual_valor = _parse_decimal_ou_zero(post_data.get("cif_manual_valor"))
                 prazo_dias = _parse_decimal_ou_zero(post_data.get("prazo_dias"))
 

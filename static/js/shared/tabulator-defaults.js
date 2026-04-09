@@ -80,6 +80,14 @@
                 || shared.clearFrozenColumns
                 || "Limpar colunas fixas"
             ),
+            freezeGroup: String(
+                labels.freezeGroup
+                || "Fixar grupo"
+            ),
+            unfreezeGroup: String(
+                labels.unfreezeGroup
+                || "Desfixar grupo"
+            ),
         };
     }
 
@@ -524,6 +532,8 @@
             persist: Boolean(storageKey),
             storageKey: storageKey,
             includeClearAction: raw.includeClearAction !== false,
+            disableGroupedLeafMenus: raw.disableGroupedLeafMenus === true,
+            enableGroupMenus: raw.enableGroupMenus === true,
             labels: resolveFreezeMenuLabels(raw.labels),
         };
     }
@@ -1165,36 +1175,180 @@
         return [];
     }
 
+    function resolveColumnComponentFromHeaderMenuContext(context, args) {
+        if (context && typeof context.getDefinition === "function") {
+            return context;
+        }
+        var list = Array.isArray(args) ? args : [];
+        for (var i = 0; i < list.length; i += 1) {
+            var candidate = list[i];
+            if (candidate && typeof candidate.getDefinition === "function") {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    function collectGroupedLeafFields(columns, output, isInsideGroup) {
+        var result = output instanceof Set ? output : new Set();
+        if (!Array.isArray(columns)) return result;
+
+        columns.forEach(function (column) {
+            if (!column) return;
+            var hasChildren = Array.isArray(column.columns) && column.columns.length > 0;
+            if (hasChildren) {
+                collectGroupedLeafFields(column.columns, result, true);
+                return;
+            }
+            if (!isInsideGroup || !column.field || isActionColumn(column)) return;
+            result.add(String(column.field));
+        });
+
+        return result;
+    }
+
+    function getFreezableLeafColumnsFromGroup(groupColumnComponent) {
+        if (!groupColumnComponent || typeof groupColumnComponent.getSubColumns !== "function") return [];
+        var leafColumns = collectLeafColumnComponents(groupColumnComponent.getSubColumns(), []);
+        return leafColumns.filter(isFreezableColumnComponent);
+    }
+
+    function freezeGroupFromMenu(groupColumnComponent, freezeOptions) {
+        var table = getTableFromColumn(groupColumnComponent);
+        if (!table) return;
+
+        var groupLeafs = getFreezableLeafColumnsFromGroup(groupColumnComponent);
+        if (!groupLeafs.length) return;
+
+        var currentOrder = getOrderedFrozenFields(table);
+        var currentSet = new Set(currentOrder);
+        var nextOrder = currentOrder.slice();
+
+        groupLeafs.forEach(function (column) {
+            var field = getColumnField(column);
+            if (!field || currentSet.has(field)) return;
+            nextOrder.push(field);
+            currentSet.add(field);
+        });
+
+        applyDeterministicFrozenLayout(table, nextOrder, freezeOptions);
+    }
+
+    function unfreezeGroupFromMenu(groupColumnComponent, freezeOptions) {
+        var table = getTableFromColumn(groupColumnComponent);
+        if (!table) return;
+
+        var groupLeafs = getFreezableLeafColumnsFromGroup(groupColumnComponent);
+        if (!groupLeafs.length) return;
+
+        var groupFields = new Set(
+            groupLeafs
+                .map(getColumnField)
+                .filter(Boolean)
+        );
+
+        var nextOrder = getOrderedFrozenFields(table).filter(function (field) {
+            return !groupFields.has(field);
+        });
+        applyDeterministicFrozenLayout(table, nextOrder, freezeOptions);
+    }
+
+    function isGroupCurrentlyFrozen(groupColumnComponent) {
+        var groupLeafs = getFreezableLeafColumnsFromGroup(groupColumnComponent);
+        if (!groupLeafs.length) return false;
+        return groupLeafs.every(isColumnCurrentlyFrozen);
+    }
+
+    function buildGroupFreezeMenuItems(groupColumnComponent, freezeOptions) {
+        var labels = (freezeOptions && freezeOptions.labels) || resolveFreezeMenuLabels();
+        var isFrozen = isGroupCurrentlyFrozen(groupColumnComponent);
+        var items = [];
+
+        if (isFrozen) {
+            items.push({
+                label: labels.unfreezeGroup || labels.unfreeze,
+                action: function (_event, columnComponent) {
+                    unfreezeGroupFromMenu(columnComponent, freezeOptions);
+                },
+            });
+        } else {
+            items.push({
+                label: labels.freezeGroup || labels.freeze,
+                action: function (_event, columnComponent) {
+                    freezeGroupFromMenu(columnComponent, freezeOptions);
+                },
+            });
+        }
+
+        if (isFrozen && freezeOptions && freezeOptions.includeClearAction) {
+            items.push({separator: true});
+            items.push({
+                label: labels.clear,
+                action: function (_event, columnComponent) {
+                    clearAllFrozenColumns(getTableFromColumn(columnComponent), freezeOptions);
+                },
+            });
+        }
+
+        return items;
+    }
+
+    function attachFreezeHeaderMenu(definition, freezeOptions, menuItemsResolver) {
+        if (!definition) return;
+        var existingHeaderMenu = definition.headerMenu;
+        definition.headerMenu = function () {
+            var args = Array.prototype.slice.call(arguments);
+            var columnComponent = resolveColumnComponentFromHeaderMenuContext(this, args);
+            var existingItems = resolveExistingHeaderMenuItems(existingHeaderMenu, this, args);
+            var freezeItems = menuItemsResolver(columnComponent, freezeOptions);
+
+            if (!existingItems.length) return freezeItems;
+            if (!freezeItems.length) return existingItems;
+            return existingItems.concat([{separator: true}], freezeItems);
+        };
+    }
+
     function applyFreezeHeaderMenu(columns, freezeOptions) {
         if (!Array.isArray(columns) || !columns.length || !freezeOptions) return;
-        var leafColumns = collectLeafColumns(columns, []);
-        leafColumns.forEach(function (column) {
-            if (!column || !column.field || isActionColumn(column)) return;
-            var existingHeaderMenu = column.headerMenu;
-            column.headerMenu = function () {
-                var args = Array.prototype.slice.call(arguments);
-                var columnComponent = null;
+        var groupedLeafFields = freezeOptions.disableGroupedLeafMenus
+            ? collectGroupedLeafFields(columns, new Set(), false)
+            : new Set();
 
-                if (this && typeof this.getDefinition === "function") {
-                    columnComponent = this;
-                } else {
-                    for (var i = 0; i < args.length; i += 1) {
-                        var candidate = args[i];
-                        if (candidate && typeof candidate.getDefinition === "function") {
-                            columnComponent = candidate;
-                            break;
-                        }
+        function walk(definitions) {
+            if (!Array.isArray(definitions)) return;
+
+            definitions.forEach(function (definition) {
+                if (!definition) return;
+
+                var hasChildren = Array.isArray(definition.columns) && definition.columns.length > 0;
+                if (hasChildren) {
+                    if (freezeOptions.enableGroupMenus) {
+                        attachFreezeHeaderMenu(
+                            definition,
+                            freezeOptions,
+                            function (columnComponent, localFreezeOptions) {
+                                return buildGroupFreezeMenuItems(columnComponent, localFreezeOptions);
+                            }
+                        );
                     }
+                    walk(definition.columns);
+                    return;
                 }
 
-                var existingItems = resolveExistingHeaderMenuItems(existingHeaderMenu, this, args);
-                var freezeItems = buildFreezeMenuItems(columnComponent, freezeOptions);
+                if (!definition.field || isActionColumn(definition)) return;
+                if (groupedLeafFields.has(String(definition.field))) return;
 
-                if (!existingItems.length) return freezeItems;
-                if (!freezeItems.length) return existingItems;
-                return existingItems.concat([{separator: true}], freezeItems);
-            };
-        });
+                attachFreezeHeaderMenu(
+                    definition,
+                    freezeOptions,
+                    function (columnComponent, localFreezeOptions) {
+                        return buildFreezeMenuItems(columnComponent, localFreezeOptions);
+                    }
+                );
+            });
+        }
+
+        walk(columns);
     }
 
 

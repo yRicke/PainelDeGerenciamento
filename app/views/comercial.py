@@ -4,6 +4,7 @@ from django.db.models import FloatField
 from django.db.models.functions import Cast
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from decimal import Decimal
 
 from ..models import (
     Agenda,
@@ -11,6 +12,7 @@ from ..models import (
     Cidade,
     ControleMargem,
     DescricaoPerfil,
+    Frete,
     Motorista,
     Parceiro,
     PedidoPendente,
@@ -98,6 +100,41 @@ def _descricoes_perfil_empresa(empresa):
 
 def _is_ajax_request(request):
     return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def _formatar_moeda_brl(valor):
+    numero = Decimal(valor or 0)
+    texto = f"{numero:,.2f}"
+    texto = texto.replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R${texto}"
+
+
+def _rotulo_frete_precificacao(frete):
+    cidade_nome = (frete.cidade.nome if frete.cidade else "").strip()
+    if not cidade_nome:
+        return ""
+    regiao_nome = (frete.regiao.nome if frete.regiao else "").strip() or "Sem Regiao"
+    return f"{cidade_nome} - {regiao_nome} - {_formatar_moeda_brl(frete.valor_frete_comercial)}"
+
+
+def _montar_opcoes_rotas_precificacao(empresa):
+    opcoes = []
+    fretes = (
+        Frete.objects.filter(empresa=empresa)
+        .select_related("cidade", "regiao")
+        .order_by("cidade__nome", "id")
+    )
+    for frete in fretes:
+        label = _rotulo_frete_precificacao(frete)
+        if not label:
+            continue
+        opcoes.append(
+            {
+                "value": str(frete.id),
+                "label": label,
+            }
+        )
+    return opcoes
 
 
 @login_required(login_url="entrar")
@@ -845,6 +882,7 @@ def precificacao(request, empresa_id):
     contexto = {
         "empresa": empresa,
         "precificacao_cenario_nome": cenario.nome,
+        "precificacao_rotas_opcoes": _montar_opcoes_rotas_precificacao(empresa),
         **_montar_contexto_precificacao_payload(empresa.id, cenario),
     }
     return render(request, modulo["template"], contexto)

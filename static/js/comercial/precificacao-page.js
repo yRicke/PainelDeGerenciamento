@@ -9,6 +9,13 @@
         cifRota: document.getElementById("precificacao-despesas-cif-rota"),
         cifManualValor: document.getElementById("precificacao-despesas-cif-manual-valor"),
     };
+    var DESPESAS_GLOBAIS_REQUIRED_KEYS = [
+        "prazoDias",
+        "cifAtivo",
+        "cifManualAtivo",
+        "cifRota",
+        "cifManualValor",
+    ];
 
     var DATA_IDS = {
         calculadora: "precificacao-calculadora-tabulator-data",
@@ -111,11 +118,12 @@
         });
     }
 
-    function formatPercentRatio(value) {
+    function formatPercentRatio(value, casas) {
         var number = toNumber(value) * 100;
+        var decimals = Number.isFinite(Number(casas)) ? Number(casas) : 2;
         return number.toLocaleString("pt-BR", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
         }) + "%";
     }
 
@@ -152,6 +160,15 @@
             .then(function (body) {
                 return {ok: response.ok, body: body};
             });
+    }
+
+    function postFormData(url, formData) {
+        return fetch(url, {
+            method: "POST",
+            body: formData,
+            credentials: "same-origin",
+            headers: {"X-Requested-With": "XMLHttpRequest"},
+        }).then(parseJsonResponse);
     }
 
     function setSaveStatus(text, tone) {
@@ -232,9 +249,15 @@
         return Array.isArray(rows) ? rows : [];
     }
 
+    function hasDespesasGlobaisControls() {
+        return DESPESAS_GLOBAIS_REQUIRED_KEYS.every(function (key) {
+            return !!despesasGlobaisEls[key];
+        });
+    }
+
     function applyDespesasControlEnabledState() {
         var el = despesasGlobaisEls;
-        if (!el.cifAtivo || !el.cifManualAtivo || !el.cifRota || !el.cifManualValor || !el.prazoDias) return;
+        if (!hasDespesasGlobaisControls()) return;
         var cifAtivo = !!el.cifAtivo.checked;
         var cifManualAtivo = !!el.cifManualAtivo.checked;
         el.cifManualAtivo.disabled = !cifAtivo;
@@ -244,7 +267,7 @@
 
     function syncDespesasGlobaisFromRows(rows) {
         var el = despesasGlobaisEls;
-        if (!el.cifAtivo || !el.cifManualAtivo || !el.cifRota || !el.cifManualValor || !el.prazoDias) return;
+        if (!hasDespesasGlobaisControls()) return;
         var baseRow = Array.isArray(rows) && rows.length ? rows[0] : null;
         syncingDespesasGlobais = true;
         if (baseRow) {
@@ -267,7 +290,7 @@
     function saveDespesasGlobais() {
         if (internalUpdate || syncingDespesasGlobais) return;
         var el = despesasGlobaisEls;
-        if (!el.cifAtivo || !el.cifManualAtivo || !el.cifRota || !el.cifManualValor || !el.prazoDias) return;
+        if (!hasDespesasGlobaisControls()) return;
 
         var rows = getDespesasRows();
         if (!rows.length) return;
@@ -284,13 +307,7 @@
         appendPayloadField(formData, "cif_manual_valor", toNumber(el.cifManualValor.value), false);
 
         setSaveStatus("Salvando alteracao...", "precificacao-save-status--progress");
-        fetch(rowRef.editar_url, {
-            method: "POST",
-            body: formData,
-            credentials: "same-origin",
-            headers: {"X-Requested-With": "XMLHttpRequest"},
-        })
-            .then(parseJsonResponse)
+        postFormData(rowRef.editar_url, formData)
             .then(function (result) {
                 if (!result.ok || !result.body || result.body.ok === false || !result.body.payload) {
                     setSaveStatus(
@@ -341,14 +358,7 @@
             }
 
             setSaveStatus("Salvando alteracao...", "precificacao-save-status--progress");
-
-            fetch(rowData.editar_url, {
-                method: "POST",
-                body: formData,
-                credentials: "same-origin",
-                headers: {"X-Requested-With": "XMLHttpRequest"},
-            })
-                .then(parseJsonResponse)
+            postFormData(rowData.editar_url, formData)
                 .then(function (result) {
                     if (seqByRow[seqKey] !== currentSeq) return;
                     if (!result.ok || !result.body || result.body.ok === false || !result.body.payload) {
@@ -403,9 +413,9 @@
         return new window.Tabulator(selector, options);
     }
 
-    function moneyColumn(title, field, editable, saveHandler) {
+    function moneyColumn(title, field, editable, saveHandler, cssClass) {
         var isEditable = typeof editable === "function" ? editable : !!editable;
-        return {
+        var columnDef = {
             title: title,
             field: field,
             hozAlign: "right",
@@ -418,6 +428,8 @@
             cellEdited: saveHandler || null,
             minWidth: 130,
         };
+        if (cssClass) columnDef.cssClass = cssClass;
+        return columnDef;
     }
 
     function moneyColumnSimulacaoCompra(title, field) {
@@ -436,9 +448,9 @@
         };
     }
 
-    function decimalColumn(title, field, casas, editable, saveHandler) {
+    function decimalColumn(title, field, casas, editable, saveHandler, cssClass) {
         var isEditable = typeof editable === "function" ? editable : !!editable;
-        return {
+        var columnDef = {
             title: title,
             field: field,
             hozAlign: "right",
@@ -451,6 +463,58 @@
             cellEdited: saveHandler || null,
             minWidth: 110,
         };
+        if (cssClass) columnDef.cssClass = cssClass;
+        return columnDef;
+    }
+
+    function percentEditor(cell, onRendered, success, cancel) {
+        var input = document.createElement("input");
+        var committed = false;
+
+        input.type = "text";
+        input.className = "tabulator-percent-editor";
+        input.value = String((toNumber(cell.getValue()) * 100).toFixed(4)).replace(/\.?0+$/, "");
+
+        function commit() {
+            if (committed) return;
+            committed = true;
+            success(toNumber(input.value) / 100);
+        }
+
+        onRendered(function () {
+            input.focus();
+            input.select();
+        });
+
+        input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                commit();
+            } else if (event.key === "Escape") {
+                committed = true;
+                cancel();
+            }
+        });
+
+        input.addEventListener("blur", commit);
+        return input;
+    }
+
+    function percentColumn(title, field, editable, saveHandler, casas, cssClass) {
+        var isEditable = typeof editable === "function" ? editable : !!editable;
+        var columnDef = {
+            title: title,
+            field: field,
+            hozAlign: "right",
+            editor: isEditable ? percentEditor : false,
+            editable: isEditable,
+            formatter: function (cell) {
+                return formatPercentRatio(cell.getValue(), casas || 2);
+            },
+            cellEdited: saveHandler || null,
+            minWidth: 120,
+        };
+        if (cssClass) columnDef.cssClass = cssClass;
+        return columnDef;
     }
 
     function booleanColumn(title, field, editable, saveHandler) {
@@ -513,7 +577,7 @@
         var saveSimulacao = makeSaveHandler("simulacao");
         columns.simulacao = [
             {title: "Tipo", field: "linha", minWidth: 120},
-            decimalColumn("Margem Requerida", "margem_requerida", 4, true, saveSimulacao),
+            percentColumn("Margem Requerida", "margem_requerida", true, saveSimulacao, 2),
             moneyColumn("Frete", "frete", true, saveSimulacao),
             moneyColumnSimulacaoCompra("MP", "mp"),
             moneyColumnSimulacaoCompra("Pr Total", "preco_total"),
@@ -526,45 +590,95 @@
             moneyColumn("Valor", "valor", isMateriaPrimaEditable("valor"), saveMateriaPrima),
             moneyColumn("Frete MP", "frete_mp", isMateriaPrimaEditable("frete_mp"), saveMateriaPrima),
             moneyColumn("Sub-Total", "sub_total", false, null),
-            decimalColumn("Credito", "credito", 4, true, saveMateriaPrima),
+            percentColumn("Credito", "credito", true, saveMateriaPrima, 2),
             moneyColumn("Custo Ex-Works", "custo_ex_works", false, null),
         ];
 
         var saveCmv = makeSaveHandler("produto_cmv");
         columns.produto_cmv = [
             {title: "Produto", field: "descricao", minWidth: 110, frozen: true},
-            decimalColumn("Acucar Quebra", "acucar_quebra", 4, true, saveCmv),
-            decimalColumn("Acucar Qtd", "acucar_qtd", 4, false, null),
-            moneyColumn("Acucar Valor", "acucar_valor", false, null),
-            moneyColumn("Acucar Ex-Works", "acucar_valor_ex_works", false, null),
-            decimalColumn("Emb Primaria Quebra", "emb_primaria_quebra", 4, true, saveCmv),
-            decimalColumn("Emb Primaria Qtd", "emb_primaria_qtd", 4, false, null),
-            moneyColumn("Emb Primaria Valor", "emb_primaria_valor", false, null),
-            moneyColumn("Emb Primaria Ex-Works", "emb_primaria_valor_ex_works", false, null),
-            decimalColumn("Emb Secundaria Quebra", "emb_secundaria_quebra", 4, true, saveCmv),
-            decimalColumn("Emb Secundaria Qtd", "emb_secundaria_qtd", 4, false, null),
-            moneyColumn("Emb Secundaria Valor", "emb_secundaria_valor", false, null),
-            moneyColumn("Emb Secundaria Ex-Works", "emb_secundaria_valor_ex_works", false, null),
-            moneyColumn("CMV", "cmv", false, null),
-            moneyColumn("CMV Ex-Works", "cmv_ex_works", false, null),
+            {
+                title: "Acucar",
+                columns: [
+                    percentColumn("Quebra", "acucar_quebra", true, saveCmv, 2),
+                    decimalColumn("Qtd", "acucar_qtd", 4, false, null),
+                    moneyColumn("Valor", "acucar_valor", false, null),
+                    moneyColumn("Ex-Works", "acucar_valor_ex_works", false, null),
+                ],
+            },
+            {
+                title: "Embalagem Primaria",
+                columns: [
+                    percentColumn("Quebra", "emb_primaria_quebra", true, saveCmv, 2),
+                    decimalColumn("Qtd", "emb_primaria_qtd", 4, false, null),
+                    moneyColumn("Valor", "emb_primaria_valor", false, null),
+                    moneyColumn("Ex-Works", "emb_primaria_valor_ex_works", false, null),
+                ],
+            },
+            {
+                title: "Embalagem Secundaria",
+                columns: [
+                    percentColumn("Quebra", "emb_secundaria_quebra", true, saveCmv, 2),
+                    decimalColumn("Qtd", "emb_secundaria_qtd", 4, false, null),
+                    moneyColumn("Valor", "emb_secundaria_valor", false, null),
+                    moneyColumn("Ex-Works", "emb_secundaria_valor_ex_works", false, null),
+                ],
+            },
+            {
+                title: "CMV",
+                columns: [
+                    moneyColumn("CMV", "cmv", false, null),
+                    moneyColumn("Ex-Works", "cmv_ex_works", false, null),
+                ],
+            },
         ];
 
         var saveDespesas = makeSaveHandler("produto_despesas");
         columns.produto_despesas = [
             {title: "Produto", field: "descricao", minWidth: 110, frozen: true},
-            decimalColumn("Prazo Dias", "prazo_dias", 2, false, null),
-            decimalColumn("Financeiro Taxa", "financeiro_taxa", 4, true, saveDespesas),
-            moneyColumn("Financeiro Valor", "financeiro_valor", false, null),
-            decimalColumn("Inadimplencia Taxa", "inadimplencia_taxa", 4, true, saveDespesas),
-            moneyColumn("Inadimplencia Valor", "inadimplencia_valor", false, null),
-            decimalColumn("Administracao Taxa", "administracao_taxa", 4, true, saveDespesas),
-            moneyColumn("Administracao Valor", "administracao_valor", false, null),
-            booleanColumn("Producao Ativo", "producao_ativo", true, saveDespesas),
-            moneyColumn("Producao Valor", "producao_valor", true, saveDespesas),
-            moneyColumn("Log Frete Rota", "log_frete_rota", false, null),
-            moneyColumn("Log Frete Rota Valor", "log_frete_rota_valor", false, null),
-            booleanColumn("Log Op Logistica", "log_op_logistica_ativo", true, saveDespesas),
-            moneyColumn("Log Op Logistica Valor", "log_op_logistica_valor", false, null),
+            decimalColumn("Prazo Dias", "prazo_dias", 2, false, null, "precificacao-cell-global-source"),
+            {
+                title: "Financeiro",
+                columns: [
+                    percentColumn("Taxa", "financeiro_taxa", true, saveDespesas, 2),
+                    moneyColumn("Valor", "financeiro_valor", false, null),
+                ],
+            },
+            {
+                title: "Inadimplencia",
+                columns: [
+                    percentColumn("Taxa", "inadimplencia_taxa", true, saveDespesas, 2),
+                    moneyColumn("Valor", "inadimplencia_valor", false, null),
+                ],
+            },
+            {
+                title: "Administracao",
+                columns: [
+                    percentColumn("Taxa", "administracao_taxa", true, saveDespesas, 2),
+                    moneyColumn("Valor", "administracao_valor", false, null),
+                ],
+            },
+            {
+                title: "Producao",
+                columns: [
+                    booleanColumn("Ativo", "producao_ativo", true, saveDespesas),
+                    moneyColumn("Valor", "producao_valor", true, saveDespesas),
+                ],
+            },
+            {
+                title: "Log - Frete Rota",
+                columns: [
+                    moneyColumn("Base", "log_frete_rota", false, null, "precificacao-cell-global-source"),
+                    moneyColumn("Valor", "log_frete_rota_valor", false, null),
+                ],
+            },
+            {
+                title: "Log Op. Logistica",
+                columns: [
+                    booleanColumn("Ativo", "log_op_logistica_ativo", true, saveDespesas),
+                    moneyColumn("Valor", "log_op_logistica_valor", false, null),
+                ],
+            },
             moneyColumn("Sub-Total", "subtotal", false, null),
         ];
 
@@ -572,17 +686,27 @@
         columns.produto_impostos = [
             {title: "Produto", field: "descricao", minWidth: 110, frozen: true},
             booleanColumn("Interno", "interno_ativo", true, saveImpostos),
-            decimalColumn("Imposto Aliquota", "imposto_aliquota", 4, true, saveImpostos),
-            moneyColumn("Imposto Valor", "imposto_valor", false, null),
-            decimalColumn("Imposto Interno Aliquota", "imposto_interno_aliquota", 4, true, saveImpostos),
-            moneyColumn("Imposto Interno Valor", "imposto_interno_valor", false, null),
-            moneyColumn("Sub-Total Interno", "subtotal_interno", false, null),
-            booleanColumn("Pro-Goias", "pro_goias_ativo", true, saveImpostos),
-            decimalColumn("Pro-Goias A", "pro_goias_aliquota_a", 4, true, saveImpostos),
-            decimalColumn("Pro-Goias B", "pro_goias_aliquota_b", 4, true, saveImpostos),
-            moneyColumn("Pro-Goias Valor A", "pro_goias_valor_a", false, null),
-            moneyColumn("Pro-Goias Valor B", "pro_goias_valor_b", false, null),
-            moneyColumn("Sub-Total Pro-Goias", "subtotal_pro_goias", false, null),
+            {
+                title: "Imposto",
+                columns: [
+                    percentColumn("Aliquota", "imposto_aliquota", true, saveImpostos, 2),
+                    moneyColumn("Valor", "imposto_valor", false, null),
+                    percentColumn("Interno Aliquota", "imposto_interno_aliquota", true, saveImpostos, 2),
+                    moneyColumn("Interno Valor", "imposto_interno_valor", false, null),
+                    moneyColumn("Sub-Total Interno", "subtotal_interno", false, null),
+                ],
+            },
+            {
+                title: "Pro Goias",
+                columns: [
+                    booleanColumn("Ativo", "pro_goias_ativo", true, saveImpostos),
+                    percentColumn("Aliquota A", "pro_goias_aliquota_a", true, saveImpostos, 3, "precificacao-cell-alert"),
+                    percentColumn("Aliquota B", "pro_goias_aliquota_b", true, saveImpostos, 3, "precificacao-cell-alert"),
+                    moneyColumn("Valor A", "pro_goias_valor_a", false, null),
+                    moneyColumn("Valor B", "pro_goias_valor_b", false, null),
+                    moneyColumn("Sub-Total", "subtotal_pro_goias", false, null),
+                ],
+            },
             moneyColumn("Total", "total", false, null),
         ];
 
@@ -590,12 +714,22 @@
         columns.produto_preco_venda = [
             {title: "Produto", field: "descricao", minWidth: 110, frozen: true},
             moneyColumn("PV Bruto", "pv_bruto", true, savePrecoVenda),
-            decimalColumn("CMV Estimado", "cmv_estimado", 4, false, null),
+            percentColumn("CMV Estimado", "cmv_estimado", false, null, 2),
             booleanColumn("Interno", "interno_ativo", true, savePrecoVenda),
-            decimalColumn("Comissao Aliquota", "comissao_aliquota", 4, true, savePrecoVenda),
-            moneyColumn("Comissao Valor", "comissao_valor", false, null),
-            decimalColumn("Contrato Aliquota", "contrato_aliquota", 4, true, savePrecoVenda),
-            moneyColumn("Contrato Valor", "contrato_valor", false, null),
+            {
+                title: "Comissao",
+                columns: [
+                    percentColumn("Aliquota", "comissao_aliquota", true, savePrecoVenda, 2),
+                    moneyColumn("Valor", "comissao_valor", false, null),
+                ],
+            },
+            {
+                title: "Contrato",
+                columns: [
+                    percentColumn("Aliquota", "contrato_aliquota", true, savePrecoVenda, 2),
+                    moneyColumn("Valor", "contrato_valor", false, null),
+                ],
+            },
             moneyColumn("Sub-Total", "subtotal", false, null),
         ];
 
@@ -633,6 +767,10 @@
         placeholder: "Sem registros.",
         responsiveLayout: false,
         height: "auto",
+        freezeUX: {
+            disableGroupedLeafMenus: true,
+            enableGroupMenus: false,
+        },
     };
 
     Object.keys(TARGET_IDS).forEach(function (key) {
@@ -647,13 +785,7 @@
     if (Array.isArray(dataByKey.produto_despesas)) {
         syncDespesasGlobaisFromRows(dataByKey.produto_despesas);
     }
-    if (
-        despesasGlobaisEls.prazoDias &&
-        despesasGlobaisEls.cifAtivo &&
-        despesasGlobaisEls.cifManualAtivo &&
-        despesasGlobaisEls.cifRota &&
-        despesasGlobaisEls.cifManualValor
-    ) {
+    if (hasDespesasGlobaisControls()) {
         despesasGlobaisEls.prazoDias.addEventListener("change", saveDespesasGlobais);
         despesasGlobaisEls.prazoDias.addEventListener("blur", saveDespesasGlobais);
         despesasGlobaisEls.cifAtivo.addEventListener("change", function () {

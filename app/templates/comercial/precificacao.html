@@ -33,7 +33,7 @@
     </div>
 </section>
 
-<section class="panel module-section">
+<section class="panel module-section precificacao-toolbar">
     <nav class="module-sections-nav" aria-label="Navegacao de secoes de Precificacao">
         <a href="#sec-calculadora">Calculadora</a>
         <a href="#sec-materia-prima">Materia Prima</a>
@@ -43,8 +43,10 @@
         <a href="#sec-produto-venda">Produto Preco de Venda</a>
         <a href="#sec-lucro">Lucro</a>
     </nav>
-    <p class="form-note">Alterou uma celula, o sistema salva e recalcula automaticamente.</p>
-    <p id="precificacao-save-status" class="file-status" aria-live="polite"></p>
+    <div class="precificacao-toolbar-meta">
+        <p class="form-note">Alterou uma celula, o sistema salva e recalcula automaticamente.</p>
+        <p id="precificacao-save-status" class="file-status" aria-live="polite"></p>
+    </div>
 </section>
 
 <section id="sec-calculadora" class="panel module-section">
@@ -96,7 +98,12 @@
         </label>
         <label>
             <span>Rota (todas as linhas)</span>
-            <input type="text" id="precificacao-despesas-cif-rota" class="form-control" maxlength="120">
+            <select id="precificacao-despesas-cif-rota" class="form-control">
+                <option value="">Selecione uma rota</option>
+                {% for opcao in precificacao_rotas_opcoes %}
+                <option value="{{ opcao.value }}">{{ opcao.label }}</option>
+                {% endfor %}
+            </select>
         </label>
         <label>
             <span>Valor Manual (todas as linhas)</span>

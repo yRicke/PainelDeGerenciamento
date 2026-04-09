@@ -1724,6 +1724,13 @@ def _to_float_precificacao(value):
         return 0.0
 
 
+def _precificacao_editar_url(empresa_id: int, tabela: str, registro_id: int):
+    return reverse(
+        "editar_precificacao_linha_modulo",
+        kwargs={"empresa_id": empresa_id, "tabela": tabela, "registro_id": registro_id},
+    )
+
+
 def build_precificacao_calculadora_tabulator(registros_qs, empresa_id: int):
     resultado = []
     for item in registros_qs:
@@ -1738,10 +1745,7 @@ def build_precificacao_calculadora_tabulator(registros_qs, empresa_id: int):
                 "financeiro": _to_float_precificacao(item.financeiro),
                 "frete": _to_float_precificacao(item.frete),
                 "total": _to_float_precificacao(item.total),
-                "editar_url": reverse(
-                    "editar_precificacao_linha_modulo",
-                    kwargs={"empresa_id": empresa_id, "tabela": "calculadora", "registro_id": item.id},
-                ),
+                "editar_url": _precificacao_editar_url(empresa_id, "calculadora", item.id),
             }
         )
     return resultado
@@ -1750,10 +1754,7 @@ def build_precificacao_calculadora_tabulator(registros_qs, empresa_id: int):
 def build_precificacao_simulacao_tabulator(registros_qs, empresa_id: int):
     resultado = []
     for item in registros_qs:
-        editar_url = reverse(
-            "editar_precificacao_linha_modulo",
-            kwargs={"empresa_id": empresa_id, "tabela": "simulacao", "registro_id": item.id},
-        )
+        editar_url = _precificacao_editar_url(empresa_id, "simulacao", item.id)
         resultado.append(
             {
                 "id": f"{item.id}-compra",
@@ -1797,10 +1798,7 @@ def build_precificacao_materia_prima_tabulator(registros_qs, empresa_id: int):
                 "sub_total": _to_float_precificacao(item.sub_total),
                 "credito": _to_float_precificacao(item.credito),
                 "custo_ex_works": _to_float_precificacao(item.custo_ex_works),
-                "editar_url": reverse(
-                    "editar_precificacao_linha_modulo",
-                    kwargs={"empresa_id": empresa_id, "tabela": "materia_prima", "registro_id": item.id},
-                ),
+                "editar_url": _precificacao_editar_url(empresa_id, "materia_prima", item.id),
             }
         )
     return resultado
@@ -1828,10 +1826,7 @@ def build_precificacao_produto_cmv_tabulator(registros_qs, empresa_id: int):
                 "emb_secundaria_valor_ex_works": _to_float_precificacao(item.emb_secundaria_valor_ex_works),
                 "cmv": _to_float_precificacao(item.cmv),
                 "cmv_ex_works": _to_float_precificacao(item.cmv_ex_works),
-                "editar_url": reverse(
-                    "editar_precificacao_linha_modulo",
-                    kwargs={"empresa_id": empresa_id, "tabela": "produto_cmv", "registro_id": item.id},
-                ),
+                "editar_url": _precificacao_editar_url(empresa_id, "produto_cmv", item.id),
             }
         )
     return resultado
@@ -1863,10 +1858,7 @@ def build_precificacao_produto_despesas_tabulator(registros_qs, empresa_id: int)
                 "log_op_logistica_ativo": bool(item.log_op_logistica_ativo),
                 "log_op_logistica_valor": _to_float_precificacao(item.log_op_logistica_valor),
                 "subtotal": _to_float_precificacao(item.subtotal),
-                "editar_url": reverse(
-                    "editar_precificacao_linha_modulo",
-                    kwargs={"empresa_id": empresa_id, "tabela": "produto_despesas", "registro_id": item.id},
-                ),
+                "editar_url": _precificacao_editar_url(empresa_id, "produto_despesas", item.id),
             }
         )
     return resultado
@@ -1893,10 +1885,7 @@ def build_precificacao_produto_impostos_tabulator(registros_qs, empresa_id: int)
                 "pro_goias_valor_b": _to_float_precificacao(item.pro_goias_valor_b),
                 "subtotal_pro_goias": _to_float_precificacao(item.subtotal_pro_goias),
                 "total": _to_float_precificacao(item.total),
-                "editar_url": reverse(
-                    "editar_precificacao_linha_modulo",
-                    kwargs={"empresa_id": empresa_id, "tabela": "produto_impostos", "registro_id": item.id},
-                ),
+                "editar_url": _precificacao_editar_url(empresa_id, "produto_impostos", item.id),
             }
         )
     return resultado
@@ -1918,10 +1907,7 @@ def build_precificacao_produto_preco_venda_tabulator(registros_qs, empresa_id: i
                 "contrato_aliquota": _to_float_precificacao(item.contrato_aliquota),
                 "contrato_valor": _to_float_precificacao(item.contrato_valor),
                 "subtotal": _to_float_precificacao(item.subtotal),
-                "editar_url": reverse(
-                    "editar_precificacao_linha_modulo",
-                    kwargs={"empresa_id": empresa_id, "tabela": "produto_preco_venda", "registro_id": item.id},
-                ),
+                "editar_url": _precificacao_editar_url(empresa_id, "produto_preco_venda", item.id),
             }
         )
     return resultado
