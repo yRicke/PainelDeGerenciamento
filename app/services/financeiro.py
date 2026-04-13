@@ -85,6 +85,7 @@ def importar_upload_dfc(
             diretorio=str(diretorio_importacao),
             limpar_antes=True,
         )
+        services.sincronizar_dre_por_empresa_dfc(empresa)
     except Exception as exc:
         return False, f"Falha ao importar DFC: {exc}"
 
@@ -703,6 +704,18 @@ def criar_dfc_por_post(empresa, post_data):
 
 def atualizar_dfc_por_post(dfc_item, empresa, post_data):
     return _services().atualizar_dfc_por_post(dfc_item, empresa, post_data)
+
+
+def excluir_dfc_por_dados(dfc_item, empresa):
+    return _services().excluir_dfc_por_dados(dfc_item, empresa)
+
+
+def atualizar_dre_por_post(dre_item, empresa, post_data):
+    return _services().atualizar_dre_por_post(dre_item, empresa, post_data)
+
+
+def sincronizar_dre_por_empresa_dfc(empresa):
+    return _services().sincronizar_dre_por_empresa_dfc(empresa)
 
 
 def construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_periodo=10):

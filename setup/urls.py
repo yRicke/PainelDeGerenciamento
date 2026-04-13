@@ -79,6 +79,7 @@ urlpatterns = [
     path('balanco_patrimonial/<int:empresa_id>/ativos/editar/<int:ativo_id>/', views_financeiro.editar_balanco_patrimonial_ativo_modulo, name='editar_balanco_patrimonial_ativo_modulo'),
     path('balanco_patrimonial/<int:empresa_id>/ativos/excluir/<int:ativo_id>/', views_financeiro.excluir_balanco_patrimonial_ativo_modulo, name='excluir_balanco_patrimonial_ativo_modulo'),
     path('dre/<int:empresa_id>/', views_financeiro.dre, name='dre'),
+    path('dre/<int:empresa_id>/editar/<int:dre_id>/', views_financeiro.editar_dre_modulo, name='editar_dre_modulo'),
     path('contas_a_receber/<int:empresa_id>/', views_financeiro.contas_a_receber, name='contas_a_receber'),
     path('contas_a_receber/<int:empresa_id>/dados/', views_financeiro.contas_a_receber_dados, name='contas_a_receber_dados'),
     path(

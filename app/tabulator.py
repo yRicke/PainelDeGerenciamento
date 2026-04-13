@@ -1310,6 +1310,51 @@ def build_dfc_tabulator(dfc_qs, empresa_id: int, permitir_edicao: bool = True):
     return resultado
 
 
+def build_dre_tabulator(dre_qs, empresa_id: int, permitir_edicao: bool = True):
+    resultado = []
+    for dre_item in dre_qs:
+        valor_a_pagar = dre_item.get("valor_a_pagar_num")
+        resultado.append(
+            {
+                "id": dre_item.get("id"),
+                "dfc_id": dre_item.get("dfc_id") or "",
+                "data_baixa": _fmt_date_br(dre_item.get("data_baixa")),
+                "data_baixa_iso": (
+                    dre_item.get("data_baixa").strftime("%Y-%m-%d")
+                    if dre_item.get("data_baixa")
+                    else ""
+                ),
+                "ano_baixa": dre_item.get("data_baixa").year if dre_item.get("data_baixa") else "",
+                "mes_baixa": dre_item.get("data_baixa").month if dre_item.get("data_baixa") else "",
+                "data_vencimento": _fmt_date_br(dre_item.get("data_vencimento")),
+                "data_vencimento_iso": (
+                    dre_item.get("data_vencimento").strftime("%Y-%m-%d")
+                    if dre_item.get("data_vencimento")
+                    else ""
+                ),
+                "nome_fantasia_empresa": dre_item.get("nome_fantasia_empresa") or "",
+                "receita_despesa": dre_item.get("receita_despesa") or "",
+                "parceiro": dre_item.get("parceiro") or "",
+                "nome_parceiro": dre_item.get("nome_parceiro") or "",
+                "numero_nota": dre_item.get("numero_nota") or "",
+                "natureza": dre_item.get("natureza") or "",
+                "descricao_natureza": dre_item.get("descricao_natureza") or "",
+                "valor_liquido": float(dre_item.get("valor_liquido_num") or 0),
+                "valor_a_pagar": float(valor_a_pagar) if valor_a_pagar is not None else "",
+                "descricao_tipo_operacao": dre_item.get("descricao_tipo_operacao") or "",
+                "descricao_centro_resultado": dre_item.get("descricao_centro_resultado") or "",
+                "plano_contas_tipo_movimento": dre_item.get("plano_contas_tipo_movimento") or "",
+                "tipo_dre": dre_item.get("tipo_dre") or "",
+            }
+        )
+        if permitir_edicao:
+            resultado[-1]["editar_url"] = reverse(
+                "editar_dre_modulo",
+                kwargs={"empresa_id": empresa_id, "dre_id": dre_item.get("id")},
+            )
+    return resultado
+
+
 def build_faturamento_tabulator(faturamento_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for item in faturamento_qs:

@@ -31,6 +31,7 @@ from ..models import (
     ContaBancaria,
     Descritivo,
     ControleMargem,
+    DRE,
     ContasAReceber,
     DescricaoPerfil,
     Empresa,
@@ -3377,6 +3378,133 @@ def _dados_dfc_from_post(post_data, empresa):
     }
 
 
+def _normalizar_receita_despesa_dre(valor):
+    texto = str(valor or "").strip()
+    if not texto:
+        return ""
+    texto_norm = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii").lower()
+    if "receita" in texto_norm:
+        return "Receita"
+    if "despesa" in texto_norm:
+        return "Despesa"
+    return ""
+
+
+def _payload_dre_from_dfc(dfc_item, empresa):
+    parceiro_codigo = ""
+    parceiro_nome = ""
+    if dfc_item.parceiro_id and dfc_item.parceiro:
+        parceiro_codigo = str(dfc_item.parceiro.codigo or "").strip()
+        parceiro_nome = str(dfc_item.parceiro.nome or "").strip()
+
+    natureza_codigo = ""
+    natureza_descricao = ""
+    if dfc_item.natureza_id and dfc_item.natureza:
+        natureza_codigo = str(dfc_item.natureza.codigo or "").strip()
+        natureza_descricao = str(dfc_item.natureza.descricao or "").strip()
+
+    descricao_tipo_operacao = ""
+    if dfc_item.operacao_id and dfc_item.operacao:
+        descricao_tipo_operacao = str(dfc_item.operacao.descricao_receita_despesa or "").strip()
+
+    receita_despesa = _normalizar_receita_despesa_dre(descricao_tipo_operacao)
+    if not receita_despesa:
+        valor_liquido = dfc_item.valor_liquido or Decimal("0")
+        if valor_liquido > 0:
+            receita_despesa = "Receita"
+        elif valor_liquido < 0:
+            receita_despesa = "Despesa"
+
+    descricao_centro_resultado = ""
+    if dfc_item.centro_resultado_id and dfc_item.centro_resultado:
+        descricao_centro_resultado = str(dfc_item.centro_resultado.descricao or "").strip()
+
+    return {
+        "empresa": empresa,
+        "data_baixa": dfc_item.data_negociacao,
+        "data_vencimento": dfc_item.data_vencimento,
+        "nome_fantasia_empresa": str(empresa.nome or "").strip(),
+        "receita_despesa": receita_despesa,
+        "parceiro": parceiro_codigo,
+        "nome_parceiro": parceiro_nome,
+        "numero_nota": str(dfc_item.numero_nota or "").strip(),
+        "natureza": natureza_codigo,
+        "descricao_natureza": natureza_descricao,
+        "valor_liquido": dfc_item.valor_liquido or Decimal("0"),
+        "descricao_tipo_operacao": descricao_tipo_operacao,
+        "descricao_centro_resultado": descricao_centro_resultado,
+        "plano_contas_tipo_movimento": None,
+        "tipo_dre": None,
+    }
+
+
+def sincronizar_dre_registro_por_dfc(dfc_item):
+    if not dfc_item:
+        return None
+    empresa = getattr(dfc_item, "empresa", None)
+    if not empresa:
+        return None
+
+    defaults = _payload_dre_from_dfc(dfc_item, empresa)
+    defaults.pop("plano_contas_tipo_movimento", None)
+    defaults.pop("tipo_dre", None)
+    defaults.pop("empresa", None)
+    registro, _ = DRE.objects.update_or_create(
+        dfc=dfc_item,
+        defaults=defaults,
+    )
+    return registro
+
+
+def sincronizar_dre_por_empresa_dfc(empresa):
+    if not empresa:
+        return 0
+
+    existentes = {
+        item.dfc_id: item
+        for item in DRE.objects.filter(empresa=empresa).only(
+            "id",
+            "dfc_id",
+            "valor_a_pagar",
+            "plano_contas_tipo_movimento",
+            "tipo_dre",
+        )
+    }
+
+    dfc_qs = (
+        FluxoDeCaixaDFC.objects.filter(empresa=empresa)
+        .select_related("parceiro", "natureza", "operacao", "centro_resultado")
+        .order_by("id")
+    )
+
+    novos = []
+    for dfc_item in dfc_qs.iterator():
+        dados = _payload_dre_from_dfc(dfc_item, empresa)
+        anterior = existentes.get(dfc_item.id)
+        if anterior:
+            dados["valor_a_pagar"] = anterior.valor_a_pagar
+            dados["plano_contas_tipo_movimento"] = anterior.plano_contas_tipo_movimento
+            dados["tipo_dre"] = anterior.tipo_dre
+
+        novos.append(
+            DRE(
+                dfc=dfc_item,
+                **dados,
+            )
+        )
+
+    DRE.objects.filter(empresa=empresa).delete()
+    if novos:
+        DRE.objects.bulk_create(novos, batch_size=1000)
+    return len(novos)
+
+
+def remover_dre_registro_por_dfc(dfc_item):
+    if not dfc_item:
+        return
+    DRE.objects.filter(dfc_id=dfc_item.id).delete()
+
+
 def criar_dfc_por_post(empresa, post_data):
     dados = _dados_dfc_from_post(post_data, empresa)
     if not dados["data_negociacao_raw"]:
@@ -3389,7 +3517,8 @@ def criar_dfc_por_post(empresa, post_data):
         return "Data de vencimento invalida."
     dados.pop("data_negociacao_raw", None)
     dados.pop("data_vencimento_raw", None)
-    FluxoDeCaixaDFC.criar_fluxo_de_caixa_dfc(empresa=empresa, **dados)
+    dfc_item = FluxoDeCaixaDFC.criar_fluxo_de_caixa_dfc(empresa=empresa, **dados)
+    sincronizar_dre_registro_por_dfc(dfc_item)
     return ""
 
 
@@ -3406,6 +3535,32 @@ def atualizar_dfc_por_post(dfc_item, empresa, post_data):
     dados.pop("data_negociacao_raw", None)
     dados.pop("data_vencimento_raw", None)
     dfc_item.atualizar_fluxo_de_caixa_dfc(**dados)
+    dfc_item.refresh_from_db()
+    sincronizar_dre_registro_por_dfc(dfc_item)
+    return ""
+
+
+def excluir_dfc_por_dados(dfc_item, empresa):
+    if dfc_item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+    remover_dre_registro_por_dfc(dfc_item)
+    dfc_item.excluir_fluxo_de_caixa_dfc()
+    return ""
+
+
+def atualizar_dre_por_post(dre_item, empresa, post_data):
+    if dre_item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+
+    valor_a_pagar = _parse_decimal_ou_none(post_data.get("valor_a_pagar"))
+    plano = (post_data.get("plano_contas_tipo_movimento") or "").strip()
+    tipo_dre = (post_data.get("tipo_dre") or "").strip()
+
+    dre_item.atualizar_dre(
+        valor_a_pagar=valor_a_pagar,
+        plano_contas_tipo_movimento=plano or None,
+        tipo_dre=tipo_dre or None,
+    )
     return ""
 
 

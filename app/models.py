@@ -4088,6 +4088,53 @@ class FluxoDeCaixaDFC(models.Model):
         self.delete()
 
 
+class DRE(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="dre_registros")
+    dfc = models.OneToOneField(
+        FluxoDeCaixaDFC,
+        on_delete=models.CASCADE,
+        related_name="dre_registro",
+    )
+    data_baixa = models.DateField()
+    data_vencimento = models.DateField()
+    nome_fantasia_empresa = models.CharField(max_length=220, blank=True, default="")
+    receita_despesa = models.CharField(max_length=30, blank=True, default="")
+    parceiro = models.CharField(max_length=80, blank=True, default="")
+    nome_parceiro = models.CharField(max_length=220, blank=True, default="")
+    numero_nota = models.CharField(max_length=50, blank=True, default="")
+    natureza = models.CharField(max_length=80, blank=True, default="")
+    descricao_natureza = models.CharField(max_length=220, blank=True, default="")
+    valor_liquido = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    valor_a_pagar = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    descricao_tipo_operacao = models.CharField(max_length=220, blank=True, default="")
+    descricao_centro_resultado = models.CharField(max_length=220, blank=True, default="")
+    plano_contas_tipo_movimento = models.CharField(max_length=120, null=True, blank=True)
+    tipo_dre = models.CharField(max_length=120, null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["empresa", "data_baixa"]),
+            models.Index(fields=["empresa", "data_vencimento"]),
+        ]
+
+    def __str__(self):
+        return f"DRE #{self.id} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_dre(cls, **dados):
+        item = cls(**dados)
+        item.save()
+        return item
+
+    def atualizar_dre(self, **dados):
+        for campo, valor in dados.items():
+            setattr(self, campo, valor)
+        self.save()
+
+    def excluir_dre(self):
+        self.delete()
+
+
 class DFCSaldoManual(models.Model):
     TIPO_PREVISAO_RECEBIVEL = "previsao_recebivel"
     TIPO_OUTRAS_CONSIDERACOES_RECEITA = "outras_consideracoes_receita"

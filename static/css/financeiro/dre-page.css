@@ -1,0 +1,34 @@
+@import url("./lancamentos-shared.css");
+
+.dre-kpi-grid {
+    grid-template-columns: minmax(220px, 1fr);
+}
+
+#dre-save-status.dre-save-status--ok {
+    color: #127a2e;
+}
+
+#dre-save-status.dre-save-status--error {
+    color: #b42318;
+}
+
+#dre-save-status.dre-save-status--progress {
+    color: #4b5565;
+}
+
+#dre-tabulator .tabulator-col-title {
+    white-space: normal;
+    line-height: 1.2;
+}
+
+@media (max-width: 1180px) {
+    .dre-kpi-grid {
+        grid-template-columns: minmax(220px, 1fr);
+    }
+}
+
+@media (max-width: 760px) {
+    .dre-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}

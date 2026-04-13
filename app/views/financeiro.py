@@ -22,6 +22,7 @@ from ..models import (
     ContratoRede,
     ContaBancaria,
     ContasAReceber,
+    DRE,
     EmpresaTitular,
     Faturamento,
     FluxoDeCaixaDFC,
@@ -47,6 +48,7 @@ from ..services.financeiro import (
     atualizar_orcamento_por_post,
     atualizar_saldo_limite_por_dados,
     atualizar_comite_diario_por_dados,
+    atualizar_dre_por_post,
     atualizar_titulo_por_dados,
     construir_payload_tabela_saldo_dfc,
     criar_adiantamento_por_post,
@@ -67,6 +69,7 @@ from ..services.financeiro import (
     excluir_balanco_patrimonial_por_dados,
     excluir_balanco_patrimonial_ativo_por_dados,
     excluir_comite_diario_por_dados,
+    excluir_dfc_por_dados,
     importar_upload_adiantamentos,
     importar_upload_comite_diario,
     importar_upload_contas_a_receber,
@@ -78,6 +81,7 @@ from ..services.financeiro import (
     preparar_diretorios_dfc,
     preparar_diretorios_orcamento,
     salvar_dfc_saldo_manual_por_post,
+    sincronizar_dre_por_empresa_dfc,
 )
 from ..tabulator import (
     build_adiantamentos_tabulator,
@@ -86,6 +90,7 @@ from ..tabulator import (
     build_centros_resultado_tabulator,
     build_contas_a_receber_tabulator,
     build_contratos_redes_tabulator,
+    build_dre_tabulator,
     build_dfc_tabulator,
     build_naturezas_tabulator,
     build_operacoes_tabulator,
@@ -159,6 +164,13 @@ def _payload_balanco_patrimonial(item, empresa_id):
 
 def _payload_balanco_patrimonial_ativo(item, empresa_id):
     registros = build_balanco_patrimonial_ativos_tabulator([item], empresa_id)
+    if not registros:
+        return None
+    return registros[0]
+
+
+def _payload_dre(item, empresa_id):
+    registros = build_dre_tabulator([item], empresa_id, permitir_edicao=True)
     if not registros:
         return None
     return registros[0]
@@ -1055,7 +1067,52 @@ def excluir_balanco_patrimonial_ativo_modulo(request, empresa_id, ativo_id):
 @login_required(login_url="entrar")
 def dre(request, empresa_id):
     modulo = _obter_modulo("Financeiro", "DRE")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not permitido:
+        return redirect("index")
+
+    total_dfc = FluxoDeCaixaDFC.objects.filter(empresa=empresa).count()
+    total_dre = DRE.objects.filter(empresa=empresa).count()
+    if total_dre != total_dfc:
+        sincronizar_dre_por_empresa_dfc(empresa)
+
+    dre_qs = (
+        DRE.objects.filter(empresa=empresa)
+        .annotate(
+            valor_liquido_num=Cast("valor_liquido", FloatField()),
+            valor_a_pagar_num=Cast("valor_a_pagar", FloatField()),
+        )
+        .values(
+            "id",
+            "empresa_id",
+            "dfc_id",
+            "data_baixa",
+            "data_vencimento",
+            "nome_fantasia_empresa",
+            "receita_despesa",
+            "parceiro",
+            "nome_parceiro",
+            "numero_nota",
+            "natureza",
+            "descricao_natureza",
+            "valor_liquido_num",
+            "valor_a_pagar_num",
+            "descricao_tipo_operacao",
+            "descricao_centro_resultado",
+            "plano_contas_tipo_movimento",
+            "tipo_dre",
+        )
+        .order_by("-data_baixa", "-id")
+    )
+    dre_registros = list(dre_qs)
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "dre_tabulator": build_dre_tabulator(dre_registros, empresa.id, permitir_edicao=True),
+        "dfc_url": reverse("dfc", kwargs={"empresa_id": empresa.id}),
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
@@ -2457,6 +2514,42 @@ def excluir_centro_resultado_modulo(request, empresa_id, centro_resultado_id):
 
 
 @login_required(login_url="entrar")
+def editar_dre_modulo(request, empresa_id, dre_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "DRE")
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("dre", empresa_id=empresa.id)
+
+    item = DRE.objects.filter(id=dre_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("dre", empresa_id=empresa.id)
+
+    erro = atualizar_dre_por_post(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("dre", empresa_id=empresa.id)
+
+    item = DRE.objects.filter(id=item.id, empresa=empresa).first()
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": _payload_dre(item, empresa.id) if item else None,
+            }
+        )
+
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("dre", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
 def editar_dfc_modulo(request, empresa_id, dfc_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "DFC")
     if not autorizado:
@@ -2503,7 +2596,10 @@ def excluir_dfc_modulo(request, empresa_id, dfc_id):
     if not dfc_item:
         messages.error(request, "Registro DFC nao encontrado.")
         return redirect("dfc", empresa_id=empresa.id)
-    dfc_item.excluir_fluxo_de_caixa_dfc()
+    erro = excluir_dfc_por_dados(dfc_item, empresa)
+    if erro:
+        messages.error(request, erro)
+        return redirect("dfc", empresa_id=empresa.id)
     messages.success(request, "Registro DFC excluido com sucesso.")
     return redirect("dfc", empresa_id=empresa.id)
 
