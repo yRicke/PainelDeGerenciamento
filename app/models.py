@@ -1304,7 +1304,7 @@ class ParametroMargemFinanceiro(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_margem_financeiro")
     parametro = models.CharField(max_length=80, default="Contas a Receber")
     taxa_ao_mes = models.DecimalField(max_digits=10, decimal_places=6, default=0)
-    remuneracao_percentual = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    remuneracao_percentual = models.DecimalField(max_digits=18, decimal_places=12, default=0)
 
     def __str__(self):
         return f"Parametro Financeiro - {self.empresa.nome}"

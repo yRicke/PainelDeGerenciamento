@@ -108,12 +108,44 @@
             <p class="dashboard-total-note">Saldo Ajustado / Receita Bruta Compras</p>
         </article>
         <article class="dashboard-total-card apuracao-kpi-card">
-            <p class="dashboard-total-label">Parametros Financeiros</p>
+            <p class="dashboard-total-label">Resultados Demonstrativos</p>
             <p class="dashboard-total-value">{{ apuracao_dashboard.parametros_financeiros }}</p>
             <p class="dashboard-total-note">
                 Financeiro {{ apuracao_dashboard.parametros_financeiros_financeiro }} + Adiantamentos {{ apuracao_dashboard.parametros_financeiros_adiantamentos }} + Estoque {{ apuracao_dashboard.parametros_financeiros_estoque }}
             </p>
         </article>
+    </div>
+    <div class="apuracao-parametros-feedback-grid">
+        {% for bloco in apuracao_dashboard.parametros_financeiros_feedback %}
+        <article class="apuracao-parametros-feedback-card">
+            <div class="apuracao-parametros-feedback-head">
+                <h3>{{ bloco.titulo }}</h3>
+                <p>{{ bloco.total }}</p>
+            </div>
+            <div class="apuracao-parametros-feedback-table-wrap">
+                <table class="apuracao-parametros-feedback-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for linha in bloco.linhas %}
+                        <tr>
+                            <td>{{ linha.data }}</td>
+                            <td>{{ linha.valor }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2">Sem valores no periodo</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        {% endfor %}
     </div>
 </section>
 
@@ -186,7 +218,18 @@
     if (!form) return;
     var dataInicial = form.querySelector('input[name="data_inicial"]');
     var dataFinal = form.querySelector('input[name="data_final"]');
+    var cookieSufixo = "{{ empresa.id }}";
+    function salvarCookie(nome, valor) {
+        if (!valor) return;
+        var maxAge = 60 * 60 * 24 * 365;
+        document.cookie = nome + "=" + encodeURIComponent(valor) + "; path=/; max-age=" + maxAge + "; samesite=lax";
+    }
+    function salvarDatas() {
+        if (dataInicial) salvarCookie("apuracao_data_inicial_" + cookieSufixo, dataInicial.value);
+        if (dataFinal) salvarCookie("apuracao_data_final_" + cookieSufixo, dataFinal.value);
+    }
     function enviar() {
+        salvarDatas();
         form.submit();
     }
     if (dataInicial) dataInicial.addEventListener('change', enviar);

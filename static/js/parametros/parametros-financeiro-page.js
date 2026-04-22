@@ -31,8 +31,8 @@
         var percentual = parseRatioInput(ratio) * 100;
         if (!Number.isFinite(percentual)) percentual = 0;
         return percentual.toLocaleString("pt-BR", {
-            minimumFractionDigits: 4,
-            maximumFractionDigits: 4,
+            minimumFractionDigits: 8,
+            maximumFractionDigits: 8,
         }) + "%";
     }
 

@@ -1335,6 +1335,49 @@ def _texto_percentual_apuracao(valor):
     return f"{texto}%"
 
 
+def _linha_feedback_parametro_apuracao(data_ref, valor):
+    return {
+        "data": data_ref.strftime("%d/%m/%Y") if data_ref else "",
+        "valor": _texto_moeda_apuracao(valor),
+    }
+
+
+def _totais_apuracao_por_data(qs, campo_data, campo_valor, *, max_digits=20, decimal_places=2):
+    return {
+        item[campo_data]: Decimal(item.get("total") or 0)
+        for item in (
+            qs.values(campo_data).annotate(
+                total=Coalesce(
+                    Sum(campo_valor),
+                    Value(Decimal("0"), output_field=DecimalField(max_digits=max_digits, decimal_places=decimal_places)),
+                )
+            )
+        )
+    }
+
+
+def _somar_demonstrativo_diario_apuracao(totais_por_data, data_inicial, data_final, remuneracao):
+    datas_disponiveis = sorted(totais_por_data.keys())
+    saldo_dia = Decimal("0")
+    for data_ref in datas_disponiveis:
+        if data_ref < data_inicial:
+            saldo_dia = totais_por_data.get(data_ref, Decimal("0"))
+        else:
+            break
+
+    total = Decimal("0")
+    linhas_feedback = []
+    data_cursor = data_inicial
+    while data_cursor <= data_final:
+        if data_cursor in totais_por_data:
+            saldo_dia = totais_por_data[data_cursor]
+        valor_dia = saldo_dia * Decimal(remuneracao or 0)
+        linhas_feedback.append(_linha_feedback_parametro_apuracao(data_cursor, _decimal_2(valor_dia)))
+        total += valor_dia
+        data_cursor += timedelta(days=1)
+    return _decimal_2(total), linhas_feedback
+
+
 def _linha_apuracao(
     descricao,
     classe,
@@ -1459,79 +1502,50 @@ def _calcular_kpi_parametros_financeiros(empresa, data_inicial, data_final):
         "contas receber",
         "financeiro",
     )
-    taxa_adiantamentos = _obter_valor_parametro_financeiro(
+    remuneracao_adiantamentos = _obter_valor_parametro_financeiro(
         empresa,
-        "taxa_ao_mes",
+        "remuneracao_percentual",
         "adiantamentos",
         "adiantamento",
     )
-    taxa_estoque = _obter_valor_parametro_financeiro(empresa, "taxa_ao_mes", "estoque")
+    remuneracao_estoque = _obter_valor_parametro_financeiro(empresa, "remuneracao_percentual", "estoque")
 
-    saldo_total_adiantamentos = _sum_decimal(
-        Adiantamento.objects.filter(empresa=empresa),
+    totais_contas_receber_por_data = _totais_apuracao_por_data(
+        ContasAReceber.objects.filter(empresa=empresa, data_arquivo__isnull=False),
+        "data_arquivo",
+        "valor_liquido",
+    )
+    resultado_demonstrativo_financeiro, feedback_financeiro = _somar_demonstrativo_diario_apuracao(
+        totais_contas_receber_por_data,
+        data_inicial,
+        data_final,
+        remuneracao_financeiro,
+    )
+
+    totais_adiantamentos_por_data = _totais_apuracao_por_data(
+        Adiantamento.objects.filter(empresa=empresa, data_arquivo__isnull=False),
+        "data_arquivo",
         "saldo_real_em_reais",
-        max_digits=20,
-        decimal_places=2,
+    )
+    resultado_demonstrativo_adiantamentos, feedback_adiantamentos = _somar_demonstrativo_diario_apuracao(
+        totais_adiantamentos_por_data,
+        data_inicial,
+        data_final,
+        remuneracao_adiantamentos,
     )
 
-    totais_contas_receber_por_data = {
-        item["data_arquivo"]: Decimal(item.get("total") or 0)
-        for item in (
-            ContasAReceber.objects.filter(
-                empresa=empresa,
-                data_arquivo__isnull=False,
-            )
-            .values("data_arquivo")
-            .annotate(
-                total=Coalesce(
-                    Sum("valor_liquido"),
-                    Value(Decimal("0"), output_field=DecimalField(max_digits=20, decimal_places=2)),
-                )
-            )
-        )
-    }
-    datas_contas_receber = sorted(totais_contas_receber_por_data.keys())
-    saldo_base_contas_receber = Decimal("0")
-    for data_ref in datas_contas_receber:
-        if data_ref < data_inicial:
-            saldo_base_contas_receber = totais_contas_receber_por_data.get(data_ref, Decimal("0"))
-        else:
-            break
-
-    saldo_contas_receber_dia = saldo_base_contas_receber
-    total_demonstrativo_financeiro = Decimal("0")
-    data_cursor = data_inicial
-    while data_cursor <= data_final:
-        if data_cursor in totais_contas_receber_por_data:
-            saldo_contas_receber_dia = totais_contas_receber_por_data[data_cursor]
-        total_demonstrativo_financeiro += saldo_contas_receber_dia * remuneracao_financeiro
-        data_cursor += timedelta(days=1)
-
-    ultima_data_estoque_periodo = (
-        Estoque.objects.filter(
-            empresa=empresa,
-            data_contagem__gte=data_inicial,
-            data_contagem__lte=data_final,
-        )
-        .aggregate(data=Max("data_contagem"))
-        .get("data")
+    totais_estoque_por_data = _totais_apuracao_por_data(
+        Estoque.objects.filter(empresa=empresa),
+        "data_contagem",
+        "custo_total",
+        decimal_places=3,
     )
-    if ultima_data_estoque_periodo:
-        estoque_ultima_posicao_periodo = _sum_decimal(
-            Estoque.objects.filter(
-                empresa=empresa,
-                data_contagem=ultima_data_estoque_periodo,
-            ),
-            "custo_total",
-            max_digits=20,
-            decimal_places=3,
-        )
-    else:
-        estoque_ultima_posicao_periodo = Decimal("0")
-
-    resultado_demonstrativo_financeiro = _decimal_2(total_demonstrativo_financeiro)
-    resultado_demonstrativo_adiantamentos = _decimal_2(saldo_total_adiantamentos * taxa_adiantamentos)
-    resultado_demonstrativo_estoque = _decimal_2(estoque_ultima_posicao_periodo * taxa_estoque)
+    resultado_demonstrativo_estoque, feedback_estoque = _somar_demonstrativo_diario_apuracao(
+        totais_estoque_por_data,
+        data_inicial,
+        data_final,
+        remuneracao_estoque,
+    )
     valor = _decimal_2(
         resultado_demonstrativo_financeiro
         + resultado_demonstrativo_adiantamentos
@@ -1543,6 +1557,23 @@ def _calcular_kpi_parametros_financeiros(empresa, data_inicial, data_final):
         "resultado_demonstrativo_financeiro": resultado_demonstrativo_financeiro,
         "resultado_demonstrativo_adiantamentos": resultado_demonstrativo_adiantamentos,
         "resultado_demonstrativo_estoque": resultado_demonstrativo_estoque,
+        "feedback": [
+            {
+                "titulo": "Resultado Demonstrativo Financeiro",
+                "total": _texto_moeda_apuracao(resultado_demonstrativo_financeiro),
+                "linhas": feedback_financeiro,
+            },
+            {
+                "titulo": "Resultado Demonstrativo Adiantamentos",
+                "total": _texto_moeda_apuracao(resultado_demonstrativo_adiantamentos),
+                "linhas": feedback_adiantamentos,
+            },
+            {
+                "titulo": "Resultado Demonstrativo Estoque",
+                "total": _texto_moeda_apuracao(resultado_demonstrativo_estoque),
+                "linhas": feedback_estoque,
+            },
+        ],
     }
 
 
@@ -1789,6 +1820,7 @@ def _contexto_tabela_apuracao_resultados(empresa, data_inicial, data_final, cmv_
     dashboard["parametros_financeiros_estoque"] = _texto_moeda_apuracao(
         kpi_parametros_financeiros.get("resultado_demonstrativo_estoque")
     )
+    dashboard["parametros_financeiros_feedback"] = kpi_parametros_financeiros.get("feedback") or []
 
     return {
         "colunas": [{"chave": chave, "nome": nome} for chave, nome in _APURACAO_COLUNAS_SETORIAIS],
@@ -1823,10 +1855,16 @@ def apuracao_de_resultados(request, empresa_id):
         _APURACAO_PERCENTUAL_CMV_AJUSTADO,
     )
 
+    data_inicial_raw = request.GET.get("data_inicial")
+    data_final_raw = request.GET.get("data_final")
+    if not data_inicial_raw and not data_final_raw:
+        data_inicial_raw = request.COOKIES.get(f"apuracao_data_inicial_{empresa.id}")
+        data_final_raw = request.COOKIES.get(f"apuracao_data_final_{empresa.id}")
+
     data_inicial, data_final = _resolver_periodo_apuracao(
         empresa,
-        request.GET.get("data_inicial"),
-        request.GET.get("data_final"),
+        data_inicial_raw,
+        data_final_raw,
     )
 
     tabela_apuracao = _contexto_tabela_apuracao_resultados(
@@ -1848,7 +1886,11 @@ def apuracao_de_resultados(request, empresa_id):
         "apuracao_linhas": tabela_apuracao["linhas"],
         **cards_estoque,
     }
-    return render(request, modulo["template"], contexto)
+    resposta = render(request, modulo["template"], contexto)
+    cookie_kwargs = {"max_age": 60 * 60 * 24 * 365, "samesite": "Lax"}
+    resposta.set_cookie(f"apuracao_data_inicial_{empresa.id}", data_inicial.isoformat(), **cookie_kwargs)
+    resposta.set_cookie(f"apuracao_data_final_{empresa.id}", data_final.isoformat(), **cookie_kwargs)
+    return resposta
 
 
 @login_required(login_url="entrar")

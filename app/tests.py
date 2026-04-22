@@ -14,6 +14,7 @@ from uuid import uuid4
 from pathlib import Path
 from unittest.mock import patch
 from .models import (
+    Adiantamento,
     Atividade,
     Cargas,
     Carteira,
@@ -25,6 +26,7 @@ from .models import (
     Descritivo,
     DescricaoPerfil,
     Empresa,
+    Estoque,
     Natureza,
     Operacao,
     Orcamento,
@@ -2023,6 +2025,18 @@ class ApuracaoParametrosFinanceirosTest(TestCase):
             taxa_ao_mes=Decimal("0.030000"),
             remuneracao_percentual=Decimal("0.001000"),
         )
+        ParametroMargemFinanceiro.objects.create(
+            empresa=self.empresa,
+            parametro="Adiantamentos",
+            taxa_ao_mes=Decimal("0.060000"),
+            remuneracao_percentual=Decimal("0.002000"),
+        )
+        ParametroMargemFinanceiro.objects.create(
+            empresa=self.empresa,
+            parametro="Estoque",
+            taxa_ao_mes=Decimal("0.090000"),
+            remuneracao_percentual=Decimal("0.003000"),
+        )
 
         ContasAReceber.criar_conta_a_receber(
             empresa=self.empresa,
@@ -2045,6 +2059,30 @@ class ApuracaoParametrosFinanceirosTest(TestCase):
             data_arquivo=date(2026, 1, 10),
             valor_liquido=Decimal("300.00"),
         )
+        Adiantamento.criar_adiantamento(
+            empresa=self.empresa,
+            data_arquivo=date(2026, 1, 2),
+            conta_descricao="Conta A",
+            saldo_real_em_reais=Decimal("1000.00"),
+        )
+        Adiantamento.criar_adiantamento(
+            empresa=self.empresa,
+            data_arquivo=date(2026, 1, 5),
+            conta_descricao="Conta B",
+            saldo_real_em_reais=Decimal("2000.00"),
+        )
+        Estoque.criar_estoque(
+            empresa=self.empresa,
+            nome_origem=date(2026, 1, 3),
+            data_contagem=date(2026, 1, 3),
+            custo_total=Decimal("10000.000"),
+        )
+        Estoque.criar_estoque(
+            empresa=self.empresa,
+            nome_origem=date(2026, 1, 6),
+            data_contagem=date(2026, 1, 6),
+            custo_total=Decimal("20000.000"),
+        )
 
         resultado = _calcular_kpi_parametros_financeiros(
             self.empresa,
@@ -2053,4 +2091,6 @@ class ApuracaoParametrosFinanceirosTest(TestCase):
         )
 
         self.assertEqual(resultado["resultado_demonstrativo_financeiro"], Decimal("1.70"))
-        self.assertEqual(resultado["valor"], Decimal("1.70"))
+        self.assertEqual(resultado["resultado_demonstrativo_adiantamentos"], Decimal("30.00"))
+        self.assertEqual(resultado["resultado_demonstrativo_estoque"], Decimal("390.00"))
+        self.assertEqual(resultado["valor"], Decimal("421.70"))
