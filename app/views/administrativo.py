@@ -1462,6 +1462,32 @@ def _somar_custo_total_estoque_por_data(empresa, data_referencia):
     )
 
 
+def _posicao_estoque_mais_proxima_ate_data(empresa, data_referencia):
+    posicoes = (
+        Estoque.objects.filter(empresa=empresa, data_contagem__lte=data_referencia)
+        .values("data_contagem")
+        .annotate(
+            total=Coalesce(
+                Sum("custo_total"),
+                Value(Decimal("0"), output_field=DecimalField(max_digits=20, decimal_places=3)),
+            )
+        )
+        .order_by("-data_contagem")
+    )
+    for posicao in posicoes:
+        total = Decimal(posicao.get("total") or 0)
+        if total != 0:
+            return posicao.get("data_contagem"), total
+    return data_referencia, Decimal("0")
+
+
+def _texto_data_referencia_estoque_apuracao(data_original, data_usada):
+    texto_original = data_original.strftime("%d/%m/%Y")
+    if data_usada and data_usada != data_original:
+        return f"{texto_original} | usado {data_usada.strftime('%d/%m/%Y')}"
+    return texto_original
+
+
 def _obter_parametro_logistica_operador(empresa):
     parametro_operador = (
         ParametroMargemLogistica.objects.filter(empresa=empresa, parametro__icontains="operador")
@@ -1831,11 +1857,11 @@ def _contexto_tabela_apuracao_resultados(empresa, data_inicial, data_final, cmv_
 
 
 def _contexto_cards_estoque_apuracao(empresa, data_inicial, data_final):
-    estoque_inicial_total = _somar_custo_total_estoque_por_data(empresa, data_inicial)
-    estoque_final_total = _somar_custo_total_estoque_por_data(empresa, data_final)
+    estoque_data_inicial_usada, estoque_inicial_total = _posicao_estoque_mais_proxima_ate_data(empresa, data_inicial)
+    estoque_data_final_usada, estoque_final_total = _posicao_estoque_mais_proxima_ate_data(empresa, data_final)
     return {
-        "estoque_data_inicial": data_inicial.strftime("%d/%m/%Y"),
-        "estoque_data_final": data_final.strftime("%d/%m/%Y"),
+        "estoque_data_inicial": _texto_data_referencia_estoque_apuracao(data_inicial, estoque_data_inicial_usada),
+        "estoque_data_final": _texto_data_referencia_estoque_apuracao(data_final, estoque_data_final_usada),
         "estoque_valor_inicial": _texto_moeda_apuracao(estoque_inicial_total),
         "estoque_valor_final": _texto_moeda_apuracao(estoque_final_total),
     }

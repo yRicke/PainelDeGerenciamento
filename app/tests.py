@@ -2016,6 +2016,33 @@ class ApuracaoParametrosFinanceirosTest(TestCase):
     def setUp(self):
         self.empresa = Empresa.criar_empresa(nome="Empresa Apuracao")
 
+    def test_cards_estoque_usam_posicao_anterior_quando_data_zerada(self):
+        from .views.administrativo import _contexto_cards_estoque_apuracao
+
+        Estoque.criar_estoque(
+            empresa=self.empresa,
+            nome_origem=date(2025, 12, 30),
+            data_contagem=date(2025, 12, 30),
+            custo_total=Decimal("1234.000"),
+        )
+        Estoque.criar_estoque(
+            empresa=self.empresa,
+            nome_origem=date(2026, 1, 15),
+            data_contagem=date(2026, 1, 15),
+            custo_total=Decimal("4321.000"),
+        )
+
+        contexto = _contexto_cards_estoque_apuracao(
+            self.empresa,
+            date(2026, 1, 1),
+            date(2026, 1, 31),
+        )
+
+        self.assertEqual(contexto["estoque_data_inicial"], "01/01/2026 | usado 30/12/2025")
+        self.assertEqual(contexto["estoque_valor_inicial"], "R$ 1.234,00")
+        self.assertEqual(contexto["estoque_data_final"], "31/01/2026 | usado 15/01/2026")
+        self.assertEqual(contexto["estoque_valor_final"], "R$ 4.321,00")
+
     def test_kpi_financeiro_carrega_ultima_posicao_e_usa_remuneracao_diaria(self):
         from .views.administrativo import _calcular_kpi_parametros_financeiros
 
