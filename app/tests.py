@@ -6,7 +6,8 @@ from django.utils import timezone
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from datetime import time, timedelta
+from datetime import date, time, timedelta
+from decimal import Decimal
 import json
 import shutil
 from uuid import uuid4
@@ -20,6 +21,7 @@ from .models import (
     Cidade,
     Colaborador,
     ContratoRede,
+    ContasAReceber,
     Descritivo,
     DescricaoPerfil,
     Empresa,
@@ -29,6 +31,7 @@ from .models import (
     OrcamentoPlanejado,
     Parceiro,
     Permissao,
+    ParametroMargemFinanceiro,
     ParametroMeta,
     PlanoCargoSalario,
     Projeto,
@@ -2005,3 +2008,49 @@ class CargasCrudServiceTest(TestCase):
             },
         )
         self.assertIn("Data de finalizacao", erro)
+
+
+class ApuracaoParametrosFinanceirosTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Apuracao")
+
+    def test_kpi_financeiro_carrega_ultima_posicao_e_usa_remuneracao_diaria(self):
+        from .views.administrativo import _calcular_kpi_parametros_financeiros
+
+        ParametroMargemFinanceiro.objects.create(
+            empresa=self.empresa,
+            parametro="Contas a Receber",
+            taxa_ao_mes=Decimal("0.030000"),
+            remuneracao_percentual=Decimal("0.001000"),
+        )
+
+        ContasAReceber.criar_conta_a_receber(
+            empresa=self.empresa,
+            data_negociacao=date(2025, 12, 30),
+            data_vencimento=date(2026, 1, 30),
+            data_arquivo=date(2025, 12, 30),
+            valor_liquido=Decimal("100.00"),
+        )
+        ContasAReceber.criar_conta_a_receber(
+            empresa=self.empresa,
+            data_negociacao=date(2026, 1, 5),
+            data_vencimento=date(2026, 2, 5),
+            data_arquivo=date(2026, 1, 5),
+            valor_liquido=Decimal("200.00"),
+        )
+        ContasAReceber.criar_conta_a_receber(
+            empresa=self.empresa,
+            data_negociacao=date(2026, 1, 10),
+            data_vencimento=date(2026, 2, 10),
+            data_arquivo=date(2026, 1, 10),
+            valor_liquido=Decimal("300.00"),
+        )
+
+        resultado = _calcular_kpi_parametros_financeiros(
+            self.empresa,
+            date(2026, 1, 1),
+            date(2026, 1, 10),
+        )
+
+        self.assertEqual(resultado["resultado_demonstrativo_financeiro"], Decimal("1.70"))
+        self.assertEqual(resultado["valor"], Decimal("1.70"))

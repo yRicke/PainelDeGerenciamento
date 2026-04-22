@@ -72,6 +72,24 @@ def _build_module_context_by_segment():
             "module_label": contas_ctx["module_label"],
         }
 
+    # Parametros da Apuracao de Resultados pertencem ao fluxo Administrativo.
+    for segment in (
+        "produtos",
+        "parametros_vendas",
+        "parametros_logistica",
+        "parametros_administracao",
+        "parametros_financeiro",
+        "parametros_negocios",
+    ):
+        ctx = mapping.get(segment)
+        if not ctx:
+            continue
+        mapping[segment] = {
+            "category_slug": "administrativo",
+            "category_label": CATEGORY_LABELS["administrativo"],
+            "module_label": ctx["module_label"],
+        }
+
     return mapping
 
 

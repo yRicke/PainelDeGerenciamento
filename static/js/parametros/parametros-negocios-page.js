@@ -10,10 +10,14 @@
         return String(value);
     }
 
+    function normalizeUnit(value) {
+        return String(value || "").toLowerCase() === "percentual" ? "percentual" : "valor";
+    }
+
     function parseDecimalInput(texto) {
         var t = String(texto || "").trim();
         if (!t) return 0;
-        t = t.replace(/R\$/g, "").replace(/\s/g, "");
+        t = t.replace(/R\$/g, "").replace(/%/g, "").replace(/\s/g, "");
         if (t.indexOf(",") >= 0) {
             t = t.replace(/\./g, "").replace(",", ".");
         } else if ((t.match(/\./g) || []).length > 1 && t.toLowerCase().indexOf("e") < 0) {
@@ -33,28 +37,54 @@
         });
     }
 
+    function formatPercent(value) {
+        var numero = parseDecimalInput(value);
+        if (!Number.isFinite(numero)) numero = 0;
+        return numero.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }) + "%";
+    }
+
+    function formatByUnit(value, unit) {
+        return normalizeUnit(unit) === "percentual" ? formatPercent(value) : formatMoney(value);
+    }
+
     function calcularGerenteMpLuciano(compromisso, gerentePaOutros) {
         return parseDecimalInput(compromisso) - parseDecimalInput(gerentePaOutros);
     }
 
-    function atualizarCampoGerenteMpLuciano(compromissoInput, gerentePaInput, gerenteMpInput) {
-        if (!compromissoInput || !gerentePaInput || !gerenteMpInput) return;
+    function atualizarCampoGerenteMpLuciano(compromissoInput, compromissoUnitInput, gerentePaInput, gerenteMpInput) {
+        if (!compromissoInput || !compromissoUnitInput || !gerentePaInput || !gerenteMpInput) return;
+        if (normalizeUnit(compromissoUnitInput.value) !== "valor") {
+            gerenteMpInput.value = "--";
+            return;
+        }
         var valor = calcularGerenteMpLuciano(compromissoInput.value, gerentePaInput.value);
         gerenteMpInput.value = formatMoney(valor);
     }
 
     var compromissoNovo = document.getElementById("compromisso-novo");
+    var compromissoUnidadeNovo = document.getElementById("compromisso-unidade-novo");
     var gerentePaNovo = document.getElementById("gerente-pa-novo");
     var gerenteMpNovo = document.getElementById("gerente-mp-luciano-novo");
-    if (compromissoNovo && gerentePaNovo && gerenteMpNovo) {
-        atualizarCampoGerenteMpLuciano(compromissoNovo, gerentePaNovo, gerenteMpNovo);
+    if (compromissoNovo && compromissoUnidadeNovo && gerentePaNovo && gerenteMpNovo) {
+        atualizarCampoGerenteMpLuciano(compromissoNovo, compromissoUnidadeNovo, gerentePaNovo, gerenteMpNovo);
         compromissoNovo.addEventListener("input", function () {
-            atualizarCampoGerenteMpLuciano(compromissoNovo, gerentePaNovo, gerenteMpNovo);
+            atualizarCampoGerenteMpLuciano(compromissoNovo, compromissoUnidadeNovo, gerentePaNovo, gerenteMpNovo);
+        });
+        compromissoUnidadeNovo.addEventListener("change", function () {
+            atualizarCampoGerenteMpLuciano(compromissoNovo, compromissoUnidadeNovo, gerentePaNovo, gerenteMpNovo);
         });
         gerentePaNovo.addEventListener("input", function () {
-            atualizarCampoGerenteMpLuciano(compromissoNovo, gerentePaNovo, gerenteMpNovo);
+            atualizarCampoGerenteMpLuciano(compromissoNovo, compromissoUnidadeNovo, gerentePaNovo, gerenteMpNovo);
         });
     }
+
+    var unidadeValues = {
+        valor: "R$",
+        percentual: "%",
+    };
 
     var colunaAcoes = window.TabulatorDefaults.buildSaveDeleteActionColumn({
         submitPost: submitPost,
@@ -70,7 +100,9 @@
                 item_id: row.id,
                 direcao: toFieldValue(row.direcao),
                 meta: toFieldValue(row.meta),
+                meta_unidade: normalizeUnit(row.meta_unidade),
                 compromisso: toFieldValue(row.compromisso),
+                compromisso_unidade: normalizeUnit(row.compromisso_unidade),
                 gerente_pa_e_outros: toFieldValue(row.gerente_pa_e_outros),
             };
         },
@@ -87,11 +119,15 @@
         if (!cell || !cell.getRow) return;
         var row = cell.getRow();
         var rowData = row.getData() || {};
+        if (normalizeUnit(rowData.compromisso_unidade) !== "valor") {
+            row.update({gerente_mp_e_gerente_luciano: 0});
+            return;
+        }
         var valor = calcularGerenteMpLuciano(rowData.compromisso, rowData.gerente_pa_e_outros);
         row.update({gerente_mp_e_gerente_luciano: valor});
     }
 
-    var tabela = window.TabulatorDefaults.create("#parametros-negocios-tabulator", {
+    window.TabulatorDefaults.create("#parametros-negocios-tabulator", {
         data: data,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
@@ -101,21 +137,48 @@
                 editor: "input",
             },
             {
-                title: "Meta (R$)",
+                title: "Meta",
                 field: "meta",
                 editor: "input",
                 hozAlign: "right",
                 formatter: function (cell) {
-                    return formatMoney(cell.getValue());
+                    var row = cell.getRow().getData() || {};
+                    return formatByUnit(cell.getValue(), row.meta_unidade);
                 },
             },
             {
-                title: "Compromisso (R$)",
+                title: "Unid. Meta",
+                field: "meta_unidade",
+                editor: "list",
+                editorParams: {
+                    values: unidadeValues,
+                    clearable: false,
+                },
+                formatter: function (cell) {
+                    return unidadeValues[normalizeUnit(cell.getValue())] || "R$";
+                },
+            },
+            {
+                title: "Compromisso",
                 field: "compromisso",
                 editor: "input",
                 hozAlign: "right",
                 formatter: function (cell) {
-                    return formatMoney(cell.getValue());
+                    var row = cell.getRow().getData() || {};
+                    return formatByUnit(cell.getValue(), row.compromisso_unidade);
+                },
+                cellEdited: atualizarGerenteMpDaLinha,
+            },
+            {
+                title: "Unid. Compromisso",
+                field: "compromisso_unidade",
+                editor: "list",
+                editorParams: {
+                    values: unidadeValues,
+                    clearable: false,
+                },
+                formatter: function (cell) {
+                    return unidadeValues[normalizeUnit(cell.getValue())] || "R$";
                 },
                 cellEdited: atualizarGerenteMpDaLinha,
             },
@@ -134,11 +197,12 @@
                 field: "gerente_mp_e_gerente_luciano",
                 hozAlign: "right",
                 formatter: function (cell) {
+                    var row = cell.getRow().getData() || {};
+                    if (normalizeUnit(row.compromisso_unidade) !== "valor") return "--";
                     return formatMoney(cell.getValue());
                 },
             },
             colunaAcoes,
         ],
     });
-
 })();

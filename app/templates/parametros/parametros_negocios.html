@@ -11,7 +11,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+    <a href="{% url 'apuracao_de_resultados' empresa.id %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
     <h1>Parametros de Negocios</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -27,12 +27,26 @@
                 <input type="text" name="direcao" value="Faturamento" required>
             </div>
             <div>
-                <label>Meta (R$)</label>
-                <input type="text" name="meta" required>
+                <label>Meta</label>
+                <input type="text" name="meta" required placeholder="Ex.: 150000 ou 3,5%">
             </div>
             <div>
-                <label>Compromisso (R$)</label>
-                <input type="text" name="compromisso" id="compromisso-novo" required>
+                <label>Unidade Meta</label>
+                <select name="meta_unidade">
+                    <option value="valor" selected>R$</option>
+                    <option value="percentual">%</option>
+                </select>
+            </div>
+            <div>
+                <label>Compromisso</label>
+                <input type="text" name="compromisso" id="compromisso-novo" required placeholder="Ex.: 120000 ou 4,0%">
+            </div>
+            <div>
+                <label>Unidade Compromisso</label>
+                <select name="compromisso_unidade" id="compromisso-unidade-novo">
+                    <option value="valor" selected>R$</option>
+                    <option value="percentual">%</option>
+                </select>
             </div>
             <div>
                 <label>Gerente PA e Outros (R$)</label>
@@ -41,7 +55,7 @@
             <div>
                 <label>Gerente MP e Gerente Luciano (R$)</label>
                 <input type="text" id="gerente-mp-luciano-novo" value="R$ 0,00" disabled>
-                <small>Resultado automatico: Compromisso - Gerente PA e Outros</small>
+                <small>Resultado automatico quando Compromisso estiver em R$: Compromisso - Gerente PA e Outros</small>
             </div>
         </div>
         <div class="form-actions">

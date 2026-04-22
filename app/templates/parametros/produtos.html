@@ -10,7 +10,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
+    <a href="{% url 'apuracao_de_resultados' empresa.id %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
     <h1>Produtos</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>

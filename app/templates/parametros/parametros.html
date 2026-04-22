@@ -17,7 +17,7 @@
     <h2>Módulos</h2>
     <ul class="module-list">
         {% for modulo in modulos %}
-        {% if modulo.url != 'contas_bancarias' %}
+        {% if modulo.url != 'contas_bancarias' and modulo.url != 'produtos' and modulo.url != 'parametros_vendas' and modulo.url != 'parametros_logistica' and modulo.url != 'parametros_administracao' and modulo.url != 'parametros_financeiro' and modulo.url != 'parametros_negocios' %}
         <li>
             <a
                 href="{% if user.empresa_id %}{% url modulo.url user.empresa_id %}{% else %}#{% endif %}"

@@ -3197,12 +3197,42 @@ def _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros):
     return compromisso_decimal - gerente_pa_decimal
 
 
+def _normalizar_unidade_parametro_negocios(valor):
+    texto = str(valor or "").strip().lower()
+    if texto in {"percentual", "%", "percent", "pct"}:
+        return "percentual"
+    return "valor"
+
+
+def _parse_meta_ou_compromisso_por_unidade(valor, unidade):
+    texto = str(valor or "").strip()
+    if not texto:
+        return Decimal("0")
+
+    unidade_normalizada = _normalizar_unidade_parametro_negocios(unidade)
+    if unidade_normalizada == "percentual":
+        tem_percentual = "%" in texto
+        numero = _parse_decimal_ou_zero(texto.replace("%", ""))
+        if tem_percentual:
+            return numero
+        if numero.copy_abs() <= Decimal("1"):
+            return numero * Decimal("100")
+        return numero
+    return _parse_decimal_ou_zero(texto)
+
+
 def criar_parametro_negocios(empresa, post_data):
     direcao = (post_data.get("direcao") or "").strip()
-    meta = _parse_decimal_ou_zero(post_data.get("meta"))
-    compromisso = _parse_decimal_ou_zero(post_data.get("compromisso"))
+    meta_unidade = _normalizar_unidade_parametro_negocios(post_data.get("meta_unidade"))
+    compromisso_unidade = _normalizar_unidade_parametro_negocios(post_data.get("compromisso_unidade"))
+    meta = _parse_meta_ou_compromisso_por_unidade(post_data.get("meta"), meta_unidade)
+    compromisso = _parse_meta_ou_compromisso_por_unidade(post_data.get("compromisso"), compromisso_unidade)
     gerente_pa_e_outros = _parse_decimal_ou_zero(post_data.get("gerente_pa_e_outros"))
-    gerente_mp_e_gerente_luciano = _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros)
+    gerente_mp_e_gerente_luciano = (
+        _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros)
+        if compromisso_unidade == "valor"
+        else Decimal("0")
+    )
     if not direcao:
         return "Direcao e obrigatoria."
 
@@ -3210,7 +3240,9 @@ def criar_parametro_negocios(empresa, post_data):
         empresa=empresa,
         direcao=direcao,
         meta=meta,
+        meta_unidade=meta_unidade,
         compromisso=compromisso,
+        compromisso_unidade=compromisso_unidade,
         gerente_pa_e_outros=gerente_pa_e_outros,
         gerente_mp_e_gerente_luciano=gerente_mp_e_gerente_luciano,
     )
@@ -3222,23 +3254,33 @@ def atualizar_parametro_negocios(item, empresa, post_data):
         return "Parametro invalido para esta empresa."
 
     direcao = (post_data.get("direcao") or "").strip()
-    meta = _parse_decimal_ou_zero(post_data.get("meta"))
-    compromisso = _parse_decimal_ou_zero(post_data.get("compromisso"))
+    meta_unidade = _normalizar_unidade_parametro_negocios(post_data.get("meta_unidade"))
+    compromisso_unidade = _normalizar_unidade_parametro_negocios(post_data.get("compromisso_unidade"))
+    meta = _parse_meta_ou_compromisso_por_unidade(post_data.get("meta"), meta_unidade)
+    compromisso = _parse_meta_ou_compromisso_por_unidade(post_data.get("compromisso"), compromisso_unidade)
     gerente_pa_e_outros = _parse_decimal_ou_zero(post_data.get("gerente_pa_e_outros"))
-    gerente_mp_e_gerente_luciano = _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros)
+    gerente_mp_e_gerente_luciano = (
+        _calcular_gerente_mp_e_gerente_luciano(compromisso, gerente_pa_e_outros)
+        if compromisso_unidade == "valor"
+        else Decimal("0")
+    )
     if not direcao:
         return "Direcao e obrigatoria."
 
     item.direcao = direcao
     item.meta = meta
+    item.meta_unidade = meta_unidade
     item.compromisso = compromisso
+    item.compromisso_unidade = compromisso_unidade
     item.gerente_pa_e_outros = gerente_pa_e_outros
     item.gerente_mp_e_gerente_luciano = gerente_mp_e_gerente_luciano
     item.save(
         update_fields=[
             "direcao",
             "meta",
+            "meta_unidade",
             "compromisso",
+            "compromisso_unidade",
             "gerente_pa_e_outros",
             "gerente_mp_e_gerente_luciano",
         ]

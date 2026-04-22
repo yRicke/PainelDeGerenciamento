@@ -1,16 +1,214 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Apuracao de Resultados{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/module-links.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/module-crud.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/apuracao-de-resultados-page.css' %}">
+{% endblock %}
+
 {% block content %}
-<section class="page-hero">
-    <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-    <h1>Apuracao de Resultados</h1>
-    <p>Empresa: {{ empresa.nome }}</p>
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Administrativo</span>
+            </div>
+            <h1>Apuracao de Resultados</h1>
+            <p class="module-hero-subtitle">Central de acesso aos parametros usados na apuracao.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
 </section>
 
-<section class="panel">
-    <h2>Apuracao de Resultados</h2>
-    <p>Modulo liberado. Conteudo em desenvolvimento.</p>
+<section class="panel module-section apuracao-toolbar">
+    <nav class="module-sections-nav" aria-label="Navegacao de secoes">
+        <a href="#sec-apuracao-data">Apuracao de Resultados por Data</a>
+        <a href="#sec-apuracao-dashboard">Dashboard</a>
+        <a href="#sec-apuracao-estoque">Estoque</a>
+        <a href="#sec-apuracao-matriz">Tabela de Apuracao</a>
+        <a href="#sec-parametros-apuracao">Parametros de Apuracao</a>
+    </nav>
 </section>
+
+<section id="sec-parametros-apuracao" class="panel module-section">
+    <h2>Parametros de Apuracao</h2>
+    <ul class="module-list">
+        {% for modulo in parametros_apuracao_modulos %}
+        <li>
+            <a
+                href="{% if modulo.permitido %}{% url modulo.url empresa.id %}{% else %}#{% endif %}"
+                class="{% if not modulo.permitido %}module-link--blocked{% endif %}"
+                {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
+            >
+                {{ modulo.nome }}
+                {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+
+<section id="sec-apuracao-data" class="panel module-section">
+    <h2>Apuracao de Resultados por Data</h2>
+    <form method="get">
+        <div class="filter-grid">
+            <div>
+                <label for="apuracao-data-inicial">Data Inicial</label>
+                <input
+                    type="date"
+                    id="apuracao-data-inicial"
+                    name="data_inicial"
+                    value="{{ data_inicial_iso }}"
+                >
+            </div>
+            <div>
+                <label for="apuracao-data-final">Data Final</label>
+                <input
+                    type="date"
+                    id="apuracao-data-final"
+                    name="data_final"
+                    value="{{ data_final_iso }}"
+                >
+            </div>
+        </div>
+    </form>
+</section>
+
+<section id="sec-apuracao-dashboard" class="panel module-section">
+    <h2>Dashboard</h2>
+    <div class="apuracao-kpi-grid">
+        <article class="dashboard-total-card apuracao-kpi-card">
+            <p class="dashboard-total-label">Resultado Setorial</p>
+            <p class="dashboard-total-value">{{ apuracao_dashboard.lucro_setorial_total }}</p>
+            <p class="dashboard-total-note">Lucro Liquido (Vendas + Producao + Logistica + Administracao + Financeiro)</p>
+        </article>
+        <article class="dashboard-total-card apuracao-kpi-card">
+            <p class="dashboard-total-label">Margem Liquida Compras</p>
+            <p class="dashboard-total-value">{{ apuracao_dashboard.margem_liquida_compras }}</p>
+            <p class="dashboard-total-note">Lucro Liquido Compras / Receita Bruta Compras</p>
+        </article>
+        <article class="dashboard-total-card apuracao-kpi-card">
+            <p class="dashboard-total-label">Saldo Ajustado Compras</p>
+            <p class="dashboard-total-value">{{ apuracao_dashboard.saldo_apos_setores }}</p>
+            <p class="dashboard-total-note">Lucro Liquido Compras - Resultado Setorial</p>
+        </article>
+        <article class="dashboard-total-card apuracao-kpi-card">
+            <p class="dashboard-total-label">Indice Saldo Ajustado</p>
+            <p class="dashboard-total-value">{{ apuracao_dashboard.indice_saldo_apos_setores }}</p>
+            <p class="dashboard-total-note">Saldo Ajustado / Receita Bruta Compras</p>
+        </article>
+        <article class="dashboard-total-card apuracao-kpi-card">
+            <p class="dashboard-total-label">Parametros Financeiros</p>
+            <p class="dashboard-total-value">{{ apuracao_dashboard.parametros_financeiros }}</p>
+            <p class="dashboard-total-note">
+                Financeiro {{ apuracao_dashboard.parametros_financeiros_financeiro }} + Adiantamentos {{ apuracao_dashboard.parametros_financeiros_adiantamentos }} + Estoque {{ apuracao_dashboard.parametros_financeiros_estoque }}
+            </p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-apuracao-estoque" class="panel module-section">
+    <h2>Estoque</h2>
+    <div class="apuracao-estoque-grid">
+        <article class="dashboard-total-card apuracao-estoque-card">
+            <p class="dashboard-total-label">Inicial</p>
+            <p class="dashboard-total-note">{{ estoque_data_inicial }}</p>
+            <p class="dashboard-total-value">{{ estoque_valor_inicial }}</p>
+            <p class="dashboard-total-note">Valor (Custo Total)</p>
+        </article>
+        <article class="dashboard-total-card apuracao-estoque-card">
+            <p class="dashboard-total-label">Final</p>
+            <p class="dashboard-total-note">{{ estoque_data_final }}</p>
+            <p class="dashboard-total-value">{{ estoque_valor_final }}</p>
+            <p class="dashboard-total-note">Valor (Custo Total)</p>
+        </article>
+    </div>
+</section>
+
+<section id="sec-apuracao-matriz" class="panel module-section">
+    <h2>Tabela de Apuracao</h2>
+    <div class="table-wrapper apuracao-matriz-wrapper">
+        <table class="apuracao-matriz">
+            <thead>
+                <tr>
+                    <th class="col-descricao">Descricao</th>
+                    {% for coluna in apuracao_colunas %}
+                    <th>{{ coluna.nome }}</th>
+                    <th class="col-percentual">%</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in apuracao_linhas %}
+                <tr class="{{ linha.classe }}">
+                    <td class="col-descricao">{{ linha.descricao }}</td>
+                    {% for celula in linha.celulas %}
+                    <td class="col-valor">{{ celula.valor }}</td>
+                    <td class="col-percentual">
+                        {% if celula.percentual_editavel %}
+                        <span class="apuracao-percentual-input-wrap">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="apuracao-percentual-input"
+                                value="{{ celula.percentual_valor_edicao }}"
+                                data-query-param="{{ celula.percentual_input_name }}"
+                                aria-label="Percentual de CMV Ajustado"
+                            >
+                            <span>%</span>
+                        </span>
+                        {% else %}
+                        {{ celula.percentual }}
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+(function () {
+    var form = document.querySelector('#sec-apuracao-data form');
+    if (!form) return;
+    var dataInicial = form.querySelector('input[name="data_inicial"]');
+    var dataFinal = form.querySelector('input[name="data_final"]');
+    function enviar() {
+        form.submit();
+    }
+    if (dataInicial) dataInicial.addEventListener('change', enviar);
+    if (dataFinal) dataFinal.addEventListener('change', enviar);
+
+    var percentualInputs = document.querySelectorAll('.apuracao-percentual-input[data-query-param]');
+    percentualInputs.forEach(function (input) {
+        input.addEventListener('change', function () {
+            var queryParam = input.dataset.queryParam;
+            if (!queryParam) return;
+            var url = new URL(window.location.href);
+            var valor = String(input.value || '').trim();
+            if (!valor) {
+                url.searchParams.delete(queryParam);
+            } else {
+                url.searchParams.set(queryParam, valor);
+            }
+            url.hash = 'sec-apuracao-matriz';
+            window.location.href = url.toString();
+        });
+    });
+})();
+</script>
+
 {% endblock %}

@@ -1311,10 +1311,19 @@ class ParametroMargemFinanceiro(models.Model):
 
 
 class ParametroNegocios(models.Model):
+    UNIDADE_VALOR = "valor"
+    UNIDADE_PERCENTUAL = "percentual"
+    UNIDADE_CHOICES = (
+        (UNIDADE_VALOR, "R$"),
+        (UNIDADE_PERCENTUAL, "%"),
+    )
+
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="parametros_negocios")
     direcao = models.CharField(max_length=80, default="")
     meta = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    meta_unidade = models.CharField(max_length=12, choices=UNIDADE_CHOICES, default=UNIDADE_VALOR)
     compromisso = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    compromisso_unidade = models.CharField(max_length=12, choices=UNIDADE_CHOICES, default=UNIDADE_VALOR)
     gerente_pa_e_outros = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     gerente_mp_e_gerente_luciano = models.DecimalField(max_digits=16, decimal_places=2, default=0)
 

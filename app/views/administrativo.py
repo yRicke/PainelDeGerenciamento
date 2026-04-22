@@ -1,9 +1,12 @@
 import json
 import unicodedata
+from datetime import datetime
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import DecimalField, FloatField, Sum, Value
+from django.db.models import DecimalField, FloatField, Max, Sum, Value
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -12,21 +15,30 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..models import (
+    Adiantamento,
     Atividade,
     CentroResultado,
     Colaborador,
+    ContasAReceber,
     Descritivo,
     DescricaoPerfil,
+    Estoque,
     Faturamento,
     Natureza,
     Operacao,
+    Orcamento,
     Parceiro,
+    ParametroMargemAdministracao,
+    ParametroMargemFinanceiro,
+    ParametroMargemLogistica,
+    ParametroMargemVendas,
     ParametroMeta,
     ParametroNegocios,
     PedidoPendente,
     PlanoCargoSalario,
     Produto,
     Projeto,
+    Venda,
 )
 from ..services.administrativo import (
     atualizar_atividade_por_post,
@@ -1042,7 +1054,9 @@ def faturamento(request, empresa_id):
     )
     parametro_negocios_qs = ParametroNegocios.objects.filter(empresa=empresa).order_by("-id")
     parametro_negocios_faturamento = (
-        parametro_negocios_qs.filter(direcao__icontains="faturamento").first()
+        parametro_negocios_qs.filter(direcao__icontains="faturamento", compromisso_unidade="valor").first()
+        or parametro_negocios_qs.filter(direcao__icontains="faturamento").first()
+        or parametro_negocios_qs.filter(compromisso_unidade="valor").first()
         or parametro_negocios_qs.first()
     )
     faturamento_meta_config = {
@@ -1184,10 +1198,657 @@ def faturamento_dashboard_pdf(request, empresa_id):
     return resposta
 
 
+_APURACAO_COLUNAS_SETORIAIS = (
+    ("compras", "Compras"),
+    ("vendas", "Vendas"),
+    ("producao", "Producao"),
+    ("logistica", "Logistica"),
+    ("administracao", "Administracao"),
+    ("financeiro", "Financeiro"),
+)
+
+_APURACAO_PERCENTUAL_CMV_AJUSTADO = Decimal("0.89")
+_APURACAO_QUERY_PARAM_CMV_AJUSTADO = "cmv_ajustado_percentual"
+_APURACAO_CENTRO_ALIASES = {
+    "cmv": ("CMV",),
+    "administracao": ("ADMINISTRACAO",),
+    "comercial": ("COMERCIAL",),
+    "financeiro": ("FINANCEIRO",),
+    "industria": ("INDUSTRIA(ACUCAREIRA)",),
+    "logistica": ("LOGISTICA",),
+}
+_APURACAO_ORDEM_PARAMETROS = (
+    "parametros_vendas",
+    "produtos",
+    "parametros_logistica",
+    "parametros_administracao",
+    "parametros_financeiro",
+    "parametros_negocios",
+)
+_APURACAO_ROTULOS_PARAMETROS = {
+    "parametros_vendas": "Parametros Vendas",
+    "produtos": "Parametros Produtos",
+    "parametros_logistica": "Parametros Logistica",
+    "parametros_administracao": "Parametros Administracao",
+    "parametros_financeiro": "Parametros Financeiro",
+    "parametros_negocios": "Parametros do Negocio",
+}
+
+
+def _parse_data_iso(valor):
+    texto = str(valor or "").strip()
+    if not texto:
+        return None
+    try:
+        return datetime.strptime(texto, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _parse_percentual_apuracao_para_ratio(valor, default_ratio):
+    texto = str(valor or "").strip()
+    if not texto:
+        return Decimal(default_ratio)
+
+    tem_percentual = "%" in texto
+    texto = texto.replace("%", "").replace(" ", "")
+    if "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+
+    try:
+        numero = Decimal(texto)
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal(default_ratio)
+
+    if numero < 0:
+        return Decimal("0")
+    if tem_percentual or numero > 1:
+        return numero / Decimal("100")
+    return numero
+
+
+def _datas_default_apuracao(empresa):
+    max_faturamento = Faturamento.objects.filter(empresa=empresa).aggregate(data=Max("data_faturamento")).get("data")
+    max_orcamento = Orcamento.objects.filter(empresa=empresa).aggregate(data=Max("data_baixa")).get("data")
+
+    datas_validas = [data for data in (max_faturamento, max_orcamento) if data is not None]
+    if not datas_validas:
+        hoje = timezone.localdate()
+        return hoje, hoje
+
+    data_ref = max(datas_validas)
+    return data_ref, data_ref
+
+
+def _resolver_periodo_apuracao(empresa, data_inicial_raw, data_final_raw):
+    data_inicial = _parse_data_iso(data_inicial_raw)
+    data_final = _parse_data_iso(data_final_raw)
+
+    if data_inicial is None and data_final is None:
+        return _datas_default_apuracao(empresa)
+    if data_inicial is None:
+        return data_final, data_final
+    if data_final is None:
+        return data_inicial, data_inicial
+    if data_inicial > data_final:
+        return data_final, data_inicial
+    return data_inicial, data_final
+
+
+def _normalizar_chave_apuracao(valor):
+    texto = unicodedata.normalize("NFD", str(valor or "").strip().upper())
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return " ".join(texto.split())
+
+
+def _decimal_2(valor):
+    return Decimal(valor or 0).quantize(Decimal("0.01"))
+
+
+def _sum_decimal(qs, campo, *, max_digits=18, decimal_places=2):
+    agregado = qs.aggregate(
+        total=Coalesce(
+            Sum(campo),
+            Value(Decimal("0"), output_field=DecimalField(max_digits=max_digits, decimal_places=decimal_places)),
+        )
+    )
+    return Decimal(agregado.get("total") or 0)
+
+
+def _texto_moeda_apuracao(valor):
+    if valor is None:
+        return ""
+    numero = _decimal_2(valor)
+    prefixo = "R$ "
+    if numero < 0:
+        numero = abs(numero)
+        prefixo = "-R$ "
+    texto = f"{numero:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    return f"{prefixo}{texto}"
+
+
+def _texto_percentual_apuracao(valor):
+    if valor is None:
+        return ""
+    numero = Decimal(valor) * Decimal("100")
+    texto = f"{numero:.2f}".replace(".", ",")
+    return f"{texto}%"
+
+
+def _linha_apuracao(
+    descricao,
+    classe,
+    valores_por_coluna=None,
+    percentuais_por_coluna=None,
+    percentuais_editaveis_por_coluna=None,
+):
+    valores_por_coluna = valores_por_coluna or {}
+    percentuais_por_coluna = percentuais_por_coluna or {}
+    percentuais_editaveis_por_coluna = percentuais_editaveis_por_coluna or {}
+    celulas = []
+    for chave, _ in _APURACAO_COLUNAS_SETORIAIS:
+        config_edicao = percentuais_editaveis_por_coluna.get(chave) or {}
+        celulas.append(
+            {
+                "valor": _texto_moeda_apuracao(valores_por_coluna.get(chave)),
+                "percentual": _texto_percentual_apuracao(percentuais_por_coluna.get(chave)),
+                "percentual_editavel": bool(config_edicao.get("editavel")),
+                "percentual_input_name": str(config_edicao.get("name") or ""),
+                "percentual_valor_edicao": str(config_edicao.get("valor") or ""),
+            }
+        )
+    return {
+        "descricao": descricao,
+        "classe": classe,
+        "celulas": celulas,
+    }
+
+
+def _somar_remuneracao_total_vendas(empresa, data_inicial, data_final):
+    vendas = list(
+        Venda.objects.filter(
+            empresa=empresa,
+            data_venda__gte=data_inicial,
+            data_venda__lte=data_final,
+        ).values("codigo", "peso_liquido")
+    )
+    codigos = {(item.get("codigo") or "").strip() for item in vendas if (item.get("codigo") or "").strip()}
+    produtos_por_codigo = {}
+    if codigos:
+        produtos_por_codigo = {
+            item["codigo_produto"]: {
+                "kg": Decimal(item.get("kg") or 0),
+                "remuneracao_por_fardo": Decimal(item.get("remuneracao_por_fardo") or 0),
+            }
+            for item in Produto.objects.filter(empresa=empresa, codigo_produto__in=codigos).values(
+                "codigo_produto",
+                "kg",
+                "remuneracao_por_fardo",
+            )
+        }
+
+    total = Decimal("0")
+    for venda in vendas:
+        codigo = (venda.get("codigo") or "").strip()
+        produto = produtos_por_codigo.get(codigo) or {}
+        kg = Decimal(produto.get("kg") or 0)
+        remuneracao_por_fardo = Decimal(produto.get("remuneracao_por_fardo") or 0)
+        if kg <= 0:
+            continue
+        peso_liquido = Decimal(venda.get("peso_liquido") or 0)
+        quantidade_fardos = peso_liquido / kg
+        total += quantidade_fardos * remuneracao_por_fardo
+    return total
+
+
+def _total_por_alias(mapa, *aliases):
+    chave_alias = {_normalizar_chave_apuracao(alias) for alias in aliases}
+    total = Decimal("0")
+    for chave, valor in mapa.items():
+        if chave in chave_alias:
+            total += Decimal(valor or 0)
+    return total
+
+
+def _somar_custo_total_estoque_por_data(empresa, data_referencia):
+    return _sum_decimal(
+        Estoque.objects.filter(empresa=empresa, data_contagem=data_referencia),
+        "custo_total",
+        max_digits=20,
+        decimal_places=3,
+    )
+
+
+def _obter_parametro_logistica_operador(empresa):
+    parametro_operador = (
+        ParametroMargemLogistica.objects.filter(empresa=empresa, parametro__icontains="operador")
+        .order_by("id")
+        .first()
+    )
+    if parametro_operador:
+        return parametro_operador
+    return ParametroMargemLogistica.objects.filter(empresa=empresa).order_by("id").first()
+
+
+def _obter_valor_parametro_financeiro(empresa, campo, *aliases):
+    aliases_normalizados = [
+        _normalizar_chave_apuracao(alias)
+        for alias in aliases
+        if str(alias or "").strip()
+    ]
+    if not aliases_normalizados:
+        return Decimal("0")
+
+    parametros = (
+        ParametroMargemFinanceiro.objects.filter(empresa=empresa)
+        .order_by("id")
+        .values("parametro", campo)
+    )
+    for item in parametros:
+        parametro_norm = _normalizar_chave_apuracao(item.get("parametro") or "")
+        if any(alias in parametro_norm for alias in aliases_normalizados):
+            return Decimal(item.get(campo) or 0)
+    return Decimal("0")
+
+
+def _calcular_kpi_parametros_financeiros(empresa, data_inicial, data_final):
+    remuneracao_financeiro = _obter_valor_parametro_financeiro(
+        empresa,
+        "remuneracao_percentual",
+        "contas a receber",
+        "contas receber",
+        "financeiro",
+    )
+    taxa_adiantamentos = _obter_valor_parametro_financeiro(
+        empresa,
+        "taxa_ao_mes",
+        "adiantamentos",
+        "adiantamento",
+    )
+    taxa_estoque = _obter_valor_parametro_financeiro(empresa, "taxa_ao_mes", "estoque")
+
+    saldo_total_adiantamentos = _sum_decimal(
+        Adiantamento.objects.filter(empresa=empresa),
+        "saldo_real_em_reais",
+        max_digits=20,
+        decimal_places=2,
+    )
+
+    totais_contas_receber_por_data = {
+        item["data_arquivo"]: Decimal(item.get("total") or 0)
+        for item in (
+            ContasAReceber.objects.filter(
+                empresa=empresa,
+                data_arquivo__isnull=False,
+            )
+            .values("data_arquivo")
+            .annotate(
+                total=Coalesce(
+                    Sum("valor_liquido"),
+                    Value(Decimal("0"), output_field=DecimalField(max_digits=20, decimal_places=2)),
+                )
+            )
+        )
+    }
+    datas_contas_receber = sorted(totais_contas_receber_por_data.keys())
+    saldo_base_contas_receber = Decimal("0")
+    for data_ref in datas_contas_receber:
+        if data_ref < data_inicial:
+            saldo_base_contas_receber = totais_contas_receber_por_data.get(data_ref, Decimal("0"))
+        else:
+            break
+
+    saldo_contas_receber_dia = saldo_base_contas_receber
+    total_demonstrativo_financeiro = Decimal("0")
+    data_cursor = data_inicial
+    while data_cursor <= data_final:
+        if data_cursor in totais_contas_receber_por_data:
+            saldo_contas_receber_dia = totais_contas_receber_por_data[data_cursor]
+        total_demonstrativo_financeiro += saldo_contas_receber_dia * remuneracao_financeiro
+        data_cursor += timedelta(days=1)
+
+    ultima_data_estoque_periodo = (
+        Estoque.objects.filter(
+            empresa=empresa,
+            data_contagem__gte=data_inicial,
+            data_contagem__lte=data_final,
+        )
+        .aggregate(data=Max("data_contagem"))
+        .get("data")
+    )
+    if ultima_data_estoque_periodo:
+        estoque_ultima_posicao_periodo = _sum_decimal(
+            Estoque.objects.filter(
+                empresa=empresa,
+                data_contagem=ultima_data_estoque_periodo,
+            ),
+            "custo_total",
+            max_digits=20,
+            decimal_places=3,
+        )
+    else:
+        estoque_ultima_posicao_periodo = Decimal("0")
+
+    resultado_demonstrativo_financeiro = _decimal_2(total_demonstrativo_financeiro)
+    resultado_demonstrativo_adiantamentos = _decimal_2(saldo_total_adiantamentos * taxa_adiantamentos)
+    resultado_demonstrativo_estoque = _decimal_2(estoque_ultima_posicao_periodo * taxa_estoque)
+    valor = _decimal_2(
+        resultado_demonstrativo_financeiro
+        + resultado_demonstrativo_adiantamentos
+        + resultado_demonstrativo_estoque
+    )
+
+    return {
+        "valor": valor,
+        "resultado_demonstrativo_financeiro": resultado_demonstrativo_financeiro,
+        "resultado_demonstrativo_adiantamentos": resultado_demonstrativo_adiantamentos,
+        "resultado_demonstrativo_estoque": resultado_demonstrativo_estoque,
+    }
+
+
+def _valor_parametro_negocios_por_direcao(empresa, direcao_alvo, base_percentual=None):
+    alvo_norm = _normalizar_chave_apuracao(direcao_alvo)
+    itens = (
+        ParametroNegocios.objects.filter(empresa=empresa)
+        .order_by("-id")
+        .values("direcao", "compromisso", "compromisso_unidade")
+    )
+    for item in itens:
+        direcao_norm = _normalizar_chave_apuracao(item.get("direcao") or "")
+        if alvo_norm not in direcao_norm:
+            continue
+        compromisso = Decimal(item.get("compromisso") or 0)
+        unidade = str(item.get("compromisso_unidade") or ParametroNegocios.UNIDADE_VALOR)
+        if unidade == ParametroNegocios.UNIDADE_PERCENTUAL:
+            if base_percentual is None:
+                return Decimal("0")
+            return Decimal(base_percentual or 0) * (compromisso / Decimal("100"))
+        return compromisso
+    return Decimal("0")
+
+
+def _agrupar_despesas_por_centro(orcamento_despesas_qs):
+    despesas = {}
+    totais_por_centro = orcamento_despesas_qs.values("centro_resultado__descricao").annotate(
+        total=Coalesce(
+            Sum("valor_baixa"),
+            Value(Decimal("0"), output_field=DecimalField(max_digits=20, decimal_places=2)),
+        )
+    )
+    for item in totais_por_centro:
+        chave_centro = _normalizar_chave_apuracao(item.get("centro_resultado__descricao") or "")
+        despesas[chave_centro] = despesas.get(chave_centro, Decimal("0")) + Decimal(item.get("total") or 0)
+    return despesas
+
+
+def _calcular_dashboard_apuracao(faturamento_total, lucro_liquido):
+    lucro_liquido_compras = _decimal_2(lucro_liquido.get("compras") or 0)
+    lucro_setorial_total = _decimal_2(
+        (lucro_liquido.get("vendas") or 0)
+        + (lucro_liquido.get("producao") or 0)
+        + (lucro_liquido.get("logistica") or 0)
+        + (lucro_liquido.get("administracao") or 0)
+        + (lucro_liquido.get("financeiro") or 0)
+    )
+    margem_liquida_compras = (
+        lucro_liquido_compras / faturamento_total if Decimal(faturamento_total or 0) != 0 else Decimal("0")
+    )
+    saldo_apos_setores = _decimal_2(lucro_liquido_compras - lucro_setorial_total)
+    indice_saldo_apos_setores = (
+        saldo_apos_setores / faturamento_total if Decimal(faturamento_total or 0) != 0 else Decimal("0")
+    )
+
+    return {
+        "lucro_setorial_total": _texto_moeda_apuracao(lucro_setorial_total),
+        "margem_liquida_compras": _texto_percentual_apuracao(margem_liquida_compras),
+        "saldo_apos_setores": _texto_moeda_apuracao(saldo_apos_setores),
+        "indice_saldo_apos_setores": _texto_percentual_apuracao(indice_saldo_apos_setores),
+    }
+
+
+def _montar_modulos_parametros_apuracao(usuario):
+    modulos_parametros = {
+        item["url"]: item
+        for item in _modulos_com_acesso(usuario, "Parametros")
+        if item.get("url") in _APURACAO_ORDEM_PARAMETROS
+    }
+    modulos_ordenados = []
+    for url in _APURACAO_ORDEM_PARAMETROS:
+        modulo_param = modulos_parametros.get(url)
+        if not modulo_param:
+            continue
+        modulos_ordenados.append(
+            {
+                "url": url,
+                "nome": _APURACAO_ROTULOS_PARAMETROS.get(url, modulo_param.get("nome") or ""),
+                "permitido": bool(modulo_param.get("permitido")),
+            }
+        )
+    return modulos_ordenados
+
+
+def _contexto_tabela_apuracao_resultados(empresa, data_inicial, data_final, cmv_ajustado_percentual_ratio):
+    faturamento_qs = Faturamento.objects.filter(
+        empresa=empresa,
+        data_faturamento__gte=data_inicial,
+        data_faturamento__lte=data_final,
+    )
+    orcamento_despesas_qs = Orcamento.objects.filter(
+        empresa=empresa,
+        data_baixa__gte=data_inicial,
+        data_baixa__lte=data_final,
+        operacao__descricao_receita_despesa__icontains="Despesa",
+    )
+
+    faturamento_total = _sum_decimal(faturamento_qs, "valor_nota_unico", max_digits=20, decimal_places=2)
+    peso_bruto_total = _sum_decimal(faturamento_qs, "peso_bruto_unico", max_digits=20, decimal_places=2)
+    valor_frete_total = _sum_decimal(faturamento_qs, "valor_frete", max_digits=20, decimal_places=2)
+
+    parametros_vendas = ParametroMargemVendas.objects.filter(empresa=empresa).order_by("id").first()
+    parametros_adm = ParametroMargemAdministracao.objects.filter(empresa=empresa).order_by("id").first()
+    parametros_logistica = _obter_parametro_logistica_operador(empresa)
+
+    taxa_vendas = Decimal(getattr(parametros_vendas, "remuneracao_percentual", 0) or 0)
+    taxa_adm = Decimal(getattr(parametros_adm, "remuneracao_percentual", 0) or 0)
+    taxa_logistica_operador = Decimal(getattr(parametros_logistica, "remuneracao_rs", 0) or 0)
+    kpi_parametros_financeiros = _calcular_kpi_parametros_financeiros(empresa, data_inicial, data_final)
+
+    vendas_receita = _decimal_2(faturamento_total * taxa_vendas)
+    producao_receita = _decimal_2(_somar_remuneracao_total_vendas(empresa, data_inicial, data_final))
+    logistica_receita = _decimal_2((peso_bruto_total / Decimal("1000")) * taxa_logistica_operador + valor_frete_total)
+    administracao_receita = _decimal_2(faturamento_total * taxa_adm)
+    financeiro_receita = _decimal_2(kpi_parametros_financeiros.get("valor") or 0)
+
+    despesas_por_centro = _agrupar_despesas_por_centro(orcamento_despesas_qs)
+
+    cmv = _total_por_alias(despesas_por_centro, *_APURACAO_CENTRO_ALIASES["cmv"])
+    estoque_inicial_total = _somar_custo_total_estoque_por_data(empresa, data_inicial)
+    estoque_final_total = _somar_custo_total_estoque_por_data(empresa, data_final)
+    cmv_real = _decimal_2(estoque_final_total - estoque_inicial_total + cmv)
+    cmv_ajustado_percentual = Decimal(cmv_ajustado_percentual_ratio)
+    cmv_ajustado = _decimal_2(faturamento_total * cmv_ajustado_percentual)
+
+    lucro_bruto_compras = _decimal_2(faturamento_total - cmv_ajustado)
+
+    despesa_admin_total = _total_por_alias(despesas_por_centro, *_APURACAO_CENTRO_ALIASES["administracao"])
+    despesa_comercial_total = _total_por_alias(despesas_por_centro, *_APURACAO_CENTRO_ALIASES["comercial"])
+    despesa_financeiro_total = _total_por_alias(despesas_por_centro, *_APURACAO_CENTRO_ALIASES["financeiro"])
+    despesa_industria_total = _total_por_alias(despesas_por_centro, *_APURACAO_CENTRO_ALIASES["industria"])
+    despesa_logistica_total = _total_por_alias(despesas_por_centro, *_APURACAO_CENTRO_ALIASES["logistica"])
+
+    compras_vendas = _decimal_2(-vendas_receita)
+    compras_producao = _decimal_2(-producao_receita)
+    compras_logistica = _decimal_2(-logistica_receita)
+    compras_administracao = _decimal_2(-administracao_receita)
+    compras_financeiro = _decimal_2(-financeiro_receita)
+    despesas_compras = _decimal_2(
+        compras_vendas + compras_producao + compras_logistica + compras_administracao + compras_financeiro
+    )
+    despesas_vendas = _decimal_2(despesa_comercial_total)
+    despesas_producao = _decimal_2(despesa_industria_total)
+    despesas_logistica = _decimal_2(despesa_logistica_total)
+    despesas_administracao = _decimal_2(despesa_admin_total)
+    despesas_financeiro = _decimal_2(despesa_financeiro_total)
+
+    lucro_liquido = {
+        "compras": _decimal_2(lucro_bruto_compras + despesas_compras),
+        "vendas": _decimal_2(vendas_receita - despesas_vendas),
+        "producao": _decimal_2(producao_receita - despesas_producao),
+        "logistica": _decimal_2(logistica_receita - despesas_logistica),
+        "administracao": _decimal_2(administracao_receita - despesas_administracao),
+        "financeiro": _decimal_2(financeiro_receita - despesas_financeiro),
+    }
+
+    cmv_real_percentual = (cmv_real / faturamento_total) if faturamento_total else None
+
+    linhas = [
+        _linha_apuracao(
+            "1 - Receita Bruta Interna",
+            "secao-receita",
+            {
+                "compras": faturamento_total,
+                "vendas": vendas_receita,
+                "producao": producao_receita,
+                "logistica": logistica_receita,
+                "administracao": administracao_receita,
+                "financeiro": financeiro_receita,
+            },
+        ),
+        _linha_apuracao("FATURAMENTO", "item", {"compras": faturamento_total}),
+        _linha_apuracao("CMV", "item", {"compras": cmv}),
+        _linha_apuracao(
+            "CMV Real",
+            "item",
+            {"compras": cmv_real},
+            {"compras": cmv_real_percentual},
+        ),
+        _linha_apuracao(
+            "CMV Ajustado",
+            "item",
+            {"compras": cmv_ajustado},
+            {"compras": cmv_ajustado_percentual},
+            {
+                "compras": {
+                    "editavel": True,
+                    "name": "cmv_ajustado_percentual",
+                    "valor": f"{(cmv_ajustado_percentual * Decimal('100')):.2f}",
+                }
+            },
+        ),
+        _linha_apuracao("2 - Lucro Bruto", "secao-lucro", {"compras": lucro_bruto_compras}),
+        _linha_apuracao(
+            "COMPRAS",
+            "item",
+            {
+                "vendas": vendas_receita,
+                "producao": producao_receita,
+                "logistica": logistica_receita,
+                "financeiro": financeiro_receita,
+            },
+        ),
+        _linha_apuracao("VENDAS", "item", {"compras": compras_vendas}),
+        _linha_apuracao("PRODUCAO", "item", {"compras": compras_producao}),
+        _linha_apuracao("LOGISTICA", "item", {"compras": compras_logistica}),
+        _linha_apuracao(
+            "ADMINISTRACAO",
+            "item",
+            {
+                "compras": compras_administracao,
+                "administracao": administracao_receita,
+            },
+        ),
+        _linha_apuracao("FINANCEIRO", "item", {"compras": compras_financeiro}),
+        _linha_apuracao(
+            "3 - Despesas",
+            "secao-despesas",
+            {
+                "compras": despesas_compras,
+                "vendas": despesas_vendas,
+                "producao": despesas_producao,
+                "logistica": despesas_logistica,
+                "administracao": despesas_administracao,
+                "financeiro": despesas_financeiro,
+            },
+        ),
+        _linha_apuracao("ADMINISTRACAO", "item", {"administracao": despesas_administracao}),
+        _linha_apuracao("COMERCIAL", "item", {"vendas": despesas_vendas}),
+        _linha_apuracao("FINANCEIRO", "item", {"financeiro": despesas_financeiro}),
+        _linha_apuracao("INDUSTRIA(ACUCAREIRA)", "item", {"producao": despesas_producao}),
+        _linha_apuracao("LOGISTICA", "item", {"logistica": despesas_logistica}),
+        _linha_apuracao("Lucro Liquido", "secao-final", lucro_liquido),
+    ]
+
+    dashboard = _calcular_dashboard_apuracao(faturamento_total, lucro_liquido)
+    dashboard["parametros_financeiros"] = _texto_moeda_apuracao(kpi_parametros_financeiros.get("valor"))
+    dashboard["parametros_financeiros_financeiro"] = _texto_moeda_apuracao(
+        kpi_parametros_financeiros.get("resultado_demonstrativo_financeiro")
+    )
+    dashboard["parametros_financeiros_adiantamentos"] = _texto_moeda_apuracao(
+        kpi_parametros_financeiros.get("resultado_demonstrativo_adiantamentos")
+    )
+    dashboard["parametros_financeiros_estoque"] = _texto_moeda_apuracao(
+        kpi_parametros_financeiros.get("resultado_demonstrativo_estoque")
+    )
+
+    return {
+        "colunas": [{"chave": chave, "nome": nome} for chave, nome in _APURACAO_COLUNAS_SETORIAIS],
+        "linhas": linhas,
+        "dashboard": dashboard,
+        "cmv_ajustado_percentual_ratio": cmv_ajustado_percentual,
+    }
+
+
+def _contexto_cards_estoque_apuracao(empresa, data_inicial, data_final):
+    estoque_inicial_total = _somar_custo_total_estoque_por_data(empresa, data_inicial)
+    estoque_final_total = _somar_custo_total_estoque_por_data(empresa, data_final)
+    return {
+        "estoque_data_inicial": data_inicial.strftime("%d/%m/%Y"),
+        "estoque_data_final": data_final.strftime("%d/%m/%Y"),
+        "estoque_valor_inicial": _texto_moeda_apuracao(estoque_inicial_total),
+        "estoque_valor_final": _texto_moeda_apuracao(estoque_final_total),
+    }
+
+
 @login_required(login_url="entrar")
 def apuracao_de_resultados(request, empresa_id):
     modulo = _obter_modulo("Administrativo", "Apuracao de Resultados")
-    return _render_modulo_com_permissao(request, empresa_id, modulo["nome"], modulo["template"])
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, modulo["nome"])
+    if not autorizado:
+        return redirect("index")
+
+    parametros_apuracao_modulos = _montar_modulos_parametros_apuracao(request.user)
+
+    cmv_ajustado_percentual_ratio = _parse_percentual_apuracao_para_ratio(
+        request.GET.get(_APURACAO_QUERY_PARAM_CMV_AJUSTADO),
+        _APURACAO_PERCENTUAL_CMV_AJUSTADO,
+    )
+
+    data_inicial, data_final = _resolver_periodo_apuracao(
+        empresa,
+        request.GET.get("data_inicial"),
+        request.GET.get("data_final"),
+    )
+
+    tabela_apuracao = _contexto_tabela_apuracao_resultados(
+        empresa,
+        data_inicial,
+        data_final,
+        cmv_ajustado_percentual_ratio,
+    )
+    cards_estoque = _contexto_cards_estoque_apuracao(empresa, data_inicial, data_final)
+
+    contexto = {
+        "empresa": empresa,
+        "modulo_nome": modulo["nome"],
+        "parametros_apuracao_modulos": parametros_apuracao_modulos,
+        "data_inicial_iso": data_inicial.isoformat(),
+        "data_final_iso": data_final.isoformat(),
+        "apuracao_dashboard": tabela_apuracao["dashboard"],
+        "apuracao_colunas": tabela_apuracao["colunas"],
+        "apuracao_linhas": tabela_apuracao["linhas"],
+        **cards_estoque,
+    }
+    return render(request, modulo["template"], contexto)
 
 
 @login_required(login_url="entrar")
