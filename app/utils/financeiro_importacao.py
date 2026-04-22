@@ -1365,7 +1365,11 @@ def importar_adiantamentos_do_diretorio(
     limpar_antes: bool = True,
 ):
     base = Path(diretorio)
-    arquivos = sorted(base.glob("*.xls"))
+    arquivos = sorted(
+        arquivo
+        for arquivo in base.rglob("*.xls")
+        if "subscritos" not in {parte.lower() for parte in arquivo.relative_to(base).parts}
+    )
     if not arquivos:
         return {
             "arquivos": 0,
@@ -1399,6 +1403,10 @@ def importar_adiantamentos_do_diretorio(
     for arquivo in arquivos:
         if xlrd is None:
             raise RuntimeError("Dependencia 'xlrd' nao encontrada. Instale com: pip install xlrd==2.0.1")
+
+        data_arquivo = _data_arquivo_do_nome_arquivo(arquivo)
+        if data_arquivo is None:
+            avisos.append(f"{arquivo.name}: nao foi possivel extrair a data do nome do arquivo.")
 
         workbook = xlrd.open_workbook(str(arquivo))
         if workbook.nsheets <= 0:
@@ -1456,6 +1464,7 @@ def importar_adiantamentos_do_diretorio(
             objetos.append(
                 Adiantamento(
                     empresa=empresa,
+                    data_arquivo=data_arquivo,
                     moeda=_normalizar_texto(_valor_por_indice(linha, "moeda")),
                     saldo_banco_em_reais=_to_decimal(_valor_por_indice(linha, "saldo_banco_em_reais")),
                     saldo_real_em_reais=_to_decimal(_valor_por_indice(linha, "saldo_real_em_reais")),

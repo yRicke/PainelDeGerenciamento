@@ -1435,11 +1435,16 @@ def build_faturamento_tabulator(faturamento_qs, empresa_id: int, permitir_edicao
 def build_adiantamentos_tabulator(adiantamentos_qs, empresa_id: int, permitir_edicao: bool = True):
     resultado = []
     for item in adiantamentos_qs:
+        data_arquivo = item.get("data_arquivo")
         resultado.append(
             {
                 "id": item.get("id"),
                 "empresa_id": item.get("empresa_id") or "",
                 "empresa_nome": item.get("empresa__nome") or "",
+                "data_arquivo": _fmt_date_br(data_arquivo),
+                "data_arquivo_iso": data_arquivo.isoformat() if data_arquivo else "",
+                "data_arquivo_ano": str(data_arquivo.year) if data_arquivo else "",
+                "data_arquivo_mes": f"{data_arquivo.month:02d}" if data_arquivo else "",
                 "moeda": item.get("moeda") or "",
                 "saldo_banco_em_reais": float(item.get("saldo_banco_em_reais_num") or 0),
                 "saldo_real_em_reais": float(item.get("saldo_real_em_reais_num") or 0),

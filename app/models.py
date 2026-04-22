@@ -4370,6 +4370,7 @@ class Faturamento(models.Model):
 
 class Adiantamento(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="adiantamentos")
+    data_arquivo = models.DateField(null=True, blank=True)
     moeda = models.CharField(max_length=120, blank=True, default="")
     saldo_banco_em_reais = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     saldo_real_em_reais = models.DecimalField(max_digits=18, decimal_places=2, default=0)
@@ -4388,6 +4389,7 @@ class Adiantamento(models.Model):
     def criar_adiantamento(
         cls,
         empresa,
+        data_arquivo=None,
         moeda="",
         saldo_banco_em_reais=0,
         saldo_real_em_reais=0,
@@ -4401,6 +4403,7 @@ class Adiantamento(models.Model):
     ):
         item = cls(
             empresa=empresa,
+            data_arquivo=data_arquivo,
             moeda=moeda,
             saldo_banco_em_reais=saldo_banco_em_reais,
             saldo_real_em_reais=saldo_real_em_reais,
@@ -4421,6 +4424,7 @@ class Adiantamento(models.Model):
 
     def atualizar_adiantamento(
         self,
+        data_arquivo=UNSET,
         moeda=UNSET,
         saldo_banco_em_reais=UNSET,
         saldo_real_em_reais=UNSET,
@@ -4432,6 +4436,8 @@ class Adiantamento(models.Model):
         conta_bancaria=UNSET,
         empresa_descricao=UNSET,
     ):
+        if data_arquivo is not UNSET:
+            self.data_arquivo = data_arquivo
         if moeda is not UNSET:
             self.moeda = moeda
         if saldo_banco_em_reais is not UNSET:

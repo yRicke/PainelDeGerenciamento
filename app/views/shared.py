@@ -20,7 +20,7 @@ TIPO_IMPORTACAO_POR_MODULO = {
     "contas_a_receber": "Pasta com arquivos .xls.",
     "dfc": "Arquivo .xls (selecao unica).",
     "faturamento": "Pasta com subpastas '1 - Faturamento diario' e '2 - Venda por Produto (NF)' contendo arquivos .xlsx.",
-    "adiantamentos": "Arquivo .xls (selecao unica).",
+    "adiantamentos": "Pasta ADIANTAMENTOS com subpastas de ano e mes contendo arquivos .xls.",
     "comite_diario": "Arquivo .xls (selecao unica).",
     "orcamento": "Pasta com arquivos .xls.",
     "cargas_em_aberto": "Arquivo .xls (selecao unica).",

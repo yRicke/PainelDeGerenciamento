@@ -1863,11 +1863,11 @@ def adiantamentos(request, empresa_id):
             else:
                 messages.success(request, "Registro de Adiantamentos criado com sucesso.")
         else:
-            arquivo = request.FILES.get("arquivo_adiantamentos")
+            arquivos = request.FILES.getlist("arquivos_adiantamentos")
             confirmou_substituicao = request.POST.get("confirmar_substituicao") == "1"
             ok, mensagem = importar_upload_adiantamentos(
                 empresa=empresa,
-                arquivo=arquivo,
+                arquivos=arquivos,
                 confirmar_substituicao=confirmou_substituicao,
                 diretorio_importacao=diretorio_importacao,
                 diretorio_subscritos=diretorio_subscritos,
@@ -1890,6 +1890,7 @@ def adiantamentos(request, empresa_id):
             "id",
             "empresa_id",
             "empresa__nome",
+            "data_arquivo",
             "moeda",
             "saldo_banco_em_reais_num",
             "saldo_real_em_reais_num",
@@ -1901,7 +1902,7 @@ def adiantamentos(request, empresa_id):
             "conta_bancaria",
             "empresa_descricao",
         )
-        .order_by("-id")
+        .order_by("-data_arquivo", "-id")
     )
 
     arquivos_existentes = sorted([f.name for f in diretorio_importacao.iterdir() if f.is_file()])

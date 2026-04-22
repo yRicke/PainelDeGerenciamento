@@ -3731,7 +3731,10 @@ def atualizar_faturamento_por_post(faturamento_item, post_data):
 
 
 def _dados_adiantamento_from_post(post_data):
+    data_arquivo_raw = post_data.get("data_arquivo")
     return {
+        "data_arquivo_raw": data_arquivo_raw,
+        "data_arquivo": _parse_date_ou_none(data_arquivo_raw),
         "moeda": (post_data.get("moeda") or "").strip(),
         "saldo_banco_em_reais": _parse_decimal_ou_zero(post_data.get("saldo_banco_em_reais")),
         "saldo_real_em_reais": _parse_decimal_ou_zero(post_data.get("saldo_real_em_reais")),
@@ -3747,16 +3750,22 @@ def _dados_adiantamento_from_post(post_data):
 
 def criar_adiantamento_por_post(empresa, post_data):
     dados = _dados_adiantamento_from_post(post_data)
+    if dados["data_arquivo_raw"] and not dados["data_arquivo"]:
+        return "Data invalida."
     if not dados["conta_descricao"]:
         return "Conta Descricao e obrigatoria."
+    dados.pop("data_arquivo_raw", None)
     Adiantamento.criar_adiantamento(empresa=empresa, **dados)
     return ""
 
 
 def atualizar_adiantamento_por_post(adiantamento_item, post_data):
     dados = _dados_adiantamento_from_post(post_data)
+    if dados["data_arquivo_raw"] and not dados["data_arquivo"]:
+        return "Data invalida."
     if not dados["conta_descricao"]:
         return "Conta Descricao e obrigatoria."
+    dados.pop("data_arquivo_raw", None)
     adiantamento_item.atualizar_adiantamento(**dados)
     return ""
 

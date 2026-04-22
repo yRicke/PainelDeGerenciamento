@@ -3,7 +3,8 @@
     if (!form) return;
 
     var dropzone = document.getElementById("dropzone-adiantamentos");
-    var input = document.getElementById("arquivo-adiantamentos-input");
+    var input = document.getElementById("arquivo-adiantamentos-input")
+        || document.getElementById("arquivos-adiantamentos-input");
     var confirmInput = document.getElementById("confirmar-substituicao-input");
     var fileStatus = document.getElementById("nome-arquivo-adiantamentos-selecionado");
     var temArquivoExistente = form.dataset.temArquivoExistente === "1";
@@ -13,6 +14,8 @@
     var confirmText = frontendText.confirm || {};
     var arquivoXlsLabel = ".xls";
 
+    if (!dropzone || !input) return;
+
     function mensagemApenasArquivoPermitido() {
         if (typeof uploadText.onlyAllowedFile === "function") {
             return uploadText.onlyAllowedFile(arquivoXlsLabel);
@@ -21,10 +24,10 @@
     }
 
     function mensagemSelecionarArquivoParaContinuar() {
-        if (typeof uploadText.selectFileToContinue === "function") {
-            return uploadText.selectFileToContinue(arquivoXlsLabel);
+        if (typeof uploadText.selectFolderToContinue === "function") {
+            return uploadText.selectFolderToContinue(arquivoXlsLabel);
         }
-        return "Selecione um arquivo .xls para continuar.";
+        return "Selecione uma pasta com arquivos .xls para continuar.";
     }
 
     function atualizarNomeArquivo() {
@@ -32,12 +35,26 @@
             fileStatus.textContent = "";
             return;
         }
-        var selectedFilePrefix = commonText.selectedFilePrefix || "Arquivo selecionado: ";
-        fileStatus.textContent = selectedFilePrefix + input.files[0].name;
+        var quantidadeXls = contarArquivosXls(input.files);
+        var selectedFilesPrefix = commonText.selectedFilesPrefix || "Arquivos selecionados: ";
+        fileStatus.textContent = selectedFilesPrefix + quantidadeXls + " .xls";
     }
 
     function validarExtensaoXls(file) {
         return file && file.name.toLowerCase().endsWith(".xls");
+    }
+
+    function contarArquivosXls(files) {
+        var total = 0;
+        if (!files || !files.length) return total;
+        for (var i = 0; i < files.length; i += 1) {
+            if (validarExtensaoXls(files[i])) total += 1;
+        }
+        return total;
+    }
+
+    function contemArquivoXls(files) {
+        return contarArquivosXls(files) > 0;
     }
 
     function confirmarSubstituicaoSeNecessario() {
@@ -45,7 +62,7 @@
             confirmInput.value = "0";
             return true;
         }
-        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Ja existe um arquivo na pasta. Deseja substituir o arquivo atual?";
+        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Ja existem arquivos na pasta. Deseja substituir os arquivos atuais?";
         if (!window.confirm(replaceCurrentFileMessage)) return false;
         confirmInput.value = "1";
         return true;
@@ -69,7 +86,7 @@
         dropzone.classList.remove("dragover");
         var files = event.dataTransfer.files;
         if (!files || !files.length) return;
-        if (!validarExtensaoXls(files[0])) {
+        if (!contemArquivoXls(files)) {
             window.alert(mensagemApenasArquivoPermitido());
             return;
         }
@@ -79,7 +96,7 @@
 
     input.addEventListener("change", function () {
         if (!input.files || !input.files.length) return;
-        if (!validarExtensaoXls(input.files[0])) {
+        if (!contemArquivoXls(input.files)) {
             window.alert(mensagemApenasArquivoPermitido());
             input.value = "";
         }
@@ -92,7 +109,7 @@
             window.alert(mensagemSelecionarArquivoParaContinuar());
             return;
         }
-        if (!validarExtensaoXls(input.files[0])) {
+        if (!contemArquivoXls(input.files)) {
             event.preventDefault();
             window.alert(mensagemApenasArquivoPermitido());
             return;
@@ -127,6 +144,24 @@
             sensitivity: "base",
             numeric: true,
         });
+    }
+
+    function nomeMes(valor) {
+        var nomes = {
+            "01": "Janeiro",
+            "02": "Fevereiro",
+            "03": "Marco",
+            "04": "Abril",
+            "05": "Maio",
+            "06": "Junho",
+            "07": "Julho",
+            "08": "Agosto",
+            "09": "Setembro",
+            "10": "Outubro",
+            "11": "Novembro",
+            "12": "Dezembro",
+        };
+        return nomes[valor] ? valor + " - " + nomes[valor] : formatTextoOuVazio(valor);
     }
 
     function ensureFilterColumns(section) {
@@ -182,6 +217,38 @@
 
     function criarDefinicoesFiltrosAdiantamentos() {
         return [
+            {
+                key: "data_arquivo_iso",
+                label: "Data",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.data_arquivo_iso : "";
+                },
+                formatValue: function (valor, rowData) {
+                    return rowData && rowData.data_arquivo ? rowData.data_arquivo : formatTextoOuVazio(valor);
+                },
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "data_arquivo_ano",
+                label: "Ano",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.data_arquivo_ano : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
+                key: "data_arquivo_mes",
+                label: "Mes",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.data_arquivo_mes : "";
+                },
+                formatValue: nomeMes,
+                sortOptions: ordenarTexto,
+            },
             {
                 key: "moeda",
                 label: "Moeda",
@@ -313,6 +380,7 @@
     };
 
     var colunas = [
+        {title: "Data", field: "data_arquivo", sorter: "date", sorterParams: {format: "dd/MM/yyyy"}},
         {title: "Moeda", field: "moeda"},
         {title: "Saldo banco em reais", field: "saldo_banco_em_reais", formatter: "money", formatterParams: moneyFormatterParams, hozAlign: "right"},
         {title: "Saldo real em reais", field: "saldo_real_em_reais", formatter: "money", formatterParams: moneyFormatterParams, hozAlign: "right"},

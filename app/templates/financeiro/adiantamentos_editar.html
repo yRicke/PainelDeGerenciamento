@@ -19,6 +19,7 @@
     <form action="{% url 'editar_adiantamento_modulo' empresa.id adiantamento_item.id %}" method="POST">
         {% csrf_token %}
         <div class="form-grid">
+            <div><label>Data</label><input type="date" name="data_arquivo" value="{{ adiantamento_item.data_arquivo|date:'Y-m-d' }}"></div>
             <div><label>Moeda</label><input type="text" name="moeda" value="{{ adiantamento_item.moeda }}"></div>
             <div><label>Saldo banco em reais</label><input type="text" name="saldo_banco_em_reais" value="{{ adiantamento_item.saldo_banco_em_reais }}"></div>
             <div><label>Saldo real em reais</label><input type="text" name="saldo_real_em_reais" value="{{ adiantamento_item.saldo_real_em_reais }}"></div>

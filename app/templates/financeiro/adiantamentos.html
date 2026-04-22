@@ -50,11 +50,11 @@
 
             <form id="upload-adiantamentos-form" class="upload-form" method="post" enctype="multipart/form-data" data-tem-arquivo-existente="{% if tem_arquivo_existente %}1{% else %}0{% endif %}">
                 {% csrf_token %}
-                <input type="file" id="arquivo-adiantamentos-input" name="arquivo_adiantamentos" accept=".xls" hidden>
+                <input type="file" id="arquivo-adiantamentos-input" name="arquivos_adiantamentos" accept=".xls" multiple webkitdirectory directory hidden>
                 <input type="hidden" id="confirmar-substituicao-input" name="confirmar_substituicao" value="0">
                 <div id="dropzone-adiantamentos" class="dropzone">
-                    <strong>Arraste e solte o arquivo aqui</strong>
-                    <span>ou clique para selecionar um arquivo <code>.xls</code>.</span>
+                    <strong>Arraste e solte a pasta ADIANTAMENTOS aqui</strong>
+                    <span>ou clique para selecionar a pasta <code>ADIANTAMENTOS</code> com anos, meses e arquivos <code>.xls</code>.</span>
                 </div>
                 <div class="upload-actions">
                     <button type="submit" class="btn-primary">Enviar e importar</button>
@@ -111,6 +111,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_adiantamento">
                 <div class="form-grid">
+                    <div><label>Data</label><input type="date" name="data_arquivo"></div>
                     <div><label>Moeda</label><input type="text" name="moeda"></div>
                     <div><label>Saldo banco em reais</label><input type="text" name="saldo_banco_em_reais" placeholder="0,00"></div>
                     <div><label>Saldo real em reais</label><input type="text" name="saldo_real_em_reais" placeholder="0,00"></div>

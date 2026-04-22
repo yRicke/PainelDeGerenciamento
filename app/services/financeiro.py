@@ -359,22 +359,24 @@ def importar_upload_faturamento(
 def importar_upload_adiantamentos(
     *,
     empresa,
-    arquivo,
+    arquivos,
     confirmar_substituicao,
     diretorio_importacao,
     diretorio_subscritos,
     usuario=None,
 ):
-    if not arquivo:
-        return False, "Selecione um arquivo .xls para importar."
+    arquivos_xls = []
+    for arquivo in arquivos or []:
+        nome_arquivo = Path(arquivo.name).name
+        if nome_arquivo.lower().endswith(".xls"):
+            arquivos_xls.append((arquivo, nome_arquivo))
 
-    nome_arquivo = Path(arquivo.name).name
-    if not nome_arquivo.lower().endswith(".xls"):
-        return False, "Formato invalido. Envie apenas arquivo .xls."
+    if not arquivos_xls:
+        return False, "Selecione ao menos um arquivo .xls para importar."
 
     arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
     if arquivos_existentes and not confirmar_substituicao:
-        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+        return False, "Ja existem arquivos na pasta. Confirme a substituicao para continuar."
 
     for arquivo_antigo in arquivos_existentes:
         destino_subscrito = diretorio_subscritos / arquivo_antigo.name
@@ -383,10 +385,21 @@ def importar_upload_adiantamentos(
             destino_subscrito = diretorio_subscritos / f"{arquivo_antigo.stem}_{timestamp}{arquivo_antigo.suffix}"
         arquivo_antigo.rename(destino_subscrito)
 
-    destino = diretorio_importacao / nome_arquivo
-    with destino.open("wb+") as file_out:
-        for chunk in arquivo.chunks():
-            file_out.write(chunk)
+    nomes_arquivos = []
+    nomes_salvos = set()
+    for arquivo_upload, nome_arquivo in arquivos_xls:
+        nome_base = nome_arquivo
+        destino = diretorio_importacao / nome_base
+        contador = 1
+        while destino.exists() or nome_base.lower() in nomes_salvos:
+            nome_base = f"{Path(nome_arquivo).stem}_{contador}{Path(nome_arquivo).suffix}"
+            destino = diretorio_importacao / nome_base
+            contador += 1
+        with destino.open("wb+") as file_out:
+            for chunk in arquivo_upload.chunks():
+                file_out.write(chunk)
+        nomes_arquivos.append(nome_base)
+        nomes_salvos.add(nome_base.lower())
 
     try:
         services = _services()
@@ -404,7 +417,7 @@ def importar_upload_adiantamentos(
             empresa=empresa,
             modulo="adiantamentos",
             usuario=usuario,
-            arquivos=[nome_arquivo],
+            arquivos=nomes_arquivos,
         )
     except Exception:
         pass
@@ -416,7 +429,8 @@ def importar_upload_adiantamentos(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"Importacao concluida. Arquivos enviados: {len(arquivos_xls)}, "
+            f"arquivos importados: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, adiantamentos: {resultado['adiantamentos']}."
         ),
     )
