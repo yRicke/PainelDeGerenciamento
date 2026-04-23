@@ -58,6 +58,7 @@
             <nav class="module-sections-nav" aria-label="Navegacao de secoes do DRE">
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
+                <a href="#sec-analitico">Analitico</a>
                 <a href="#sec-visualizacao">Visualizacao</a>
             </nav>
             <a href="{{ dfc_url }}" class="btn-light">Ir para DFC</a>
@@ -73,6 +74,20 @@
                 </article>
             </div>
             <p id="dre-save-status" class="file-status" aria-live="polite"></p>
+        </section>
+
+        <section id="sec-analitico" class="panel module-section">
+            <div class="dre-analitico-header">
+                <div>
+                    <h2>Tabela Analitica</h2>
+                    <p class="form-note">
+                        Consolidado mensal por centro de resultado, com destaque para devolucoes, CMV e despesas.
+                    </p>
+                </div>
+            </div>
+            <div class="dre-analitico-wrapper">
+                <div id="dre-analitico-table" class="dre-analitico-table-host" aria-live="polite"></div>
+            </div>
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">

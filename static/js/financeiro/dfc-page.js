@@ -237,22 +237,6 @@
     function criarDefinicoesFiltrosDfc() {
         return [
             {
-                key: "receita_despesa",
-                label: "Receita/Despesa",
-                singleSelect: true,
-                extractValue: function (rowData) {
-                    return tipoLancamentoLabel(rowData);
-                },
-                formatValue: formatTextoOuVazio,
-                sortOptions: function (a, b) {
-                    var ordem = {"Receita": 0, "Despesa": 1, "(Vazio)": 2};
-                    var ordemA = Object.prototype.hasOwnProperty.call(ordem, a.label) ? ordem[a.label] : 99;
-                    var ordemB = Object.prototype.hasOwnProperty.call(ordem, b.label) ? ordem[b.label] : 99;
-                    if (ordemA !== ordemB) return ordemA - ordemB;
-                    return ordenarTexto(a, b);
-                },
-            },
-            {
                 key: "empresa_nome",
                 label: "Empresa",
                 singleSelect: true,

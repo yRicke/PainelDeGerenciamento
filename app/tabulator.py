@@ -1345,6 +1345,7 @@ def build_dre_tabulator(dre_qs, empresa_id: int, permitir_edicao: bool = True):
                 "valor_a_pagar": float(valor_a_pagar) if valor_a_pagar is not None else "",
                 "descricao_tipo_operacao": dre_item.get("descricao_tipo_operacao") or "",
                 "descricao_centro_resultado": dre_item.get("descricao_centro_resultado") or "",
+                "dfc_tipo_movimento": dre_item.get("dfc__tipo_movimento") or "",
                 "plano_contas_tipo_movimento": dre_item.get("plano_contas_tipo_movimento") or "",
                 "tipo_dre": dre_item.get("tipo_dre") or "",
             }

@@ -6,6 +6,7 @@
     var filtrosColunaDireita = document.getElementById("dre-filtros-coluna-direita");
     var saveStatusEl = document.getElementById("dre-save-status");
     var kpiValorTotalEl = document.getElementById("dre-kpi-valor-total");
+    var analiticoTableHost = document.getElementById("dre-analitico-table");
 
     if (!dataElement || !tableTarget || !window.Tabulator) return;
 
@@ -14,7 +15,35 @@
     var externalFilters = null;
     var internalUpdate = false;
     var seqByRowId = {};
+    var analyticalExpandedGroups = {
+        receitas: false,
+        devolucoes: false,
+        cmv: false,
+        despesas: false,
+    };
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
+    var analyticalMonths = [
+        {number: 1, label: "Janeiro"},
+        {number: 2, label: "Fevereiro"},
+        {number: 3, label: "Marco"},
+        {number: 4, label: "Abril"},
+        {number: 5, label: "Maio"},
+        {number: 6, label: "Junho"},
+        {number: 7, label: "Julho"},
+        {number: 8, label: "Agosto"},
+        {number: 9, label: "Setembro"},
+        {number: 10, label: "Outubro"},
+        {number: 11, label: "Novembro"},
+        {number: 12, label: "Dezembro"},
+    ];
+    var analyticalSummaryRows = [
+        {label: "Receita Bruta", summaryKey: "receita-bruta", badge: "+", bucketKey: "receitaBruta"},
+        {label: "Despesas", summaryKey: "despesas", badge: "-", bucketKey: "despesas"},
+        {label: "Devolucoes", summaryKey: "devolucoes", badge: "-", bucketKey: "devolucoes"},
+        {label: "Faturamento Liquido", summaryKey: "faturamento-liquido", badge: "=", bucketKey: "faturamentoLiquido"},
+        {label: "Lucro Bruto", summaryKey: "lucro-bruto", badge: "=", bucketKey: "lucroBruto"},
+        {label: "Lucro Liquido", summaryKey: "lucro-liquido", badge: "=", bucketKey: "lucroLiquido"},
+    ];
 
     function toText(value) {
         if (value === null || value === undefined) return "";
@@ -44,6 +73,15 @@
             text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         }
         return text;
+    }
+
+    function escapeHtml(value) {
+        return toText(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
     function getCookie(name) {
@@ -136,6 +174,571 @@
         if (kpiValorTotalEl) kpiValorTotalEl.textContent = formatMoney(totalLiquido);
     }
 
+    function createAnalyticalMonthTotals() {
+        return {receita: 0, despesa: 0};
+    }
+
+    function createAnalyticalBucket() {
+        var bucket = {};
+        analyticalMonths.forEach(function (month) {
+            bucket[month.number] = createAnalyticalMonthTotals();
+        });
+        return bucket;
+    }
+
+    function getAnalyticalMonthTotals(bucket, monthNumber) {
+        if (!bucket || !bucket[monthNumber]) return createAnalyticalMonthTotals();
+        return bucket[monthNumber];
+    }
+
+    function addAnalyticalValue(target, monthNumber, kind, value) {
+        if (!target || !target[monthNumber] || !kind) return;
+        target[monthNumber][kind] += Math.abs(toNumber(value));
+    }
+
+    function getCenterLabel(rowData) {
+        return toText(rowData && rowData.descricao_centro_resultado) || "Sem centro de resultado";
+    }
+
+    function getOperationLabel(rowData) {
+        return (
+            toText(rowData && rowData.descricao_tipo_operacao) ||
+            toText(rowData && rowData.descricao_natureza) ||
+            "Sem tipo de operacao"
+        );
+    }
+
+    function isDevolucaoVendaText(value) {
+        var text = normalizeText(value);
+        if (!text) return false;
+        return text.indexOf("devolucao") >= 0 && text.indexOf("vend") >= 0;
+    }
+
+    function isDevolucaoVendaMovimento(rowData) {
+        return isDevolucaoVendaText(rowData && rowData.dfc_tipo_movimento);
+    }
+
+    function isCmvCenterLabel(value) {
+        return normalizeText(value) === "cmv";
+    }
+
+    function createAnalyticalStructure() {
+        return {
+            receitaBruta: createAnalyticalBucket(),
+            devolucoes: createAnalyticalBucket(),
+            devolucoesCenters: {},
+            faturamentoLiquido: createAnalyticalBucket(),
+            lucroBruto: createAnalyticalBucket(),
+            lucroLiquido: createAnalyticalBucket(),
+            despesas: createAnalyticalBucket(),
+            despesasCenters: {},
+            centers: {},
+        };
+    }
+
+    function ensureCenterNodeInMap(centerMap, centerLabel) {
+        if (!centerMap[centerLabel]) {
+            centerMap[centerLabel] = {
+                label: centerLabel,
+                totals: createAnalyticalBucket(),
+                operations: {},
+            };
+        }
+        return centerMap[centerLabel];
+    }
+
+    function ensureCenterNode(structure, centerLabel) {
+        return ensureCenterNodeInMap(structure.centers, centerLabel);
+    }
+
+    function ensureOperationNode(centerNode, operationLabel) {
+        if (!centerNode.operations[operationLabel]) {
+            centerNode.operations[operationLabel] = {
+                label: operationLabel,
+                totals: createAnalyticalBucket(),
+            };
+        }
+        return centerNode.operations[operationLabel];
+    }
+
+    function findCenterNodeByLabel(structure, expectedLabel) {
+        var expected = normalizeText(expectedLabel);
+        var centerLabels = Object.keys((structure && structure.centers) || {});
+        for (var i = 0; i < centerLabels.length; i += 1) {
+            var centerLabel = centerLabels[i];
+            if (normalizeText(centerLabel) === expected) {
+                return structure.centers[centerLabel];
+            }
+        }
+        return null;
+    }
+
+    // Derived summary rows are calculated from the already aggregated monthly buckets.
+    function calculateAnalyticalSummaryRows(structure) {
+        var cmvCenter = findCenterNodeByLabel(structure, "CMV");
+
+        analyticalMonths.forEach(function (month) {
+            var monthNumber = month.number;
+            var receitaBrutaTotals = getAnalyticalMonthTotals(structure.receitaBruta, monthNumber);
+            var devolucoesTotals = getAnalyticalMonthTotals(structure.devolucoes, monthNumber);
+            var faturamentoLiquidoTotals = getAnalyticalMonthTotals(structure.faturamentoLiquido, monthNumber);
+            var lucroBrutoTotals = getAnalyticalMonthTotals(structure.lucroBruto, monthNumber);
+            var lucroLiquidoTotals = getAnalyticalMonthTotals(structure.lucroLiquido, monthNumber);
+            var despesasTotals = getAnalyticalMonthTotals(structure.despesas, monthNumber);
+            var cmvTotals = cmvCenter ? getAnalyticalMonthTotals(cmvCenter.totals, monthNumber) : createAnalyticalMonthTotals();
+
+            faturamentoLiquidoTotals.receita = receitaBrutaTotals.receita;
+            faturamentoLiquidoTotals.despesa = devolucoesTotals.despesa;
+
+            var faturamentoLiquidoSaldo =
+                toNumber(faturamentoLiquidoTotals.receita) -
+                toNumber(faturamentoLiquidoTotals.despesa);
+
+            lucroBrutoTotals.receita = faturamentoLiquidoSaldo;
+            lucroBrutoTotals.despesa = toNumber(cmvTotals.despesa);
+
+            var lucroBrutoSaldo =
+                toNumber(lucroBrutoTotals.receita) -
+                toNumber(lucroBrutoTotals.despesa);
+
+            lucroLiquidoTotals.receita = lucroBrutoSaldo;
+            lucroLiquidoTotals.despesa = toNumber(despesasTotals.despesa);
+        });
+    }
+
+    function buildAnalyticalSummaryRow(structure, config) {
+        return {
+            label: config.label,
+            kind: "summary",
+            summaryKey: config.summaryKey,
+            badge: config.badge,
+            totals: structure[config.bucketKey],
+        };
+    }
+
+    function buildAnalyticalSummaryRowsByKeys(structure, summaryKeys) {
+        return summaryKeys
+            .map(function (summaryKey) {
+                return analyticalSummaryRows.find(function (config) {
+                    return config.summaryKey === summaryKey;
+                }) || null;
+            })
+            .filter(Boolean)
+            .map(function (config) {
+                return buildAnalyticalSummaryRow(structure, config);
+            });
+    }
+
+    function getAnalyticalSummaryRowByKey(structure, summaryKey) {
+        var rows = buildAnalyticalSummaryRowsByKeys(structure, [summaryKey]);
+        return rows.length ? rows[0] : null;
+    }
+
+    function getAnalyticalDirectionBadge(rowTotals) {
+        var receita = sumAnalyticalBucketByKind(rowTotals, "receita");
+        var despesa = sumAnalyticalBucketByKind(rowTotals, "despesa");
+
+        if (receita > 0 && despesa <= 0) return "+";
+        if (despesa > 0 && receita <= 0) return "-";
+        if (receita > despesa) return "+";
+        if (despesa > 0) return "-";
+        return "";
+    }
+
+    function buildAnalyticalCenterRows(centerNode) {
+        if (!centerNode) return [];
+
+        var rows = [{
+            label: centerNode.label,
+            kind: "center",
+            badge: getAnalyticalDirectionBadge(centerNode.totals),
+            indentLevel: 0,
+            totals: centerNode.totals,
+        }];
+
+        Object.keys(centerNode.operations)
+            .sort(compareLabels)
+            .forEach(function (operationLabel) {
+                rows.push({
+                    label: centerNode.operations[operationLabel].label,
+                    kind: "operation",
+                    badge: getAnalyticalDirectionBadge(centerNode.operations[operationLabel].totals),
+                    indentLevel: 1,
+                    totals: centerNode.operations[operationLabel].totals,
+                });
+            });
+
+        return rows;
+    }
+
+    function projectAnalyticalBucketByKind(rowTotals, kind) {
+        var projectedTotals = createAnalyticalBucket();
+
+        analyticalMonths.forEach(function (month) {
+            projectedTotals[month.number][kind] = toNumber(getAnalyticalMonthTotals(rowTotals, month.number)[kind]);
+        });
+
+        return projectedTotals;
+    }
+
+    function hasAnalyticalBucketValues(rowTotals, kind) {
+        return sumAnalyticalBucketByKind(rowTotals, kind) !== 0;
+    }
+
+    function buildAnalyticalCenterRowsByKind(centerNode, kind, labelSuffix, options) {
+        if (!centerNode) return [];
+        var includeOperations = Boolean(options && options.includeOperations);
+        var kindBadge = kind === "receita" ? "+" : "-";
+
+        var centerTotals = projectAnalyticalBucketByKind(centerNode.totals, kind);
+        if (!hasAnalyticalBucketValues(centerTotals, kind)) return [];
+
+        var rows = [{
+            label: centerNode.label + " " + labelSuffix,
+            kind: "center",
+            badge: kindBadge,
+            indentLevel: 1,
+            totals: centerTotals,
+        }];
+
+        if (!includeOperations) return rows;
+
+        Object.keys(centerNode.operations)
+            .sort(compareLabels)
+            .forEach(function (operationLabel) {
+                var operationTotals = projectAnalyticalBucketByKind(centerNode.operations[operationLabel].totals, kind);
+                if (!hasAnalyticalBucketValues(operationTotals, kind)) return;
+
+                rows.push({
+                    label: centerNode.operations[operationLabel].label,
+                    kind: "operation",
+                    indentLevel: 2,
+                    totals: operationTotals,
+                });
+            });
+
+        return rows;
+    }
+
+    function buildAnalyticalStructure(rows) {
+        var structure = createAnalyticalStructure();
+
+        (Array.isArray(rows) ? rows : []).forEach(function (rowData) {
+            var monthNumber = Number(rowData && rowData.mes_baixa);
+            if (!monthNumber || monthNumber < 1 || monthNumber > 12) return;
+
+            var kindText = normalizeText(normalizarReceitaDespesa(rowData));
+            var analyticalKind = kindText === "receita" ? "receita" : (kindText === "despesa" ? "despesa" : "");
+            if (!analyticalKind) return;
+
+            var value = toNumber(rowData && rowData.valor_liquido);
+            if (!value) return;
+            var centerLabel = getCenterLabel(rowData);
+            var isDevolucao = isDevolucaoVendaMovimento(rowData);
+            var isCmvCenter = isCmvCenterLabel(centerLabel);
+            var shouldIncludeInMainCenters = !(isCmvCenter && isDevolucao);
+
+            if (shouldIncludeInMainCenters) {
+                var centerNode = ensureCenterNode(structure, centerLabel);
+                var operationNode = ensureOperationNode(centerNode, getOperationLabel(rowData));
+
+                addAnalyticalValue(operationNode.totals, monthNumber, analyticalKind, value);
+                addAnalyticalValue(centerNode.totals, monthNumber, analyticalKind, value);
+            }
+
+            if (analyticalKind === "receita") addAnalyticalValue(structure.receitaBruta, monthNumber, analyticalKind, value);
+            if (analyticalKind === "despesa" && !isDevolucao && !isCmvCenter) {
+                addAnalyticalValue(structure.despesas, monthNumber, analyticalKind, value);
+
+                var despesaCenterNode = ensureCenterNodeInMap(structure.despesasCenters, centerLabel);
+                var despesaOperationNode = ensureOperationNode(despesaCenterNode, getOperationLabel(rowData));
+
+                addAnalyticalValue(despesaCenterNode.totals, monthNumber, "despesa", value);
+                addAnalyticalValue(despesaOperationNode.totals, monthNumber, "despesa", value);
+            }
+            if (isDevolucao) {
+                addAnalyticalValue(structure.devolucoes, monthNumber, "despesa", value);
+
+                var devolucaoCenterNode = ensureCenterNodeInMap(structure.devolucoesCenters, centerLabel);
+                var devolucaoOperationNode = ensureOperationNode(devolucaoCenterNode, getOperationLabel(rowData));
+
+                addAnalyticalValue(devolucaoCenterNode.totals, monthNumber, "despesa", value);
+                addAnalyticalValue(devolucaoOperationNode.totals, monthNumber, "despesa", value);
+            }
+        });
+
+        calculateAnalyticalSummaryRows(structure);
+        return structure;
+    }
+
+    function compareLabels(a, b) {
+        return toText(a).localeCompare(toText(b), "pt-BR", {sensitivity: "base"});
+    }
+
+    function isAnalyticalGroupExpanded(groupKey) {
+        return Boolean(analyticalExpandedGroups[groupKey]);
+    }
+
+    function buildAnalyticalExpandableRows(parentRow, groupKey, childRows) {
+        if (!parentRow) return [];
+
+        var detailRows = Array.isArray(childRows) ? childRows.filter(Boolean) : [];
+        var hasChildren = detailRows.length > 0;
+
+        if (hasChildren) {
+            parentRow.expandable = true;
+            parentRow.expanded = isAnalyticalGroupExpanded(groupKey);
+            parentRow.groupKey = groupKey;
+        }
+
+        var rows = [parentRow];
+        if (hasChildren && parentRow.expanded) {
+            rows = rows.concat(detailRows);
+        }
+
+        return rows;
+    }
+
+    function buildAnalyticalSectionRowsByKind(centerMap, kind, labelSuffix, options) {
+        var rows = [];
+
+        Object.keys(centerMap || {})
+            .sort(compareLabels)
+            .forEach(function (centerLabel) {
+                rows = rows.concat(buildAnalyticalCenterRowsByKind(centerMap[centerLabel], kind, labelSuffix, options));
+            });
+
+        return rows;
+    }
+
+    function buildAnalyticalRows(structure) {
+        var sortedCenterLabels = Object.keys(structure.centers).sort(compareLabels);
+        var cmvCenter = findCenterNodeByLabel(structure, "CMV");
+        var centerOnlyOptions = {includeOperations: false};
+        var nonCmvCenters = sortedCenterLabels
+            .map(function (centerLabel) {
+                return structure.centers[centerLabel];
+            })
+            .filter(function (centerNode) {
+                return normalizeText(centerNode.label) !== "cmv";
+            });
+        var rows = [];
+        var receitaDetailRows = [];
+        var devolucaoDetailRows = buildAnalyticalSectionRowsByKind(
+            structure.devolucoesCenters,
+            "despesa",
+            "Devolucao",
+            centerOnlyOptions
+        );
+        var despesaDetailRows = buildAnalyticalSectionRowsByKind(
+            structure.despesasCenters,
+            "despesa",
+            "Despesa",
+            centerOnlyOptions
+        );
+        var cmvRows = buildAnalyticalCenterRows(cmvCenter);
+        var cmvParentRow = cmvRows.length ? cmvRows[0] : null;
+        var cmvDetailRows = cmvRows.slice(1);
+
+        nonCmvCenters.forEach(function (centerNode) {
+            receitaDetailRows = receitaDetailRows.concat(
+                buildAnalyticalCenterRowsByKind(centerNode, "receita", "Receita", centerOnlyOptions)
+            );
+        });
+
+        rows = rows.concat(
+            buildAnalyticalExpandableRows(
+                getAnalyticalSummaryRowByKey(structure, "receita-bruta"),
+                "receitas",
+                receitaDetailRows
+            )
+        );
+        rows = rows.concat(
+            buildAnalyticalExpandableRows(
+                getAnalyticalSummaryRowByKey(structure, "devolucoes"),
+                "devolucoes",
+                devolucaoDetailRows
+            )
+        );
+        rows = rows.concat(buildAnalyticalSummaryRowsByKeys(structure, ["faturamento-liquido"]));
+        rows = rows.concat(buildAnalyticalExpandableRows(cmvParentRow, "cmv", cmvDetailRows));
+        rows = rows.concat(buildAnalyticalSummaryRowsByKeys(structure, ["lucro-bruto"]));
+        rows = rows.concat(
+            buildAnalyticalExpandableRows(
+                getAnalyticalSummaryRowByKey(structure, "despesas"),
+                "despesas",
+                despesaDetailRows
+            )
+        );
+        rows = rows.concat(buildAnalyticalSummaryRowsByKeys(structure, ["lucro-liquido"]));
+
+        return rows;
+    }
+
+    function sumAnalyticalBucketByKind(rowTotals, kind) {
+        var total = 0;
+
+        analyticalMonths.forEach(function (month) {
+            total += toNumber(getAnalyticalMonthTotals(rowTotals, month.number)[kind]);
+        });
+
+        return total;
+    }
+
+    function getAnalyticalRowSummary(rowTotals) {
+        var receita = sumAnalyticalBucketByKind(rowTotals, "receita");
+        var despesa = sumAnalyticalBucketByKind(rowTotals, "despesa");
+
+        return {
+            receita: receita,
+            despesa: despesa,
+            saldo: receita - despesa,
+        };
+    }
+
+    function getAnalyticalNetValue(totals) {
+        var monthTotals = totals || createAnalyticalMonthTotals();
+        return toNumber(monthTotals.receita) - toNumber(monthTotals.despesa);
+    }
+
+    function appendAnalyticalValueCell(html, value) {
+        html.push('<td class="dre-analitico-cell dre-analitico-cell--metric">' + formatMoney(value) + "</td>");
+    }
+
+    function appendAnalyticalMonthCells(html, rowTotals) {
+        analyticalMonths.forEach(function (month) {
+            var monthTotals = getAnalyticalMonthTotals(rowTotals, month.number);
+            appendAnalyticalValueCell(html, getAnalyticalNetValue(monthTotals));
+        });
+    }
+
+    function appendAnalyticalTotalCells(html, rowSummary) {
+        appendAnalyticalValueCell(html, rowSummary.saldo);
+    }
+
+    function buildAnalyticalTreePrefix(indentLevel) {
+        if (!indentLevel || indentLevel < 1) return "";
+
+        var parts = [];
+        for (var i = 0; i < indentLevel; i += 1) {
+            parts.push("-");
+        }
+        return parts.join(" ");
+    }
+
+    function buildAnalyticalMetricColgroup(html) {
+        var metricColumnCount = analyticalMonths.length + 1;
+
+        for (var i = 0; i < metricColumnCount; i += 1) {
+            html.push('<col class="dre-analitico-col dre-analitico-col--metric">');
+        }
+    }
+
+    function buildAnalyticalHeadRows(html) {
+        html.push(
+            '<thead>',
+            '<tr>',
+            '<th class="dre-analitico-cell dre-analitico-cell--description dre-analitico-cell--description-head">Descricao</th>'
+        );
+
+        analyticalMonths.forEach(function (month) {
+            html.push('<th class="dre-analitico-cell dre-analitico-cell--month">' + escapeHtml(month.label) + "</th>");
+        });
+        html.push('<th class="dre-analitico-cell dre-analitico-cell--month">Total</th>');
+        html.push("</tr></thead><tbody>");
+    }
+
+    function renderAnalyticalEmptyState() {
+        if (!analiticoTableHost) return;
+        analiticoTableHost.innerHTML =
+            '<div class="dre-analitico-empty"><strong>Nenhum dado encontrado</strong><span>Os filtros atuais nao retornaram registros para montar a tabela analitica.</span></div>';
+    }
+
+    function bindAnalyticalExpanders() {
+        if (!analiticoTableHost) return;
+
+        analiticoTableHost.querySelectorAll("[data-analitico-group]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                var groupKey = button.getAttribute("data-analitico-group");
+                if (!groupKey) return;
+                analyticalExpandedGroups[groupKey] = !isAnalyticalGroupExpanded(groupKey);
+                atualizarTabelaAnalitica();
+            });
+        });
+    }
+
+    function renderAnalyticalTable(rows) {
+        if (!analiticoTableHost) return;
+        if (!rows.length) {
+            renderAnalyticalEmptyState();
+            return;
+        }
+
+        var html = [
+            '<div class="dre-analitico-table-scroll">',
+            '<table class="dre-analitico-table">',
+            '<colgroup>',
+            '<col class="dre-analitico-col dre-analitico-col--description">',
+        ];
+        buildAnalyticalMetricColgroup(html);
+        html.push("</colgroup>");
+        buildAnalyticalHeadRows(html);
+
+        rows.forEach(function (row) {
+            var rowClass = "dre-analitico-row--operation";
+            if (row.kind === "summary") rowClass = "dre-analitico-row--summary";
+            if (row.kind === "center") rowClass = "dre-analitico-row--center";
+            if (row.summaryKey) rowClass += " dre-analitico-row--" + row.summaryKey;
+            if (row.expandable) rowClass += " dre-analitico-row--expandable";
+
+            html.push('<tr class="' + rowClass + '">');
+            var toggleHtml = "";
+            if (row.expandable) {
+                toggleHtml =
+                    '<button type="button" class="dre-analitico-toggle" data-analitico-group="' + escapeHtml(row.groupKey) + '" aria-expanded="' +
+                    (row.expanded ? "true" : "false") + '" aria-label="' +
+                    (row.expanded ? "Recolher detalhes de " : "Expandir detalhes de ") + escapeHtml(row.label) + '">' +
+                    '<span class="dre-analitico-toggle-icon">' + (row.expanded ? "&#9662;" : "&#9656;") + "</span>" +
+                    "</button>";
+            }
+            var badgeHtml = row.badge
+                ? '<span class="dre-analitico-badge">' + escapeHtml(row.badge) + "</span>"
+                : "";
+            var treePrefixHtml = row.indentLevel
+                ? '<span class="dre-analitico-tree-prefix">' + escapeHtml(buildAnalyticalTreePrefix(row.indentLevel)) + "</span>"
+                : "";
+            var labelClass = "dre-analitico-label dre-analitico-label--" + row.kind;
+            html.push(
+                '<td class="dre-analitico-cell dre-analitico-cell--description"><div class="' + labelClass + '">' +
+                badgeHtml +
+                treePrefixHtml +
+                '<span class="dre-analitico-label-text">' + escapeHtml(row.label) + "</span>" +
+                toggleHtml +
+                "</div></td>"
+            );
+
+            appendAnalyticalMonthCells(html, row.totals);
+            var rowSummary = getAnalyticalRowSummary(row.totals);
+            appendAnalyticalTotalCells(html, rowSummary);
+            html.push("</tr>");
+        });
+
+        html.push("</tbody></table></div>");
+        analiticoTableHost.innerHTML = html.join("");
+        bindAnalyticalExpanders();
+    }
+
+    function getAnalyticalFilteredRows() {
+        return data.filter(function (rowData) {
+            return matchesGlobalFilters(rowData);
+        });
+    }
+
+    function atualizarTabelaAnalitica() {
+        var structure = buildAnalyticalStructure(getAnalyticalFilteredRows());
+        renderAnalyticalTable(buildAnalyticalRows(structure));
+    }
+
     function createFilterDefinitions() {
         return [
             {
@@ -161,6 +764,7 @@
         if (!window.ModuleFilterCore || !secFiltros || !filtrosColunaEsquerda || !filtrosColunaDireita) {
             externalFilters = null;
             if (tabela && typeof tabela.refreshFilter === "function") tabela.refreshFilter();
+            atualizarTabelaAnalitica();
             return;
         }
 
@@ -175,10 +779,12 @@
             rightColumn: filtrosColunaDireita,
             onChange: function () {
                 if (tabela && typeof tabela.refreshFilter === "function") tabela.refreshFilter();
+                atualizarTabelaAnalitica();
             },
         });
 
         if (tabela && typeof tabela.refreshFilter === "function") tabela.refreshFilter();
+        atualizarTabelaAnalitica();
     }
 
     function matchesGlobalFilters(rowData) {

@@ -1099,6 +1099,7 @@ def dre(request, empresa_id):
             "valor_a_pagar_num",
             "descricao_tipo_operacao",
             "descricao_centro_resultado",
+            "dfc__tipo_movimento",
             "plano_contas_tipo_movimento",
             "tipo_dre",
         )
