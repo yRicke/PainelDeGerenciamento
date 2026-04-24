@@ -436,6 +436,7 @@
             var centerLabel = getCenterLabel(rowData);
             var isDevolucao = isDevolucaoVendaMovimento(rowData);
             var isCmvCenter = isCmvCenterLabel(centerLabel);
+            var shouldIncludeInReceitaBruta = analyticalKind === "receita" && !isCmvCenter;
             var shouldIncludeInMainCenters = !(isCmvCenter && isDevolucao);
 
             if (shouldIncludeInMainCenters) {
@@ -446,7 +447,9 @@
                 addAnalyticalValue(centerNode.totals, monthNumber, analyticalKind, value);
             }
 
-            if (analyticalKind === "receita") addAnalyticalValue(structure.receitaBruta, monthNumber, analyticalKind, value);
+            if (shouldIncludeInReceitaBruta) {
+                addAnalyticalValue(structure.receitaBruta, monthNumber, analyticalKind, value);
+            }
             if (analyticalKind === "despesa" && !isDevolucao && !isCmvCenter) {
                 addAnalyticalValue(structure.despesas, monthNumber, analyticalKind, value);
 
