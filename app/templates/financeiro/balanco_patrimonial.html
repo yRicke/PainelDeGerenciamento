@@ -127,13 +127,31 @@
             <h2>Dashboard Balanco Patrimonial</h2>
             <div class="balanco-dashboard-data-base">
                 <div class="balanco-dashboard-data-base-field">
-                    <div>
-                        <label for="balanco-dashboard-data-referencia">Data Referencia</label>
-                        <input type="date" id="balanco-dashboard-data-referencia">
+                    <div class="balanco-dashboard-period-group">
+                        <strong class="balanco-dashboard-period-title">Periodo Referencia</strong>
+                        <div class="balanco-dashboard-period-inputs">
+                            <div>
+                                <label for="balanco-dashboard-periodo-referencia-inicio">De</label>
+                                <input type="date" id="balanco-dashboard-periodo-referencia-inicio">
+                            </div>
+                            <div>
+                                <label for="balanco-dashboard-periodo-referencia-fim">Ate</label>
+                                <input type="date" id="balanco-dashboard-periodo-referencia-fim">
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label for="balanco-dashboard-data-evolucao">Data Evolucao</label>
-                        <input type="date" id="balanco-dashboard-data-evolucao">
+                    <div class="balanco-dashboard-period-group">
+                        <strong class="balanco-dashboard-period-title">Periodo Evolucao</strong>
+                        <div class="balanco-dashboard-period-inputs">
+                            <div>
+                                <label for="balanco-dashboard-periodo-evolucao-inicio">De</label>
+                                <input type="date" id="balanco-dashboard-periodo-evolucao-inicio">
+                            </div>
+                            <div>
+                                <label for="balanco-dashboard-periodo-evolucao-fim">Ate</label>
+                                <input type="date" id="balanco-dashboard-periodo-evolucao-fim">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -179,7 +197,7 @@
                 </article>
             </div>
             <p class="file-status balanco-dashboard-note">
-                Valores recalculados conforme filtros aplicados na tabela e datas selecionadas.
+                Valores recalculados conforme filtros aplicados na tabela e periodos selecionados.
             </p>
         </section>
 
