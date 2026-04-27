@@ -29,3 +29,7 @@ staticfiles/
 *.xls
 *.xlsx
 
+# Arquivos temporarios de apoio
+tmp_*/
+tmp_*.py
+tmp_*.txt
