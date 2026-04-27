@@ -18,6 +18,18 @@ DASHBOARD_EXPORT_CONFIG = {
         "modulo_nome": "DFC",
         "titulo_padrao": "Dashboard DFC",
     },
+    "financeiro_balanco_patrimonial": {
+        "modulo_nome": "Balanco Patrimonial",
+        "titulo_padrao": "Dashboard Balanco Patrimonial",
+    },
+    "financeiro_dre": {
+        "modulo_nome": "DRE",
+        "titulo_padrao": "Dashboard DRE",
+    },
+    "financeiro_saldos_e_limites": {
+        "modulo_nome": "Saldos e Limites",
+        "titulo_padrao": "Dashboard Saldos e Limites",
+    },
     "comercial_carteira": {
         "modulo_nome": "Carteira",
         "titulo_padrao": "Dashboard Carteira",
@@ -59,6 +71,10 @@ DASHBOARD_EXPORT_CONFIG = {
     "administrativo_plano_de_cargos_e_salarios": {
         "modulo_nome": "Plano de Cargos e Salarios",
         "titulo_padrao": "Dashboard Plano de Cargos e Salarios",
+    },
+    "administrativo_apuracao_de_resultados": {
+        "modulo_nome": "Apuracao de Resultados",
+        "titulo_padrao": "Dashboard Apuracao de Resultados",
     },
 }
 

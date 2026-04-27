@@ -166,6 +166,12 @@
 {% endblock %}
 
 {% block extra_js %}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'financeiro_saldos_e_limites' %}"
+    data-title="Dashboard Saldos e Limites"
+    data-dashboard-slug="financeiro_saldos_e_limites"
+></div>
 {{ saldos_limites_tabulator|json_script:"saldos-limites-tabulator-data" }}
 {{ empresas_titulares_opcoes|json_script:"saldos-limites-empresas-opcoes-data" }}
 {{ contas_bancarias_opcoes|json_script:"saldos-limites-contas-opcoes-data" }}
@@ -173,4 +179,5 @@
 {{ ultima_data_iso|json_script:"saldos-limites-ultima-data-iso" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/saldos-e-limites-page.js' %}?v=20260329-3"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

@@ -216,9 +216,16 @@
     id="balanco-patrimonial-config"
     data-proximo-numero-registro="{{ balanco_patrimonial_proximo_numero_registro }}"
 ></div>
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'financeiro_balanco_patrimonial' %}"
+    data-title="Dashboard Balanco Patrimonial"
+    data-dashboard-slug="financeiro_balanco_patrimonial"
+></div>
 {{ balanco_patrimonial_tabulator|json_script:"balanco-patrimonial-tabulator-data" }}
 {{ balanco_patrimonial_empresas_bp_opcoes|json_script:"balanco-patrimonial-empresas-opcoes-data" }}
 {{ balanco_patrimonial_tipo_movimentacao_opcoes|json_script:"balanco-patrimonial-tipo-opcoes-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/balanco-patrimonial-page.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
 {% endblock %}

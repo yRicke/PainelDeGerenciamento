@@ -255,3 +255,15 @@
 </script>
 
 {% endblock %}
+
+{% block extra_js %}
+<div hidden>{% csrf_token %}</div>
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'administrativo_apuracao_de_resultados' %}"
+    data-section-selector="#sec-apuracao-dashboard"
+    data-title="Dashboard Apuracao de Resultados"
+    data-dashboard-slug="administrativo_apuracao_de_resultados"
+></div>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
+{% endblock %}
