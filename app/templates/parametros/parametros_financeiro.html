@@ -6,6 +6,7 @@
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/apuracao-dashboard.css' %}">
 <link rel="stylesheet" href="{% static 'css/parametros/controle-margem-parametros.css' %}">
 {% endblock %}
 
@@ -14,6 +15,18 @@
     <a href="{% url 'apuracao_de_resultados' empresa.id %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
     <h1>Parametros Financeiro</h1>
     <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel module-section">
+    <h2>Dashboard</h2>
+    <p>Periodo da Apuracao de Resultados: {{ data_inicial_br }} a {{ data_final_br }}</p>
+    {% include "administrativo/partials/apuracao_kpis.html" %}
+</section>
+
+<section class="panel module-section">
+    <h2>Tabela Demonstrativa</h2>
+    <p>Demonstrativos financeiros calculados pelo periodo da Apuracao de Resultados.</p>
+    {% include "administrativo/partials/apuracao_parametros_feedback.html" %}
 </section>
 
 <section class="panel module-section">

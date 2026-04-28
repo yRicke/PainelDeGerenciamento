@@ -85,6 +85,7 @@ from ..tabulator import (
     build_unidades_federativas_tabulator,
 )
 from ..utils.modulos_permissoes import _modulos_com_acesso, _obter_empresa_e_validar_permissao_modulo
+from .administrativo import _contexto_dashboard_apuracao_resultados, _resolver_periodo_apuracao_request
 
 
 def _is_ajax_request(request):
@@ -575,9 +576,15 @@ def parametros_financeiro(request, empresa_id):
     if not autorizado:
         return redirect("index")
 
+    data_inicial, data_final = _resolver_periodo_apuracao_request(request, empresa)
     parametros_qs = ParametroMargemFinanceiro.objects.filter(empresa=empresa).order_by("id")
     contexto = {
         "empresa": empresa,
+        "data_inicial_iso": data_inicial.isoformat(),
+        "data_final_iso": data_final.isoformat(),
+        "data_inicial_br": data_inicial.strftime("%d/%m/%Y"),
+        "data_final_br": data_final.strftime("%d/%m/%Y"),
+        "apuracao_dashboard": _contexto_dashboard_apuracao_resultados(empresa, data_inicial, data_final),
         "parametros_financeiro_tabulator": build_parametros_margem_financeiro_tabulator(parametros_qs, empresa.id),
     }
     return render(request, "parametros/parametros_financeiro.html", contexto)

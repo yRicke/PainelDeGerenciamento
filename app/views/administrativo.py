@@ -1869,6 +1869,34 @@ def _contexto_cards_estoque_apuracao(empresa, data_inicial, data_final):
     }
 
 
+def _resolver_periodo_apuracao_request(request, empresa):
+    data_inicial_raw = request.GET.get("data_inicial")
+    data_final_raw = request.GET.get("data_final")
+    if not data_inicial_raw and not data_final_raw:
+        data_inicial_raw = request.COOKIES.get(f"apuracao_data_inicial_{empresa.id}")
+        data_final_raw = request.COOKIES.get(f"apuracao_data_final_{empresa.id}")
+    return _resolver_periodo_apuracao(empresa, data_inicial_raw, data_final_raw)
+
+
+def _contexto_dashboard_apuracao_resultados(
+    empresa,
+    data_inicial,
+    data_final,
+    cmv_ajustado_percentual_ratio=None,
+):
+    cmv_ratio = (
+        Decimal(cmv_ajustado_percentual_ratio)
+        if cmv_ajustado_percentual_ratio is not None
+        else _APURACAO_PERCENTUAL_CMV_AJUSTADO
+    )
+    return _contexto_tabela_apuracao_resultados(
+        empresa,
+        data_inicial,
+        data_final,
+        cmv_ratio,
+    )["dashboard"]
+
+
 @login_required(login_url="entrar")
 def apuracao_de_resultados(request, empresa_id):
     modulo = _obter_modulo("Administrativo", "Apuracao de Resultados")
@@ -1883,17 +1911,7 @@ def apuracao_de_resultados(request, empresa_id):
         _APURACAO_PERCENTUAL_CMV_AJUSTADO,
     )
 
-    data_inicial_raw = request.GET.get("data_inicial")
-    data_final_raw = request.GET.get("data_final")
-    if not data_inicial_raw and not data_final_raw:
-        data_inicial_raw = request.COOKIES.get(f"apuracao_data_inicial_{empresa.id}")
-        data_final_raw = request.COOKIES.get(f"apuracao_data_final_{empresa.id}")
-
-    data_inicial, data_final = _resolver_periodo_apuracao(
-        empresa,
-        data_inicial_raw,
-        data_final_raw,
-    )
+    data_inicial, data_final = _resolver_periodo_apuracao_request(request, empresa)
 
     tabela_apuracao = _contexto_tabela_apuracao_resultados(
         empresa,

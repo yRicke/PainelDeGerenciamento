@@ -1,0 +1,32 @@
+<div class="apuracao-parametros-feedback-grid">
+    {% for bloco in apuracao_dashboard.parametros_financeiros_feedback %}
+    <article class="apuracao-parametros-feedback-card">
+        <div class="apuracao-parametros-feedback-head">
+            <h3>{{ bloco.titulo }}</h3>
+            <p>{{ bloco.total }}</p>
+        </div>
+        <div class="apuracao-parametros-feedback-table-wrap">
+            <table class="apuracao-parametros-feedback-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in bloco.linhas %}
+                    <tr>
+                        <td>{{ linha.data }}</td>
+                        <td>{{ linha.valor }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2">Sem valores no periodo</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endfor %}
+</div>

@@ -1,0 +1,29 @@
+<div class="apuracao-kpi-grid">
+    <article class="dashboard-total-card apuracao-kpi-card">
+        <p class="dashboard-total-label">Resultado Setorial</p>
+        <p class="dashboard-total-value">{{ apuracao_dashboard.lucro_setorial_total }}</p>
+        <p class="dashboard-total-note">Lucro Liquido (Vendas + Producao + Logistica + Administracao + Financeiro)</p>
+    </article>
+    <article class="dashboard-total-card apuracao-kpi-card">
+        <p class="dashboard-total-label">Margem Liquida Compras</p>
+        <p class="dashboard-total-value">{{ apuracao_dashboard.margem_liquida_compras }}</p>
+        <p class="dashboard-total-note">Lucro Liquido Compras / Receita Bruta Compras</p>
+    </article>
+    <article class="dashboard-total-card apuracao-kpi-card">
+        <p class="dashboard-total-label">Saldo Ajustado Compras</p>
+        <p class="dashboard-total-value">{{ apuracao_dashboard.saldo_apos_setores }}</p>
+        <p class="dashboard-total-note">Lucro Liquido Compras - Resultado Setorial</p>
+    </article>
+    <article class="dashboard-total-card apuracao-kpi-card">
+        <p class="dashboard-total-label">Indice Saldo Ajustado</p>
+        <p class="dashboard-total-value">{{ apuracao_dashboard.indice_saldo_apos_setores }}</p>
+        <p class="dashboard-total-note">Saldo Ajustado / Receita Bruta Compras</p>
+    </article>
+    <article class="dashboard-total-card apuracao-kpi-card">
+        <p class="dashboard-total-label">Resultados Demonstrativos</p>
+        <p class="dashboard-total-value">{{ apuracao_dashboard.parametros_financeiros }}</p>
+        <p class="dashboard-total-note">
+            Financeiro {{ apuracao_dashboard.parametros_financeiros_financeiro }} + Adiantamentos {{ apuracao_dashboard.parametros_financeiros_adiantamentos }} + Estoque {{ apuracao_dashboard.parametros_financeiros_estoque }}
+        </p>
+    </article>
+</div>
