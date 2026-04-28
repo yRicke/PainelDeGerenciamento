@@ -588,9 +588,9 @@
             {title: "Descricao", field: "descricao", minWidth: 180},
             booleanColumn("Ativo", "ativo", true, saveMateriaPrima),
             moneyColumn("Valor", "valor", isMateriaPrimaEditable("valor"), saveMateriaPrima),
-            moneyColumn("Frete MP", "frete_mp", isMateriaPrimaEditable("frete_mp"), saveMateriaPrima),
+            moneyColumn("Frete MP", "frete_mp", isMateriaPrimaEditable("frete_mp"), saveMateriaPrima, "precificacao-cell-yellow"),
             moneyColumn("Sub-Total", "sub_total", false, null),
-            percentColumn("Credito", "credito", true, saveMateriaPrima, 2),
+            percentColumn("Credito", "credito", true, saveMateriaPrima, 2, "precificacao-cell-yellow"),
             moneyColumn("Custo Ex-Works", "custo_ex_works", false, null),
         ];
 
@@ -600,7 +600,7 @@
             {
                 title: "Acucar",
                 columns: [
-                    percentColumn("Quebra", "acucar_quebra", true, saveCmv, 2),
+                    percentColumn("Quebra", "acucar_quebra", true, saveCmv, 2, "precificacao-cell-yellow"),
                     decimalColumn("Qtd", "acucar_qtd", 4, false, null),
                     moneyColumn("Valor", "acucar_valor", false, null),
                     moneyColumn("Ex-Works", "acucar_valor_ex_works", false, null),
@@ -609,7 +609,7 @@
             {
                 title: "Embalagem Primaria",
                 columns: [
-                    percentColumn("Quebra", "emb_primaria_quebra", true, saveCmv, 2),
+                    percentColumn("Quebra", "emb_primaria_quebra", true, saveCmv, 2, "precificacao-cell-yellow"),
                     decimalColumn("Qtd", "emb_primaria_qtd", 4, false, null),
                     moneyColumn("Valor", "emb_primaria_valor", false, null),
                     moneyColumn("Ex-Works", "emb_primaria_valor_ex_works", false, null),
@@ -618,7 +618,7 @@
             {
                 title: "Embalagem Secundaria",
                 columns: [
-                    percentColumn("Quebra", "emb_secundaria_quebra", true, saveCmv, 2),
+                    percentColumn("Quebra", "emb_secundaria_quebra", true, saveCmv, 2, "precificacao-cell-yellow"),
                     decimalColumn("Qtd", "emb_secundaria_qtd", 4, false, null),
                     moneyColumn("Valor", "emb_secundaria_valor", false, null),
                     moneyColumn("Ex-Works", "emb_secundaria_valor_ex_works", false, null),
@@ -640,21 +640,21 @@
             {
                 title: "Financeiro",
                 columns: [
-                    percentColumn("Taxa", "financeiro_taxa", true, saveDespesas, 2),
+                    percentColumn("Taxa", "financeiro_taxa", true, saveDespesas, 2, "precificacao-cell-orange"),
                     moneyColumn("Valor", "financeiro_valor", false, null),
                 ],
             },
             {
                 title: "Inadimplencia",
                 columns: [
-                    percentColumn("Taxa", "inadimplencia_taxa", true, saveDespesas, 2),
+                    percentColumn("Taxa", "inadimplencia_taxa", true, saveDespesas, 2, "precificacao-cell-orange"),
                     moneyColumn("Valor", "inadimplencia_valor", false, null),
                 ],
             },
             {
                 title: "Administracao",
                 columns: [
-                    percentColumn("Taxa", "administracao_taxa", true, saveDespesas, 2),
+                    percentColumn("Taxa", "administracao_taxa", true, saveDespesas, 2, "precificacao-cell-orange"),
                     moneyColumn("Valor", "administracao_valor", false, null),
                 ],
             },
@@ -662,7 +662,7 @@
                 title: "Producao",
                 columns: [
                     booleanColumn("Ativo", "producao_ativo", true, saveDespesas),
-                    moneyColumn("Valor", "producao_valor", true, saveDespesas),
+                    moneyColumn("Valor", "producao_valor", true, saveDespesas, "precificacao-cell-orange"),
                 ],
             },
             {
@@ -689,9 +689,9 @@
             {
                 title: "Imposto",
                 columns: [
-                    percentColumn("Aliquota", "imposto_aliquota", true, saveImpostos, 2),
+                    percentColumn("Aliquota", "imposto_aliquota", true, saveImpostos, 2, "precificacao-cell-yellow"),
                     moneyColumn("Valor", "imposto_valor", false, null),
-                    percentColumn("Interno Aliquota", "imposto_interno_aliquota", true, saveImpostos, 2),
+                    percentColumn("Interno Aliquota", "imposto_interno_aliquota", true, saveImpostos, 2, "precificacao-cell-yellow"),
                     moneyColumn("Interno Valor", "imposto_interno_valor", false, null),
                     moneyColumn("Sub-Total Interno", "subtotal_interno", false, null),
                 ],
@@ -719,7 +719,7 @@
             {
                 title: "Comissao",
                 columns: [
-                    percentColumn("Aliquota", "comissao_aliquota", true, savePrecoVenda, 2),
+                    percentColumn("Aliquota", "comissao_aliquota", true, savePrecoVenda, 2, "precificacao-cell-orange"),
                     moneyColumn("Valor", "comissao_valor", false, null),
                 ],
             },
@@ -734,7 +734,6 @@
         ];
 
         columns.lucro = [
-            {title: "Produto", field: "descricao", minWidth: 140},
             moneyColumn("Lucro", "lucro_valor", false, null),
             {
                 title: "%",

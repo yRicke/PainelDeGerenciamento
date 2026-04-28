@@ -47,6 +47,12 @@
         <p class="form-note">Alterou uma celula, o sistema salva e recalcula automaticamente.</p>
         <p id="precificacao-save-status" class="file-status" aria-live="polite"></p>
     </div>
+    <div class="precificacao-color-legend" aria-label="Legenda de cores das celulas">
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--green"></i>Verde: edicao padrao</span>
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--yellow"></i>Amarelo: campo de atencao</span>
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--orange"></i>Laranja: campo sensivel</span>
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--red"></i>Vermelho: edicao restrita</span>
+    </div>
 </section>
 
 <section id="sec-calculadora" class="panel module-section">
@@ -123,16 +129,20 @@
 </section>
 
 <section id="sec-produto-venda" class="panel module-section">
-    <h2>Produto Acabado - Preco de Venda</h2>
-    <div class="table-wrapper">
-        <div id="precificacao-produto-preco-venda-tabulator"></div>
-    </div>
-</section>
-
-<section id="sec-lucro" class="panel module-section">
-    <h2>Lucro</h2>
-    <div class="table-wrapper">
-        <div id="precificacao-lucro-tabulator"></div>
+    <h2>Produto Acabado - Preco de Venda e Lucro</h2>
+    <div class="precificacao-preco-lucro-grid">
+        <article>
+            <h3>Produto Acabado - Preco de Venda</h3>
+            <div class="table-wrapper">
+                <div id="precificacao-produto-preco-venda-tabulator"></div>
+            </div>
+        </article>
+        <article id="sec-lucro">
+            <h3>Lucro</h3>
+            <div class="table-wrapper">
+                <div id="precificacao-lucro-tabulator"></div>
+            </div>
+        </article>
     </div>
 </section>
 {% endblock %}
