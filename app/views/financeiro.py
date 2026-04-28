@@ -22,6 +22,7 @@ from ..models import (
     ContratoRede,
     ContaBancaria,
     ContasAReceber,
+    DescricaoBP,
     DRE,
     EmpresaTitular,
     Faturamento,
@@ -796,11 +797,12 @@ def balanco_patrimonial(request, empresa_id):
     if not permitido:
         return redirect("index")
 
-    registros_qs = BalancoPatrimonial.objects.filter(empresa=empresa).order_by(
+    registros_qs = BalancoPatrimonial.objects.filter(empresa=empresa).select_related("descricao_bp").order_by(
         "-data_balanco_patrimonial",
         "-numero_registro",
         "-id",
     )
+    descricoes_bp_qs = DescricaoBP.objects.filter(empresa=empresa).order_by("descricao", "id")
 
     contexto = {
         "empresa": empresa,
@@ -816,8 +818,13 @@ def balanco_patrimonial(request, empresa_id):
             {"value": value, "label": label}
             for value, label in BalancoPatrimonial.TIPO_MOVIMENTACAO_CHOICES
         ],
+        "balanco_patrimonial_descricoes_bp_opcoes": [
+            {"id": item.id, "descricao": item.descricao}
+            for item in descricoes_bp_qs
+        ],
         "balanco_patrimonial_proximo_numero_registro": BalancoPatrimonial.proximo_numero_registro(empresa),
         "balanco_patrimonial_ativos_url": reverse("balanco_patrimonial_ativos", kwargs={"empresa_id": empresa.id}),
+        "balanco_patrimonial_descricoes_bp_url": reverse("descricoes_bp", kwargs={"empresa_id": empresa.id}),
         "hoje_iso": timezone.localdate().isoformat(),
     }
     return render(request, modulo["template"], contexto)

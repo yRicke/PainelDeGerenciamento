@@ -8,6 +8,7 @@ from ..models import (
     Banco,
     Cidade,
     ContaBancaria,
+    DescricaoBP,
     DescricaoPerfil,
     EmpresaTitular,
     Motorista,
@@ -27,6 +28,7 @@ from ..services.parametros import (
     atualizar_banco_por_dados,
     atualizar_empresa_titular_por_dados,
     atualizar_motorista_por_dados,
+    atualizar_descricao_bp_por_dados,
     atualizar_descricao_perfil_por_dados,
     atualizar_conta_bancaria_por_dados,
     atualizar_parametro_margem_financeiro,
@@ -41,6 +43,7 @@ from ..services.parametros import (
     atualizar_unidade_federativa_por_dados,
     criar_motorista_por_dados,
     criar_banco_por_dados,
+    criar_descricao_bp_por_dados,
     criar_descricao_perfil_por_dados,
     criar_empresa_titular_por_dados,
     criar_conta_bancaria_por_dados,
@@ -68,6 +71,7 @@ from ..tabulator import (
     build_contas_bancarias_tabulator,
     build_empresas_titulares_tabulator,
     build_motoristas_tabulator,
+    build_descricoes_bp_tabulator,
     build_descricoes_perfil_tabulator,
     build_parametros_margem_financeiro_tabulator,
     build_parametros_metas_tabulator,
@@ -763,6 +767,106 @@ def excluir_descricao_perfil_modulo(request, empresa_id, descricao_perfil_id):
 
     messages.success(request, "Descricao perfil excluida com sucesso.")
     return redirect("descricoes_perfil", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def descricoes_bp(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descricao Balanco Patrimonial",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    descricoes_qs = DescricaoBP.objects.filter(empresa=empresa).order_by("descricao", "id")
+    contexto = {
+        "empresa": empresa,
+        "descricoes_bp_tabulator": build_descricoes_bp_tabulator(descricoes_qs, empresa.id),
+    }
+    return render(request, "parametros/descricoes_bp.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_descricao_bp_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descricao Balanco Patrimonial",
+    )
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+
+    erro = criar_descricao_bp_por_dados(
+        empresa,
+        request.POST.get("descricao"),
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+    messages.success(request, "Descricao BP criada com sucesso.")
+    return redirect("descricoes_bp", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_descricao_bp_modulo(request, empresa_id, descricao_bp_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descricao Balanco Patrimonial",
+    )
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+
+    item = DescricaoBP.objects.filter(id=descricao_bp_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Descricao BP nao encontrada.")
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+
+    erro = atualizar_descricao_bp_por_dados(
+        item,
+        request.POST.get("descricao"),
+        empresa,
+    )
+    if erro:
+        messages.error(request, erro)
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+    messages.success(request, "Descricao BP atualizada com sucesso.")
+    return redirect("descricoes_bp", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_descricao_bp_modulo(request, empresa_id, descricao_bp_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "Descricao Balanco Patrimonial",
+    )
+    if not autorizado:
+        return redirect("index")
+    if request.method != "POST":
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+
+    item = DescricaoBP.objects.filter(id=descricao_bp_id, empresa=empresa).first()
+    if not item:
+        messages.error(request, "Descricao BP nao encontrada.")
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+
+    try:
+        item.excluir_descricao_bp()
+    except ProtectedError:
+        messages.error(
+            request,
+            "Nao e possivel excluir a descricao BP porque ha balancos patrimoniais vinculados.",
+        )
+        return redirect("descricoes_bp", empresa_id=empresa.id)
+
+    messages.success(request, "Descricao BP excluida com sucesso.")
+    return redirect("descricoes_bp", empresa_id=empresa.id)
 
 
 @login_required(login_url="entrar")

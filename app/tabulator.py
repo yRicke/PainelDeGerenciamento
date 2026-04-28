@@ -737,6 +737,24 @@ def build_descricoes_perfil_tabulator(descricoes_qs, empresa_id: int):
     ]
 
 
+def build_descricoes_bp_tabulator(descricoes_qs, empresa_id: int):
+    return [
+        {
+            "id": item.id,
+            "descricao": item.descricao or "",
+            "editar_url": reverse(
+                "editar_descricao_bp_modulo",
+                kwargs={"empresa_id": empresa_id, "descricao_bp_id": item.id},
+            ),
+            "excluir_url": reverse(
+                "excluir_descricao_bp_modulo",
+                kwargs={"empresa_id": empresa_id, "descricao_bp_id": item.id},
+            ),
+        }
+        for item in descricoes_qs
+    ]
+
+
 def build_parametros_metas_tabulator(parametros_qs, empresa_id: int):
     return [
         {
@@ -1185,6 +1203,7 @@ def build_balanco_patrimonial_tabulator(registros_qs, empresa_id: int, permitir_
             "empresa_balanco_patrimonial_label": item.get_empresa_balanco_patrimonial_display(),
             "tipo_movimentacao": item.tipo_movimentacao,
             "tipo_movimentacao_label": item.get_tipo_movimentacao_display(),
+            "descricao_bp_id": item.descricao_bp_id or "",
             "descricao": item.descricao or "",
             "valor": float(item.valor or 0),
             "observacao": item.observacao or "",

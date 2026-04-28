@@ -1722,6 +1722,39 @@ class ComiteDiario(models.Model):
         self.delete()
 
 
+class DescricaoBP(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="descricoes_bp")
+    descricao = models.CharField(max_length=220)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "descricao"], name="uq_descricao_bp_empresa_descricao"),
+        ]
+
+    def __str__(self):
+        return f"{self.descricao} - {self.empresa.nome}"
+
+    @classmethod
+    def criar_descricao_bp(cls, empresa, descricao):
+        item = cls(empresa=empresa, descricao=descricao)
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_descricao_bp(self, descricao=UNSET):
+        if descricao is not UNSET:
+            self.descricao = descricao
+        self.full_clean()
+        self.save()
+
+    def excluir_descricao_bp(self):
+        self.delete()
+
+
 class BalancoPatrimonial(models.Model):
     EMPRESA_BP_MMTG = "mmtg"
     EMPRESA_BP_SAFIA = "safia_distribuidora"
@@ -1747,7 +1780,7 @@ class BalancoPatrimonial(models.Model):
     data_balanco_patrimonial = models.DateField()
     empresa_balanco_patrimonial = models.CharField(max_length=32, choices=EMPRESA_BALANCO_PATRIMONIAL_CHOICES)
     tipo_movimentacao = models.CharField(max_length=16, choices=TIPO_MOVIMENTACAO_CHOICES, blank=True, default="")
-    descricao = models.CharField(max_length=255)
+    descricao_bp = models.ForeignKey(DescricaoBP, on_delete=models.PROTECT, related_name="balancos_patrimoniais")
     valor = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     observacao = models.CharField(max_length=255, blank=True, default="")
 
@@ -1770,6 +1803,10 @@ class BalancoPatrimonial(models.Model):
         ultimo = cls.objects.filter(empresa=empresa).aggregate(ultimo=models.Max("numero_registro")).get("ultimo")
         return int(ultimo or 0) + 1
 
+    @property
+    def descricao(self):
+        return self.descricao_bp.descricao if self.descricao_bp_id else ""
+
     @classmethod
     def criar_balanco_patrimonial(
         cls,
@@ -1780,7 +1817,7 @@ class BalancoPatrimonial(models.Model):
         data_balanco_patrimonial,
         empresa_balanco_patrimonial,
         tipo_movimentacao,
-        descricao,
+        descricao_bp,
         valor,
         observacao="",
     ):
@@ -1791,7 +1828,7 @@ class BalancoPatrimonial(models.Model):
             data_balanco_patrimonial=data_balanco_patrimonial,
             empresa_balanco_patrimonial=empresa_balanco_patrimonial,
             tipo_movimentacao=tipo_movimentacao,
-            descricao=descricao,
+            descricao_bp=descricao_bp,
             valor=valor,
             observacao=observacao,
         )
@@ -1810,7 +1847,7 @@ class BalancoPatrimonial(models.Model):
         data_balanco_patrimonial=UNSET,
         empresa_balanco_patrimonial=UNSET,
         tipo_movimentacao=UNSET,
-        descricao=UNSET,
+        descricao_bp=UNSET,
         valor=UNSET,
         observacao=UNSET,
     ):
@@ -1822,8 +1859,8 @@ class BalancoPatrimonial(models.Model):
             self.empresa_balanco_patrimonial = empresa_balanco_patrimonial
         if tipo_movimentacao is not UNSET:
             self.tipo_movimentacao = tipo_movimentacao
-        if descricao is not UNSET:
-            self.descricao = descricao
+        if descricao_bp is not UNSET:
+            self.descricao_bp = descricao_bp
         if valor is not UNSET:
             self.valor = valor
         if observacao is not UNSET:

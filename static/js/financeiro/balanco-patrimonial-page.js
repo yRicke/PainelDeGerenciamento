@@ -3,6 +3,7 @@
     var dataElement = document.getElementById("balanco-patrimonial-tabulator-data");
     var empresasElement = document.getElementById("balanco-patrimonial-empresas-opcoes-data");
     var tiposElement = document.getElementById("balanco-patrimonial-tipo-opcoes-data");
+    var descricoesBpElement = document.getElementById("balanco-patrimonial-descricoes-bp-data");
     var cadastroForm = document.getElementById("balanco-patrimonial-cadastro-form");
     var numeroRegistroInput = document.getElementById("balanco-patrimonial-numero-registro");
     var descricaoCadastroSelect = document.getElementById("balanco-patrimonial-descricao-input");
@@ -21,7 +22,7 @@
     var kpiPlEvolucaoValorEl = document.getElementById("balanco-kpi-pl-evolucao-valor");
     var kpiPlEvolucaoPercentualEl = document.getElementById("balanco-kpi-pl-evolucao-percentual");
 
-    if (!dataElement || !empresasElement || !tiposElement || !window.Tabulator) return;
+    if (!dataElement || !empresasElement || !tiposElement || !descricoesBpElement || !window.Tabulator) return;
 
     var tabela = null;
     var data = [];
@@ -32,6 +33,8 @@
     var formatadorMoeda = new Intl.NumberFormat("pt-BR", {style: "currency", currency: "BRL"});
     var empresasValues = {};
     var tiposValues = {};
+    var descricoesBpOptions = [];
+    var descricoesBpValues = {};
     var proximoNumeroRegistro = 1;
     var dashboardDataReferenciaIso = "";
     var dashboardDataEvolucaoIso = "";
@@ -288,30 +291,25 @@
 
     function getDescricaoOptions(extraValue) {
         var seen = {};
-        var values = [];
-
-        function addValue(value) {
-            var text = toText(value);
-            var key = normalizeText(text);
-            if (!text || seen[key]) return;
-            seen[key] = true;
-            values.push(text);
+        var options = [];
+        (descricoesBpOptions || []).forEach(function (item) {
+            var id = toText(item && item.id);
+            var descricao = toText(item && item.descricao);
+            if (!id || !descricao || seen[id]) return;
+            seen[id] = true;
+            options.push({id: id, descricao: descricao});
+        });
+        var extraId = toText(extraValue);
+        if (extraId && !seen[extraId]) {
+            options.push({id: extraId, descricao: descricoesBpValues[extraId] || extraId});
         }
-
-        (data || []).forEach(function (item) {
-            addValue(item && item.descricao);
-        });
-        addValue(extraValue);
-
-        return values.sort(function (a, b) {
-            return a.localeCompare(b, "pt-BR", {sensitivity: "base"});
-        });
+        return options;
     }
 
     function buildDescricaoEditorValues(extraValue) {
         var values = {};
-        getDescricaoOptions(extraValue).forEach(function (descricao) {
-            values[descricao] = descricao;
+        getDescricaoOptions(extraValue).forEach(function (item) {
+            values[item.id] = item.descricao;
         });
         return values;
     }
@@ -327,10 +325,10 @@
         placeholder.textContent = "Selecione";
         descricaoCadastroSelect.appendChild(placeholder);
 
-        options.forEach(function (descricao) {
+        options.forEach(function (item) {
             var option = document.createElement("option");
-            option.value = descricao;
-            option.textContent = descricao;
+            option.value = item.id;
+            option.textContent = item.descricao;
             descricaoCadastroSelect.appendChild(option);
         });
 
@@ -728,7 +726,7 @@
             data_balanco_patrimonial: toText(rowData.data_balanco_patrimonial_iso),
             empresa_balanco_patrimonial: toText(rowData.empresa_balanco_patrimonial),
             tipo_movimentacao: toText(rowData.tipo_movimentacao),
-            descricao: toText(rowData.descricao),
+            descricao_bp_id: toText(rowData.descricao_bp_id),
             valor: String(toNumber(rowData.valor).toFixed(2)),
             observacao: toText(rowData.observacao),
         };
@@ -976,6 +974,7 @@
                     empresa_balanco_patrimonial_label: toText(item && item.empresa_balanco_patrimonial_label),
                     tipo_movimentacao: toText(item && item.tipo_movimentacao),
                     tipo_movimentacao_label: toText(item && item.tipo_movimentacao_label),
+                    descricao_bp_id: toText(item && item.descricao_bp_id),
                     descricao: toText(item && item.descricao),
                     valor: toNumber(item && item.valor),
                     observacao: toText(item && item.observacao),
@@ -1011,6 +1010,21 @@
         });
     } catch (_error) {
         tiposValues = {};
+    }
+
+    try {
+        var descricoesOpcoes = JSON.parse(descricoesBpElement.textContent || "[]");
+        descricoesBpOptions = (Array.isArray(descricoesOpcoes) ? descricoesOpcoes : []).map(function (item) {
+            var id = toText(item && item.id);
+            var descricao = toText(item && item.descricao);
+            if (id) descricoesBpValues[id] = descricao || id;
+            return {id: id, descricao: descricao || id};
+        }).filter(function (item) {
+            return item.id && item.descricao;
+        });
+    } catch (_error) {
+        descricoesBpOptions = [];
+        descricoesBpValues = {};
     }
 
     proximoNumeroRegistro = Number(
@@ -1090,7 +1104,7 @@
             },
             {
                 title: "Descricao BP",
-                field: "descricao",
+                field: "descricao_bp_id",
                 editor: "list",
                 editorParams: function (cell) {
                     return {
@@ -1098,7 +1112,19 @@
                         clearable: false,
                     };
                 },
-                cellEdited: onCellEdited,
+                formatter: function (cell) {
+                    var row = cell.getRow().getData() || {};
+                    var id = toText(row.descricao_bp_id);
+                    return row.descricao || descricoesBpValues[id] || "";
+                },
+                cellEdited: function (cell) {
+                    if (internalUpdate) return;
+                    var row = cell.getRow().getData() || {};
+                    var id = toText(row.descricao_bp_id);
+                    row.descricao = descricoesBpValues[id] || "";
+                    cell.getRow().update({descricao: row.descricao});
+                    onCellEdited(cell);
+                },
                 minWidth: 260,
             },
             {

@@ -55,6 +55,17 @@
     margin-bottom: 0.65rem;
 }
 
+.balanco-descricao-field {
+    display: grid;
+    gap: 0.45rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+.balanco-descricao-field .btn-light {
+    white-space: nowrap;
+}
+
 .balanco-dashboard-grid {
     display: grid;
     gap: 0.8rem;
@@ -180,6 +191,10 @@
 
 @media (max-width: 760px) {
     .balanco-dashboard-data-base-field {
+        grid-template-columns: 1fr;
+    }
+
+    .balanco-descricao-field {
         grid-template-columns: 1fr;
     }
 

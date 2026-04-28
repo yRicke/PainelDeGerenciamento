@@ -148,6 +148,14 @@ def atualizar_descricao_perfil_por_dados(item, descricao, empresa):
     return _services().atualizar_descricao_perfil_por_dados(item, descricao, empresa)
 
 
+def criar_descricao_bp_por_dados(empresa, descricao):
+    return _services().criar_descricao_bp_por_dados(empresa, descricao)
+
+
+def atualizar_descricao_bp_por_dados(item, descricao, empresa):
+    return _services().atualizar_descricao_bp_por_dados(item, descricao, empresa)
+
+
 def criar_parametro_meta_por_dados(empresa, post_data):
     return _services().criar_parametro_meta_por_dados(empresa, post_data)
 

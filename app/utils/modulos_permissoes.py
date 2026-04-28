@@ -47,6 +47,7 @@ MODULOS_POR_AREA = {
         {"nome": "Motoristas", "url": "motoristas", "template": "parametros/motoristas.html"},
         {"nome": "Transportadoras", "url": "transportadoras", "template": "parametros/transportadoras.html"},
         {"nome": "Descricao Perfil", "url": "descricoes_perfil", "template": "parametros/descricoes_perfil.html"},
+        {"nome": "Descricao Balanco Patrimonial", "url": "descricoes_bp", "template": "parametros/descricoes_bp.html"},
         {"nome": "Parametros Metas", "url": "parametros_metas", "template": "parametros/parametros_metas.html"},
         {"nome": "Parametros Vendas", "url": "parametros_vendas", "template": "parametros/parametros_vendas.html"},
         {"nome": "Parametros Logistica", "url": "parametros_logistica", "template": "parametros/parametros_logistica.html"},
@@ -80,6 +81,7 @@ NOMES_EXIBICAO_MODULOS = {
     "Operador Logistico": "Operador Logístico",
     "Producao": "Produção",
     "Contas Bancarias": "Contas Bancarias",
+    "Descricao Balanco Patrimonial": "Descricao Balanco Patrimonial",
 }
 
 PERMISSOES_POR_MODULO = {

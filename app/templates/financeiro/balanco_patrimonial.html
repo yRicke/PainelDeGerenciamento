@@ -105,9 +105,15 @@
                     </div>
                     <div>
                         <label>Descricao BP</label>
-                        <select name="descricao" id="balanco-patrimonial-descricao-input" required>
-                            <option value="">Selecione</option>
-                        </select>
+                        <div class="balanco-descricao-field">
+                            <select name="descricao_bp_id" id="balanco-patrimonial-descricao-input" required>
+                                <option value="">Selecione</option>
+                                {% for opcao in balanco_patrimonial_descricoes_bp_opcoes %}
+                                <option value="{{ opcao.id }}">{{ opcao.descricao }}</option>
+                                {% endfor %}
+                            </select>
+                            <a href="{{ balanco_patrimonial_descricoes_bp_url }}" class="btn-light">Adicionar descricao</a>
+                        </div>
                     </div>
                     <div>
                         <label>Valor (R$)</label>
@@ -209,6 +215,7 @@
 {{ balanco_patrimonial_tabulator|json_script:"balanco-patrimonial-tabulator-data" }}
 {{ balanco_patrimonial_empresas_bp_opcoes|json_script:"balanco-patrimonial-empresas-opcoes-data" }}
 {{ balanco_patrimonial_tipo_movimentacao_opcoes|json_script:"balanco-patrimonial-tipo-opcoes-data" }}
+{{ balanco_patrimonial_descricoes_bp_opcoes|json_script:"balanco-patrimonial-descricoes-bp-data" }}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script src="{% static 'js/financeiro/balanco-patrimonial-page.js' %}"></script>
 <script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>

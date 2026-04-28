@@ -33,6 +33,7 @@ from ..models import (
     ControleMargem,
     DRE,
     ContasAReceber,
+    DescricaoBP,
     DescricaoPerfil,
     Empresa,
     EmpresaTitular,
@@ -1108,10 +1109,16 @@ def excluir_comite_diario_por_dados(item, empresa):
     return ""
 
 
-def _dados_balanco_patrimonial_from_post(post_data):
+def _dados_balanco_patrimonial_from_post(empresa, post_data):
     data_lancamento_raw = (post_data.get("data_lancamento") or "").strip()
     data_balanco_raw = (post_data.get("data_balanco_patrimonial") or "").strip()
     valor_raw = (post_data.get("valor") or "").strip()
+    descricao_ref = (post_data.get("descricao_bp_id") or post_data.get("descricao") or "").strip()
+    descricoes_qs = DescricaoBP.objects.filter(empresa=empresa)
+    if descricao_ref.isdigit():
+        descricao_bp = descricoes_qs.filter(id=descricao_ref).first()
+    else:
+        descricao_bp = descricoes_qs.filter(descricao__iexact=descricao_ref).first()
 
     return {
         "data_lancamento_raw": data_lancamento_raw,
@@ -1126,7 +1133,7 @@ def _dados_balanco_patrimonial_from_post(post_data):
             post_data.get("tipo_movimentacao"),
             BalancoPatrimonial.TIPO_MOVIMENTACAO_CHOICES,
         ),
-        "descricao": (post_data.get("descricao") or "").strip(),
+        "descricao_bp": descricao_bp,
         "valor_raw": valor_raw,
         "valor": _parse_decimal_ou_zero(valor_raw),
         "observacao": (post_data.get("observacao") or "").strip(),
@@ -1142,7 +1149,7 @@ def _validar_dados_balanco_patrimonial(dados):
         return "Data BP invalida."
     if not dados["empresa_balanco_patrimonial"]:
         return "Empresa BP e obrigatoria."
-    if not dados["descricao"]:
+    if not dados["descricao_bp"]:
         return "Descricao BP e obrigatoria."
     if not dados["valor_raw"]:
         return "Valor e obrigatorio."
@@ -1150,7 +1157,7 @@ def _validar_dados_balanco_patrimonial(dados):
 
 
 def criar_balanco_patrimonial_por_dados(empresa, post_data):
-    dados = _dados_balanco_patrimonial_from_post(post_data)
+    dados = _dados_balanco_patrimonial_from_post(empresa, post_data)
     erro = _validar_dados_balanco_patrimonial(dados)
     if erro:
         return erro
@@ -1167,7 +1174,7 @@ def atualizar_balanco_patrimonial_por_dados(item, empresa, post_data):
     if item.empresa_id != empresa.id:
         return "Registro invalido para esta empresa."
 
-    dados = _dados_balanco_patrimonial_from_post(post_data)
+    dados = _dados_balanco_patrimonial_from_post(empresa, post_data)
     erro = _validar_dados_balanco_patrimonial(dados)
     if erro:
         return erro
@@ -1375,6 +1382,32 @@ def atualizar_descricao_perfil_por_dados(item, descricao, empresa):
     ):
         return "Ja existe descricao de perfil com este nome nesta empresa."
     item.atualizar_descricao_perfil(descricao=descricao)
+    return ""
+
+
+def criar_descricao_bp_por_dados(empresa, descricao):
+    descricao = (descricao or "").strip()
+    if not descricao:
+        return "Descricao BP e obrigatoria."
+    if DescricaoBP.objects.filter(empresa=empresa, descricao__iexact=descricao).exists():
+        return "Ja existe descricao BP com este nome nesta empresa."
+    DescricaoBP.criar_descricao_bp(empresa=empresa, descricao=descricao)
+    return ""
+
+
+def atualizar_descricao_bp_por_dados(item, descricao, empresa):
+    descricao = (descricao or "").strip()
+    if not descricao:
+        return "Descricao BP e obrigatoria."
+    if item.empresa_id != empresa.id:
+        return "Descricao BP invalida para esta empresa."
+    if (
+        DescricaoBP.objects.filter(empresa=empresa, descricao__iexact=descricao)
+        .exclude(id=item.id)
+        .exists()
+    ):
+        return "Ja existe descricao BP com este nome nesta empresa."
+    item.atualizar_descricao_bp(descricao=descricao)
     return ""
 
 

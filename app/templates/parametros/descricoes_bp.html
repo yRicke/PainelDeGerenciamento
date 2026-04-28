@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Descricao Balanco Patrimonial{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/financeiro/cadastro-shared.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'balanco_patrimonial' empresa.id %}" class="module-hero-back-link">Voltar</a>
+    <h1>Descricao Balanco Patrimonial</h1>
+    <p>Empresa: {{ empresa.nome }}</p>
+</section>
+
+<section class="panel">
+    <h2>Nova Descricao BP</h2>
+    <p class="form-note">Cadastre as descricoes que serao usadas no modulo Balanco Patrimonial.</p>
+    <form action="{% url 'criar_descricao_bp_modulo' empresa.id %}" method="POST" class="inline-form inline-form--parceiros">
+        {% csrf_token %}
+        <input type="text" name="descricao" placeholder="Descricao BP" required>
+        <button type="submit" class="btn-primary">Cadastrar</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>Lista de Descricoes BP</h2>
+    <div class="table-wrapper" data-table-label="Descricao Balanco Patrimonial">
+        <div id="descricoes-bp-tabulator"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ descricoes_bp_tabulator|json_script:"descricoes-bp-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/financeiro/financeiro-crud-utils.js' %}"></script>
+<script src="{% static 'js/parametros/descricoes-bp-page.js' %}"></script>
+{% endblock %}
