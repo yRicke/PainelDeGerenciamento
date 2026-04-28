@@ -122,6 +122,7 @@ class PlanoCargoSalario(models.Model):
     cadastro = models.PositiveIntegerField()
     funcionario = models.CharField(max_length=150)
     contrato = models.CharField(max_length=80, blank=True, default="")
+    contato = models.CharField(max_length=120, blank=True, default="")
     genero = models.CharField(max_length=40, blank=True, default="")
     setor = models.CharField(max_length=150, blank=True, default="")
     cargo = models.CharField(max_length=180, blank=True, default="")
@@ -165,6 +166,7 @@ class PlanoCargoSalario(models.Model):
         cadastro,
         funcionario,
         contrato="",
+        contato="",
         genero="",
         setor="",
         cargo="",
@@ -181,6 +183,7 @@ class PlanoCargoSalario(models.Model):
             cadastro=cadastro,
             funcionario=funcionario,
             contrato=contrato,
+            contato=contato,
             genero=genero,
             setor=setor,
             cargo=cargo,
@@ -206,6 +209,7 @@ class PlanoCargoSalario(models.Model):
         cadastro=UNSET,
         funcionario=UNSET,
         contrato=UNSET,
+        contato=UNSET,
         genero=UNSET,
         setor=UNSET,
         cargo=UNSET,
@@ -223,6 +227,8 @@ class PlanoCargoSalario(models.Model):
             self.funcionario = funcionario
         if contrato is not UNSET:
             self.contrato = contrato
+        if contato is not UNSET:
+            self.contato = contato
         if genero is not UNSET:
             self.genero = genero
         if setor is not UNSET:

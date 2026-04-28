@@ -213,6 +213,16 @@
                 sortOptions: ordenarTexto,
             },
             {
+                key: "contato",
+                label: "Contato",
+                singleSelect: false,
+                extractValue: function (rowData) {
+                    return rowData ? rowData.contato : "";
+                },
+                formatValue: formatTextoOuVazio,
+                sortOptions: ordenarTexto,
+            },
+            {
                 key: "cargo",
                 label: "Cargo",
                 singleSelect: false,
@@ -411,6 +421,7 @@
             cadastro: String(parseInteger(rowData.cadastro) || ""),
             funcionario: toText(rowData.funcionario),
             contrato: toText(rowData.contrato),
+            contato: toText(rowData.contato),
             genero: toText(rowData.genero),
             setor: toText(rowData.setor),
             cargo: toText(rowData.cargo),
@@ -636,6 +647,7 @@
             },
             {title: "Funcionario", field: "funcionario", editor: "input", cellEdited: onCellEdited},
             {title: "Contrato", field: "contrato", editor: "input", cellEdited: onCellEdited},
+            {title: "Contato", field: "contato", editor: "input", cellEdited: onCellEdited},
             {title: "Genero", field: "genero", editor: "input", cellEdited: onCellEdited},
             {title: "Setor", field: "setor", editor: "input", cellEdited: onCellEdited},
             {title: "Cargo", field: "cargo", editor: "input", cellEdited: onCellEdited},

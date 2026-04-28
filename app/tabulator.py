@@ -464,6 +464,7 @@ def build_plano_cargos_salarios_tabulator(planos_qs, empresa_id: int):
                 "cadastro": item.cadastro,
                 "funcionario": item.funcionario or "",
                 "contrato": item.contrato or "",
+                "contato": item.contato or "",
                 "genero": item.genero or "",
                 "setor": item.setor or "",
                 "cargo": item.cargo or "",

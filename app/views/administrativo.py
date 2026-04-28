@@ -142,7 +142,7 @@ def _aplicar_filtros_planos_cargos_salarios(qs, filtros):
     if funcionario:
         qs = qs.filter(funcionario__icontains=funcionario)
 
-    for campo in ("contrato", "genero", "setor", "cargo", "novo_cargo"):
+    for campo in ("contrato", "contato", "genero", "setor", "cargo", "novo_cargo"):
         valor = filtros.get(campo)
         if valor:
             qs = qs.filter(**{campo: valor})
@@ -162,6 +162,7 @@ def _opcoes_filtros_planos_cargos_salarios(empresa):
 
     return {
         "contratos": _valores("contrato"),
+        "contatos": _valores("contato"),
         "generos": _valores("genero"),
         "setores": _valores("setor"),
         "cargos": _valores("cargo"),
@@ -179,6 +180,7 @@ def _payload_plano_cargo_salario(item):
         "cadastro": item.cadastro,
         "funcionario": item.funcionario or "",
         "contrato": item.contrato or "",
+        "contato": item.contato or "",
         "genero": item.genero or "",
         "setor": item.setor or "",
         "cargo": item.cargo or "",

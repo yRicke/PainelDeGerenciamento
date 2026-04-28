@@ -420,6 +420,7 @@ def _dados_plano_cargo_salario_from_post(post_data):
         "cadastro": _parse_int_ou_zero(cadastro_raw),
         "funcionario": (post_data.get("funcionario") or "").strip(),
         "contrato": (post_data.get("contrato") or "").strip(),
+        "contato": (post_data.get("contato") or "").strip(),
         "genero": (post_data.get("genero") or "").strip(),
         "setor": (post_data.get("setor") or "").strip(),
         "cargo": (post_data.get("cargo") or "").strip(),
