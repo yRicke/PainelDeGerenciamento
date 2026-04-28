@@ -1,0 +1,32 @@
+.parametros-setores-panel {
+    display: grid;
+    gap: 1rem;
+}
+
+.parametros-setores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.parametros-setor {
+    border: 1px solid #d8dee8;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 1rem;
+}
+
+.parametros-setor h3 {
+    margin: 0 0 0.75rem;
+    color: #173759;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.parametros-setor-list {
+    margin: 0;
+}
+
+.parametros-setor-list li + li {
+    margin-top: 0.45rem;
+}

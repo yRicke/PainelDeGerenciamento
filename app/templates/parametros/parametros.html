@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/shared/module-links.css' %}">
+<link rel="stylesheet" href="{% static 'css/parametros/parametros.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -13,23 +14,28 @@
     <p>Módulos de cadastro e configuração base para toda a plataforma.</p>
 </section>
 
-<section class="panel">
-    <h2>Módulos</h2>
-    <ul class="module-list">
-        {% for modulo in modulos %}
-        {% if modulo.url != 'contas_bancarias' and modulo.url != 'produtos' and modulo.url != 'parametros_vendas' and modulo.url != 'parametros_logistica' and modulo.url != 'parametros_administracao' and modulo.url != 'parametros_financeiro' and modulo.url != 'parametros_negocios' %}
-        <li>
-            <a
-                href="{% if user.empresa_id %}{% url modulo.url user.empresa_id %}{% else %}#{% endif %}"
-                class="{% if not modulo.permitido %}module-link--blocked{% endif %}"
-                {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
-            >
-                {{ modulo.nome }}
-                {% if not modulo.permitido %}<span class="module-link-note">(sem permissão)</span>{% endif %}
-            </a>
-        </li>
-        {% endif %}
+<section class="panel parametros-setores-panel">
+    <h2>Modulos por Setor</h2>
+    <div class="parametros-setores-grid">
+        {% for setor in modulos_por_setor %}
+        <section class="parametros-setor">
+            <h3>{{ setor.nome }}</h3>
+            <ul class="module-list parametros-setor-list">
+                {% for modulo in setor.modulos %}
+                <li>
+                    <a
+                        href="{% if user.empresa_id and modulo.permitido %}{% url modulo.url user.empresa_id %}{% else %}#{% endif %}"
+                        class="{% if not modulo.permitido %}module-link--blocked{% endif %}"
+                        {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
+                    >
+                        {{ modulo.nome }}
+                        {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
         {% endfor %}
-    </ul>
+    </div>
 </section>
 {% endblock %}

@@ -92,10 +92,84 @@ def _is_ajax_request(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
 
+PARAMETROS_SETORES = (
+    (
+        "Financeiro",
+        (
+            "titulos",
+            "naturezas",
+            "operacoes",
+            "centros_resultado",
+            "bancos",
+            "contas_bancarias",
+            "empresas_titulares",
+            "parametros_financeiro",
+            "descricoes_bp",
+        ),
+    ),
+    (
+        "Administrativo",
+        (
+            "colaboradores",
+            "projetos",
+            "descricoes_perfil",
+            "parametros_metas",
+            "parametros_administracao",
+        ),
+    ),
+    (
+        "Comercial",
+        (
+            "parceiros",
+            "produtos",
+            "cidades",
+            "regioes",
+            "parametros_vendas",
+            "parametros_negocios",
+        ),
+    ),
+    (
+        "Operacional e Logistica",
+        (
+            "rotas",
+            "motoristas",
+            "transportadoras",
+            "parametros_logistica",
+        ),
+    ),
+    (
+        "Gerais",
+        (
+            "unidades_federativas",
+        ),
+    ),
+)
+
+
+def _agrupar_modulos_parametros_por_setor(modulos):
+    modulos_por_url = {modulo["url"]: modulo for modulo in modulos}
+    urls_mapeadas = {url for _, urls in PARAMETROS_SETORES for url in urls}
+    grupos = []
+    for nome, urls in PARAMETROS_SETORES:
+        itens = [modulos_por_url[url] for url in urls if url in modulos_por_url]
+        if itens:
+            grupos.append({"nome": nome, "modulos": itens})
+
+    outros = [
+        modulo
+        for modulo in modulos
+        if modulo.get("url") not in urls_mapeadas
+    ]
+    if outros:
+        grupos.append({"nome": "Outros", "modulos": outros})
+    return grupos
+
+
 @login_required(login_url="entrar")
 def parametros(request):
+    modulos = _modulos_com_acesso(request.user, "Parametros")
     contexto = {
-        "modulos": _modulos_com_acesso(request.user, "Parametros"),
+        "modulos_por_setor": _agrupar_modulos_parametros_por_setor(modulos),
     }
     return render(request, "parametros/parametros.html", contexto)
 
