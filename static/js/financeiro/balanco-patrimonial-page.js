@@ -10,10 +10,8 @@
     var secFiltros = document.getElementById("sec-filtros");
     var filtrosColunaEsquerda = document.getElementById("balanco-filtros-coluna-esquerda");
     var filtrosColunaDireita = document.getElementById("balanco-filtros-coluna-direita");
-    var dashboardPeriodoReferenciaInicioInput = document.getElementById("balanco-dashboard-periodo-referencia-inicio");
-    var dashboardPeriodoReferenciaFimInput = document.getElementById("balanco-dashboard-periodo-referencia-fim");
-    var dashboardPeriodoEvolucaoInicioInput = document.getElementById("balanco-dashboard-periodo-evolucao-inicio");
-    var dashboardPeriodoEvolucaoFimInput = document.getElementById("balanco-dashboard-periodo-evolucao-fim");
+    var dashboardDataReferenciaInput = document.getElementById("balanco-dashboard-data-referencia");
+    var dashboardDataEvolucaoInput = document.getElementById("balanco-dashboard-data-evolucao");
     var dashboardDataInfoEl = document.getElementById("balanco-dashboard-data-info");
     var dashboardAtivoTableWrapEl = document.getElementById("balanco-dashboard-ativo-table");
     var dashboardPassivoTableWrapEl = document.getElementById("balanco-dashboard-passivo-table");
@@ -34,10 +32,8 @@
     var empresasValues = {};
     var tiposValues = {};
     var proximoNumeroRegistro = 1;
-    var dashboardPeriodoReferenciaInicioIso = "";
-    var dashboardPeriodoReferenciaFimIso = "";
-    var dashboardPeriodoEvolucaoInicioIso = "";
-    var dashboardPeriodoEvolucaoFimIso = "";
+    var dashboardDataReferenciaIso = "";
+    var dashboardDataEvolucaoIso = "";
 
     var ATIVO_GROUPS = [
         {
@@ -487,68 +483,32 @@
             else if (base < 0) el.classList.add("balanco-kpi-negative");
         });
     }
-    function getNormalizedPeriodRange(startIso, endIso) {
-        var start = toText(startIso);
-        var end = toText(endIso);
-        if (!start && !end) return {start: "", end: ""};
-        if (!start) return {start: end, end: end};
-        if (!end) return {start: start, end: start};
-        return start <= end ? {start: start, end: end} : {start: end, end: start};
-    }
-
-    function isDateWithinPeriod(dateIso, periodRange) {
-        var dateValue = toText(dateIso);
-        if (!dateValue) return false;
-        if (!periodRange || (!periodRange.start && !periodRange.end)) return false;
-        return dateValue >= periodRange.start && dateValue <= periodRange.end;
-    }
-
-    function formatPeriodLabel(startIso, endIso) {
-        var periodRange = getNormalizedPeriodRange(startIso, endIso);
-        if (!periodRange.start && !periodRange.end) return "-";
-        if (periodRange.start === periodRange.end) return formatDateIsoToBr(periodRange.start);
-        return formatDateIsoToBr(periodRange.start) + " a " + formatDateIsoToBr(periodRange.end);
-    }
-
-    function renderDataInfo(referenciaInicioIso, referenciaFimIso, evolucaoInicioIso, evolucaoFimIso, referenciaRows, evolucaoRows) {
+    function renderDataInfo(referenciaDateIso, evolucaoDateIso, referenciaRows, evolucaoRows) {
         if (!dashboardDataInfoEl) return;
-        if (!toText(referenciaInicioIso) && !toText(referenciaFimIso) && !toText(evolucaoInicioIso) && !toText(evolucaoFimIso)) {
-            dashboardDataInfoEl.textContent = "Sem dados para os periodos selecionados.";
+        if (!referenciaDateIso && !evolucaoDateIso) {
+            dashboardDataInfoEl.textContent = "Sem dados para as datas selecionadas.";
             return;
         }
-        var texto = "Periodo referencia: " + formatPeriodLabel(referenciaInicioIso, referenciaFimIso);
-        texto += " | Periodo evolucao: " + formatPeriodLabel(evolucaoInicioIso, evolucaoFimIso);
+        var texto = "Referencia: " + formatDateIsoToBr(referenciaDateIso);
+        texto += " | Evolucao: " + formatDateIsoToBr(evolucaoDateIso);
         texto += " | Registros ref/evo: " + String(referenciaRows || 0) + "/" + String(evolucaoRows || 0);
         dashboardDataInfoEl.textContent = texto;
     }
 
     function updateDashboard(linhas) {
         var allRows = Array.isArray(linhas) ? linhas : [];
-        var referenciaInicioIso = toText(
-            (dashboardPeriodoReferenciaInicioInput && dashboardPeriodoReferenciaInicioInput.value) || dashboardPeriodoReferenciaInicioIso
+        var selectedReferenciaIso = toText(
+            (dashboardDataReferenciaInput && dashboardDataReferenciaInput.value) || dashboardDataReferenciaIso
         );
-        var referenciaFimIso = toText(
-            (dashboardPeriodoReferenciaFimInput && dashboardPeriodoReferenciaFimInput.value) || dashboardPeriodoReferenciaFimIso
-        );
-        var evolucaoInicioIso = toText(
-            (dashboardPeriodoEvolucaoInicioInput && dashboardPeriodoEvolucaoInicioInput.value) || dashboardPeriodoEvolucaoInicioIso
-        );
-        var evolucaoFimIso = toText(
-            (dashboardPeriodoEvolucaoFimInput && dashboardPeriodoEvolucaoFimInput.value) || dashboardPeriodoEvolucaoFimIso
+        var selectedEvolucaoIso = toText(
+            (dashboardDataEvolucaoInput && dashboardDataEvolucaoInput.value) || dashboardDataEvolucaoIso
         );
 
-        var referenciaPeriod = getNormalizedPeriodRange(referenciaInicioIso, referenciaFimIso);
-        var evolucaoPeriod = getNormalizedPeriodRange(evolucaoInicioIso, evolucaoFimIso);
-
-        var referenciaRows = referenciaPeriod.start
-            ? allRows.filter(function (item) {
-                return isDateWithinPeriod(item.data_balanco_patrimonial_iso, referenciaPeriod);
-            })
+        var referenciaRows = selectedReferenciaIso
+            ? allRows.filter(function (item) { return toText(item.data_balanco_patrimonial_iso) === selectedReferenciaIso; })
             : [];
-        var evolucaoRows = evolucaoPeriod.start
-            ? allRows.filter(function (item) {
-                return isDateWithinPeriod(item.data_balanco_patrimonial_iso, evolucaoPeriod);
-            })
+        var evolucaoRows = selectedEvolucaoIso
+            ? allRows.filter(function (item) { return toText(item.data_balanco_patrimonial_iso) === selectedEvolucaoIso; })
             : [];
 
         var ativoReferenciaTotalsByDesc = sumByDescription(referenciaRows, "ativo");
@@ -582,14 +542,7 @@
         if (kpiPlEvolucaoValorEl) kpiPlEvolucaoValorEl.textContent = formatMoney(plEvolucaoValor);
         if (kpiPlEvolucaoPercentualEl) kpiPlEvolucaoPercentualEl.textContent = formatPercent(plEvolucaoPercentual);
         setEvolucaoStyles(plEvolucaoValor, plEvolucaoPercentual);
-        renderDataInfo(
-            referenciaInicioIso,
-            referenciaFimIso,
-            evolucaoInicioIso,
-            evolucaoFimIso,
-            referenciaRows.length,
-            evolucaoRows.length
-        );
+        renderDataInfo(selectedReferenciaIso, selectedEvolucaoIso, referenciaRows.length, evolucaoRows.length);
     }
 
     function createFilterDefinitions() {
@@ -676,16 +629,11 @@
         });
     }
 
-    function setDashboardPeriodInputs(referenciaInicioIso, referenciaFimIso, evolucaoInicioIso, evolucaoFimIso) {
-        dashboardPeriodoReferenciaInicioIso = toText(referenciaInicioIso);
-        dashboardPeriodoReferenciaFimIso = toText(referenciaFimIso);
-        dashboardPeriodoEvolucaoInicioIso = toText(evolucaoInicioIso);
-        dashboardPeriodoEvolucaoFimIso = toText(evolucaoFimIso);
-
-        if (dashboardPeriodoReferenciaInicioInput) dashboardPeriodoReferenciaInicioInput.value = dashboardPeriodoReferenciaInicioIso;
-        if (dashboardPeriodoReferenciaFimInput) dashboardPeriodoReferenciaFimInput.value = dashboardPeriodoReferenciaFimIso;
-        if (dashboardPeriodoEvolucaoInicioInput) dashboardPeriodoEvolucaoInicioInput.value = dashboardPeriodoEvolucaoInicioIso;
-        if (dashboardPeriodoEvolucaoFimInput) dashboardPeriodoEvolucaoFimInput.value = dashboardPeriodoEvolucaoFimIso;
+    function setDashboardDateInputs(referenciaIso, evolucaoIso) {
+        dashboardDataReferenciaIso = toText(referenciaIso);
+        dashboardDataEvolucaoIso = toText(evolucaoIso);
+        if (dashboardDataReferenciaInput) dashboardDataReferenciaInput.value = dashboardDataReferenciaIso;
+        if (dashboardDataEvolucaoInput) dashboardDataEvolucaoInput.value = dashboardDataEvolucaoIso;
     }
 
     function getLatestDateIsoFromData() {
@@ -700,24 +648,22 @@
         }).pop() || dateIso || "";
     }
 
-    function bindDashboardPeriodControls() {
-        [
-            dashboardPeriodoReferenciaInicioInput,
-            dashboardPeriodoReferenciaFimInput,
-            dashboardPeriodoEvolucaoInicioInput,
-            dashboardPeriodoEvolucaoFimInput,
-        ].forEach(function (input) {
-            if (!input) return;
-            input.addEventListener("change", function () {
-                setDashboardPeriodInputs(
-                    dashboardPeriodoReferenciaInicioInput ? dashboardPeriodoReferenciaInicioInput.value : dashboardPeriodoReferenciaInicioIso,
-                    dashboardPeriodoReferenciaFimInput ? dashboardPeriodoReferenciaFimInput.value : dashboardPeriodoReferenciaFimIso,
-                    dashboardPeriodoEvolucaoInicioInput ? dashboardPeriodoEvolucaoInicioInput.value : dashboardPeriodoEvolucaoInicioIso,
-                    dashboardPeriodoEvolucaoFimInput ? dashboardPeriodoEvolucaoFimInput.value : dashboardPeriodoEvolucaoFimIso
-                );
+    function bindDashboardDateControls() {
+        if (dashboardDataReferenciaInput) {
+            dashboardDataReferenciaInput.addEventListener("change", function () {
+                var evolucaoValue = dashboardDataEvolucaoInput ? dashboardDataEvolucaoInput.value : dashboardDataEvolucaoIso;
+                setDashboardDateInputs(dashboardDataReferenciaInput.value, evolucaoValue);
                 updateDashboard(getVisibleRowsData());
             });
-        });
+        }
+
+        if (dashboardDataEvolucaoInput) {
+            dashboardDataEvolucaoInput.addEventListener("change", function () {
+                var referenciaValue = dashboardDataReferenciaInput ? dashboardDataReferenciaInput.value : dashboardDataReferenciaIso;
+                setDashboardDateInputs(referenciaValue, dashboardDataEvolucaoInput.value);
+                updateDashboard(getVisibleRowsData());
+            });
+        }
     }
 
     function buildPayloadFromRow(rowData) {
@@ -1017,7 +963,7 @@
     updateNumeroRegistroInput();
     var latestDateIso = getLatestDateIsoFromData();
     var previousDateIso = getPreviousDateIso(latestDateIso);
-    setDashboardPeriodInputs(previousDateIso, previousDateIso, latestDateIso, latestDateIso);
+    setDashboardDateInputs(previousDateIso, latestDateIso);
 
     var createTable = (window.TabulatorDefaults && typeof window.TabulatorDefaults.create === "function")
         ? window.TabulatorDefaults.create
@@ -1139,7 +1085,7 @@
 
     if (cadastroForm) cadastroForm.addEventListener("submit", submitCreate);
     bindClearFilterButtons();
-    bindDashboardPeriodControls();
+    bindDashboardDateControls();
     bindValorMask();
     setupExternalFilters();
     updateDashboard(getVisibleRowsData());

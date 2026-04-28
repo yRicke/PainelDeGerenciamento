@@ -47,23 +47,7 @@
 .balanco-dashboard-data-base-field {
     display: grid;
     gap: 0.55rem;
-    grid-template-columns: repeat(2, minmax(280px, 360px));
-}
-
-.balanco-dashboard-period-group {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.balanco-dashboard-period-title {
-    color: #0f172a;
-    font-size: 0.92rem;
-}
-
-.balanco-dashboard-period-inputs {
-    display: grid;
-    gap: 0.55rem;
-    grid-template-columns: repeat(2, minmax(130px, 1fr));
+    grid-template-columns: repeat(2, minmax(220px, 280px));
 }
 
 .balanco-dashboard-data-info {
@@ -196,10 +180,6 @@
 
 @media (max-width: 760px) {
     .balanco-dashboard-data-base-field {
-        grid-template-columns: 1fr;
-    }
-
-    .balanco-dashboard-period-inputs {
         grid-template-columns: 1fr;
     }
 
