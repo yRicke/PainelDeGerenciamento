@@ -5,6 +5,7 @@
     var tiposElement = document.getElementById("balanco-patrimonial-tipo-opcoes-data");
     var cadastroForm = document.getElementById("balanco-patrimonial-cadastro-form");
     var numeroRegistroInput = document.getElementById("balanco-patrimonial-numero-registro");
+    var descricaoCadastroSelect = document.getElementById("balanco-patrimonial-descricao-input");
     var valorCadastroInput = document.getElementById("balanco-patrimonial-valor-input");
     var saveStatusEl = document.getElementById("balanco-patrimonial-save-status");
     var secFiltros = document.getElementById("sec-filtros");
@@ -283,6 +284,60 @@
             values.push(iso);
         });
         return values.sort();
+    }
+
+    function getDescricaoOptions(extraValue) {
+        var seen = {};
+        var values = [];
+
+        function addValue(value) {
+            var text = toText(value);
+            var key = normalizeText(text);
+            if (!text || seen[key]) return;
+            seen[key] = true;
+            values.push(text);
+        }
+
+        (data || []).forEach(function (item) {
+            addValue(item && item.descricao);
+        });
+        addValue(extraValue);
+
+        return values.sort(function (a, b) {
+            return a.localeCompare(b, "pt-BR", {sensitivity: "base"});
+        });
+    }
+
+    function buildDescricaoEditorValues(extraValue) {
+        var values = {};
+        getDescricaoOptions(extraValue).forEach(function (descricao) {
+            values[descricao] = descricao;
+        });
+        return values;
+    }
+
+    function syncDescricaoCadastroOptions(selectedValue) {
+        if (!descricaoCadastroSelect) return;
+        var currentValue = toText(selectedValue || descricaoCadastroSelect.value);
+        var options = getDescricaoOptions(currentValue);
+        descricaoCadastroSelect.innerHTML = "";
+
+        var placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Selecione";
+        descricaoCadastroSelect.appendChild(placeholder);
+
+        options.forEach(function (descricao) {
+            var option = document.createElement("option");
+            option.value = descricao;
+            option.textContent = descricao;
+            descricaoCadastroSelect.appendChild(option);
+        });
+
+        descricaoCadastroSelect.value = currentValue;
+        if (currentValue && descricaoCadastroSelect.value !== currentValue) {
+            descricaoCadastroSelect.value = "";
+        }
     }
 
     function sumByDescription(rows, tipoEsperado) {
@@ -606,6 +661,7 @@
     }
 
     function refreshExternalFiltersAndDashboard() {
+        syncDescricaoCadastroOptions();
         setupExternalFilters();
         updateDashboard(getVisibleRowsData());
     }
@@ -961,6 +1017,7 @@
         configElement ? configElement.getAttribute("data-proximo-numero-registro") : "1"
     ) || 1;
     updateNumeroRegistroInput();
+    syncDescricaoCadastroOptions();
     var latestDateIso = getLatestDateIsoFromData();
     var previousDateIso = getPreviousDateIso(latestDateIso);
     setDashboardDateInputs(previousDateIso, latestDateIso);
@@ -1034,7 +1091,13 @@
             {
                 title: "Descricao BP",
                 field: "descricao",
-                editor: "input",
+                editor: "list",
+                editorParams: function (cell) {
+                    return {
+                        values: buildDescricaoEditorValues(cell ? cell.getValue() : ""),
+                        clearable: false,
+                    };
+                },
                 cellEdited: onCellEdited,
                 minWidth: 260,
             },
