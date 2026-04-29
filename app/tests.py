@@ -161,6 +161,162 @@ class UsuarioModelTest(TestCase):
         self.usuario.refresh_from_db()
         self.assertFalse(self.usuario.is_staff)
 
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class DashboardGeralViewTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa Dashboard")
+        self.permissao = Permissao.objects.create(nome="Dashboard Geral")
+        self.usuario_com_permissao = Usuario.criar_usuario(
+            username="dashboard_user",
+            password="senha",
+            empresa=self.empresa,
+            permissoes=[self.permissao],
+        )
+        self.usuario_sem_permissao = Usuario.criar_usuario(
+            username="dashboard_blocked",
+            password="senha",
+            empresa=self.empresa,
+        )
+        self.staff = Usuario.criar_usuario(
+            username="dashboard_staff",
+            password="senha",
+            empresa=self.empresa,
+            is_staff=True,
+        )
+
+    def test_index_exibe_atalho_para_usuario_com_permissao(self):
+        self.client.login(username="dashboard_user", password="senha")
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "Painel Consolidado")
+
+    def test_dashboard_geral_renderiza_para_usuario_com_permissao(self):
+        self.client.login(username="dashboard_user", password="senha")
+        response = self.client.get(reverse("dashboard_geral", args=[self.empresa.id]), {"mes": "2026-01"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Periodo: 01/01/2026 a 31/01/2026")
+
+    def test_dashboard_geral_renderiza_angulo_dos_reloginhos_sem_localizacao(self):
+        self.client.login(username="dashboard_user", password="senha")
+        response = self.client.get(reverse("dashboard_geral", args=[self.empresa.id]), {"mes": "2026-01"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "transform: rotate(-90.0deg);")
+
+    def test_dashboard_geral_bloqueia_usuario_sem_permissao(self):
+        self.client.login(username="dashboard_blocked", password="senha")
+        response = self.client.get(reverse("dashboard_geral", args=[self.empresa.id]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_dashboard_geral_libera_staff_da_mesma_empresa(self):
+        self.client.login(username="dashboard_staff", password="senha")
+        response = self.client.get(reverse("dashboard_geral", args=[self.empresa.id]))
+        self.assertEqual(response.status_code, 200)
+
+    @patch("app.views.dashboard_pdf.render_template_to_pdf_bytes")
+    def test_dashboard_geral_exporta_pdf_com_template_proprio(self, render_pdf_mock):
+        render_pdf_mock.return_value = b"%PDF-dashboard-geral%"
+        self.client.login(username="dashboard_user", password="senha")
+        response = self.client.post(
+            reverse("dashboard_pdf_generico", args=[self.empresa.id, "dashboard_geral"]),
+            {
+                "payload_json": json.dumps(
+                    {
+                        "title": "Painel Consolidado",
+                        "kpis": [],
+                        "charts": [
+                            {
+                                "title": "Tipo da Venda",
+                                "img_uri": "data:image/png;base64,AAA=",
+                            }
+                        ],
+                        "filters": [],
+                        "details": "Indicadores consolidados.",
+                        "module_payload": {
+                            "periodo_inicio": "01/04/2026",
+                            "periodo_fim": "30/04/2026",
+                            "mes_referencia": "2026-04",
+                            "dashboard": {
+                                "tofu": {
+                                    "total_atividades": "10",
+                                    "atrasados": {"total": "2"},
+                                    "alertas": {"total": "3"},
+                                    "concluidos": {"total": "5"},
+                                },
+                                "vendas": {
+                                    "vendas": "R$ 100,00",
+                                    "cmv": "R$ 50,00",
+                                    "lucro": "R$ 50,00",
+                                    "margem": "50,00%",
+                                },
+                                "faturamento": {
+                                    "valor_faturamento": "R$ 100,00",
+                                    "meta_geral": "R$ 150,00",
+                                    "gap_faturamento": "R$ 50,00",
+                                    "prazo_medio": "12",
+                                    "dias_uteis": "8",
+                                    "meta_diaria": "R$ 6,25",
+                                    "reloginho_meta": "R$ 150,00",
+                                    "reloginho_real": "R$ 100,00",
+                                    "reloginho_percentual": "66,67%",
+                                    "reloginho_meta_angulo": 90,
+                                    "reloginho_real_angulo": 30,
+                                },
+                                "estoque": {
+                                    "valor": "R$ 500,00",
+                                    "data_recente": "30/04/2026",
+                                },
+                                "cargas": {
+                                    "total": "4",
+                                    "no_prazo": "3",
+                                    "fora_prazo": "1",
+                                },
+                                "producao": {
+                                    "meta_mes": "400,00",
+                                    "meta_acumulada": "320,00",
+                                    "realizado": "300,00",
+                                    "percentual": "75,00%",
+                                    "reloginhos": [
+                                        {
+                                            "sufixo": "30x1",
+                                            "titulo": "Producao 30x1",
+                                            "meta_acum": "120,00",
+                                            "real": "110,00",
+                                            "percentual": "91,67%",
+                                            "meta_angulo": 90,
+                                            "real_angulo": 60,
+                                            "meta80_angulo": None,
+                                        },
+                                        {
+                                            "sufixo": "total",
+                                            "titulo": "Producao TOTAL",
+                                            "meta_acum": "320,00",
+                                            "real": "300,00",
+                                            "percentual": "75,00%",
+                                            "meta_angulo": 90,
+                                            "real_angulo": 70,
+                                            "meta80_angulo": 54,
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    }
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("dashboard-geral", response["Content-Disposition"])
+        self.assertEqual(response.content, b"%PDF-dashboard-geral%")
+        render_pdf_mock.assert_called_once()
+
+
 class ColaboradorModelTest(TestCase):
     def setUp(self):
         self.empresa = Empresa.criar_empresa(nome="Empresa Teste")

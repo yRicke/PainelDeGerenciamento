@@ -11,6 +11,12 @@
 <section class="panel">
     <h2>Dashboard Geral</h2>
     <div class="kpi-grid">
+        {% if dashboard_geral_permitido %}
+        <a class="kpi-card" href="{% url 'dashboard_geral' user.empresa_id %}">
+            <h3>Painel Consolidado</h3>
+            <p>Indicadores executivos dos principais módulos.</p>
+        </a>
+        {% endif %}
         <a class="kpi-card" href="{% url 'financeiro' %}">
             <h3>Financeiro</h3>
             <p>Acompanhe receita, caixa e metas.</p>

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>{{ titulo_dashboard }}</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 9mm;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1f3752;
+            background: #f2f5f9;
+        }
+
+        .page {
+            min-height: calc(210mm - 18mm);
+            page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        .title {
+            margin: 0 0 4px;
+            font-size: 26px;
+            font-weight: 800;
+            color: #16375c;
+        }
+        .meta {
+            margin: 0 0 10px;
+            font-size: 10px;
+            color: #35547a;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .section {
+            border: 1px solid #c9d5e3;
+            border-radius: 10px;
+            background: #f7f9fc;
+            padding: 8px;
+        }
+
+        .section-wide {
+            grid-column: 1 / -1;
+        }
+
+        .section h2 {
+            margin: 0 0 7px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #1a3e66;
+        }
+
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .kpis.kpis-six {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
+        .kpis.kpis-three {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .kpi-card,
+        .chart-card,
+        .reloginho-card {
+            border: 1px solid #d7e2ee;
+            border-radius: 8px;
+            background: #f8fbff;
+            padding: 7px;
+        }
+
+        .kpi-card p {
+            margin: 0;
+        }
+
+        .kpi-label {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            color: #5e7185;
+            text-transform: uppercase;
+        }
+
+        .kpi-value {
+            color: #12395b;
+            font-size: 15px;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        .faturamento-extra {
+            display: grid;
+            grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+            align-items: stretch;
+        }
+
+        .chart-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 6px;
+            background: #fff;
+        }
+
+        .chart-legend {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 5px 8px;
+            margin-top: 6px;
+        }
+
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border: 1px solid #d7e2ee;
+            border-radius: 6px;
+            background: #ffffff;
+            padding: 4px 6px;
+            font-size: 9px;
+            font-weight: 700;
+            color: #294153;
+        }
+
+        .chart-legend-item strong {
+            color: #12395b;
+        }
+
+        .chart-card h3,
+        .reloginho-card h3 {
+            margin: 0 0 6px;
+            font-size: 10px;
+            font-weight: 800;
+            color: #294153;
+            text-align: center;
+        }
+
+        .reloginhos-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .reloginho-card {
+            min-height: 164px;
+        }
+
+        .reloginho-card--total {
+            background: linear-gradient(180deg, #f4f9ff 0%, #edf5ff 100%);
+        }
+
+        .reloginho-dial-wrap {
+            display: flex;
+            justify-content: center;
+        }
+
+        .reloginho-dial {
+            position: relative;
+            width: 138px;
+            height: 80px;
+            overflow: hidden;
+        }
+
+        .reloginho-face {
+            position: absolute;
+            left: 0;
+            top: 8px;
+            width: 138px;
+            height: 138px;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 270deg,
+                #d62828 0deg 36deg,
+                #ef7d25 36deg 72deg,
+                #f7d64b 72deg 108deg,
+                #6cad48 108deg 144deg,
+                #1e6f8c 144deg 180deg,
+                transparent 180deg 360deg
+            );
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+        }
+
+        .ponteiro {
+            position: absolute;
+            left: 67px;
+            top: 22px;
+            width: 3px;
+            height: 55px;
+            border-radius: 2px;
+            transform-origin: 50% 100%;
+            transform: rotate(-90deg);
+        }
+
+        .ponteiro-meta { background: #c15a06; }
+        .ponteiro-meta80 {
+            left: 68px;
+            background: #8d5f00;
+        }
+        .ponteiro-real {
+            left: 67.5px;
+            background: #1d6b33;
+        }
+
+        .reloginho-pivo {
+            position: absolute;
+            left: 63px;
+            top: 70px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid #444;
+            background: #fff;
+        }
+
+        .reloginho-metricas {
+            margin-top: 5px;
+            border: 1px solid #d9dee3;
+            border-radius: 6px;
+            background: #f5f7fa;
+            padding: 5px 6px;
+        }
+
+        .reloginho-metricas p {
+            margin: 2px 0;
+            font-size: 9px;
+            font-weight: 700;
+            color: #294153;
+        }
+
+        .reloginho-metricas strong {
+            color: #12395b;
+        }
+
+        .reloginho-metricas span {
+            color: #1d6b33;
+        }
+
+        .filtros {
+            margin: 0;
+            padding-left: 16px;
+        }
+
+        .filtros li {
+            margin: 3px 0;
+            font-size: 10px;
+            color: #223f61;
+        }
+
+        .text-block {
+            border: 1px solid #c9d5e3;
+            border-radius: 8px;
+            background: #fbfdff;
+            padding: 8px;
+            white-space: pre-wrap;
+            font-size: 10px;
+            line-height: 1.4;
+            color: #1b3456;
+        }
+
+        .chart-empty {
+            margin: 0;
+            min-height: 120px;
+            border: 1px dashed #b8c7d8;
+            border-radius: 6px;
+            background: #f5f8fc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #506987;
+            font-size: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <section class="page">
+        <h1 class="title">{{ titulo_dashboard }}</h1>
+        <p class="meta">
+            Empresa: {{ empresa.nome }} | Mes: {{ mes_referencia }} | Periodo: {{ periodo_inicio }} a {{ periodo_fim }} | Gerado em: {{ gerado_em }}
+        </p>
+
+        <div class="grid">
+            <article class="section">
+                <h2>TOFU</h2>
+                <div class="kpis">
+                    {% for item in dashboard_geral.tofu %}
+                    <div class="kpi-card">
+                        <p class="kpi-label">{{ item.label }}</p>
+                        <p class="kpi-value">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="section">
+                <h2>Vendas por Categoria</h2>
+                <div class="kpis">
+                    {% for item in dashboard_geral.vendas %}
+                    <div class="kpi-card">
+                        <p class="kpi-label">{{ item.label }}</p>
+                        <p class="kpi-value">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="section section-wide">
+                <h2>Faturamento</h2>
+                <div class="kpis kpis-six">
+                    {% for item in dashboard_geral.faturamento.cards %}
+                    <div class="kpi-card">
+                        <p class="kpi-label">{{ item.label }}</p>
+                        <p class="kpi-value">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="faturamento-extra">
+                    <article class="reloginho-card">
+                        <h3>Reloginho</h3>
+                        <div class="reloginho-dial-wrap">
+                            <div class="reloginho-dial">
+                                <div class="reloginho-face"></div>
+                                <div class="ponteiro ponteiro-meta" style="transform: rotate({{ dashboard_geral.faturamento.reloginho.meta_angulo }}deg);"></div>
+                                <div class="ponteiro ponteiro-real" style="transform: rotate({{ dashboard_geral.faturamento.reloginho.real_angulo }}deg);"></div>
+                                <div class="reloginho-pivo"></div>
+                            </div>
+                        </div>
+                        <div class="reloginho-metricas">
+                            <p>Meta: <strong>{{ dashboard_geral.faturamento.reloginho.meta }}</strong></p>
+                            <p>Real: <strong>{{ dashboard_geral.faturamento.reloginho.real }}</strong> <span>{{ dashboard_geral.faturamento.reloginho.percentual }}</span></p>
+                        </div>
+                    </article>
+
+                    <article class="chart-card">
+                        <h3>Tipo da Venda</h3>
+                        {% if graficos %}
+                        <img src="{{ graficos.0.img_uri }}" alt="{{ graficos.0.title }}">
+                        {% else %}
+                        <p class="chart-empty">Grafico indisponivel para este filtro.</p>
+                        {% endif %}
+                        {% if dashboard_geral.faturamento.tipo_venda_legenda %}
+                        <div class="chart-legend">
+                            {% for item in dashboard_geral.faturamento.tipo_venda_legenda %}
+                            <div class="chart-legend-item">
+                                <span>{{ item.label }}</span>
+                                <strong>{{ item.value }}</strong>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </article>
+                </div>
+            </article>
+
+            <article class="section">
+                <h2>Estoque</h2>
+                <div class="kpis kpis-three">
+                    {% for item in dashboard_geral.estoque %}
+                    <div class="kpi-card">
+                        <p class="kpi-label">{{ item.label }}</p>
+                        <p class="kpi-value">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="section">
+                <h2>Cargas em Aberto</h2>
+                <div class="kpis kpis-three">
+                    {% for item in dashboard_geral.cargas %}
+                    <div class="kpi-card">
+                        <p class="kpi-label">{{ item.label }}</p>
+                        <p class="kpi-value">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="section section-wide">
+                <h2>Producao</h2>
+                <div class="kpis">
+                    {% for item in dashboard_geral.producao.cards %}
+                    <div class="kpi-card">
+                        <p class="kpi-label">{{ item.label }}</p>
+                        <p class="kpi-value">{{ item.value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="reloginhos-grid">
+                    {% for item in dashboard_geral.producao.reloginhos %}
+                    <article class="reloginho-card {% if item.sufixo == 'total' %}reloginho-card--total{% endif %}">
+                        <h3>{{ item.titulo }}</h3>
+                        <div class="reloginho-dial-wrap">
+                            <div class="reloginho-dial">
+                                <div class="reloginho-face"></div>
+                                <div class="ponteiro ponteiro-meta" style="transform: rotate({{ item.meta_angulo }}deg);"></div>
+                                {% if item.meta80_angulo %}
+                                <div class="ponteiro ponteiro-meta80" style="transform: rotate({{ item.meta80_angulo }}deg);"></div>
+                                {% endif %}
+                                <div class="ponteiro ponteiro-real" style="transform: rotate({{ item.real_angulo }}deg);"></div>
+                                <div class="reloginho-pivo"></div>
+                            </div>
+                        </div>
+                        <div class="reloginho-metricas">
+                            <p>Meta acum: <strong>{{ item.meta_acum }}</strong></p>
+                            <p>Real: <strong>{{ item.real }}</strong> <span>{{ item.percentual }}</span></p>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="page">
+        <article class="section">
+            <h2>Filtros Aplicados</h2>
+            <ul class="filtros">
+                {% for linha in filtros_ativos %}
+                <li>{{ linha }}</li>
+                {% endfor %}
+            </ul>
+        </article>
+        <article class="section">
+            <h2>Detalhamento</h2>
+            <div class="text-block">{{ texto_relatorio }}</div>
+        </article>
+    </section>
+</body>
+</html>

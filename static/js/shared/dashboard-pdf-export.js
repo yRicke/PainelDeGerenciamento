@@ -25,6 +25,16 @@
         return String(value).replace(/\s+/g, " ").trim();
     }
 
+    function parseJsonScript(id, fallback) {
+        var element = document.getElementById(id);
+        if (!element) return fallback;
+        try {
+            return JSON.parse(element.textContent || "");
+        } catch (_err) {
+            return fallback;
+        }
+    }
+
     function humanizeId(raw) {
         var text = toText(raw)
             .replace(/[_-]+/g, " ")
@@ -480,6 +490,10 @@
         };
     }
 
+    function collectDashboardGeralModulePayload() {
+        return parseJsonScript("dashboard-geral-pdf-payload-data", null);
+    }
+
     function collectModulePayload() {
         if (dashboardSlug === "administrativo_tofu_lista_de_atividades") {
             return collectTofuModulePayload();
@@ -489,6 +503,9 @@
         }
         if (dashboardSlug === "operacional_producao") {
             return collectProducaoModulePayload();
+        }
+        if (dashboardSlug === "dashboard_geral") {
+            return collectDashboardGeralModulePayload();
         }
         return null;
     }

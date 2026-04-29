@@ -29,6 +29,7 @@ import app.api.v1.views as views_api_v1
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views_core.index, name='index'),
+    path('dashboard_geral/<int:empresa_id>/', views_core.dashboard_geral, name='dashboard_geral'),
     path(
         'api/v1/empresas/<int:empresa_id>/atividades/',
         views_api_v1.AtividadeListAPIView.as_view(),

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load static l10n %}
+
+{% block title %}Painel Consolidado{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard-geral.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+    <a href="{% url 'index' %}" class="module-hero-back-link">Voltar</a>
+    <h1>Painel Consolidado</h1>
+    <p>Empresa: {{ empresa.nome }} | Periodo: {{ periodo_inicio }} a {{ periodo_fim }}</p>
+</section>
+
+<section class="panel dashboard-geral-filtros">
+    <form id="dashboard-geral-filtro-mes-form" method="get">
+        <label for="dashboard-geral-mes">
+            <span>Mes de referencia</span>
+            <input type="month" id="dashboard-geral-mes" name="mes" value="{{ mes_referencia }}">
+        </label>
+    </form>
+</section>
+
+<section id="dashboard-geral-main" class="dashboard-geral-grid">
+    <article class="panel dashboard-geral-section">
+        <h2>TOFU</h2>
+        <div class="dashboard-geral-kpis">
+            <div><span>Total</span><strong>{{ dashboard.tofu.total_atividades }}</strong></div>
+            <div><span>Atrasados</span><strong>{{ dashboard.tofu.atrasados.total }}</strong></div>
+            <div><span>Alertas</span><strong>{{ dashboard.tofu.alertas.total }}</strong></div>
+            <div><span>Concluidos</span><strong>{{ dashboard.tofu.concluidos.total }}</strong></div>
+        </div>
+    </article>
+
+    <article class="panel dashboard-geral-section">
+        <h2>Vendas por Categoria</h2>
+        <div class="dashboard-geral-kpis">
+            <div><span>Vendas</span><strong>{{ dashboard.vendas.vendas }}</strong></div>
+            <div><span>CMV</span><strong>{{ dashboard.vendas.cmv }}</strong></div>
+            <div><span>Lucro</span><strong>{{ dashboard.vendas.lucro }}</strong></div>
+            <div><span>Margem</span><strong>{{ dashboard.vendas.margem }}</strong></div>
+        </div>
+    </article>
+
+    <article class="panel dashboard-geral-section dashboard-geral-section--wide dashboard-geral-section--faturamento">
+        <h2>Faturamento</h2>
+        <div class="dashboard-geral-kpis dashboard-geral-kpis--six">
+            <div><span>Valor Faturamento</span><strong>{{ dashboard.faturamento.valor_faturamento }}</strong></div>
+            <div><span>Meta Geral</span><strong>{{ dashboard.faturamento.meta_geral }}</strong></div>
+            <div><span>Gap Faturamento</span><strong>{{ dashboard.faturamento.gap_faturamento }}</strong></div>
+            <div><span>Prazo Medio</span><strong>{{ dashboard.faturamento.prazo_medio }}</strong></div>
+            <div><span>Dias Uteis Restantes</span><strong>{{ dashboard.faturamento.dias_uteis }}</strong></div>
+            <div><span>Meta Diaria</span><strong>{{ dashboard.faturamento.meta_diaria }}</strong></div>
+        </div>
+        <div class="dashboard-geral-faturamento-extra">
+            <article class="dashboard-geral-reloginho-card">
+                <h3>Reloginho</h3>
+                <div class="dashboard-geral-reloginho-dial-wrap">
+                    <div class="dashboard-geral-reloginho-dial">
+                        <div class="dashboard-geral-reloginho-face"></div>
+                        <div
+                            class="dashboard-geral-ponteiro dashboard-geral-ponteiro-meta"
+                            style="transform: rotate({{ dashboard.faturamento.reloginho_meta_angulo|unlocalize }}deg);"
+                        ></div>
+                        <div
+                            class="dashboard-geral-ponteiro dashboard-geral-ponteiro-real"
+                            style="transform: rotate({{ dashboard.faturamento.reloginho_real_angulo|unlocalize }}deg);"
+                        ></div>
+                        <div class="dashboard-geral-reloginho-pivo"></div>
+                    </div>
+                </div>
+                <div class="dashboard-geral-reloginho-metricas">
+                    <p>Meta: <strong>{{ dashboard.faturamento.reloginho_meta }}</strong></p>
+                    <p>Real: <strong>{{ dashboard.faturamento.reloginho_real }}</strong> <span>{{ dashboard.faturamento.reloginho_percentual }}</span></p>
+                </div>
+            </article>
+            <article class="dashboard-geral-chart-card">
+                <h3>Tipo da Venda</h3>
+                <div id="dashboard-geral-tipo-venda-chart"></div>
+            </article>
+        </div>
+    </article>
+
+    <article class="panel dashboard-geral-section">
+        <h2>Estoque</h2>
+        <div class="dashboard-geral-kpis">
+            <div><span>Valor em Estoque</span><strong>{{ dashboard.estoque.valor }}</strong></div>
+            <div><span>Data Mais Recente</span><strong>{{ dashboard.estoque.data_recente }}</strong></div>
+        </div>
+    </article>
+
+    <article class="panel dashboard-geral-section">
+        <h2>Cargas em Aberto</h2>
+        <div class="dashboard-geral-kpis">
+            <div><span>Total</span><strong>{{ dashboard.cargas.total }}</strong></div>
+            <div><span>No Prazo</span><strong>{{ dashboard.cargas.no_prazo }}</strong></div>
+            <div><span>Fora do Prazo</span><strong>{{ dashboard.cargas.fora_prazo }}</strong></div>
+        </div>
+    </article>
+
+    <article class="panel dashboard-geral-section dashboard-geral-section--wide dashboard-geral-section--producao">
+        <h2>Producao</h2>
+        <div class="dashboard-geral-kpis dashboard-geral-kpis--producao-topo">
+            <div><span>Meta Mes</span><strong>{{ dashboard.producao.meta_mes }}</strong></div>
+            <div><span>Meta Acumulada</span><strong>{{ dashboard.producao.meta_acumulada }}</strong></div>
+            <div><span>Realizado</span><strong>{{ dashboard.producao.realizado }}</strong></div>
+            <div><span>Atingimento</span><strong>{{ dashboard.producao.percentual }}</strong></div>
+            {% for item in dashboard.producao.itens %}
+            <div><span>{{ item.titulo }}</span><strong>{{ item.realizado }}</strong></div>
+            {% endfor %}
+        </div>
+        <div class="dashboard-geral-reloginhos-grid">
+            {% for item in dashboard.producao.reloginhos %}
+            <article class="dashboard-geral-reloginho-card {% if item.sufixo == 'total' %}dashboard-geral-reloginho-card--total{% endif %}">
+                <h3>{{ item.titulo }}</h3>
+                <div class="dashboard-geral-reloginho-dial-wrap">
+                    <div class="dashboard-geral-reloginho-dial">
+                        <div class="dashboard-geral-reloginho-face"></div>
+                        <div
+                            class="dashboard-geral-ponteiro dashboard-geral-ponteiro-meta"
+                            style="transform: rotate({{ item.meta_angulo|unlocalize }}deg);"
+                        ></div>
+                        {% if item.meta80_angulo is not None %}
+                        <div
+                            class="dashboard-geral-ponteiro dashboard-geral-ponteiro-meta80"
+                            style="transform: rotate({{ item.meta80_angulo|unlocalize }}deg);"
+                        ></div>
+                        {% endif %}
+                        <div
+                            class="dashboard-geral-ponteiro dashboard-geral-ponteiro-real"
+                            style="transform: rotate({{ item.real_angulo|unlocalize }}deg);"
+                        ></div>
+                        <div class="dashboard-geral-reloginho-pivo"></div>
+                    </div>
+                </div>
+                <div class="dashboard-geral-reloginho-metricas">
+                    <p>Meta acum: <strong>{{ item.meta_acum }}</strong></p>
+                    <p>Real: <strong>{{ item.real }}</strong> <span>{{ item.percentual }}</span></p>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </article>
+
+    <div class="panel dashboard-geral-pdf-actions dashboard-pdf-actions"></div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ dashboard.faturamento.tipo_venda_labels|json_script:"dashboard-geral-tipo-venda-labels" }}
+{{ dashboard.faturamento.tipo_venda_series|json_script:"dashboard-geral-tipo-venda-series" }}
+{{ dashboard_pdf_payload|json_script:"dashboard-geral-pdf-payload-data" }}
+<div
+    id="dashboard-pdf-config"
+    data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'dashboard_geral' %}"
+    data-title="Painel Consolidado"
+    data-dashboard-slug="dashboard_geral"
+    data-section-selector="#dashboard-geral-main"
+    data-kpi-scope-selector="#dashboard-geral-main"
+    data-chart-scope-selector="#dashboard-geral-main"
+    data-button-label="Baixar PDF do Painel"
+></div>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="{% static 'js/dashboard-geral.js' %}"></script>
+<script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>
+{% endblock %}

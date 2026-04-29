@@ -1,0 +1,42 @@
+{{ titulo_dashboard }}
+
+Gerado em: {{ gerado_em }}
+Empresa: {{ empresa.nome }}
+Mes de referencia: {{ mes_referencia }}
+Periodo: {{ periodo_inicio }} a {{ periodo_fim }}
+
+TOFU
+{% for item in dashboard_geral.tofu %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+
+VENDAS POR CATEGORIA
+{% for item in dashboard_geral.vendas %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+
+FATURAMENTO
+{% for item in dashboard_geral.faturamento.cards %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+- Reloginho Meta: {{ dashboard_geral.faturamento.reloginho.meta }}
+- Reloginho Real: {{ dashboard_geral.faturamento.reloginho.real }}
+- Reloginho Percentual: {{ dashboard_geral.faturamento.reloginho.percentual }}
+
+ESTOQUE
+{% for item in dashboard_geral.estoque %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+
+CARGAS EM ABERTO
+{% for item in dashboard_geral.cargas %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+
+PRODUCAO
+{% for item in dashboard_geral.producao.cards %}
+- {{ item.label }}: {{ item.value }}
+{% endfor %}
+{% for item in dashboard_geral.producao.reloginhos %}
+- {{ item.titulo }} | Meta acum: {{ item.meta_acum }} | Real: {{ item.real }} | Percentual: {{ item.percentual }}
+{% endfor %}

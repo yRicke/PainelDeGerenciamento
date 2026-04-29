@@ -76,6 +76,12 @@ DASHBOARD_EXPORT_CONFIG = {
         "modulo_nome": "Apuracao de Resultados",
         "titulo_padrao": "Dashboard Apuracao de Resultados",
     },
+    "dashboard_geral": {
+        "modulo_nome": "Dashboard Geral",
+        "titulo_padrao": "Painel Consolidado",
+        "template_html": "dashboards_pdf/dashboard_geral.html",
+        "template_text": "dashboards_pdf/dashboard_geral_texto.txt",
+    },
 }
 
 
@@ -86,6 +92,19 @@ def _texto_limpo(valor, fallback="-", limite=220):
     if len(texto) <= limite:
         return texto
     return texto[: limite - 3].rstrip() + "..."
+
+
+def _texto_moeda(valor):
+    try:
+        numero = float(valor or 0)
+    except (TypeError, ValueError):
+        numero = 0.0
+    prefixo = "R$ "
+    if numero < 0:
+        numero = abs(numero)
+        prefixo = "-R$ "
+    texto = f"{numero:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    return f"{prefixo}{texto}"
 
 
 def _carregar_payload(request):
@@ -318,10 +337,151 @@ def _montar_contexto_producao(empresa, config, payload):
     return contexto_base
 
 
+def _normalizar_cards_dashboard_geral(payload):
+    itens = payload if isinstance(payload, list) else []
+    saida = []
+    for item in itens:
+        if not isinstance(item, dict):
+            continue
+        label = _texto_limpo(item.get("label"), fallback="", limite=80)
+        value = _texto_limpo(item.get("value"), fallback="", limite=80)
+        if not label or not value:
+            continue
+        saida.append({"label": label, "value": value})
+        if len(saida) >= 12:
+            break
+    return saida
+
+
+def _normalizar_angulo_bruto(valor):
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        numero = -90.0
+    numero = max(-90.0, min(90.0, numero))
+    return f"{numero:.2f}"
+
+
+def _normalizar_reloginhos_dashboard_geral(payload):
+    itens = payload if isinstance(payload, list) else []
+    saida = []
+    for item in itens:
+        if not isinstance(item, dict):
+            continue
+        saida.append(
+            {
+                "sufixo": _texto_limpo(item.get("sufixo"), fallback="", limite=20),
+                "titulo": _texto_limpo(item.get("titulo"), fallback="Relogio", limite=60),
+                "meta_acum": _texto_limpo(item.get("meta_acum"), fallback="0", limite=40),
+                "real": _texto_limpo(item.get("real"), fallback="0", limite=40),
+                "percentual": _texto_limpo(item.get("percentual"), fallback="0,00%", limite=20),
+                "meta_angulo": _normalizar_angulo_bruto(item.get("meta_angulo")),
+                "real_angulo": _normalizar_angulo_bruto(item.get("real_angulo")),
+                "meta80_angulo": (
+                    _normalizar_angulo_bruto(item.get("meta80_angulo"))
+                    if item.get("meta80_angulo") is not None
+                    else ""
+                ),
+            }
+        )
+        if len(saida) >= 8:
+            break
+    return saida
+
+
+def _montar_contexto_dashboard_geral(empresa, config, payload):
+    contexto_base = _montar_contexto_generico(empresa, config, payload)
+    modulo = payload.get("module_payload") if isinstance(payload.get("module_payload"), dict) else {}
+    dashboard = modulo.get("dashboard") if isinstance(modulo.get("dashboard"), dict) else {}
+    faturamento = dashboard.get("faturamento") if isinstance(dashboard.get("faturamento"), dict) else {}
+    producao = dashboard.get("producao") if isinstance(dashboard.get("producao"), dict) else {}
+
+    contexto_base["periodo_inicio"] = _texto_limpo(modulo.get("periodo_inicio"), fallback="-", limite=20)
+    contexto_base["periodo_fim"] = _texto_limpo(modulo.get("periodo_fim"), fallback="-", limite=20)
+    contexto_base["mes_referencia"] = _texto_limpo(modulo.get("mes_referencia"), fallback="-", limite=10)
+    contexto_base["filtros_ativos"] = [
+        f"Mes de referencia: {contexto_base['mes_referencia']}",
+        f"Periodo: {contexto_base['periodo_inicio']} a {contexto_base['periodo_fim']}",
+    ]
+    contexto_base["dashboard_geral"] = {
+        "tofu": _normalizar_cards_dashboard_geral(
+            [
+                {"label": "Total", "value": dashboard.get("tofu", {}).get("total_atividades", "0")},
+                {"label": "Atrasados", "value": dashboard.get("tofu", {}).get("atrasados", {}).get("total", "0")},
+                {"label": "Alertas", "value": dashboard.get("tofu", {}).get("alertas", {}).get("total", "0")},
+                {"label": "Concluidos", "value": dashboard.get("tofu", {}).get("concluidos", {}).get("total", "0")},
+            ]
+        ),
+        "vendas": _normalizar_cards_dashboard_geral(
+            [
+                {"label": "Vendas", "value": dashboard.get("vendas", {}).get("vendas", "R$ 0,00")},
+                {"label": "CMV", "value": dashboard.get("vendas", {}).get("cmv", "R$ 0,00")},
+                {"label": "Lucro", "value": dashboard.get("vendas", {}).get("lucro", "R$ 0,00")},
+                {"label": "Margem", "value": dashboard.get("vendas", {}).get("margem", "0,00%")},
+            ]
+        ),
+        "faturamento": {
+            "cards": _normalizar_cards_dashboard_geral(
+                [
+                    {"label": "Valor Faturamento", "value": faturamento.get("valor_faturamento", "R$ 0,00")},
+                    {"label": "Meta Geral", "value": faturamento.get("meta_geral", "R$ 0,00")},
+                    {"label": "Gap Faturamento", "value": faturamento.get("gap_faturamento", "R$ 0,00")},
+                    {"label": "Prazo Medio", "value": faturamento.get("prazo_medio", "0")},
+                    {"label": "Dias Uteis", "value": faturamento.get("dias_uteis", "0")},
+                    {"label": "Meta Diaria", "value": faturamento.get("meta_diaria", "R$ 0,00")},
+                ]
+            ),
+            "reloginho": {
+                "meta": _texto_limpo(faturamento.get("reloginho_meta"), fallback="R$ 0,00", limite=60),
+                "real": _texto_limpo(faturamento.get("reloginho_real"), fallback="R$ 0,00", limite=60),
+                "percentual": _texto_limpo(faturamento.get("reloginho_percentual"), fallback="0,00%", limite=20),
+                "meta_angulo": _normalizar_angulo_bruto(faturamento.get("reloginho_meta_angulo")),
+                "real_angulo": _normalizar_angulo_bruto(faturamento.get("reloginho_real_angulo")),
+            },
+            "tipo_venda_legenda": [
+                {
+                    "label": _texto_limpo(label, fallback="Tipo", limite=40),
+                    "value": _texto_moeda(valor),
+                }
+                for label, valor in zip(
+                    faturamento.get("tipo_venda_labels") or [],
+                    faturamento.get("tipo_venda_series") or [],
+                )
+            ][:6],
+        },
+        "estoque": _normalizar_cards_dashboard_geral(
+            [
+                {"label": "Valor em Estoque", "value": dashboard.get("estoque", {}).get("valor", "R$ 0,00")},
+                {"label": "Data Mais Recente", "value": dashboard.get("estoque", {}).get("data_recente", "-")},
+            ]
+        ),
+        "cargas": _normalizar_cards_dashboard_geral(
+            [
+                {"label": "Total", "value": dashboard.get("cargas", {}).get("total", "0")},
+                {"label": "No Prazo", "value": dashboard.get("cargas", {}).get("no_prazo", "0")},
+                {"label": "Fora do Prazo", "value": dashboard.get("cargas", {}).get("fora_prazo", "0")},
+            ]
+        ),
+        "producao": {
+            "cards": _normalizar_cards_dashboard_geral(
+                [
+                    {"label": "Meta Mes", "value": producao.get("meta_mes", "0")},
+                    {"label": "Meta Acumulada", "value": producao.get("meta_acumulada", "0")},
+                    {"label": "Realizado", "value": producao.get("realizado", "0")},
+                    {"label": "Atingimento", "value": producao.get("percentual", "0,00%")},
+                ]
+            ),
+            "reloginhos": _normalizar_reloginhos_dashboard_geral(producao.get("reloginhos")),
+        },
+    }
+    return contexto_base
+
+
 CONTEXT_BUILDERS = {
     "administrativo_tofu_lista_de_atividades": _montar_contexto_tofu,
     "comercial_controle_de_margem": _montar_contexto_controle_margem,
     "operacional_producao": _montar_contexto_producao,
+    "dashboard_geral": _montar_contexto_dashboard_geral,
 }
 
 

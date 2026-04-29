@@ -67,6 +67,10 @@ MODULOS_POR_AREA = {
     ],
 }
 
+PERMISSOES_EXTRAS = [
+    "Dashboard Geral",
+]
+
 NOMES_EXIBICAO_MODULOS = {
     "Comite Diario": "Comitê Diário",
     "Balanco Patrimonial": "Balanço Patrimonial",
@@ -82,6 +86,7 @@ NOMES_EXIBICAO_MODULOS = {
     "Producao": "Produção",
     "Contas Bancarias": "Contas Bancarias",
     "Descricao Balanco Patrimonial": "Descricao Balanco Patrimonial",
+    "Dashboard Geral": "Dashboard Geral",
 }
 
 PERMISSOES_POR_MODULO = {
@@ -151,6 +156,12 @@ def _obter_permissoes_por_modulo():
             permissao, _ = Permissao.objects.get_or_create(nome=nome)
             permissoes.append(permissao)
         permissoes_por_modulo.append((modulo, permissoes))
+    permissoes_extras = []
+    for nome in PERMISSOES_EXTRAS:
+        permissao, _ = Permissao.objects.get_or_create(nome=nome)
+        permissoes_extras.append(permissao)
+    if permissoes_extras:
+        permissoes_por_modulo.append(("Extra", permissoes_extras))
     return permissoes_por_modulo
 
 
