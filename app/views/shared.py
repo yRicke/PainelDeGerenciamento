@@ -13,17 +13,17 @@ from ..utils.importacao_metadados import (
 from ..utils.modulos_permissoes import MODULOS_POR_AREA
 
 TIPO_IMPORTACAO_POR_MODULO = {
-    "carteira": "Arquivo .xlsx (selecao unica).",
-    "pedidos_pendentes": "Arquivo .xlsx (selecao unica).",
-    "controle_de_margem": "Arquivo .xls ou .xlsx (selecao unica).",
+    "carteira": "Arquivo .xlsx (seleção única).",
+    "pedidos_pendentes": "Arquivo .xlsx (seleção única).",
+    "controle_de_margem": "Arquivo .xls ou .xlsx (seleção única).",
     "vendas_por_categoria": "Pasta com arquivos .xls no padrao dd.mm.aaaa.xls.",
     "contas_a_receber": "Pasta com arquivos .xls.",
-    "dfc": "Arquivo .xls (selecao unica).",
+    "dfc": "Arquivo .xls (seleção única).",
     "faturamento": "Pasta com subpastas '1 - Faturamento diario' e '2 - Venda por Produto (NF)' contendo arquivos .xlsx.",
     "adiantamentos": "Pasta ADIANTAMENTOS com subpastas de ano e mes contendo arquivos .xls.",
     "comite_diario": "Arquivo .xls (selecao unica).",
     "orcamento": "Pasta com arquivos .xls.",
-    "cargas_em_aberto": "Arquivo .xls (selecao unica).",
+    "cargas_em_aberto": "Arquivo .xls (seleção única).",
     "producao": "Pasta com arquivos .xls.",
     "tabela_de_fretes": "Arquivo .xls (selecao unica).",
     "estoque_pcp": "Pasta ESTOQUE com subpastas contendo arquivos .xls.",
@@ -193,7 +193,7 @@ def _montar_resumo_importacao(diretorio_importacao, diretorio_subscritos, modulo
 
     usuario_importacao = str(metadados.get("usuario") or "").strip()
     if not usuario_importacao:
-        usuario_importacao = "Nao identificado"
+        usuario_importacao = "Não identificado"
 
     return {
         "tem_arquivos": True,
@@ -232,7 +232,7 @@ def _bloquear_criar_em_modulo_com_importacao_se_necessario(request, empresa, aca
     ):
         messages.error(
             request,
-            "Cadastro manual desabilitado para esta empresa neste modulo.",
+            "Cadastro manual desabilitado para esta empresa neste módulo.",
         )
         return True
     return False
@@ -242,7 +242,7 @@ def _bloquear_edicao_em_modulo_com_importacao_se_necessario(request, empresa, re
     if _empresa_bloqueia_cadastro_edicao_importacao(empresa):
         messages.error(
             request,
-            "Edicao manual desabilitada para esta empresa neste modulo.",
+            "Edição manual desabilitada para esta empresa neste módulo.",
         )
         return redirect(redirect_name, empresa_id=empresa.id)
     return None

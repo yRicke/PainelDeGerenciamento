@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'operacional' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Operacional</span>
+                <span class="module-hero-pill">Módulo Operacional</span>
             </div>
             <h1>Cargas em Aberto</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, importação, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -28,20 +28,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Cargas em Aberto">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Cargas em Aberto">
             <div class="module-hero-import-head">
-                <h2>Importacao de Cargas</h2>
+                <h2>Importação de Cargas</h2>
                 <span class="module-hero-import-badge">.xls</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo de importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/hora da última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -73,7 +73,7 @@
                 </div>
 
                 <div id="cargas-loading-status" class="loading-status">
-                    Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+                    Carregamento em andamento. O arquivo está sendo enviado e a importação foi iniciada.
                 </div>
             </form>
         </section>
@@ -87,7 +87,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <p class="form-note module-filters-placeholder">Filtros multisseleção aplicados junto com os filtros da tabela.</p>
             <div class="module-filter-columns">
                 <div id="cargas-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="cargas-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -106,14 +106,14 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Cargas em Aberto">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de Cargas em Aberto">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -121,14 +121,14 @@
         {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
             <h2>Nova Carga (Cadastro Manual)</h2>
-            <p class="form-note">Informe os dados operacionais para acompanhar prazo, critica e verificacao.</p>
+            <p class="form-note">Informe os dados operacionais para acompanhar prazo, crítica e verificação.</p>
             <form id="criar-carga-form" action="{% url 'cargas_em_aberto' empresa.id %}" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_carga">
 
                 <div class="form-grid">
                     <div>
-                        <label>Situacao</label>
+                        <label>Situação</label>
                         <select name="situacao" required>
                             <option value="Aberta" selected>Aberta</option>
                             <option value="Fechada">Fechada</option>
@@ -139,11 +139,11 @@
                         <input type="text" name="ordem_de_carga_codigo" required>
                     </div>
                     <div>
-                        <label>Data inicio</label>
+                        <label>Data de início</label>
                         <input type="date" name="data_inicio" value="{{ hoje_iso }}" required>
                     </div>
                     <div>
-                        <label>Data prevista para saida</label>
+                        <label>Data prevista para saída</label>
                         <input type="date" id="data-prevista-saida-criar" name="data_prevista_saida" value="{{ hoje_iso }}" required>
                     </div>
                     <div>
@@ -151,7 +151,7 @@
                         <input type="date" id="data-chegada-criar" name="data_chegada">
                     </div>
                     <div>
-                        <label>Data finalizacao</label>
+                        <label>Data de finalização</label>
                         <input type="date" id="data-finalizacao-criar" name="data_finalizacao" disabled>
                     </div>
                     <div>
@@ -163,7 +163,7 @@
                         <input type="text" name="nome_fantasia_empresa" required>
                     </div>
                     <div>
-                        <label>Regiao</label>
+                        <label>Região</label>
                         <select name="regiao_id">
                             <option value="">-</option>
                             {% for regiao in regioes %}
@@ -172,7 +172,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Prazo maximo (dias)</label>
+                        <label>Prazo máximo (dias)</label>
                         <input type="number" name="prazo_maximo_dias" min="0" value="10">
                     </div>
                 </div>

@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'operacional' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Operacional</span>
+                <span class="module-hero-pill">Módulo Operacional</span>
             </div>
             <h1>Tabela de Fretes</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, importação, filtros e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -28,20 +28,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Tabela de Fretes">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Tabela de Fretes">
             <div class="module-hero-import-head">
-                <h2>Importacao de Fretes</h2>
+                <h2>Importação de Fretes</h2>
                 <span class="module-hero-import-badge">.xls</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo de importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/hora da última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -73,7 +73,7 @@
                 </div>
 
                 <div id="fretes-loading-status" class="loading-status">
-                    Carregamento em andamento. O arquivo esta sendo enviado e a importacao foi iniciada.
+                    Carregamento em andamento. O arquivo está sendo enviado e a importação foi iniciada.
                 </div>
             </form>
         </section>
@@ -87,7 +87,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <p class="form-note module-filters-placeholder">Filtros multisseleção aplicados junto com os filtros da tabela.</p>
             <div class="module-filter-columns">
                 <div id="fretes-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="fretes-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -106,13 +106,13 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de tabela de fretes">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de tabela de fretes">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -120,7 +120,7 @@
         {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
             <h2>Novo Frete (Cadastro Manual)</h2>
-            <p class="form-note">Cidade, UF e regiao sao obrigatorias e exibidas no front por codigo e descricao.</p>
+            <p class="form-note">Cidade, UF e região são obrigatórias e exibidas no front por código e descrição.</p>
             <form id="criar-frete-form" action="{% url 'tabela_de_fretes' empresa.id %}" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_frete">
@@ -145,7 +145,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Regiao</label>
+                        <label>Região</label>
                         <select name="regiao_id" required>
                             <option value="">Selecione</option>
                             {% for regiao in regioes %}
@@ -162,7 +162,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Data/hora alteracao</label>
+                        <label>Data/hora de alteração</label>
                         <input type="date" name="data_hora_alteracao" value="{{ hoje_iso }}">
                     </div>
                     <div>
@@ -170,7 +170,7 @@
                         <input type="text" name="valor_frete_comercial" placeholder="0,00">
                     </div>
                     <div>
-                        <label>Valor frete minimo</label>
+                        <label>Valor frete mínimo</label>
                         <input type="text" name="valor_frete_minimo" placeholder="0,00">
                     </div>
                     <div>
@@ -186,7 +186,7 @@
                         <input type="text" name="valor_taxa_entrada" placeholder="0,00">
                     </div>
                     <div>
-                        <label>Venda minima</label>
+                        <label>Venda mínima</label>
                         <input type="text" name="venda_minima" placeholder="0,00">
                     </div>
                 </div>

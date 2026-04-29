@@ -72,7 +72,7 @@
         var totais = contarPorTipo(filesXls);
         fileStatus.textContent = (
             filesXls.length
-            + " arquivo(s) .xls selecionado(s) - posicao: "
+            + " arquivo(s) .xls selecionado(s) - posição: "
             + totais.posicao
             + ", reservado: "
             + totais.reservado
@@ -89,7 +89,7 @@
     function selecionarArquivos(files) {
         var arquivosXls = coletarArquivosXls(files);
         if (arquivosXls.length < 2) {
-            window.alert("Selecione a pasta ESTOQUE com as subpastas de posicao e reservado.");
+            window.alert("Selecione a pasta ESTOQUE com as subpastas de posição e reservado.");
             input.value = "";
             atualizarStatus([]);
             return;

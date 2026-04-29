@@ -20,7 +20,7 @@
         {% csrf_token %}
         <div class="form-grid">
             <div>
-                <label>Nome origem</label>
+                <label>Nome de origem</label>
                 <input type="date" name="nome_origem" value="{{ estoque_item.nome_origem|date:'Y-m-d' }}" required>
             </div>
             <div>
@@ -36,7 +36,7 @@
                 </select>
             </div>
             <div>
-                <label>Código empresa</label>
+                <label>Código da empresa</label>
                 <input type="text" name="codigo_empresa" value="{{ estoque_item.codigo_empresa }}" required>
             </div>
             <div>

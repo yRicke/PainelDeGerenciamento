@@ -20,7 +20,7 @@
         {% csrf_token %}
         <div class="form-grid">
             <div>
-                <label>Data origem (nome arquivo)</label>
+                <label>Data de origem (nome do arquivo)</label>
                 <input type="text" name="data_origem" value="{{ producao_item.data_origem }}" required>
             </div>
             <div>
@@ -46,27 +46,27 @@
                 </select>
             </div>
             <div>
-                <label>Tamanho lote</label>
+                <label>Tamanho do lote</label>
                 <input type="text" name="tamanho_lote" value="{{ producao_item.tamanho_lote }}">
             </div>
             <div>
-                <label>Número lote</label>
+                <label>Número do lote</label>
                 <input type="text" name="numero_lote" value="{{ producao_item.numero_lote }}">
             </div>
             <div>
-                <label>Data entrada atividade</label>
+                <label>Data de entrada da atividade</label>
                 <input type="date" id="data-entrada-atividade-editar" name="data_hora_entrada_atividade" value="{% if producao_item.data_hora_entrada_atividade %}{{ producao_item.data_hora_entrada_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
-                <label>Data aceite atividade</label>
+                <label>Data de aceite da atividade</label>
                 <input type="date" id="data-aceite-atividade-editar" name="data_hora_aceite_atividade" value="{% if producao_item.data_hora_aceite_atividade %}{{ producao_item.data_hora_aceite_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
-                <label>Data início atividade</label>
+                <label>Data de início da atividade</label>
                 <input type="date" id="data-inicio-atividade-editar" name="data_hora_inicio_atividade" value="{% if producao_item.data_hora_inicio_atividade %}{{ producao_item.data_hora_inicio_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
-                <label>Data fim atividade</label>
+                <label>Data de fim da atividade</label>
                 <input type="date" id="data-fim-atividade-editar" name="data_hora_fim_atividade" value="{% if producao_item.data_hora_fim_atividade %}{{ producao_item.data_hora_fim_atividade|date:'Y-m-d' }}{% endif %}">
             </div>
         </div>

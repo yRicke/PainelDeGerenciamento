@@ -31,19 +31,19 @@
                 <input type="text" name="ordem_de_carga_codigo" value="{{ carga.ordem_de_carga_codigo }}" required>
             </div>
             <div>
-                <label>Data início</label>
+                <label>Data de início</label>
                 <input type="date" id="data-inicio-editar" name="data_inicio" value="{{ carga.data_inicio|date:'Y-m-d' }}" required>
             </div>
             <div>
-                <label>Data prevista para saida</label>
+                <label>Data prevista para saída</label>
                 <input type="date" id="data-prevista-saida-editar" name="data_prevista_saida" value="{{ carga.data_prevista_saida|date:'Y-m-d' }}" required>
             </div>
             <div>
-                <label>Data chegada</label>
+                <label>Data de chegada</label>
                 <input type="date" id="data-chegada-editar" name="data_chegada" value="{% if carga.data_chegada %}{{ carga.data_chegada|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
-                <label>Data finalização</label>
+                <label>Data de finalização</label>
                 <input type="date" id="data-finalizacao-editar" name="data_finalizacao" value="{% if carga.data_finalizacao %}{{ carga.data_finalizacao|date:'Y-m-d' }}{% endif %}" {% if not carga.data_chegada %}disabled{% endif %}>
             </div>
             <div>
@@ -51,7 +51,7 @@
                 <input type="text" name="nome_motorista" value="{{ carga.nome_motorista }}">
             </div>
             <div>
-                <label>Nome fantasia empresa</label>
+                <label>Nome fantasia da empresa</label>
                 <input type="text" name="nome_fantasia_empresa" value="{{ carga.nome_fantasia_empresa }}" required>
             </div>
             <div>

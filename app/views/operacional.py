@@ -143,7 +143,7 @@ def editar_carga_modulo(request, empresa_id, carga_id):
 
     carga_item = Cargas.objects.filter(id=carga_id, empresa=empresa).first()
     if not carga_item:
-        messages.error(request, "Carga nao encontrada.")
+        messages.error(request, "Carga não encontrada.")
         return redirect("cargas_em_aberto", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -173,11 +173,11 @@ def excluir_carga_modulo(request, empresa_id, carga_id):
 
     carga_item = Cargas.objects.filter(id=carga_id, empresa=empresa).first()
     if not carga_item:
-        messages.error(request, "Carga nao encontrada.")
+        messages.error(request, "Carga não encontrada.")
         return redirect("cargas_em_aberto", empresa_id=empresa.id)
 
     carga_item.excluir_carga()
-    messages.success(request, "Carga excluida com sucesso.")
+    messages.success(request, "Carga excluída com sucesso.")
     return redirect("cargas_em_aberto", empresa_id=empresa.id)
 
 
@@ -204,7 +204,7 @@ def producao(request, empresa_id):
             if erro:
                 messages.error(request, erro)
             else:
-                messages.success(request, "Registro de produÃ§Ã£o criado com sucesso.")
+                messages.success(request, "Registro de produção criado com sucesso.")
         elif acao == "importar_producao":
             arquivos = request.FILES.getlist("arquivos_producao")
             ok, mensagem = importar_upload_producao(
@@ -219,7 +219,7 @@ def producao(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "AÃ§Ã£o de produÃ§Ã£o invÃ¡lida.")
+            messages.error(request, "Ação de produção inválida.")
         return redirect("producao", empresa_id=empresa_id)
 
     producoes_qs = (
@@ -276,7 +276,7 @@ def editar_producao_modulo(request, empresa_id, producao_id):
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).select_related("produto").first()
     if not producao_item:
-        messages.error(request, "Registro de produÃ§Ã£o nÃ£o encontrado.")
+        messages.error(request, "Registro de produção não encontrado.")
         return redirect("producao", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -284,7 +284,7 @@ def editar_producao_modulo(request, empresa_id, producao_id):
         if erro:
             messages.error(request, erro)
             return redirect("editar_producao_modulo", empresa_id=empresa.id, producao_id=producao_item.id)
-        messages.success(request, "Registro de produÃ§Ã£o atualizado com sucesso.")
+        messages.success(request, "Registro de produção atualizado com sucesso.")
         return redirect("producao", empresa_id=empresa.id)
 
     situacoes_producao = sorted(
@@ -320,11 +320,11 @@ def excluir_producao_modulo(request, empresa_id, producao_id):
 
     producao_item = Producao.objects.filter(id=producao_id, empresa=empresa).first()
     if not producao_item:
-        messages.error(request, "Registro de produÃ§Ã£o nÃ£o encontrado.")
+        messages.error(request, "Registro de produção não encontrado.")
         return redirect("producao", empresa_id=empresa.id)
 
     producao_item.excluir_producao()
-    messages.success(request, "Registro de produÃ§Ã£o excluÃ­do com sucesso.")
+    messages.success(request, "Registro de produção excluído com sucesso.")
     return redirect("producao", empresa_id=empresa.id)
 
 
@@ -435,7 +435,7 @@ def editar_frete_modulo(request, empresa_id, frete_id):
         .first()
     )
     if not frete_item:
-        messages.error(request, "Frete nÃ£o encontrado.")
+        messages.error(request, "Frete não encontrado.")
         return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -481,11 +481,11 @@ def excluir_frete_modulo(request, empresa_id, frete_id):
 
     frete_item = Frete.objects.filter(id=frete_id, empresa=empresa).first()
     if not frete_item:
-        messages.error(request, "Frete nÃ£o encontrado.")
+        messages.error(request, "Frete não encontrado.")
         return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
     frete_item.excluir_frete()
-    messages.success(request, "Frete excluÃ­do com sucesso.")
+    messages.success(request, "Frete excluído com sucesso.")
     return redirect("tabela_de_fretes", empresa_id=empresa.id)
 
 
@@ -527,7 +527,7 @@ def estoque_pcp(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "AÃ§Ã£o de estoque invÃ¡lida.")
+            messages.error(request, "Ação de estoque inválida.")
         return redirect("estoque_pcp", empresa_id=empresa_id)
 
     estoque_qs = (
@@ -597,7 +597,7 @@ def editar_estoque_modulo(request, empresa_id, estoque_id):
 
     estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).select_related("produto").first()
     if not estoque_item:
-        messages.error(request, "Registro de estoque nÃ£o encontrado.")
+        messages.error(request, "Registro de estoque não encontrado.")
         return redirect("estoque_pcp", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -651,10 +651,10 @@ def excluir_estoque_modulo(request, empresa_id, estoque_id):
 
     estoque_item = Estoque.objects.filter(id=estoque_id, empresa=empresa).first()
     if not estoque_item:
-        messages.error(request, "Registro de estoque nÃ£o encontrado.")
+        messages.error(request, "Registro de estoque não encontrado.")
         return redirect("estoque_pcp", empresa_id=empresa.id)
 
     estoque_item.excluir_estoque()
-    messages.success(request, "Registro de estoque excluÃ­do com sucesso.")
+    messages.success(request, "Registro de estoque excluído com sucesso.")
     return redirect("estoque_pcp", empresa_id=empresa.id)
 

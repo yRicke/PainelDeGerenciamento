@@ -14,7 +14,7 @@
 </section>
 
 <section class="panel">
-    <h2>Modulos</h2>
+    <h2>Módulos</h2>
     <ul class="module-list">
         {% for modulo in modulos %}
         <li>
@@ -24,11 +24,10 @@
                 {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
             >
                 {{ modulo.nome }}
-                {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+                {% if not modulo.permitido %}<span class="module-link-note">(sem permissão)</span>{% endif %}
             </a>
         </li>
         {% endfor %}
     </ul>
 </section>
 {% endblock %}
-

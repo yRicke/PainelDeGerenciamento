@@ -192,7 +192,7 @@ def _detalhe_erro_importacao(resultado, chave, descricao, valor=None):
         return None
     avisos = resultado.get("avisos") or []
     detalhe = avisos[0] if avisos else "nenhum registro compatível encontrado"
-    return f"Importacao nao trouxe {descricao}. Motivo: {detalhe}"
+    return f"Importação não trouxe {descricao}. Motivo: {detalhe}"
 
 
 def calcular_dashboard_tofu(atividades_qs):
@@ -4089,15 +4089,15 @@ def _dados_frete_from_post(post_data, empresa):
 def criar_frete_por_post(empresa, post_data):
     dados = _dados_frete_from_post(post_data, empresa)
     if not dados["cidade"]:
-        return "Cidade e obrigatoria."
+        return "Cidade é obrigatória."
     if not dados["unidade_federativa"]:
-        return "Unidade federativa e obrigatoria."
+        return "Unidade federativa é obrigatória."
     if not dados["regiao"]:
-        return "Regiao e obrigatoria."
+        return "Região é obrigatória."
     if dados["data_hora_alteracao_raw"] and not dados["data_hora_alteracao"]:
-        return "Data/hora de alteracao invalida."
+        return "Data/hora de alteração inválida."
     if Frete.objects.filter(empresa=empresa, cidade=dados["cidade"]).exists():
-        return "Ja existe frete cadastrado para esta cidade."
+        return "Já existe frete cadastrado para esta cidade."
 
     dados.pop("data_hora_alteracao_raw", None)
     Frete.criar_frete(empresa=empresa, **dados)
@@ -4107,15 +4107,15 @@ def criar_frete_por_post(empresa, post_data):
 def atualizar_frete_por_post(frete, empresa, post_data):
     dados = _dados_frete_from_post(post_data, empresa)
     if not dados["cidade"]:
-        return "Cidade e obrigatoria."
+        return "Cidade é obrigatória."
     if not dados["unidade_federativa"]:
-        return "Unidade federativa e obrigatoria."
+        return "Unidade federativa é obrigatória."
     if not dados["regiao"]:
-        return "Regiao e obrigatoria."
+        return "Região é obrigatória."
     if dados["data_hora_alteracao_raw"] and not dados["data_hora_alteracao"]:
-        return "Data/hora de alteracao invalida."
+        return "Data/hora de alteração inválida."
     if Frete.objects.filter(empresa=empresa, cidade=dados["cidade"]).exclude(id=frete.id).exists():
-        return "Ja existe frete cadastrado para esta cidade."
+        return "Já existe frete cadastrado para esta cidade."
 
     dados.pop("data_hora_alteracao_raw", None)
     frete.atualizar_frete(**dados)
@@ -4184,19 +4184,19 @@ def _dados_estoque_from_post(post_data, empresa):
 def criar_estoque_por_post(empresa, post_data):
     dados = _dados_estoque_from_post(post_data, empresa)
     if not dados["nome_origem_raw"]:
-        return "Nome origem e obrigatorio."
+        return "Nome de origem é obrigatório."
     if not dados["nome_origem"]:
-        return "Nome origem invalido. Use uma data valida."
+        return "Nome de origem inválido. Use uma data válida."
     if not dados["data_contagem_raw"]:
-        return "Data contagem e obrigatoria."
+        return "Data de contagem é obrigatória."
     if not dados["data_contagem"]:
-        return "Data contagem invalida."
+        return "Data de contagem inválida."
     if not dados["produto"]:
-        return "Produto e obrigatorio."
+        return "Produto é obrigatório."
     if not dados["codigo_empresa"]:
-        return "Codigo empresa e obrigatorio."
+        return "Código da empresa é obrigatório."
     if not dados["codigo_local"]:
-        return "Codigo local e obrigatorio."
+        return "Código local é obrigatório."
 
     if Estoque.objects.filter(
         empresa=empresa,
@@ -4206,7 +4206,7 @@ def criar_estoque_por_post(empresa, post_data):
         codigo_local=dados["codigo_local"],
         produto=dados["produto"],
     ).exists():
-        return "Ja existe estoque para essa combinacao de origem, data, empresa, local e produto."
+        return "Já existe estoque para essa combinação de origem, data, empresa, local e produto."
 
     dados.pop("nome_origem_raw", None)
     dados.pop("data_contagem_raw", None)
@@ -4217,19 +4217,19 @@ def criar_estoque_por_post(empresa, post_data):
 def atualizar_estoque_por_post(estoque, empresa, post_data):
     dados = _dados_estoque_from_post(post_data, empresa)
     if not dados["nome_origem_raw"]:
-        return "Nome origem e obrigatorio."
+        return "Nome de origem é obrigatório."
     if not dados["nome_origem"]:
-        return "Nome origem invalido. Use uma data valida."
+        return "Nome de origem inválido. Use uma data válida."
     if not dados["data_contagem_raw"]:
-        return "Data contagem e obrigatoria."
+        return "Data de contagem é obrigatória."
     if not dados["data_contagem"]:
-        return "Data contagem invalida."
+        return "Data de contagem inválida."
     if not dados["produto"]:
-        return "Produto e obrigatorio."
+        return "Produto é obrigatório."
     if not dados["codigo_empresa"]:
-        return "Codigo empresa e obrigatorio."
+        return "Código da empresa é obrigatório."
     if not dados["codigo_local"]:
-        return "Codigo local e obrigatorio."
+        return "Código local é obrigatório."
 
     if Estoque.objects.filter(
         empresa=empresa,
@@ -4239,7 +4239,7 @@ def atualizar_estoque_por_post(estoque, empresa, post_data):
         codigo_local=dados["codigo_local"],
         produto=dados["produto"],
     ).exclude(id=estoque.id).exists():
-        return "Ja existe estoque para essa combinacao de origem, data, empresa, local e produto."
+        return "Já existe estoque para essa combinação de origem, data, empresa, local e produto."
 
     dados.pop("nome_origem_raw", None)
     dados.pop("data_contagem_raw", None)
@@ -4273,21 +4273,21 @@ def _dados_carga_from_post(post_data, empresa):
 def criar_carga_por_post(empresa, post_data):
     dados = _dados_carga_from_post(post_data, empresa)
     if not dados["situacao"]:
-        return "Situacao da carga e obrigatoria."
+        return "Situação da carga é obrigatória."
     if not dados["ordem_de_carga_codigo"]:
-        return "Ordem de carga e obrigatoria."
+        return "Ordem de carga é obrigatória."
     if not dados["nome_fantasia_empresa"]:
-        return "Nome fantasia da empresa e obrigatorio."
+        return "Nome fantasia da empresa é obrigatório."
     if not dados["data_inicio_raw"]:
-        return "Data de inicio e obrigatoria."
+        return "Data de início é obrigatória."
     if not dados["data_inicio"]:
-        return "Data de inicio invalida."
+        return "Data de início inválida."
     if not dados["data_prevista_saida_raw"]:
-        return "Data prevista para saida e obrigatoria."
+        return "Data prevista para saída é obrigatória."
     if not dados["data_prevista_saida"]:
-        return "Data prevista para saida invalida."
+        return "Data prevista para saída inválida."
     if dados["data_finalizacao"] and not dados["data_chegada"]:
-        return "Data de finalizacao so pode ser preenchida quando data de chegada estiver preenchida."
+        return "Data de finalização só pode ser preenchida quando a data de chegada estiver preenchida."
 
     dados.pop("data_inicio_raw", None)
     dados.pop("data_prevista_saida_raw", None)
@@ -4299,21 +4299,21 @@ def criar_carga_por_post(empresa, post_data):
 def atualizar_carga_por_post(carga, empresa, post_data):
     dados = _dados_carga_from_post(post_data, empresa)
     if not dados["situacao"]:
-        return "Situacao da carga e obrigatoria."
+        return "Situação da carga é obrigatória."
     if not dados["ordem_de_carga_codigo"]:
-        return "Ordem de carga e obrigatoria."
+        return "Ordem de carga é obrigatória."
     if not dados["nome_fantasia_empresa"]:
-        return "Nome fantasia da empresa e obrigatorio."
+        return "Nome fantasia da empresa é obrigatório."
     if not dados["data_inicio_raw"]:
-        return "Data de inicio e obrigatoria."
+        return "Data de início é obrigatória."
     if not dados["data_inicio"]:
-        return "Data de inicio invalida."
+        return "Data de início inválida."
     if not dados["data_prevista_saida_raw"]:
-        return "Data prevista para saida e obrigatoria."
+        return "Data prevista para saída é obrigatória."
     if not dados["data_prevista_saida"]:
-        return "Data prevista para saida invalida."
+        return "Data prevista para saída inválida."
     if dados["data_finalizacao"] and not dados["data_chegada"]:
-        return "Data de finalizacao so pode ser preenchida quando data de chegada estiver preenchida."
+        return "Data de finalização só pode ser preenchida quando a data de chegada estiver preenchida."
 
     dados.pop("data_inicio_raw", None)
     dados.pop("data_prevista_saida_raw", None)
@@ -4350,15 +4350,15 @@ def _dados_producao_from_post(post_data, empresa):
 def criar_producao_por_post(empresa, post_data):
     dados = _dados_producao_from_post(post_data, empresa)
     if not dados["data_origem"]:
-        return "Data origem e obrigatoria."
+        return "Data de origem é obrigatória."
     if not dados["numero_operacao_raw"]:
-        return "Numero da operacao e obrigatorio."
+        return "Número da operação é obrigatório."
     if dados["numero_operacao"] <= 0:
-        return "Numero da operacao invalido."
+        return "Número da operação inválido."
     if not dados["situacao"]:
-        return "Situacao e obrigatoria."
+        return "Situação é obrigatória."
     if not dados["produto"]:
-        return "Produto e obrigatorio."
+        return "Produto é obrigatório."
     dados.pop("numero_operacao_raw", None)
     Producao.criar_producao(empresa=empresa, **dados)
     return ""
@@ -4367,15 +4367,15 @@ def criar_producao_por_post(empresa, post_data):
 def atualizar_producao_por_post(producao_item, empresa, post_data):
     dados = _dados_producao_from_post(post_data, empresa)
     if not dados["data_origem"]:
-        return "Data origem e obrigatoria."
+        return "Data de origem é obrigatória."
     if not dados["numero_operacao_raw"]:
-        return "Numero da operacao e obrigatorio."
+        return "Número da operação é obrigatório."
     if dados["numero_operacao"] <= 0:
-        return "Numero da operacao invalido."
+        return "Número da operação inválido."
     if not dados["situacao"]:
-        return "Situacao e obrigatoria."
+        return "Situação é obrigatória."
     if not dados["produto"]:
-        return "Produto e obrigatorio."
+        return "Produto é obrigatório."
     dados.pop("numero_operacao_raw", None)
     producao_item.atualizar_producao(**dados)
     return ""
@@ -4764,11 +4764,11 @@ def importar_upload_cargas(
 
     nome_arquivo = Path(arquivo.name).name
     if not nome_arquivo.lower().endswith(".xls"):
-        return False, "Formato invalido. Envie apenas arquivo .xls."
+        return False, "Formato inválido. Envie apenas arquivo .xls."
 
     arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
     if arquivos_existentes and not confirmar_substituicao:
-        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+        return False, "Já existe arquivo na pasta. Confirme a substituição para continuar."
 
     for arquivo_antigo in arquivos_existentes:
         destino_subscrito = diretorio_subscritos / arquivo_antigo.name
@@ -4808,7 +4808,7 @@ def importar_upload_cargas(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"Importação concluída. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, cargas: {resultado['cargas']}."
         ),
     )
@@ -4828,11 +4828,11 @@ def importar_upload_fretes(
 
     nome_arquivo = Path(arquivo.name).name
     if not nome_arquivo.lower().endswith(".xls"):
-        return False, "Formato invalido. Envie apenas arquivo .xls."
+        return False, "Formato inválido. Envie apenas arquivo .xls."
 
     arquivos_existentes = [f for f in diretorio_importacao.iterdir() if f.is_file()]
     if arquivos_existentes and not confirmar_substituicao:
-        return False, "Ja existe arquivo na pasta. Confirme a substituicao para continuar."
+        return False, "Já existe arquivo na pasta. Confirme a substituição para continuar."
 
     for arquivo_antigo in arquivos_existentes:
         destino_subscrito = diretorio_subscritos / arquivo_antigo.name
@@ -4872,9 +4872,9 @@ def importar_upload_fretes(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
+            f"Importação concluída. Arquivos: {resultado['arquivos']}, "
             f"linhas: {resultado['linhas']}, fretes: {resultado['fretes']}, "
-            f"cidades: {resultado['cidades']}, regioes: {resultado['regioes']}, "
+            f"cidades: {resultado['cidades']}, regiões: {resultado['regioes']}, "
             f"ufs: {resultado['unidades_federativas']}."
         ),
     )
@@ -4968,7 +4968,7 @@ def importar_upload_estoque(
             arquivos_xls.append((arquivo, caminho_relativo))
 
     if not arquivos_xls:
-        return False, "Selecione a pasta ESTOQUE com arquivos .xls de posicao e reservado."
+        return False, "Selecione a pasta ESTOQUE com arquivos .xls de posição e reservado."
 
     _arquivar_arquivos_estoque(diretorio_importacao, diretorio_subscritos)
 
@@ -4994,8 +4994,8 @@ def importar_upload_estoque(
         return (
             False,
             (
-                "Importacao incompleta. Envie a pasta ESTOQUE com as subpastas "
-                f"de posicao e reservado. Arquivos detectados - posicao: {resultado['arquivos_posicao']}, "
+                "Importação incompleta. Envie a pasta ESTOQUE com as subpastas "
+                f"de posição e reservado. Arquivos detectados - posição: {resultado['arquivos_posicao']}, "
                 f"reservado: {resultado['arquivos_reservado']}."
             ),
         )
@@ -5017,8 +5017,8 @@ def importar_upload_estoque(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']} "
-            f"(posicao: {resultado['arquivos_posicao']}, reservado: {resultado['arquivos_reservado']}), "
+            f"Importação concluída. Arquivos: {resultado['arquivos']} "
+            f"(posição: {resultado['arquivos_posicao']}, reservado: {resultado['arquivos_reservado']}), "
             f"linhas: {resultado['linhas']}, estoques: {resultado['estoques']}."
         ),
     )
@@ -5061,7 +5061,7 @@ def importar_upload_producao(
             limpar_antes=True,
         )
     except Exception as exc:
-        return False, f"Falha ao importar producao: {exc}"
+        return False, f"Falha ao importar produção: {exc}"
     try:
         _registrar_metadados_importacao(
             diretorio_subscritos=diretorio_subscritos,
@@ -5076,7 +5076,7 @@ def importar_upload_producao(
     detalhe = _detalhe_erro_importacao(
         resultado,
         "producoes",
-        "producoes importadas",
+        "produções importadas",
     )
     if detalhe:
         return False, detalhe
@@ -5084,8 +5084,8 @@ def importar_upload_producao(
     return (
         True,
         (
-            f"Importacao concluida. Arquivos: {resultado['arquivos']}, "
-            f"linhas: {resultado['linhas']}, producoes: {resultado['producoes']}, "
+            f"Importação concluída. Arquivos: {resultado['arquivos']}, "
+            f"linhas: {resultado['linhas']}, produções: {resultado['producoes']}, "
             f"produtos vinculados/criados: {resultado['produtos']}."
         ),
     )
