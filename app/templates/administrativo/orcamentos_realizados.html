@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Orcamentos Realizados{% endblock %}
+{% block title %}Orçamentos Realizados{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -12,11 +12,11 @@
 {% block content %}
 {% now "Y-m-d" as hoje_iso %}
 <section class="page-hero">
-    <a href="{% url 'orcamento' empresa.id %}" class="module-hero-back-link">Voltar para Orcamento x Realizado</a>
-    <h1>Orcamentos Realizados</h1>
+    <a href="{% url 'orcamento' empresa.id %}" class="module-hero-back-link">Voltar para Orçamento x Realizado</a>
+    <h1>Orçamentos Realizados</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <div class="module-shortcuts">
-        <a class="btn-primary" href="{% url 'orcamentos' empresa.id %}">Ver Orcamentos</a>
+        <a class="btn-primary" href="{% url 'orcamentos' empresa.id %}">Ver Orçamentos</a>
     </div>
 </section>
 
@@ -30,10 +30,10 @@
             <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ hoje_iso }}" required></div>
             <div><label>Data baixa</label><input type="date" name="data_baixa" value="{{ hoje_iso }}" required></div>
             <div><label>Valor baixa</label><input type="text" name="valor_baixa" placeholder="0,00"></div>
-            <div><label>Valor liquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
+            <div><label>Valor líquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
             <div><label>Valor desdobramento</label><input type="text" name="valor_desdobramento" placeholder="0,00"></div>
             <div>
-                <label>Titulo</label>
+                <label>Título</label>
                 <select name="titulo_id">
                     <option value="">-</option>
                     {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
@@ -47,13 +47,13 @@
                 </select>
             </div>
             <div>
-                <label>Centro resultado</label>
+                <label>Centro de resultado</label>
                 <select name="centro_resultado_id" required>
                     {% for item in centros_resultado %}<option value="{{ item.id }}">{{ item.descricao }}</option>{% endfor %}
                 </select>
             </div>
             <div>
-                <label>Operacao</label>
+                <label>Operação</label>
                 <select name="operacao_id">
                     <option value="">-</option>
                     {% for item in operacoes %}<option value="{{ item.id }}">{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>{% endfor %}

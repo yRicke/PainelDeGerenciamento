@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Orcamentos{% endblock %}
+{% block title %}Orçamentos{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -11,16 +11,16 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'orcamento' empresa.id %}" class="module-hero-back-link">Voltar para Orcamento x Realizado</a>
-    <h1>Orcamentos</h1>
+    <a href="{% url 'orcamento' empresa.id %}" class="module-hero-back-link">Voltar para Orçamento x Realizado</a>
+    <h1>Orçamentos</h1>
     <p>Empresa: {{ empresa.nome }}</p>
     <div class="module-shortcuts">
-        <a class="btn-primary" href="{% url 'orcamentos_realizados' empresa.id %}">Ver Orcamentos Realizados</a>
+        <a class="btn-primary" href="{% url 'orcamentos_realizados' empresa.id %}">Ver Orçamentos Realizados</a>
     </div>
 </section>
 
 <section class="panel module-section">
-    <h2>Novo Orcamento (Cadastro Manual)</h2>
+    <h2>Novo Orçamento (Cadastro Manual)</h2>
     <form action="{% url 'orcamentos' empresa.id %}" method="post">
         {% csrf_token %}
         <input type="hidden" name="acao" value="criar_orcamento_planejado">
@@ -28,7 +28,7 @@
             <div><label>Nome empresa</label><input type="text" name="nome_empresa"></div>
             <div><label>Ano</label><input type="number" name="ano" min="1" step="1" required></div>
             <div>
-                <label>Centro resultado</label>
+                <label>Centro de resultado</label>
                 <select name="centro_resultado_id">
                     <option value="">-</option>
                     {% for item in centros_resultado %}<option value="{{ item.id }}">{{ item.descricao }}</option>{% endfor %}
@@ -43,7 +43,7 @@
             </div>
             <div><label>Janeiro</label><input type="text" name="janeiro" placeholder="0,00"></div>
             <div><label>Fevereiro</label><input type="text" name="fevereiro" placeholder="0,00"></div>
-            <div><label>Marco</label><input type="text" name="marco" placeholder="0,00"></div>
+            <div><label>Março</label><input type="text" name="marco" placeholder="0,00"></div>
             <div><label>Abril</label><input type="text" name="abril" placeholder="0,00"></div>
             <div><label>Maio</label><input type="text" name="maio" placeholder="0,00"></div>
             <div><label>Junho</label><input type="text" name="junho" placeholder="0,00"></div>
@@ -61,7 +61,7 @@
 </section>
 
 <section class="panel module-section">
-    <h2>Tabela de Orcamentos</h2>
+    <h2>Tabela de Orçamentos</h2>
     <div class="table-wrapper"><div id="orcamentos-tabulator"></div></div>
 </section>
 {% endblock %}

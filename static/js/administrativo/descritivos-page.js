@@ -219,11 +219,11 @@
         if (terminoInput) terminoInput.value = normalizeTime(terminoInput.value);
 
         if (!isValidTime(inicioInput ? inicioInput.value : "")) {
-            setSaveStatus("Preencha o Inicio no formato HH:MM.", "descritivos-save-status--error");
+            setSaveStatus("Preencha o Início no formato HH:MM.", "descritivos-save-status--error");
             return;
         }
         if (!isValidTime(terminoInput ? terminoInput.value : "")) {
-            setSaveStatus("Preencha o Termino no formato HH:MM.", "descritivos-save-status--error");
+            setSaveStatus("Preencha o Término no formato HH:MM.", "descritivos-save-status--error");
             return;
         }
 
@@ -354,7 +354,7 @@
         data: data,
         columns: [
             {
-                title: "Inicio",
+                title: "Início",
                 field: "inicio",
                 editor: "input",
                 formatter: formatTimeCell,
@@ -364,7 +364,7 @@
                 hozAlign: "center",
             },
             {
-                title: "Termino",
+                title: "Término",
                 field: "termino",
                 editor: "input",
                 formatter: formatTimeCell,

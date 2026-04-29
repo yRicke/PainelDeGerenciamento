@@ -33,16 +33,16 @@
             </div>
             <div><label>Nro. nota</label><input type="text" name="numero_nota" value="{{ faturamento_item.numero_nota }}" required></div>
             <div><label>Vlr. nota</label><input type="text" name="valor_nota" value="{{ faturamento_item.valor_nota }}"></div>
-            <div><label>% Participacao venda geral</label><input type="text" name="participacao_venda_geral" value="{{ faturamento_item.participacao_venda_geral }}"></div>
-            <div><label>% Participacao venda cliente</label><input type="text" name="participacao_venda_cliente" value="{{ faturamento_item.participacao_venda_cliente }}"></div>
-            <div><label>Vlr. nota (unico)</label><input type="text" name="valor_nota_unico" value="{{ faturamento_item.valor_nota_unico }}"></div>
-            <div><label>Peso bruto (unico)</label><input type="text" name="peso_bruto_unico" value="{{ faturamento_item.peso_bruto_unico }}"></div>
+            <div><label>% Participação venda geral</label><input type="text" name="participacao_venda_geral" value="{{ faturamento_item.participacao_venda_geral }}"></div>
+            <div><label>% Participação venda cliente</label><input type="text" name="participacao_venda_cliente" value="{{ faturamento_item.participacao_venda_cliente }}"></div>
+            <div><label>Vlr. nota (único)</label><input type="text" name="valor_nota_unico" value="{{ faturamento_item.valor_nota_unico }}"></div>
+            <div><label>Peso bruto (único)</label><input type="text" name="peso_bruto_unico" value="{{ faturamento_item.peso_bruto_unico }}"></div>
             <div><label>Qtd. volumes</label><input type="text" name="quantidade_volumes" value="{{ faturamento_item.quantidade_volumes }}"></div>
-            <div><label>Qtd. saida</label><input type="text" name="quantidade_saida" value="{{ faturamento_item.quantidade_saida }}"></div>
+            <div><label>Qtd. saída</label><input type="text" name="quantidade_saida" value="{{ faturamento_item.quantidade_saida }}"></div>
             <div><label>Status NF-e</label><input type="text" name="status_nfe" value="{{ faturamento_item.status_nfe }}"></div>
             <div><label>Apelido (vendedor)</label><input type="text" name="apelido_vendedor" value="{{ faturamento_item.apelido_vendedor }}"></div>
             <div>
-                <label>Operacao</label>
+                <label>Operação</label>
                 <select name="operacao_id">
                     <option value="">-</option>
                     {% for item in operacoes %}
@@ -69,8 +69,8 @@
                 </select>
             </div>
             <div><label>Tipo de movimento</label><input type="text" name="tipo_movimento" value="{{ faturamento_item.tipo_movimento }}"></div>
-            <div><label>Prazo medio</label><input type="text" name="prazo_medio" value="{{ faturamento_item.prazo_medio }}"></div>
-            <div><label>Media (unica)</label><input type="text" name="media_unica" value="{{ faturamento_item.media_unica }}"></div>
+            <div><label>Prazo médio</label><input type="text" name="prazo_medio" value="{{ faturamento_item.prazo_medio }}"></div>
+            <div><label>Média (única)</label><input type="text" name="media_unica" value="{{ faturamento_item.media_unica }}"></div>
             <div><label>Tipo da venda</label><input type="text" name="tipo_venda" value="{{ faturamento_item.tipo_venda }}"></div>
             <div>
                 <label>Produto</label>
@@ -82,11 +82,11 @@
                 </select>
             </div>
             <div><label>Gerente</label><input type="text" name="gerente" value="{{ faturamento_item.gerente }}"></div>
-            <div><label>Descricao (perfil)</label><input type="text" name="descricao_perfil" value="{{ faturamento_item.descricao_perfil }}" list="faturamento-editar-descricao-perfil-opcoes"></div>
+            <div><label>Descrição (perfil)</label><input type="text" name="descricao_perfil" value="{{ faturamento_item.descricao_perfil }}" list="faturamento-editar-descricao-perfil-opcoes"></div>
             <div><label>Valor frete</label><input type="text" name="valor_frete" value="{{ faturamento_item.valor_frete }}"></div>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+            <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
         <datalist id="faturamento-editar-descricao-perfil-opcoes">
             {% for descricao in descricoes_perfil %}
@@ -96,7 +96,7 @@
     </form>
 
     <div class="danger-zone">
-        <p>Acao irreversivel: exclui este registro de Faturamento.</p>
+        <p>Ação irreversível: exclui este registro de Faturamento.</p>
         <form action="{% url 'excluir_faturamento_modulo' empresa.id faturamento_item.id %}" method="POST" onsubmit="return confirm('Excluir registro de Faturamento {{ faturamento_item.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir registro de Faturamento</button>

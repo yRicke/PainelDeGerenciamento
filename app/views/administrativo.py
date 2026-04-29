@@ -232,7 +232,7 @@ def _texto_pdf_kpi_controladoria(valor, fallback="-", limite=180):
 
 
 def _bool_pdf_kpi_controladoria(valor):
-    return "Sim" if bool(valor) else "Nao"
+    return "Sim" if bool(valor) else "Não"
 
 
 def _linhas_pdf_kpi_controladoria(payload):
@@ -432,7 +432,7 @@ def _montar_contexto_dashboard_pdf_faturamento(empresa, payload):
             "prazo_medio": _texto_pdf_faturamento(dashboard.get("prazo_medio"), "0"),
             "dias_uteis": _texto_pdf_faturamento(dashboard.get("dias_uteis"), "0"),
             "meta_diaria": _texto_pdf_faturamento(dashboard.get("meta_diaria"), "R$ 0,00"),
-            "pedidos_pendentes": _texto_pdf_faturamento(dashboard.get("pedidos_pendentes"), "R$ 0,00 / 0 dias uteis"),
+            "pedidos_pendentes": _texto_pdf_faturamento(dashboard.get("pedidos_pendentes"), "R$ 0,00 / 0 dias úteis"),
             "qtd_clientes": _texto_pdf_faturamento(dashboard.get("qtd_clientes"), "0"),
             "participacao_venda_geral": _texto_pdf_faturamento(
                 dashboard.get("participacao_venda_geral"),
@@ -440,7 +440,7 @@ def _montar_contexto_dashboard_pdf_faturamento(empresa, payload):
             ),
             "incluir_pedidos_pendentes": _texto_pdf_faturamento(
                 dashboard.get("incluir_pedidos_pendentes"),
-                "Nao",
+                "Não",
             ),
             "reloginho_meta": _texto_pdf_faturamento(dashboard.get("reloginho_meta"), "R$ 0,00"),
             "reloginho_real": _texto_pdf_faturamento(dashboard.get("reloginho_real"), "R$ 0,00"),
@@ -527,10 +527,10 @@ def editar_atividade_tofu(request, empresa_id, atividade_id):
 
     atividade = Atividade.objects.filter(id=atividade_id, projeto__empresa=empresa).first()
     if not atividade:
-        messages.error(request, "Atividade nao encontrada.")
+        messages.error(request, "Atividade não encontrada.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
     if not _usuario_pode_gerenciar_atividade(request.user, atividade):
-        messages.error(request, "Voce nao pode editar esta atividade.")
+        messages.error(request, "Você não pode editar esta atividade.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -565,10 +565,10 @@ def excluir_atividade_tofu(request, empresa_id, atividade_id):
 
     atividade = Atividade.objects.filter(id=atividade_id, projeto__empresa=empresa).first()
     if not atividade:
-        messages.error(request, "Atividade nao encontrada.")
+        messages.error(request, "Atividade não encontrada.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
     if not _usuario_pode_gerenciar_atividade(request.user, atividade):
-        messages.error(request, "Voce nao pode excluir esta atividade.")
+        messages.error(request, "Você não pode excluir esta atividade.")
         return redirect("tofu_lista_de_atividades", empresa_id=empresa.id)
 
     atividade.excluir_atividade()
@@ -620,7 +620,7 @@ def editar_colaborador_modulo(request, empresa_id, colaborador_id):
 
     colaborador = Colaborador.objects.filter(id=colaborador_id, empresa=empresa).first()
     if not colaborador:
-        messages.error(request, "Colaborador nao encontrado.")
+        messages.error(request, "Colaborador não encontrado.")
         return redirect("colaboradores", empresa_id=empresa.id)
 
     erro = atualizar_colaborador_por_nome(colaborador, request.POST.get("nome"))
@@ -642,7 +642,7 @@ def excluir_colaborador_modulo(request, empresa_id, colaborador_id):
 
     colaborador = Colaborador.objects.filter(id=colaborador_id, empresa=empresa).first()
     if not colaborador:
-        messages.error(request, "Colaborador nao encontrado.")
+        messages.error(request, "Colaborador não encontrado.")
         return redirect("colaboradores", empresa_id=empresa.id)
 
     colaborador.excluir_colaborador()
@@ -694,7 +694,7 @@ def editar_projeto_modulo(request, empresa_id, projeto_id):
 
     projeto = Projeto.objects.filter(id=projeto_id, empresa=empresa).first()
     if not projeto:
-        messages.error(request, "Projeto nao encontrado.")
+        messages.error(request, "Projeto não encontrado.")
         return redirect("projetos", empresa_id=empresa.id)
 
     erro = atualizar_projeto_por_dados(projeto, request.POST.get("nome"), request.POST.get("codigo"))
@@ -716,7 +716,7 @@ def excluir_projeto_modulo(request, empresa_id, projeto_id):
 
     projeto = Projeto.objects.filter(id=projeto_id, empresa=empresa).first()
     if not projeto:
-        messages.error(request, "Projeto nao encontrado.")
+        messages.error(request, "Projeto não encontrado.")
         return redirect("projetos", empresa_id=empresa.id)
 
     projeto.excluir_projeto()
@@ -787,7 +787,7 @@ def criar_plano_cargo_salario_modulo(request, empresa_id):
             return JsonResponse(
                 {
                     "ok": False,
-                    "message": "Registro criado, mas nao foi possivel recarregar os dados.",
+                    "message": "Registro criado, mas não foi possível recarregar os dados.",
                 },
                 status=500,
             )
@@ -819,8 +819,8 @@ def editar_plano_cargo_salario_modulo(request, empresa_id, plano_cargo_salario_i
     item = PlanoCargoSalario.objects.filter(id=plano_cargo_salario_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
 
     erro = atualizar_plano_cargo_salario_por_post(item, empresa, request.POST)
@@ -857,8 +857,8 @@ def excluir_plano_cargo_salario_modulo(request, empresa_id, plano_cargo_salario_
     item = PlanoCargoSalario.objects.filter(id=plano_cargo_salario_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
 
     item_id = item.id
@@ -923,7 +923,7 @@ def criar_kpi_controladoria_modulo(request, empresa_id):
         if item is None:
             item = KpiControladoria.objects.filter(empresa=empresa).order_by("-id").first()
         if item is None:
-            return JsonResponse({"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."}, status=500)
+            return JsonResponse({"ok": False, "message": "Registro criado, mas não foi possível recarregar os dados."}, status=500)
         return JsonResponse(
             {
                 "ok": True,
@@ -953,8 +953,8 @@ def editar_kpi_controladoria_modulo(request, empresa_id, kpi_controladoria_id):
     item = KpiControladoria.objects.filter(id=kpi_controladoria_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("kpi_controladoria", empresa_id=empresa.id)
 
     erro = atualizar_kpi_controladoria_por_post(item, empresa, request.POST)
@@ -993,8 +993,8 @@ def excluir_kpi_controladoria_modulo(request, empresa_id, kpi_controladoria_id):
     item = KpiControladoria.objects.filter(id=kpi_controladoria_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("kpi_controladoria", empresa_id=empresa.id)
 
     item_id = item.id
@@ -1118,7 +1118,7 @@ def criar_descritivo_modulo(request, empresa_id):
             return JsonResponse(
                 {
                     "ok": False,
-                    "message": "Registro criado, mas nao foi possivel recarregar os dados.",
+                    "message": "Registro criado, mas não foi possível recarregar os dados.",
                 },
                 status=500,
             )
@@ -1150,8 +1150,8 @@ def editar_descritivo_modulo(request, empresa_id, descritivo_id):
     item = Descritivo.objects.filter(id=descritivo_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("descritivos", empresa_id=empresa.id)
 
     erro = atualizar_descritivo_por_post(item, empresa, request.POST)
@@ -1190,8 +1190,8 @@ def excluir_descritivo_modulo(request, empresa_id, descritivo_id):
     item = Descritivo.objects.filter(id=descritivo_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("descritivos", empresa_id=empresa.id)
 
     item_id = item.id
@@ -1426,7 +1426,7 @@ def faturamento_dashboard_pdf(request, empresa_id):
     if not permitido:
         return JsonResponse({"detail": "Acesso negado."}, status=403)
     if request.method != "POST":
-        return JsonResponse({"detail": "Metodo nao permitido."}, status=405)
+        return JsonResponse({"detail": "Método não permitido."}, status=405)
 
     payload = _carregar_payload_dashboard_pdf_faturamento(request)
     contexto = _montar_contexto_dashboard_pdf_faturamento(empresa, payload)
@@ -2218,7 +2218,7 @@ def editar_faturamento_modulo(request, empresa_id, faturamento_id):
 
     faturamento_item = Faturamento.objects.filter(id=faturamento_id, empresa=empresa).first()
     if not faturamento_item:
-        messages.error(request, "Registro de Faturamento nao encontrado.")
+        messages.error(request, "Registro de Faturamento não encontrado.")
         return redirect("faturamento", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -2257,7 +2257,7 @@ def excluir_faturamento_modulo(request, empresa_id, faturamento_id):
 
     faturamento_item = Faturamento.objects.filter(id=faturamento_id, empresa=empresa).first()
     if not faturamento_item:
-        messages.error(request, "Registro de Faturamento nao encontrado.")
+        messages.error(request, "Registro de Faturamento não encontrado.")
         return redirect("faturamento", empresa_id=empresa.id)
 
     faturamento_item.excluir_faturamento()

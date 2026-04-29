@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Editar Orcamento Planejado{% endblock %}
+{% block title %}Editar Orçamento Planejado{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/shared/module-crud.css' %}">
@@ -9,8 +9,8 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'orcamentos' empresa.id %}" class="module-hero-back-link">Voltar para Orcamentos</a>
-    <h1>Editar Orcamento Planejado #{{ orcamento_planejado_item.id }}</h1>
+    <a href="{% url 'orcamentos' empresa.id %}" class="module-hero-back-link">Voltar para Orçamentos</a>
+    <h1>Editar Orçamento Planejado #{{ orcamento_planejado_item.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
 
@@ -21,7 +21,7 @@
             <div><label>Nome empresa</label><input type="text" name="nome_empresa" value="{{ orcamento_planejado_item.nome_empresa }}"></div>
             <div><label>Ano</label><input type="number" min="1" step="1" name="ano" value="{{ orcamento_planejado_item.ano }}" required></div>
             <div>
-                <label>Centro resultado</label>
+                <label>Centro de resultado</label>
                 <select name="centro_resultado_id">
                     <option value="">-</option>
                     {% for item in centros_resultado %}
@@ -40,7 +40,7 @@
             </div>
             <div><label>Janeiro</label><input type="text" name="janeiro" value="{{ orcamento_planejado_item.janeiro }}"></div>
             <div><label>Fevereiro</label><input type="text" name="fevereiro" value="{{ orcamento_planejado_item.fevereiro }}"></div>
-            <div><label>Marco</label><input type="text" name="marco" value="{{ orcamento_planejado_item.marco }}"></div>
+            <div><label>Março</label><input type="text" name="marco" value="{{ orcamento_planejado_item.marco }}"></div>
             <div><label>Abril</label><input type="text" name="abril" value="{{ orcamento_planejado_item.abril }}"></div>
             <div><label>Maio</label><input type="text" name="maio" value="{{ orcamento_planejado_item.maio }}"></div>
             <div><label>Junho</label><input type="text" name="junho" value="{{ orcamento_planejado_item.junho }}"></div>
@@ -52,11 +52,11 @@
             <div><label>Dezembro</label><input type="text" name="dezembro" value="{{ orcamento_planejado_item.dezembro }}"></div>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+            <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
     </form>
 
-    <form action="{% url 'excluir_orcamento_planejado_modulo' empresa.id orcamento_planejado_item.id %}" method="POST" onsubmit="return confirm('Excluir Orcamento planejado {{ orcamento_planejado_item.id }}?');">
+    <form action="{% url 'excluir_orcamento_planejado_modulo' empresa.id orcamento_planejado_item.id %}" method="POST" onsubmit="return confirm('Excluir Orçamento planejado {{ orcamento_planejado_item.id }}?');">
         {% csrf_token %}
         <button type="submit" class="btn-danger">Excluir</button>
     </form>

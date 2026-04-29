@@ -406,7 +406,7 @@
         layout: "fitDataStretch",
         columns: [
             {
-                title: "Analise",
+                title: "Análise",
                 field: "analise",
                 editor: "number",
                 hozAlign: "center",
@@ -424,14 +424,14 @@
                 cellEdited: onCellEdited,
             },
             {
-                title: "Descricao",
+                title: "Descrição",
                 field: "descricao",
                 editor: "input",
                 minWidth: 220,
                 cellEdited: onCellEdited,
             },
             {
-                title: "Parametros",
+                title: "Parâmetros",
                 cssClass: "kpi-col-parametros",
                 columns: [
                     {title: "Meta", field: "parametro_meta", editor: "input", minWidth: 170, cellEdited: onCellEdited},

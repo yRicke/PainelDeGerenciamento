@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Administrativo</span>
+                <span class="module-hero-pill">Módulo Administrativo</span>
             </div>
             <h1>Faturamento</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, importação, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -28,20 +28,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Faturamento">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Faturamento">
             <div class="module-hero-import-head">
-                <h2>Importacao de Faturamento</h2>
+                <h2>Importação de Faturamento</h2>
                 <span class="module-hero-import-badge">.xlsx</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -77,7 +77,7 @@
                 </div>
 
                 <div id="faturamento-loading-status" class="loading-status">
-                    Carregamento em andamento. Os arquivos estao sendo enviados e a importacao foi iniciada.
+                    Carregamento em andamento. Os arquivos estão sendo enviados e a importação foi iniciada.
                 </div>
             </form>
         </section>
@@ -91,7 +91,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <p class="form-note module-filters-placeholder">Filtros multisseleção aplicados junto com os filtros da tabela.</p>
             <div class="module-filter-columns">
                 <div id="faturamento-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="faturamento-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -110,14 +110,14 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes do Faturamento">
+            <nav class="module-sections-nav" aria-label="Navegação de seções do Faturamento">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -142,16 +142,16 @@
                     </div>
                     <div><label>Nro. nota</label><input type="text" name="numero_nota" required></div>
                     <div><label>Vlr. nota</label><input type="text" name="valor_nota" placeholder="0,00"></div>
-                    <div><label>% Participacao venda geral</label><input type="text" name="participacao_venda_geral" placeholder="0,000000"></div>
-                    <div><label>% Participacao venda cliente</label><input type="text" name="participacao_venda_cliente" placeholder="0,000000"></div>
-                    <div><label>Vlr. nota (unico)</label><input type="text" name="valor_nota_unico" placeholder="0,00"></div>
-                    <div><label>Peso bruto (unico)</label><input type="text" name="peso_bruto_unico" placeholder="0,00"></div>
+                    <div><label>% Participação venda geral</label><input type="text" name="participacao_venda_geral" placeholder="0,000000"></div>
+                    <div><label>% Participação venda cliente</label><input type="text" name="participacao_venda_cliente" placeholder="0,000000"></div>
+                    <div><label>Vlr. nota (único)</label><input type="text" name="valor_nota_unico" placeholder="0,00"></div>
+                    <div><label>Peso bruto (único)</label><input type="text" name="peso_bruto_unico" placeholder="0,00"></div>
                     <div><label>Qtd. volumes</label><input type="text" name="quantidade_volumes" placeholder="0,00"></div>
-                    <div><label>Qtd. saida</label><input type="text" name="quantidade_saida" placeholder="0,00"></div>
+                    <div><label>Qtd. saída</label><input type="text" name="quantidade_saida" placeholder="0,00"></div>
                     <div><label>Status NF-e</label><input type="text" name="status_nfe"></div>
                     <div><label>Apelido (vendedor)</label><input type="text" name="apelido_vendedor"></div>
                     <div>
-                        <label>Operacao</label>
+                        <label>Operação</label>
                         <select name="operacao_id">
                             <option value="">-</option>
                             {% for item in operacoes %}<option value="{{ item.id }}">{{ item.descricao_receita_despesa }}</option>{% endfor %}
@@ -172,8 +172,8 @@
                         </select>
                     </div>
                     <div><label>Tipo de movimento</label><input type="text" name="tipo_movimento"></div>
-                    <div><label>Prazo medio</label><input type="text" name="prazo_medio" placeholder="0,00"></div>
-                    <div><label>Media (unica)</label><input type="text" name="media_unica" placeholder="0,0000"></div>
+                    <div><label>Prazo médio</label><input type="text" name="prazo_medio" placeholder="0,00"></div>
+                    <div><label>Média (única)</label><input type="text" name="media_unica" placeholder="0,0000"></div>
                     <div><label>Tipo da venda</label><input type="text" name="tipo_venda"></div>
                     <div>
                         <label>Produto</label>
@@ -183,7 +183,7 @@
                         </select>
                     </div>
                     <div><label>Gerente</label><input type="text" name="gerente"></div>
-                    <div><label>Descricao (perfil)</label><input type="text" name="descricao_perfil" list="faturamento-descricao-perfil-opcoes"></div>
+                    <div><label>Descrição (perfil)</label><input type="text" name="descricao_perfil" list="faturamento-descricao-perfil-opcoes"></div>
                     <div><label>Valor frete</label><input type="text" name="valor_frete" placeholder="0,00"></div>
                 </div>
                 <div class="form-actions">
@@ -210,19 +210,19 @@
                     <p id="faturamento-kpi-gap-faturamento">R$ 0,00</p>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card--prazo">
-                    <h3>Prazo Medio Vendas</h3>
+                    <h3>Prazo Médio Vendas</h3>
                     <p id="faturamento-kpi-prazo-medio">0</p>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card--dias">
-                    <h3>Dias Uteis Restantes</h3>
+                    <h3>Dias Úteis Restantes</h3>
                     <p id="faturamento-kpi-dias-uteis">0</p>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card--meta-diaria">
-                    <h3>Meta Diaria</h3>
+                    <h3>Meta Diária</h3>
                     <p id="faturamento-kpi-meta-diaria">R$ 0,00</p>
                     <p class="dashboard-kpi-card-note dashboard-kpi-card-note--pendentes">
                         Pedidos Pendentes:
-                        <strong id="faturamento-kpi-total-pedidos-pendentes">R$ 0,00 / 0 dias uteis</strong>
+                        <strong id="faturamento-kpi-total-pedidos-pendentes">R$ 0,00 / 0 dias úteis</strong>
                     </p>
                     <label class="dashboard-kpi-toggle" for="faturamento-kpi-meta-diaria-incluir-pendentes">
                         <input type="checkbox" id="faturamento-kpi-meta-diaria-incluir-pendentes">
@@ -267,7 +267,7 @@
                     <p id="faturamento-kpi-qtd-clientes">0</p>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card--participacao">
-                    <h3>Participacao Venda Geral</h3>
+                    <h3>Participação Venda Geral</h3>
                     <p id="faturamento-kpi-participacao-venda-geral">0,00%</p>
                 </article>
             </div>

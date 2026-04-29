@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Apuracao de Resultados{% endblock %}
+{% block title %}Apuração de Resultados{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
@@ -17,10 +17,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Administrativo</span>
+                <span class="module-hero-pill">Módulo Administrativo</span>
             </div>
-            <h1>Apuracao de Resultados</h1>
-            <p class="module-hero-subtitle">Central de acesso aos parametros usados na apuracao.</p>
+            <h1>Apuração de Resultados</h1>
+            <p class="module-hero-subtitle">Central de acesso aos parâmetros usados na apuração.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -32,17 +32,17 @@
 </section>
 
 <section class="panel module-section apuracao-toolbar">
-    <nav class="module-sections-nav" aria-label="Navegacao de secoes">
-        <a href="#sec-apuracao-data">Apuracao de Resultados por Data</a>
+    <nav class="module-sections-nav" aria-label="Navegação de seções">
+        <a href="#sec-apuracao-data">Apuração de Resultados por Data</a>
         <a href="#sec-apuracao-dashboard">Dashboard</a>
         <a href="#sec-apuracao-estoque">Estoque</a>
-        <a href="#sec-apuracao-matriz">Tabela de Apuracao</a>
-        <a href="#sec-parametros-apuracao">Parametros de Apuracao</a>
+        <a href="#sec-apuracao-matriz">Tabela de Apuração</a>
+        <a href="#sec-parametros-apuracao">Parâmetros de Apuração</a>
     </nav>
 </section>
 
 <section id="sec-parametros-apuracao" class="panel module-section">
-    <h2>Parametros de Apuracao</h2>
+    <h2>Parâmetros de Apuração</h2>
     <ul class="module-list">
         {% for modulo in parametros_apuracao_modulos %}
         <li>
@@ -52,7 +52,7 @@
                 {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
             >
                 {{ modulo.nome }}
-                {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+                {% if not modulo.permitido %}<span class="module-link-note">(sem permissão)</span>{% endif %}
             </a>
         </li>
         {% endfor %}
@@ -60,7 +60,7 @@
 </section>
 
 <section id="sec-apuracao-data" class="panel module-section">
-    <h2>Apuracao de Resultados por Data</h2>
+    <h2>Apuração de Resultados por Data</h2>
     <form method="get">
         <div class="filter-grid">
             <div>
@@ -109,12 +109,12 @@
 </section>
 
 <section id="sec-apuracao-matriz" class="panel module-section">
-    <h2>Tabela de Apuracao</h2>
+    <h2>Tabela de Apuração</h2>
     <div class="table-wrapper apuracao-matriz-wrapper">
         <table class="apuracao-matriz">
             <thead>
                 <tr>
-                    <th class="col-descricao">Descricao</th>
+                    <th class="col-descricao">Descrição</th>
                     {% for coluna in apuracao_colunas %}
                     <th>{{ coluna.nome }}</th>
                     <th class="col-percentual">%</th>
@@ -203,7 +203,7 @@
     id="dashboard-pdf-config"
     data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'administrativo_apuracao_de_resultados' %}"
     data-section-selector="#sec-apuracao-dashboard"
-    data-title="Dashboard Apuracao de Resultados"
+    data-title="Dashboard Apuração de Resultados"
     data-dashboard-slug="administrativo_apuracao_de_resultados"
 ></div>
 <script src="{% static 'js/shared/dashboard-pdf-export.js' %}"></script>

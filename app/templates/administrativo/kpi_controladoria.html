@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'index' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Independente</span>
+                <span class="module-hero-pill">Módulo Independente</span>
             </div>
             <h1>KPI - Controladoria</h1>
-            <p class="module-hero-subtitle">Cadastro, acompanhamento semanal com edicao inline, limpeza de apontamentos e exportacao em PDF.</p>
+            <p class="module-hero-subtitle">Cadastro, acompanhamento semanal com edição inline, limpeza de apontamentos e exportação em PDF.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -37,7 +37,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <p class="form-note module-filters-placeholder">Filtros multisseleção aplicados junto com os filtros da tabela.</p>
             <div class="module-filter-columns">
                 <div id="kpi-controladoria-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="kpi-controladoria-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -56,10 +56,10 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de KPI Controladoria">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de KPI Controladoria">
                 <a href="#sec-cadastro">Cadastro</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -71,7 +71,7 @@
                 {% csrf_token %}
                 <div class="form-grid">
                     <div>
-                        <label>Analise</label>
+                        <label>Análise</label>
                         <input type="number" name="analise" min="1" value="{{ proxima_analise_kpi_controladoria }}" required>
                     </div>
                     <div>
@@ -84,15 +84,15 @@
                         </select>
                     </div>
                     <div class="kpi-controladoria-form-span-2">
-                        <label>Descricao</label>
+                        <label>Descrição</label>
                         <input type="text" name="descricao" required>
                     </div>
                     <div>
-                        <label>Parametro Meta</label>
+                        <label>Parâmetro Meta</label>
                         <input type="text" name="parametro_meta">
                     </div>
                     <div>
-                        <label>Parametro Compromisso</label>
+                        <label>Parâmetro Compromisso</label>
                         <input type="text" name="parametro_compromisso">
                     </div>
                 </div>

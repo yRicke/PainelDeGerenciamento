@@ -18,11 +18,11 @@
 
 <section class="panel">
     <h2>Novo Projeto</h2>
-    <p class="form-note">Cadastre projeto e codigo para facilitar busca e acompanhamento.</p>
+    <p class="form-note">Cadastre projeto e código para facilitar busca e acompanhamento.</p>
     <form action="{% url 'criar_projeto_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
         <input type="text" name="nome" placeholder="Nome do projeto" required>
-        <input type="text" name="codigo" placeholder="Codigo (opcional)">
+        <input type="text" name="codigo" placeholder="Código (opcional)">
         <button type="submit" class="btn-primary">Cadastrar</button>
     </form>
 </section>
@@ -67,7 +67,7 @@
             columns: [
                 {title: "ID", field: "id", width: 80, hozAlign: "center"},
                 {title: "Nome", field: "nome", editor: "input"},
-                {title: "Codigo", field: "codigo", editor: "input"},
+                {title: "Código", field: "codigo", editor: "input"},
                 colunaAcoes,
             ],
         });

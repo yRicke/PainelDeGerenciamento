@@ -194,7 +194,7 @@
         return [
             {
                 key: "genero",
-                label: "Genero",
+                label: "Gênero",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.genero : "";
@@ -648,12 +648,12 @@
             {title: "Funcionario", field: "funcionario", editor: "input", cellEdited: onCellEdited},
             {title: "Contrato", field: "contrato", editor: "input", cellEdited: onCellEdited},
             {title: "Contato", field: "contato", editor: "input", cellEdited: onCellEdited},
-            {title: "Genero", field: "genero", editor: "input", cellEdited: onCellEdited},
+            {title: "Gênero", field: "genero", editor: "input", cellEdited: onCellEdited},
             {title: "Setor", field: "setor", editor: "input", cellEdited: onCellEdited},
             {title: "Cargo", field: "cargo", editor: "input", cellEdited: onCellEdited},
             {title: "Novo Cargo", field: "novo_cargo", editor: "input", cellEdited: onCellEdited},
             {
-                title: "Data de Admissao",
+                title: "Data de Admissão",
                 field: "data_admissao_iso",
                 editor: "date",
                 cellEdited: onCellEdited,
@@ -662,7 +662,7 @@
                 },
             },
             {
-                title: "Salario Carteira",
+                title: "Salário Carteira",
                 field: "salario_carteira",
                 editor: "input",
                 hozAlign: "right",
@@ -708,7 +708,7 @@
                 },
             },
             {
-                title: "Senior",
+                title: "Sênior",
                 field: "senior",
                 cssClass: "pcs-col-senior",
                 editor: "input",

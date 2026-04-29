@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Administrativo</span>
+                <span class="module-hero-pill">Módulo Administrativo</span>
             </div>
             <h1>Descritivos</h1>
-            <p class="module-hero-subtitle">Gestao da grade horaria por area com edicao inline e exclusao por linha.</p>
+            <p class="module-hero-subtitle">Gestão da grade horária por área com edição inline e exclusão por linha.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -33,12 +33,12 @@
 <div class="tabulator-cadastro-ux">
     <section id="sec-cadastro" class="panel module-section">
         <h2>Novo Registro</h2>
-        <p class="form-note">Campos obrigatorios: Inicio e Termino. Empresa e associada automaticamente.</p>
+        <p class="form-note">Campos obrigatórios: Início e Término. Empresa é associada automaticamente.</p>
         <form id="descritivos-cadastro-form" action="{% url 'criar_descritivo_modulo' empresa.id %}" method="post">
             {% csrf_token %}
             <div class="form-grid">
                 <div>
-                    <label>Inicio</label>
+                    <label>Início</label>
                     <input
                         type="text"
                         name="inicio"
@@ -50,7 +50,7 @@
                     >
                 </div>
                 <div>
-                    <label>Termino</label>
+                    <label>Término</label>
                     <input
                         type="text"
                         name="termino"
@@ -78,7 +78,7 @@
                     <textarea name="faturamento"></textarea>
                 </div>
                 <div>
-                    <label>Supervisor Logistica</label>
+                    <label>Supervisor Logística</label>
                     <textarea name="supervisor_logistica"></textarea>
                 </div>
                 <div>
@@ -86,7 +86,7 @@
                     <textarea name="conferente"></textarea>
                 </div>
                 <div>
-                    <label>Gerente de Producao</label>
+                    <label>Gerente de Produção</label>
                     <textarea name="gerente_de_producao"></textarea>
                 </div>
                 <div>

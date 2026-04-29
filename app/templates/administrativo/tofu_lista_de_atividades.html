@@ -15,10 +15,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'administrativo' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Administrativo</span>
+                <span class="module-hero-pill">Módulo Administrativo</span>
             </div>
             <h1>TOFU Lista de Atividades</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -36,7 +36,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <p class="form-note module-filters-placeholder">Filtros multisseleção aplicados junto com os filtros da tabela.</p>
             <div class="module-filter-columns">
                 <div id="tofu-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="tofu-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -56,11 +56,11 @@
                 <span>Menu de filtros</span>
             </button>
 
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes do TOFU">
+            <nav class="module-sections-nav" aria-label="Navegação de seções do TOFU">
                 <a href="#sec-cadastro">Cadastro</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
 
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
@@ -92,7 +92,7 @@
                     </div>
 
                     <div>
-                        <label>Responsavel</label>
+                        <label>Responsável</label>
                         <select name="responsavel_id">
                             <option value="">-</option>
                             {% for colaborador in colaboradores %}
@@ -112,12 +112,12 @@
                     </div>
 
                     <div>
-                        <label>Prev. Inicio</label>
+                        <label>Prev. Início</label>
                         <input type="date" name="data_previsao_inicio" readonly data-data-previsao-inicio>
                     </div>
 
                     <div>
-                        <label>Prev. Termino</label>
+                        <label>Prev. Término</label>
                         <input type="date" name="data_previsao_termino" readonly data-data-previsao-termino>
                     </div>
 
@@ -132,7 +132,7 @@
                     </div>
 
                     <div class="full">
-                        <label>Historico</label>
+                        <label>Histórico</label>
                         <textarea name="historico"></textarea>
                     </div>
 
@@ -172,13 +172,13 @@
                     <div class="dashboard-card-lines">
                         <p><span>Total</span><strong id="dashboard-alertas-total">{{ dashboard.alertas.total }}</strong></p>
                         <p><span>Semana atual</span><strong id="dashboard-alertas-semana-atual">{{ dashboard.alertas.semana_atual }}</strong></p>
-                        <p><span>Proxima semana</span><strong id="dashboard-alertas-proxima-semana">{{ dashboard.alertas.proxima_semana }}</strong></p>
+                        <p><span>Próxima semana</span><strong id="dashboard-alertas-proxima-semana">{{ dashboard.alertas.proxima_semana }}</strong></p>
                     </div>
                 </article>
 
                 <article class="dashboard-card dashboard-card--concluidos">
                     <div class="dashboard-card-head">
-                        <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Concluidos</h3>
+                        <h3><span class="dashboard-card-icon" aria-hidden="true">&#10004;</span> Concluídos</h3>
                         <p class="dashboard-percent"><span>% do total</span><strong id="dashboard-concluidos-percentual">{{ dashboard.concluidos.percentual }}%</strong></p>
                     </div>
                     <div class="dashboard-card-lines">
