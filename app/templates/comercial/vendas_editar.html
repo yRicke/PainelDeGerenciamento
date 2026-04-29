@@ -4,7 +4,7 @@
 
 {% block content %}
 <section class="page-hero">
-    <a href="{% url 'vendas_por_categoria' empresa.id %}" class="module-hero-back-link">Voltar para vendas</a>
+    <a href="{% url 'vendas_por_categoria' empresa.id %}" class="module-hero-back-link">Voltar para Vendas</a>
     <h1>Editar Venda #{{ venda.id }}</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
@@ -15,11 +15,11 @@
         {% csrf_token %}
         <div class="form-grid">
             <div>
-                <label>Codigo</label>
+                <label>Código</label>
                 <input type="text" name="codigo" value="{{ venda.codigo }}" required>
             </div>
             <div>
-                <label>Descricao</label>
+                <label>Descrição</label>
                 <input type="text" name="descricao" value="{{ venda.descricao }}">
             </div>
             <div>
@@ -35,7 +35,7 @@
                 <input type="number" name="qtd_notas" min="0" value="{{ venda.qtd_notas }}">
             </div>
             <div>
-                <label>Custo medio ICMS CMV</label>
+                <label>Custo médio ICMS CMV</label>
                 <input type="text" name="custo_medio_icms_cmv" value="{{ venda.custo_medio_icms_cmv }}">
             </div>
             <div>
@@ -43,17 +43,17 @@
                 <input type="text" name="peso_bruto" value="{{ venda.peso_bruto }}">
             </div>
             <div>
-                <label>Peso liquido</label>
+                <label>Peso líquido</label>
                 <input type="text" name="peso_liquido" value="{{ venda.peso_liquido }}">
             </div>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+            <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
     </form>
 
     <div class="danger-zone">
-        <p>Acao irreversivel: exclui este registro de venda.</p>
+        <p>Ação irreversível: exclui este registro de venda.</p>
         <form action="{% url 'excluir_venda_modulo' empresa.id venda.id %}" method="POST" onsubmit="return confirm('Excluir venda {{ venda.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir venda</button>

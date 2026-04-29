@@ -10,11 +10,11 @@
 {% block content %}
 <section class="page-hero">
     <h1>Comercial</h1>
-    <p>Modulos para performance de vendas e gestao da carteira de clientes.</p>
+    <p>Módulos para performance de vendas e gestão da carteira de clientes.</p>
 </section>
 
 <section class="panel">
-    <h2>Modulos</h2>
+    <h2>Módulos</h2>
     <ul class="module-list">
         {% for modulo in modulos %}
         <li>
@@ -24,7 +24,7 @@
                 {% if not modulo.permitido %}aria-disabled="true" tabindex="-1"{% endif %}
             >
                 {{ modulo.nome }}
-                {% if not modulo.permitido %}<span class="module-link-note">(sem permissao)</span>{% endif %}
+                {% if not modulo.permitido %}<span class="module-link-note">(sem permissão)</span>{% endif %}
             </a>
         </li>
         {% endfor %}

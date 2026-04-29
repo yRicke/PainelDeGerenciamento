@@ -15,10 +15,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Comercial</span>
+                <span class="module-hero-pill">Módulo Comercial</span>
             </div>
             <h1>Pedidos Pendentes</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, importação, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -27,20 +27,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Pedidos Pendentes">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Pedidos Pendentes">
             <div class="module-hero-import-head">
-                <h2>Importacao de Pedidos Pendentes</h2>
+                <h2>Importação de Pedidos Pendentes</h2>
                 <span class="module-hero-import-badge">.xlsx</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -72,7 +72,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <p class="form-note module-filters-placeholder">Filtros multisseleção aplicados junto com os filtros da tabela.</p>
             <div class="module-filter-columns">
                 <div id="pedidos-pendentes-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="pedidos-pendentes-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -91,14 +91,14 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de pedidos pendentes">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de pedidos pendentes">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -106,13 +106,13 @@
         {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
             <h2>Novo Pedido Pendente (Cadastro Manual)</h2>
-            <p class="form-note">Cadastre manualmente quando nao quiser usar importacao.</p>
+            <p class="form-note">Cadastre manualmente quando não quiser usar importação.</p>
             <form action="{% url 'pedidos_pendentes' empresa.id %}" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_pedido_pendente">
                 <div class="form-grid">
                     <div>
-                        <label>Nro. Unico</label>
+                        <label>Nro. Único</label>
                         <input type="text" name="numero_unico" required>
                     </div>
                     <div>
@@ -125,7 +125,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Regiao (FK)</label>
+                        <label>Região (FK)</label>
                         <select name="regiao_id">
                             <option value="">-</option>
                             {% for regiao in regioes %}
@@ -143,7 +143,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Previsao de entrega</label>
+                        <label>Previsão de entrega</label>
                         <input type="date" name="previsao_entrega">
                     </div>
                     <div>
@@ -151,7 +151,7 @@
                         <input type="date" name="dt_neg">
                     </div>
                     <div>
-                        <label>Prazo Maximo</label>
+                        <label>Prazo Máximo</label>
                         <input type="number" name="prazo_maximo" min="0" value="3">
                     </div>
                     <div>
@@ -192,7 +192,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Descricao (Tipo de Negociacao)</label>
+                        <label>Descrição (Tipo de Negociação)</label>
                         <input type="text" name="descricao_tipo_negociacao">
                     </div>
                     <div>
@@ -203,7 +203,7 @@
                         <label>Pendente</label>
                         <select name="pendente">
                             <option value="Sim" selected>Sim</option>
-                            <option value="Nao">Nao</option>
+                            <option value="Nao">Não</option>
                         </select>
                     </div>
                     <div>
@@ -228,13 +228,13 @@
                     <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-entrega-valor-nota">R$-</strong></div>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card--venda-balcao">
-                    <h3>Venda Balcao Atrasada <span class="kpi-alert-x">X</span></h3>
+                    <h3>Venda Balcão Atrasada <span class="kpi-alert-x">X</span></h3>
                     <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-venda-balcao-peso-bruto">0</strong></div>
                     <div class="kpi-line"><span>Qtd.</span><strong id="kpi-venda-balcao-qtd">0</strong></div>
                     <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-venda-balcao-valor-nota">R$-</strong></div>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card--atencao">
-                    <h3>Atencao</h3>
+                    <h3>Atenção</h3>
                     <div class="kpi-line"><span>Peso Bruto</span><strong id="kpi-atencao-peso-bruto">0</strong></div>
                     <div class="kpi-line"><span>Qtd.</span><strong id="kpi-atencao-qtd">0</strong></div>
                     <div class="kpi-line"><span>Valor Total Nota</span><strong id="kpi-atencao-valor-nota">R$-</strong></div>

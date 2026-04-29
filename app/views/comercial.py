@@ -113,7 +113,7 @@ def _rotulo_frete_precificacao(frete):
     cidade_nome = (frete.cidade.nome if frete.cidade else "").strip()
     if not cidade_nome:
         return ""
-    regiao_nome = (frete.regiao.nome if frete.regiao else "").strip() or "Sem Regiao"
+    regiao_nome = (frete.regiao.nome if frete.regiao else "").strip() or "Sem Região"
     return f"{cidade_nome} - {regiao_nome} - {_formatar_moeda_brl(frete.valor_frete_comercial)}"
 
 
@@ -260,7 +260,7 @@ def editar_carteira_modulo(request, empresa_id, carteira_id):
 
     carteira_item = Carteira.objects.filter(id=carteira_id, empresa=empresa).first()
     if not carteira_item:
-        messages.error(request, "Carteira nao encontrada.")
+        messages.error(request, "Carteira não encontrada.")
         return redirect("carteira", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -296,11 +296,11 @@ def excluir_carteira_modulo(request, empresa_id, carteira_id):
 
     carteira_item = Carteira.objects.filter(id=carteira_id, empresa=empresa).first()
     if not carteira_item:
-        messages.error(request, "Carteira nao encontrada.")
+        messages.error(request, "Carteira não encontrada.")
         return redirect("carteira", empresa_id=empresa.id)
 
     carteira_item.excluir_carteira()
-    messages.success(request, "Carteira excluida com sucesso.")
+    messages.success(request, "Carteira excluída com sucesso.")
     return redirect("carteira", empresa_id=empresa.id)
 
 
@@ -348,7 +348,7 @@ def editar_cidade_modulo(request, empresa_id, cidade_id):
 
     cidade = Cidade.objects.filter(id=cidade_id, empresa=empresa).first()
     if not cidade:
-        messages.error(request, "Cidade nao encontrada.")
+        messages.error(request, "Cidade não encontrada.")
         return redirect("cidades", empresa_id=empresa.id)
 
     erro = atualizar_cidade_por_dados(cidade, request.POST.get("nome"), request.POST.get("codigo"), empresa)
@@ -370,11 +370,11 @@ def excluir_cidade_modulo(request, empresa_id, cidade_id):
 
     cidade = Cidade.objects.filter(id=cidade_id, empresa=empresa).first()
     if not cidade:
-        messages.error(request, "Cidade nao encontrada.")
+        messages.error(request, "Cidade não encontrada.")
         return redirect("cidades", empresa_id=empresa.id)
 
     cidade.excluir_cidade()
-    messages.success(request, "Cidade excluida com sucesso.")
+    messages.success(request, "Cidade excluída com sucesso.")
     return redirect("cidades", empresa_id=empresa.id)
 
 
@@ -407,7 +407,7 @@ def criar_regiao_modulo(request, empresa_id):
     if erro:
         messages.error(request, erro)
         return redirect("regioes", empresa_id=empresa.id)
-    messages.success(request, "RegiÃ£o criada com sucesso.")
+    messages.success(request, "Região criada com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -422,14 +422,14 @@ def editar_regiao_modulo(request, empresa_id, regiao_id):
 
     regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
     if not regiao:
-        messages.error(request, "RegiÃ£o nÃ£o encontrada.")
+        messages.error(request, "Região não encontrada.")
         return redirect("regioes", empresa_id=empresa.id)
 
     erro = atualizar_regiao_por_dados(regiao, request.POST.get("nome"), request.POST.get("codigo"), empresa)
     if erro:
         messages.error(request, erro)
         return redirect("regioes", empresa_id=empresa.id)
-    messages.success(request, "RegiÃ£o atualizada com sucesso.")
+    messages.success(request, "Região atualizada com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -444,11 +444,11 @@ def excluir_regiao_modulo(request, empresa_id, regiao_id):
 
     regiao = Regiao.objects.filter(id=regiao_id, empresa=empresa).first()
     if not regiao:
-        messages.error(request, "RegiÃ£o nÃ£o encontrada.")
+        messages.error(request, "Região não encontrada.")
         return redirect("regioes", empresa_id=empresa.id)
 
     regiao.excluir_regiao()
-    messages.success(request, "RegiÃ£o excluÃ­da com sucesso.")
+    messages.success(request, "Região excluída com sucesso.")
     return redirect("regioes", empresa_id=empresa.id)
 
 
@@ -558,7 +558,7 @@ def pedidos_pendentes(request, empresa_id):
     )
     total_pedidos = len(pedidos_tabulator)
     total_atrasados = sum(1 for item in pedidos_tabulator if item.get("status") == "Atrasado")
-    total_atencao = sum(1 for item in pedidos_tabulator if item.get("status") == "AtenÃ§Ã£o")
+    total_atencao = sum(1 for item in pedidos_tabulator if item.get("status") == "Atenção")
     total_no_prazo = total_pedidos - total_atrasados - total_atencao
 
     contexto = {
@@ -596,7 +596,7 @@ def editar_pedido_pendente_modulo(request, empresa_id, pedido_id):
         .first()
     )
     if not pedido:
-        messages.error(request, "Pedido pendente nÃ£o encontrado.")
+        messages.error(request, "Pedido pendente não encontrado.")
         return redirect("pedidos_pendentes", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -641,11 +641,11 @@ def excluir_pedido_pendente_modulo(request, empresa_id, pedido_id):
 
     pedido = PedidoPendente.objects.filter(id=pedido_id, empresa=empresa).first()
     if not pedido:
-        messages.error(request, "Pedido pendente nÃ£o encontrado.")
+        messages.error(request, "Pedido pendente não encontrado.")
         return redirect("pedidos_pendentes", empresa_id=empresa.id)
 
     pedido.excluir_pedido_pendente()
-    messages.success(request, "Pedido pendente excluÃ­do com sucesso.")
+    messages.success(request, "Pedido pendente excluído com sucesso.")
     return redirect("pedidos_pendentes", empresa_id=empresa.id)
 
 
@@ -691,7 +691,7 @@ def editar_agenda_modulo(request, empresa_id, agenda_id):
         .first()
     )
     if not agenda_item:
-        messages.error(request, "Agenda nÃ£o encontrada.")
+        messages.error(request, "Agenda não encontrada.")
         return redirect("agenda", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -722,11 +722,11 @@ def excluir_agenda_modulo(request, empresa_id, agenda_id):
 
     agenda_item = Agenda.objects.filter(id=agenda_id, empresa=empresa).first()
     if not agenda_item:
-        messages.error(request, "Agenda nÃ£o encontrada.")
+        messages.error(request, "Agenda não encontrada.")
         return redirect("agenda", empresa_id=empresa.id)
 
     agenda_item.excluir_agenda()
-    messages.success(request, "Agenda excluÃ­da com sucesso.")
+    messages.success(request, "Agenda excluída com sucesso.")
     return redirect("agenda", empresa_id=empresa.id)
 
 
@@ -768,7 +768,7 @@ def vendas_por_categoria(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "Acao de vendas invalida.")
+            messages.error(request, "Ação de vendas inválida.")
         return redirect("vendas_por_categoria", empresa_id=empresa_id)
 
     vendas_qs = (
@@ -834,7 +834,7 @@ def editar_venda_modulo(request, empresa_id, venda_id):
 
     venda_item = Venda.objects.filter(id=venda_id, empresa=empresa).first()
     if not venda_item:
-        messages.error(request, "Venda nao encontrada.")
+        messages.error(request, "Venda não encontrada.")
         return redirect("vendas_por_categoria", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -863,11 +863,11 @@ def excluir_venda_modulo(request, empresa_id, venda_id):
 
     venda_item = Venda.objects.filter(id=venda_id, empresa=empresa).first()
     if not venda_item:
-        messages.error(request, "Venda nao encontrada.")
+        messages.error(request, "Venda não encontrada.")
         return redirect("vendas_por_categoria", empresa_id=empresa.id)
 
     venda_item.excluir_venda()
-    messages.success(request, "Venda excluida com sucesso.")
+    messages.success(request, "Venda excluída com sucesso.")
     return redirect("vendas_por_categoria", empresa_id=empresa.id)
 
 
@@ -921,7 +921,7 @@ def _montar_contexto_precificacao_payload(empresa_id, cenario):
 @login_required(login_url="entrar")
 def editar_precificacao_linha_modulo(request, empresa_id, tabela, registro_id):
     if request.method != "POST":
-        return JsonResponse({"ok": False, "message": "Metodo invalido."}, status=405)
+        return JsonResponse({"ok": False, "message": "Método inválido."}, status=405)
 
     empresa, permitido = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Precificacao")
     if not permitido:
@@ -1031,7 +1031,7 @@ def controle_de_margem(request, empresa_id):
     situacao_param = _situacao_controle_margem_param_ou_none(request.GET.get("situacao"))
     situacao_raw = (request.GET.get("situacao") or "").strip()
     if situacao_raw and not situacao_param:
-        messages.error(request, "Filtro de situacao invalido.")
+        messages.error(request, "Filtro de situação inválido.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
 
     descricao_perfil_selecionados = _normalizar_lista_query(request, "descricao_perfil")
@@ -1040,16 +1040,16 @@ def controle_de_margem(request, empresa_id):
     tipo_venda_selecionados = _normalizar_lista_query(request, "tipo_venda")
 
     if any(item not in filtros_disponiveis["descricao_perfil"] for item in descricao_perfil_selecionados):
-        messages.error(request, "Filtro descricao_perfil invalido.")
+        messages.error(request, "Filtro descricao_perfil inválido.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
     if any(item not in filtros_disponiveis["apelido_vendedor"] for item in apelido_vendedor_selecionados):
-        messages.error(request, "Filtro apelido_vendedor invalido.")
+        messages.error(request, "Filtro apelido_vendedor inválido.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
     if any(item not in filtros_disponiveis["nome_empresa"] for item in nome_empresa_selecionados):
-        messages.error(request, "Filtro nome_empresa invalido.")
+        messages.error(request, "Filtro nome_empresa inválido.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
     if any(item not in filtros_disponiveis["tipo_venda"] for item in tipo_venda_selecionados):
-        messages.error(request, "Filtro tipo_venda invalido.")
+        messages.error(request, "Filtro tipo_venda inválido.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
 
     controles_qs = controles_base_qs
@@ -1116,7 +1116,7 @@ def editar_controle_margem_modulo(request, empresa_id, controle_id):
         .first()
     )
     if not controle:
-        messages.error(request, "Controle de margem nao encontrado.")
+        messages.error(request, "Controle de margem não encontrado.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -1147,10 +1147,10 @@ def excluir_controle_margem_modulo(request, empresa_id, controle_id):
 
     controle = ControleMargem.objects.filter(id=controle_id, empresa=empresa).first()
     if not controle:
-        messages.error(request, "Controle de margem nao encontrado.")
+        messages.error(request, "Controle de margem não encontrado.")
         return redirect("controle_de_margem", empresa_id=empresa.id)
 
     controle.excluir_controle_margem()
-    messages.success(request, "Controle de margem excluido com sucesso.")
+    messages.success(request, "Controle de margem excluído com sucesso.")
     return redirect("controle_de_margem", empresa_id=empresa.id)
 

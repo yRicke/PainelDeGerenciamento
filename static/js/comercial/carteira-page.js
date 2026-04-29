@@ -236,7 +236,7 @@
             return true;
         }
 
-        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Ja existe um arquivo na pasta. Deseja substituir o arquivo atual?";
+        var replaceCurrentFileMessage = confirmText.replaceCurrentFile || "Já existe um arquivo na pasta. Deseja substituir o arquivo atual?";
         var confirmou = window.confirm(replaceCurrentFileMessage);
         if (!confirmou) {
             return false;
@@ -372,7 +372,7 @@
 
     function formatBooleanOuVazio(valor) {
         if (valor === true) return "Sim";
-        if (valor === false) return "Nao";
+        if (valor === false) return "Não";
         return "(Vazio)";
     }
 
@@ -384,7 +384,7 @@
     }
 
     function ordenarBooleanSimNao(a, b) {
-        var ordem = {"Sim": 0, "Nao": 1, "(Vazio)": 2};
+        var ordem = {"Sim": 0, "Não": 1, "(Vazio)": 2};
         var ordemA = Object.prototype.hasOwnProperty.call(ordem, a.label) ? ordem[a.label] : 99;
         var ordemB = Object.prototype.hasOwnProperty.call(ordem, b.label) ? ordem[b.label] : 99;
         if (ordemA !== ordemB) return ordemA - ordemB;
@@ -542,8 +542,8 @@
     }
 
     var colunas = [
-        {title: "Regiao", field: "regiao_codigo", headerFilter: "input"},
-        {title: "Nome da Regiao", field: "regiao_nome", headerFilter: "input"},
+        {title: "Região", field: "regiao_codigo", headerFilter: "input"},
+        {title: "Nome da Região", field: "regiao_nome", headerFilter: "input"},
         {title: "Nome da Cidade", field: "cidade_nome", headerFilter: "input"},
         {
             title: "Valor Faturado",
@@ -554,14 +554,14 @@
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
         },
         {
-            title: "Limite de Credito",
+            title: "Limite de Crédito",
             field: "limite_credito",
             hozAlign: "right",
             headerFilter: "input",
             formatter: "money",
             formatterParams: {decimal: ",", thousand: ".", symbol: "R$ ", symbolAfter: false, precision: 2},
         },
-        {title: "Ultima Venda", field: "ultima_venda", headerFilter: "input"},
+        {title: "Última Venda", field: "ultima_venda", headerFilter: "input"},
         {title: "Dias sem Venda", field: "qtd_dias_sem_venda", hozAlign: "center", headerFilter: "input"},
         {title: "Intervalo", field: "intervalo"},
         {
@@ -574,13 +574,13 @@
         {title: "Data de Cadastro", field: "data_cadastro", headerFilter: "input"},
         {title: "Gerente", field: "gerente", headerFilter: "input"},
         {title: "Apelido (Vendedor)", field: "vendedor", headerFilter: "input"},
-        {title: "Descricao do Perfil", field: "descricao_perfil", headerFilter: "input"},
+        {title: "Descrição do Perfil", field: "descricao_perfil", headerFilter: "input"},
         {title: "Nome do Parceiro", field: "nome_parceiro", headerFilter: "input"},
         {title: "Ativo", field: "ativo_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
         {title: "Cliente", field: "cliente_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
         {title: "Fornecedor", field: "fornecedor_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
         {title: "Transportadora", field: "transporte_indicador", hozAlign: "center", headerFilter: "tickCross", formatter: "tickCross"},
-        {title: "Codigo da Cidade", field: "cidade_codigo", headerFilter: "input"},
+        {title: "Código da Cidade", field: "cidade_codigo", headerFilter: "input"},
     ];
 
     window.TabulatorDefaults.addEditActionColumnIfAny(colunas, data);
@@ -668,7 +668,7 @@
                     },
                     {
                         key: "descricao_perfil",
-                        label: "Descricao (Perfil)",
+                        label: "Descrição (Perfil)",
                         singleSelect: false,
                         extractValue: function (rowData) { return rowData ? rowData.descricao_perfil : ""; },
                         formatValue: formatTextoOuVazio,

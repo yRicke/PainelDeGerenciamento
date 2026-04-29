@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Precificacao{% endblock %}
+{% block title %}Precificação{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -15,17 +15,17 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'comercial' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Comercial</span>
+                <span class="module-hero-pill">Módulo Comercial</span>
             </div>
-            <h1>Precificacao</h1>
-            <p class="module-hero-subtitle">Edicao inline com salvamento automatico e recalculo imediato de todas as tabelas.</p>
+            <h1>Precificação</h1>
+            <p class="module-hero-subtitle">Edição inline com salvamento automático e recálculo imediato de todas as tabelas.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
                     <dd>{{ empresa.nome }}</dd>
                 </div>
                 <div>
-                    <dt>Cenario</dt>
+                    <dt>Cenário</dt>
                     <dd>{{ precificacao_cenario_nome }}</dd>
                 </div>
             </dl>
@@ -34,38 +34,38 @@
 </section>
 
 <section class="panel module-section precificacao-toolbar">
-    <nav class="module-sections-nav" aria-label="Navegacao de secoes de Precificacao">
+    <nav class="module-sections-nav" aria-label="Navegação de seções de Precificação">
         <a href="#sec-calculadora">Calculadora</a>
-        <a href="#sec-materia-prima">Materia Prima</a>
+        <a href="#sec-materia-prima">Matéria-Prima</a>
         <a href="#sec-produto-cmv">Produto Acabado CMV</a>
         <a href="#sec-produto-despesas">Produto Despesas</a>
         <a href="#sec-produto-impostos">Produto Impostos</a>
-        <a href="#sec-produto-venda">Produto Preco de Venda</a>
+        <a href="#sec-produto-venda">Produto Preço de Venda</a>
         <a href="#sec-lucro">Lucro</a>
     </nav>
     <div class="precificacao-toolbar-meta">
-        <p class="form-note">Alterou uma celula, o sistema salva e recalcula automaticamente.</p>
+        <p class="form-note">Alterou uma célula, o sistema salva e recalcula automaticamente.</p>
         <p id="precificacao-save-status" class="file-status" aria-live="polite"></p>
     </div>
-    <div class="precificacao-color-legend" aria-label="Legenda de cores das celulas">
-        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--green"></i>Verde: edicao padrao</span>
-        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--yellow"></i>Amarelo: campo de atencao</span>
-        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--orange"></i>Laranja: campo sensivel</span>
-        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--red"></i>Vermelho: edicao restrita</span>
+    <div class="precificacao-color-legend" aria-label="Legenda de cores das células">
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--green"></i>Verde: edição padrão</span>
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--yellow"></i>Amarelo: campo de atenção</span>
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--orange"></i>Laranja: campo sensível</span>
+        <span><i class="precificacao-color-legend__swatch precificacao-color-legend__swatch--red"></i>Vermelho: edição restrita</span>
     </div>
 </section>
 
 <section id="sec-calculadora" class="panel module-section">
-    <h2>Calculadora Preco Medio e Simulacao</h2>
+    <h2>Calculadora Preço Médio e Simulação</h2>
     <div class="precificacao-grid-2">
         <article>
-            <h3>Calculadora Preco Medio</h3>
+            <h3>Calculadora Preço Médio</h3>
             <div class="table-wrapper">
                 <div id="precificacao-calculadora-tabulator"></div>
             </div>
         </article>
         <article>
-            <h3>Simulacao Preco Compra e Venda</h3>
+            <h3>Simulação Preço Compra e Venda</h3>
             <div class="table-wrapper">
                 <div id="precificacao-simulacao-tabulator"></div>
             </div>
@@ -74,7 +74,7 @@
 </section>
 
 <section id="sec-materia-prima" class="panel module-section">
-    <h2>Materia Prima</h2>
+    <h2>Matéria-Prima</h2>
     <div class="table-wrapper">
         <div id="precificacao-materia-prima-tabulator"></div>
     </div>
@@ -129,10 +129,10 @@
 </section>
 
 <section id="sec-produto-venda" class="panel module-section">
-    <h2>Produto Acabado - Preco de Venda e Lucro</h2>
+    <h2>Produto Acabado - Preço de Venda e Lucro</h2>
     <div class="precificacao-preco-lucro-grid">
         <article>
-            <h3>Produto Acabado - Preco de Venda</h3>
+            <h3>Produto Acabado - Preço de Venda</h3>
             <div class="table-wrapper">
                 <div id="precificacao-produto-preco-venda-tabulator"></div>
             </div>

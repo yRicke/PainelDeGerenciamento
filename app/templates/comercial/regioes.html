@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Regioes{% endblock %}
+{% block title %}Regiões{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -12,23 +12,23 @@
 <div class="tabulator-cadastro-ux" style="--cadastro-inline-columns: 1fr 170px auto; --cadastro-filter-columns: repeat(2, minmax(220px, 1fr)) 120px;">
 <section class="page-hero">
     <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
-    <h1>Regioes</h1>
+    <h1>Regiões</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
 
 <section class="panel">
-    <h2>Nova Regiao</h2>
-    <p class="form-note">Cadastre regioes com codigo para organizar a cobertura comercial.</p>
+    <h2>Nova Região</h2>
+    <p class="form-note">Cadastre regiões com código para organizar a cobertura comercial.</p>
     <form action="{% url 'criar_regiao_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
-        <input type="text" name="nome" placeholder="Nome da regiao" required>
-        <input type="text" name="codigo" placeholder="Codigo" required>
+        <input type="text" name="nome" placeholder="Nome da região" required>
+        <input type="text" name="codigo" placeholder="Código" required>
         <button type="submit" class="btn-primary">Cadastrar</button>
     </form>
 </section>
 
 <section class="panel">
-    <h2>Lista de Regioes</h2>
+    <h2>Lista de Regiões</h2>
     <div class="table-wrapper">
         <div id="regioes-tabulator"></div>
     </div>
@@ -59,7 +59,7 @@
             getDeleteUrl: function (row) {
                 return row.excluir_url;
             },
-            deleteConfirm: "Excluir regiao?",
+            deleteConfirm: "Excluir região?",
         });
 
         var tabela = window.TabulatorDefaults.create("#regioes-tabulator", {
@@ -67,7 +67,7 @@
             columns: [
                 {title: "ID", field: "id", width: 80, hozAlign: "center"},
                 {title: "Nome", field: "nome", editor: "input"},
-                {title: "Codigo", field: "codigo", editor: "input"},
+                {title: "Código", field: "codigo", editor: "input"},
                 colunaAcoes,
             ],
         });

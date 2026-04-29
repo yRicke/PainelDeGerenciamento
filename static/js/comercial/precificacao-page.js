@@ -189,7 +189,7 @@
     }
 
     function boolFormatter(cell) {
-        return toBool(cell.getValue()) ? "Sim" : "Nao";
+        return toBool(cell.getValue()) ? "Sim" : "Não";
     }
 
     function boolMutator(value) {
@@ -528,7 +528,7 @@
                 : false,
             editorParams: editable
                 ? {
-                    values: {"true": "Sim", "false": "Nao"},
+                    values: {"true": "Sim", "false": "Não"},
                     clearable: false,
                 }
                 : null,
@@ -566,9 +566,9 @@
         columns.calculadora = [
             {title: "Origem", field: "origem", minWidth: 140},
             decimalColumn("Volume", "volume", 2, true, saveCalculadora),
-            moneyColumn("Preco", "preco", true, saveCalculadora),
+            moneyColumn("Preço", "preco", true, saveCalculadora),
             decimalColumn("Prazo", "prazo", 2, true, saveCalculadora),
-            moneyColumn("Preco Liquido", "preco_liquido", false, null),
+            moneyColumn("Preço Líquido", "preco_liquido", false, null),
             moneyColumn("Financeiro", "financeiro", false, null),
             moneyColumn("Frete", "frete", true, saveCalculadora),
             moneyColumn("Total", "total", false, null),
@@ -585,7 +585,7 @@
 
         var saveMateriaPrima = makeSaveHandler("materia_prima");
         columns.materia_prima = [
-            {title: "Descricao", field: "descricao", minWidth: 180},
+            {title: "Descrição", field: "descricao", minWidth: 180},
             booleanColumn("Ativo", "ativo", true, saveMateriaPrima),
             moneyColumn("Valor", "valor", isMateriaPrimaEditable("valor"), saveMateriaPrima),
             moneyColumn("Frete MP", "frete_mp", isMateriaPrimaEditable("frete_mp"), saveMateriaPrima, "precificacao-cell-yellow"),
@@ -652,14 +652,14 @@
                 ],
             },
             {
-                title: "Administracao",
+                title: "Administração",
                 columns: [
                     percentColumn("Taxa", "administracao_taxa", true, saveDespesas, 2, "precificacao-cell-orange"),
                     moneyColumn("Valor", "administracao_valor", false, null),
                 ],
             },
             {
-                title: "Producao",
+                title: "Produção",
                 columns: [
                     booleanColumn("Ativo", "producao_ativo", true, saveDespesas),
                     moneyColumn("Valor", "producao_valor", true, saveDespesas, "precificacao-cell-orange"),
@@ -673,7 +673,7 @@
                 ],
             },
             {
-                title: "Log Op. Logistica",
+                title: "Log Op. Logística",
                 columns: [
                     booleanColumn("Ativo", "log_op_logistica_ativo", true, saveDespesas),
                     moneyColumn("Valor", "log_op_logistica_valor", false, null),
@@ -745,7 +745,7 @@
                 minWidth: 120,
             },
             {
-                title: "Situacao",
+                title: "Situação",
                 field: "situacao_label",
                 formatter: situacaoBadgeFormatter,
                 hozAlign: "center",

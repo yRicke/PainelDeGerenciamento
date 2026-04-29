@@ -261,7 +261,7 @@
             },
             {
                 key: "regiao",
-                label: "Regiao",
+                label: "Região",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.regiao : "";

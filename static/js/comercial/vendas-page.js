@@ -268,7 +268,7 @@
             },
             {
                 key: "mes_ano_venda",
-                label: "Mes",
+                label: "Mês",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return extrairMesAnoVenda(rowData);
@@ -296,7 +296,7 @@
             },
             {
                 key: "margem_situacao",
-                label: "Situacao",
+                label: "Situação",
                 singleSelect: false,
                 formatValue: function (value) {
                     return formatarFiltroPorCampo("margem_situacao", value);

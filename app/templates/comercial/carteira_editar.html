@@ -64,7 +64,7 @@
                 </select>
             </div>
             <div>
-                <label>Regiao</label>
+                <label>Região</label>
                 <select name="regiao_id">
                     <option value="">-</option>
                     {% for regiao in regioes %}
@@ -86,7 +86,7 @@
                 </select>
             </div>
             <div>
-                <label>Ultima venda</label>
+                <label>Última venda</label>
                 <input type="date" name="ultima_venda" value="{% if carteira.ultima_venda %}{{ carteira.ultima_venda|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
@@ -106,7 +106,7 @@
                 <input type="text" name="valor_faturado" value="{{ carteira.valor_faturado }}">
             </div>
             <div>
-                <label>Limite credito</label>
+                <label>Limite crédito</label>
                 <input type="text" name="limite_credito" value="{{ carteira.limite_credito }}">
             </div>
             <div>
@@ -118,7 +118,7 @@
                 <input type="text" name="vendedor" value="{{ carteira.vendedor }}">
             </div>
             <div>
-                <label>Descricao perfil</label>
+                <label>Descrição perfil</label>
                 <input
                     type="text"
                     name="descricao_perfil"
@@ -135,7 +135,7 @@
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Salvar alteracoes</button>
+            <button type="submit" class="btn-primary">Salvar alterações</button>
         </div>
         <datalist id="carteira-editar-descricao-perfil-opcoes">
             {% for descricao in descricoes_perfil %}
@@ -145,7 +145,7 @@
     </form>
 
     <div class="danger-zone">
-        <p>Acao irreversivel: exclui este registro de carteira.</p>
+        <p>Ação irreversível: exclui este registro de carteira.</p>
         <form class="action-group" action="{% url 'excluir_carteira_modulo' empresa.id carteira.id %}" method="POST" onsubmit="return confirm('Excluir carteira {{ carteira.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir carteira</button>

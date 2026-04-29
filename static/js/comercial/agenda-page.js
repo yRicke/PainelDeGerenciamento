@@ -77,9 +77,9 @@
                     return formatDateIsoToBr(cell.getValue());
                 },
             },
-            {title: "Numero Unico", field: "numero_unico", editor: "input"},
+            {title: "Número Único", field: "numero_unico", editor: "input"},
             {
-                title: "Previsao de Carregamento",
+                title: "Previsão de Carregamento",
                 field: "previsao_carregamento_iso",
                 editor: "input",
                 formatter: function (cell) {

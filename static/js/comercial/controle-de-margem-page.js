@@ -283,7 +283,7 @@
         return [
             {
                 key: "situacao",
-                label: "Situacao",
+                label: "Situação",
                 singleSelect: false,
                 extractValue: function (rowData) { return rowData ? rowData.situacao : ""; },
                 formatValue: formatTextoOuVazio,
@@ -291,7 +291,7 @@
             },
             {
                 key: "descricao_perfil",
-                label: "Descricao (Perfil)",
+                label: "Descrição (Perfil)",
                 singleSelect: false,
                 extractValue: function (rowData) { return rowData ? rowData.descricao_perfil : ""; },
                 formatValue: formatTextoOuVazio,

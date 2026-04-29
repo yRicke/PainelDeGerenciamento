@@ -14,7 +14,7 @@
         {% csrf_token %}
         <input type="hidden" name="data_origem" value="{{ controle.data_origem }}">
         <div class="form-grid">
-            <div><label>Nro. Unico</label><input type="number" name="nro_unico" min="1" value="{{ controle.nro_unico }}" required></div>
+            <div><label>Nro. Único</label><input type="number" name="nro_unico" min="1" value="{{ controle.nro_unico }}" required></div>
             <div><label>Nome empresa</label><input type="text" name="nome_empresa" value="{{ controle.nome_empresa }}"></div>
             <div>
                 <label>Parceiro (FK)</label>
