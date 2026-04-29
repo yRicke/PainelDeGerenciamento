@@ -256,6 +256,174 @@ class PlanoCargoSalario(models.Model):
         self.delete()
 
 
+class KpiControladoria(models.Model):
+    TIPO_VERIFICACAO = "Verificacao"
+    TIPO_CONTROLE = "Controle"
+    TIPO_CHOICES = [
+        (TIPO_VERIFICACAO, "Verificacao"),
+        (TIPO_CONTROLE, "Controle"),
+    ]
+
+    RESULTADO_OK = "Ok"
+    RESULTADO_ALERTA = "Alerta"
+    RESULTADO_CHOICES = [
+        (RESULTADO_OK, "Ok"),
+        (RESULTADO_ALERTA, "Alerta"),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="kpis_controladoria",
+    )
+    analise = models.PositiveIntegerField()
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    descricao = models.CharField(max_length=255)
+    parametro_meta = models.CharField(max_length=255, blank=True, default="")
+    parametro_compromisso = models.CharField(max_length=255, blank=True, default="")
+    semana_1_conferencia = models.BooleanField(default=False)
+    semana_1_resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, blank=True, default="")
+    semana_2_conferencia = models.BooleanField(default=False)
+    semana_2_resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, blank=True, default="")
+    semana_3_conferencia = models.BooleanField(default=False)
+    semana_3_resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, blank=True, default="")
+    semana_4_conferencia = models.BooleanField(default=False)
+    semana_4_resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, blank=True, default="")
+    semana_5_conferencia = models.BooleanField(default=False)
+    semana_5_resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, blank=True, default="")
+    total_mes_conferencia = models.BooleanField(default=False)
+    total_mes_resultado = models.CharField(max_length=20, choices=RESULTADO_CHOICES, blank=True, default="")
+    consideracoes = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "analise"], name="uq_kpi_controladoria_empresa_analise"),
+        ]
+
+    def __str__(self):
+        return f"KPI Controladoria {self.analise} - {self.descricao}"
+
+    @classmethod
+    def criar_kpi_controladoria(
+        cls,
+        *,
+        empresa,
+        analise,
+        tipo,
+        descricao,
+        parametro_meta="",
+        parametro_compromisso="",
+        semana_1_conferencia=False,
+        semana_1_resultado="",
+        semana_2_conferencia=False,
+        semana_2_resultado="",
+        semana_3_conferencia=False,
+        semana_3_resultado="",
+        semana_4_conferencia=False,
+        semana_4_resultado="",
+        semana_5_conferencia=False,
+        semana_5_resultado="",
+        total_mes_conferencia=False,
+        total_mes_resultado="",
+        consideracoes="",
+    ):
+        item = cls(
+            empresa=empresa,
+            analise=analise,
+            tipo=tipo,
+            descricao=descricao,
+            parametro_meta=parametro_meta,
+            parametro_compromisso=parametro_compromisso,
+            semana_1_conferencia=semana_1_conferencia,
+            semana_1_resultado=semana_1_resultado,
+            semana_2_conferencia=semana_2_conferencia,
+            semana_2_resultado=semana_2_resultado,
+            semana_3_conferencia=semana_3_conferencia,
+            semana_3_resultado=semana_3_resultado,
+            semana_4_conferencia=semana_4_conferencia,
+            semana_4_resultado=semana_4_resultado,
+            semana_5_conferencia=semana_5_conferencia,
+            semana_5_resultado=semana_5_resultado,
+            total_mes_conferencia=total_mes_conferencia,
+            total_mes_resultado=total_mes_resultado,
+            consideracoes=consideracoes,
+        )
+        item.full_clean()
+        item.save()
+        return item
+
+    @classmethod
+    def listar_por_empresa(cls, empresa):
+        return cls.objects.filter(empresa=empresa)
+
+    def atualizar_kpi_controladoria(
+        self,
+        *,
+        analise=UNSET,
+        tipo=UNSET,
+        descricao=UNSET,
+        parametro_meta=UNSET,
+        parametro_compromisso=UNSET,
+        semana_1_conferencia=UNSET,
+        semana_1_resultado=UNSET,
+        semana_2_conferencia=UNSET,
+        semana_2_resultado=UNSET,
+        semana_3_conferencia=UNSET,
+        semana_3_resultado=UNSET,
+        semana_4_conferencia=UNSET,
+        semana_4_resultado=UNSET,
+        semana_5_conferencia=UNSET,
+        semana_5_resultado=UNSET,
+        total_mes_conferencia=UNSET,
+        total_mes_resultado=UNSET,
+        consideracoes=UNSET,
+    ):
+        for campo, valor in (
+            ("analise", analise),
+            ("tipo", tipo),
+            ("descricao", descricao),
+            ("parametro_meta", parametro_meta),
+            ("parametro_compromisso", parametro_compromisso),
+            ("semana_1_conferencia", semana_1_conferencia),
+            ("semana_1_resultado", semana_1_resultado),
+            ("semana_2_conferencia", semana_2_conferencia),
+            ("semana_2_resultado", semana_2_resultado),
+            ("semana_3_conferencia", semana_3_conferencia),
+            ("semana_3_resultado", semana_3_resultado),
+            ("semana_4_conferencia", semana_4_conferencia),
+            ("semana_4_resultado", semana_4_resultado),
+            ("semana_5_conferencia", semana_5_conferencia),
+            ("semana_5_resultado", semana_5_resultado),
+            ("total_mes_conferencia", total_mes_conferencia),
+            ("total_mes_resultado", total_mes_resultado),
+            ("consideracoes", consideracoes),
+        ):
+            if valor is not UNSET:
+                setattr(self, campo, valor)
+        self.full_clean()
+        self.save()
+
+    def limpar_acompanhamento(self):
+        self.atualizar_kpi_controladoria(
+            semana_1_conferencia=False,
+            semana_1_resultado="",
+            semana_2_conferencia=False,
+            semana_2_resultado="",
+            semana_3_conferencia=False,
+            semana_3_resultado="",
+            semana_4_conferencia=False,
+            semana_4_resultado="",
+            semana_5_conferencia=False,
+            semana_5_resultado="",
+            total_mes_conferencia=False,
+            total_mes_resultado="",
+            consideracoes="",
+        )
+
+    def excluir_kpi_controladoria(self):
+        self.delete()
+
+
 class Descritivo(models.Model):
     empresa = models.ForeignKey(
         Empresa,

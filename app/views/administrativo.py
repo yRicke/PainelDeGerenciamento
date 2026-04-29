@@ -24,6 +24,7 @@ from ..models import (
     DescricaoPerfil,
     Estoque,
     Faturamento,
+    KpiControladoria,
     Natureza,
     Operacao,
     Orcamento,
@@ -45,15 +46,18 @@ from ..services.administrativo import (
     atualizar_colaborador_por_nome,
     atualizar_descritivo_por_post,
     atualizar_faturamento_por_post,
+    atualizar_kpi_controladoria_por_post,
     atualizar_plano_cargo_salario_por_post,
     atualizar_projeto_por_dados,
     criar_atividade_por_post,
     criar_colaborador_por_nome,
     criar_descritivo_por_post,
     criar_faturamento_por_post,
+    criar_kpi_controladoria_por_post,
     criar_plano_cargo_salario_por_post,
     criar_projeto_por_dados,
     importar_upload_faturamento,
+    limpar_dados_kpi_controladoria_por_empresa,
     preparar_diretorios_faturamento,
     semana_iso_input_atividade,
 )
@@ -62,6 +66,8 @@ from ..tabulator import (
     build_descritivo_tabulator_item,
     build_descritivos_tabulator,
     build_faturamento_tabulator,
+    build_kpi_controladoria_tabulator_item,
+    build_kpis_controladoria_tabulator,
     build_plano_cargos_salarios_tabulator,
     build_projetos_tabulator,
 )
@@ -202,8 +208,62 @@ def _payload_plano_cargo_salario(item):
     }
 
 
+def _proxima_analise_kpi_controladoria(empresa):
+    ultimo_item = (
+        KpiControladoria.objects.filter(empresa=empresa)
+        .order_by("-analise", "-id")
+        .only("analise")
+        .first()
+    )
+    return (ultimo_item.analise if ultimo_item else 0) + 1
+
+
 def _payload_descritivo(item):
     return build_descritivo_tabulator_item(item, item.empresa_id)
+
+
+def _texto_pdf_kpi_controladoria(valor, fallback="-", limite=180):
+    texto = str(valor or "").strip()
+    if not texto:
+        return fallback
+    if len(texto) <= limite:
+        return texto
+    return texto[: limite - 3].rstrip() + "..."
+
+
+def _bool_pdf_kpi_controladoria(valor):
+    return "Sim" if bool(valor) else "Nao"
+
+
+def _linhas_pdf_kpi_controladoria(payload):
+    itens = payload if isinstance(payload, list) else []
+    linhas = []
+    for item in itens:
+        if not isinstance(item, dict):
+            continue
+        linhas.append(
+            {
+                "analise": _texto_pdf_kpi_controladoria(item.get("analise"), "0", limite=12),
+                "tipo": _texto_pdf_kpi_controladoria(item.get("tipo"), "-", limite=20),
+                "descricao": _texto_pdf_kpi_controladoria(item.get("descricao"), "-", limite=80),
+                "parametro_meta": _texto_pdf_kpi_controladoria(item.get("parametro_meta"), "-", limite=48),
+                "parametro_compromisso": _texto_pdf_kpi_controladoria(item.get("parametro_compromisso"), "-", limite=48),
+                "semana_1_conferencia": _bool_pdf_kpi_controladoria(item.get("semana_1_conferencia")),
+                "semana_1_resultado": _texto_pdf_kpi_controladoria(item.get("semana_1_resultado"), "-", limite=16),
+                "semana_2_conferencia": _bool_pdf_kpi_controladoria(item.get("semana_2_conferencia")),
+                "semana_2_resultado": _texto_pdf_kpi_controladoria(item.get("semana_2_resultado"), "-", limite=16),
+                "semana_3_conferencia": _bool_pdf_kpi_controladoria(item.get("semana_3_conferencia")),
+                "semana_3_resultado": _texto_pdf_kpi_controladoria(item.get("semana_3_resultado"), "-", limite=16),
+                "semana_4_conferencia": _bool_pdf_kpi_controladoria(item.get("semana_4_conferencia")),
+                "semana_4_resultado": _texto_pdf_kpi_controladoria(item.get("semana_4_resultado"), "-", limite=16),
+                "semana_5_conferencia": _bool_pdf_kpi_controladoria(item.get("semana_5_conferencia")),
+                "semana_5_resultado": _texto_pdf_kpi_controladoria(item.get("semana_5_resultado"), "-", limite=16),
+                "total_mes_conferencia": _bool_pdf_kpi_controladoria(item.get("total_mes_conferencia")),
+                "total_mes_resultado": _texto_pdf_kpi_controladoria(item.get("total_mes_resultado"), "-", limite=16),
+                "consideracoes": _texto_pdf_kpi_controladoria(item.get("consideracoes"), "-", limite=80),
+            }
+        )
+    return linhas
 
 
 def _chave_vendedor_total_legado(valor):
@@ -813,6 +873,199 @@ def excluir_plano_cargo_salario_modulo(request, empresa_id, plano_cargo_salario_
         )
     messages.success(request, "Registro excluido com sucesso.")
     return redirect("plano_de_cargos_e_salarios", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def kpi_controladoria(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "KPI - Controladoria",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    kpis_qs = KpiControladoria.objects.filter(empresa=empresa).order_by("analise", "id")
+    contexto = {
+        "empresa": empresa,
+        "kpis_controladoria": kpis_qs,
+        "kpis_controladoria_tabulator": build_kpis_controladoria_tabulator(kpis_qs, empresa.id),
+        "proxima_analise_kpi_controladoria": _proxima_analise_kpi_controladoria(empresa),
+        "tipos_choices": KpiControladoria.TIPO_CHOICES,
+        "resultados_choices": KpiControladoria.RESULTADO_CHOICES,
+    }
+    return render(request, "administrativo/kpi_controladoria.html", contexto)
+
+
+@login_required(login_url="entrar")
+def criar_kpi_controladoria_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "KPI - Controladoria",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    erro = criar_kpi_controladoria_por_post(empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        analise = int(str(request.POST.get("analise") or "0").strip() or "0")
+        item = KpiControladoria.objects.filter(empresa=empresa, analise=analise).order_by("-id").first()
+        if item is None:
+            item = KpiControladoria.objects.filter(empresa=empresa).order_by("-id").first()
+        if item is None:
+            return JsonResponse({"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."}, status=500)
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro criado com sucesso.",
+                "registro": build_kpi_controladoria_tabulator_item(item, empresa.id),
+                "proxima_analise": _proxima_analise_kpi_controladoria(empresa),
+            }
+        )
+
+    messages.success(request, "Registro criado com sucesso.")
+    return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def editar_kpi_controladoria_modulo(request, empresa_id, kpi_controladoria_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "KPI - Controladoria",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    item = KpiControladoria.objects.filter(id=kpi_controladoria_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    erro = atualizar_kpi_controladoria_por_post(item, empresa, request.POST)
+    if erro:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": erro}, status=400)
+        messages.error(request, erro)
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    if _is_ajax_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": "Registro atualizado com sucesso.",
+                "registro": build_kpi_controladoria_tabulator_item(item, empresa.id),
+            }
+        )
+
+    messages.success(request, "Registro atualizado com sucesso.")
+    return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def excluir_kpi_controladoria_modulo(request, empresa_id, kpi_controladoria_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "KPI - Controladoria",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    item = KpiControladoria.objects.filter(id=kpi_controladoria_id, empresa=empresa).first()
+    if not item:
+        if _is_ajax_request(request):
+            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
+        messages.error(request, "Registro nao encontrado.")
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    item_id = item.id
+    item.excluir_kpi_controladoria()
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": item_id})
+
+    messages.success(request, "Registro excluido com sucesso.")
+    return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def limpar_dados_kpi_controladoria_modulo(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "KPI - Controladoria",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    total = limpar_dados_kpi_controladoria_por_empresa(empresa)
+    mensagem = f"Dados de acompanhamento limpos em {total} registro(s)."
+    if _is_ajax_request(request):
+        return JsonResponse({"ok": True, "message": mensagem, "total": total})
+    messages.success(request, mensagem)
+    return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+
+@login_required(login_url="entrar")
+def kpi_controladoria_pdf(request, empresa_id):
+    empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(
+        request,
+        empresa_id,
+        "KPI - Controladoria",
+    )
+    if not autorizado:
+        return redirect("index")
+
+    if request.method != "POST":
+        return redirect("kpi_controladoria", empresa_id=empresa.id)
+
+    payload = {}
+    try:
+        payload = json.loads(request.POST.get("payload_json") or "{}")
+    except (TypeError, ValueError):
+        payload = {}
+    linhas = _linhas_pdf_kpi_controladoria(payload.get("rows"))
+    contexto = {
+        "empresa": empresa,
+        "gerado_em": timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+        "linhas": linhas,
+        "total_registros": len(linhas),
+    }
+    try:
+        pdf_bytes = render_template_to_pdf_bytes(
+            "administrativo/kpi_controladoria_pdf.html",
+            context=contexto,
+            request=request,
+        )
+    except RuntimeError as erro:
+        return JsonResponse({"detail": str(erro)}, status=500)
+
+    resposta = HttpResponse(pdf_bytes, content_type="application/pdf")
+    resposta["Content-Disposition"] = (
+        f'attachment; filename="kpi-controladoria-{timezone.localtime().strftime("%Y%m%d-%H%M%S")}.pdf"'
+    )
+    return resposta
 
 
 @login_required(login_url="entrar")

@@ -33,6 +33,7 @@ from ..models import (
     ControleMargem,
     DRE,
     ContasAReceber,
+    KpiControladoria,
     DescricaoBP,
     DescricaoPerfil,
     Empresa,
@@ -494,6 +495,77 @@ def atualizar_plano_cargo_salario_por_post(item, empresa, post_data):
     dados.pop("data_admissao_raw", None)
     item.atualizar_plano_cargo_salario(**dados)
     return ""
+
+
+def _dados_kpi_controladoria_from_post(post_data):
+    return {
+        "analise_raw": (post_data.get("analise") or "").strip(),
+        "analise": _parse_int_ou_zero(post_data.get("analise")),
+        "tipo": _choice_valido(post_data.get("tipo"), KpiControladoria.TIPO_CHOICES),
+        "descricao": (post_data.get("descricao") or "").strip(),
+        "parametro_meta": (post_data.get("parametro_meta") or "").strip(),
+        "parametro_compromisso": (post_data.get("parametro_compromisso") or "").strip(),
+        "semana_1_conferencia": _parse_bool_like(post_data.get("semana_1_conferencia")),
+        "semana_1_resultado": _choice_valido(post_data.get("semana_1_resultado"), KpiControladoria.RESULTADO_CHOICES),
+        "semana_2_conferencia": _parse_bool_like(post_data.get("semana_2_conferencia")),
+        "semana_2_resultado": _choice_valido(post_data.get("semana_2_resultado"), KpiControladoria.RESULTADO_CHOICES),
+        "semana_3_conferencia": _parse_bool_like(post_data.get("semana_3_conferencia")),
+        "semana_3_resultado": _choice_valido(post_data.get("semana_3_resultado"), KpiControladoria.RESULTADO_CHOICES),
+        "semana_4_conferencia": _parse_bool_like(post_data.get("semana_4_conferencia")),
+        "semana_4_resultado": _choice_valido(post_data.get("semana_4_resultado"), KpiControladoria.RESULTADO_CHOICES),
+        "semana_5_conferencia": _parse_bool_like(post_data.get("semana_5_conferencia")),
+        "semana_5_resultado": _choice_valido(post_data.get("semana_5_resultado"), KpiControladoria.RESULTADO_CHOICES),
+        "total_mes_conferencia": _parse_bool_like(post_data.get("total_mes_conferencia")),
+        "total_mes_resultado": _choice_valido(post_data.get("total_mes_resultado"), KpiControladoria.RESULTADO_CHOICES),
+        "consideracoes": (post_data.get("consideracoes") or "").strip(),
+    }
+
+
+def _validar_dados_kpi_controladoria(dados, *, empresa, item_id=None):
+    if not dados["analise_raw"]:
+        return "Analise e obrigatoria."
+    if dados["analise"] <= 0:
+        return "Analise invalida."
+    if not dados["tipo"]:
+        return "Tipo e obrigatorio."
+    if not dados["descricao"]:
+        return "Descricao e obrigatoria."
+    conflito = KpiControladoria.objects.filter(empresa=empresa, analise=dados["analise"])
+    if item_id is not None:
+        conflito = conflito.exclude(id=item_id)
+    if conflito.exists():
+        return "Ja existe analise com este numero nesta empresa."
+    return ""
+
+
+def criar_kpi_controladoria_por_post(empresa, post_data):
+    dados = _dados_kpi_controladoria_from_post(post_data)
+    erro = _validar_dados_kpi_controladoria(dados, empresa=empresa)
+    if erro:
+        return erro
+    dados.pop("analise_raw", None)
+    KpiControladoria.criar_kpi_controladoria(empresa=empresa, **dados)
+    return ""
+
+
+def atualizar_kpi_controladoria_por_post(item, empresa, post_data):
+    if item.empresa_id != empresa.id:
+        return "Registro invalido para esta empresa."
+    dados = _dados_kpi_controladoria_from_post(post_data)
+    erro = _validar_dados_kpi_controladoria(dados, empresa=empresa, item_id=item.id)
+    if erro:
+        return erro
+    dados.pop("analise_raw", None)
+    item.atualizar_kpi_controladoria(**dados)
+    return ""
+
+
+def limpar_dados_kpi_controladoria_por_empresa(empresa):
+    itens = KpiControladoria.objects.filter(empresa=empresa)
+    total = itens.count()
+    for item in itens:
+        item.limpar_acompanhamento()
+    return total
 
 
 _CAMPOS_DESCRITIVO_TEXTO = (

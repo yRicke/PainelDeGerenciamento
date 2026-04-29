@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KPI - Controladoria{% endblock %}
+
+{% block extra_css %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/shared/module-layout.css' %}">
+<link rel="stylesheet" href="{% static 'css/shared/tabulator-cadastro-ux.css' %}">
+<link rel="stylesheet" href="{% static 'css/administrativo/kpi-controladoria-page.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero module-hero-shell" data-module-shell-upgrade-off>
+    <div class="module-hero-grid module-hero-grid--single">
+        <div class="module-hero-main">
+            <div class="module-hero-topline">
+                <a href="{% url 'index' %}" class="module-hero-back-link">Voltar</a>
+                <span class="module-hero-pill">Modulo Independente</span>
+            </div>
+            <h1>KPI - Controladoria</h1>
+            <p class="module-hero-subtitle">Cadastro, acompanhamento semanal com edicao inline, limpeza de apontamentos e exportacao em PDF.</p>
+            <dl class="module-hero-facts">
+                <div>
+                    <dt>Empresa</dt>
+                    <dd>{{ empresa.nome }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</section>
+
+<div id="kpi-controladoria-module-shell" class="module-shell">
+    <aside id="kpi-controladoria-module-sidebar" class="module-shell-sidebar" aria-label="Painel lateral de filtros">
+        <section id="sec-filtros" class="panel module-section module-shell-side-panel" data-module-filters-manual="true">
+            <div class="module-shell-side-panel-head">
+                <h2>Filtros</h2>
+                <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
+            </div>
+            <p class="form-note module-filters-placeholder">Filtros multisselecao aplicados junto com os filtros da tabela.</p>
+            <div class="module-filter-columns">
+                <div id="kpi-controladoria-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
+                <div id="kpi-controladoria-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
+            </div>
+        </section>
+    </aside>
+
+    <div class="module-shell-main">
+        <div class="module-shell-main-toolbar">
+            <button
+                type="button"
+                class="module-shell-toggle"
+                aria-expanded="true"
+                aria-controls="kpi-controladoria-module-sidebar"
+            >
+                <span aria-hidden="true">&#9776;</span>
+                <span>Menu de filtros</span>
+            </button>
+            <nav class="module-sections-nav" aria-label="Navegacao de secoes de KPI Controladoria">
+                <a href="#sec-cadastro">Cadastro</a>
+                <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
+                <a href="#sec-visualizacao">Visualizacao</a>
+            </nav>
+            <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
+        </div>
+
+        <section id="sec-cadastro" class="panel module-section">
+            <h2>Novo Registro</h2>
+            <p class="form-note">Os campos de acompanhamento podem ser preenchidos depois direto na tabela.</p>
+            <form action="{% url 'criar_kpi_controladoria_modulo' empresa.id %}" method="post">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div>
+                        <label>Analise</label>
+                        <input type="number" name="analise" min="1" value="{{ proxima_analise_kpi_controladoria }}" required>
+                    </div>
+                    <div>
+                        <label>Tipo</label>
+                        <select name="tipo" required>
+                            <option value="">Selecione</option>
+                            {% for value, label in tipos_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="kpi-controladoria-form-span-2">
+                        <label>Descricao</label>
+                        <input type="text" name="descricao" required>
+                    </div>
+                    <div>
+                        <label>Parametro Meta</label>
+                        <input type="text" name="parametro_meta">
+                    </div>
+                    <div>
+                        <label>Parametro Compromisso</label>
+                        <input type="text" name="parametro_compromisso">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Cadastrar</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="sec-visualizacao" class="panel module-section">
+            <h2>Tabela de Registros</h2>
+            <div class="table-wrapper">
+                <div id="kpi-controladoria-tabulator"></div>
+            </div>
+            <div class="kpi-controladoria-actions">
+                <button type="button" id="kpi-controladoria-limpar-dados-btn" class="btn-light">
+                    Limpar dados
+                </button>
+                <button type="button" id="kpi-controladoria-pdf-btn" class="btn-primary">
+                    Baixar PDF da tabela
+                </button>
+            </div>
+            <p id="kpi-controladoria-save-status" class="file-status"></p>
+            <form
+                id="kpi-controladoria-pdf-form"
+                method="post"
+                action="{% url 'kpi_controladoria_pdf' empresa.id %}"
+                hidden
+            >
+                {% csrf_token %}
+                <input type="hidden" id="kpi-controladoria-pdf-payload" name="payload_json" value="">
+            </form>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ kpis_controladoria_tabulator|json_script:"kpi-controladoria-tabulator-data" }}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script src="{% static 'js/administrativo/kpi-controladoria-page.js' %}"></script>
+{% endblock %}

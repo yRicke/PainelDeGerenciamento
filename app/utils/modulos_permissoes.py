@@ -69,6 +69,7 @@ MODULOS_POR_AREA = {
 
 PERMISSOES_EXTRAS = [
     "Dashboard Geral",
+    "KPI - Controladoria",
 ]
 
 NOMES_EXIBICAO_MODULOS = {
@@ -87,6 +88,7 @@ NOMES_EXIBICAO_MODULOS = {
     "Contas Bancarias": "Contas Bancarias",
     "Descricao Balanco Patrimonial": "Descricao Balanco Patrimonial",
     "Dashboard Geral": "Dashboard Geral",
+    "KPI - Controladoria": "KPI - Controladoria",
 }
 
 PERMISSOES_POR_MODULO = {

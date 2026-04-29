@@ -40,6 +40,18 @@ def atualizar_plano_cargo_salario_por_post(item, empresa, post_data):
     return _services().atualizar_plano_cargo_salario_por_post(item, empresa, post_data)
 
 
+def criar_kpi_controladoria_por_post(empresa, post_data):
+    return _services().criar_kpi_controladoria_por_post(empresa, post_data)
+
+
+def atualizar_kpi_controladoria_por_post(item, empresa, post_data):
+    return _services().atualizar_kpi_controladoria_por_post(item, empresa, post_data)
+
+
+def limpar_dados_kpi_controladoria_por_empresa(empresa):
+    return _services().limpar_dados_kpi_controladoria_por_empresa(empresa)
+
+
 def criar_descritivo_por_post(empresa, post_data):
     return _services().criar_descritivo_por_post(empresa, post_data)
 

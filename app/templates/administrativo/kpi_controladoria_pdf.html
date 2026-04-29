@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>KPI - Controladoria</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 8mm;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #1f3752;
+            background: #ffffff;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 22px;
+            color: #173759;
+        }
+
+        .meta {
+            margin: 0 0 10px;
+            font-size: 10px;
+            color: #46627e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 7px;
+        }
+
+        th, td {
+            border: 1px solid #c9d5e3;
+            padding: 4px 3px;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+
+        thead th {
+            background: #eef4fb;
+            color: #1a3e66;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        thead th.group-semana {
+            background: #f2f8ec;
+        }
+
+        thead th.group-total {
+            background: #fff4e8;
+        }
+
+        tbody td.center {
+            text-align: center;
+        }
+
+        tbody td.resultado-ok {
+            background: #ecfdf3;
+            color: #166534;
+            font-weight: 700;
+        }
+
+        tbody td.resultado-alerta {
+            background: #fff1f2;
+            color: #9f1239;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <h1>KPI - Controladoria</h1>
+    <p class="meta">Empresa: {{ empresa.nome }} | Registros: {{ total_registros }} | Gerado em: {{ gerado_em }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th rowspan="2" style="width: 4%;">Analise</th>
+                <th rowspan="2" style="width: 6%;">Tipo</th>
+                <th rowspan="2" style="width: 11%;">Descricao</th>
+                <th colspan="2" style="width: 12%;">Parametros</th>
+                <th colspan="2" class="group-semana" style="width: 8%;">Semana 1</th>
+                <th colspan="2" class="group-semana" style="width: 8%;">Semana 2</th>
+                <th colspan="2" class="group-semana" style="width: 8%;">Semana 3</th>
+                <th colspan="2" class="group-semana" style="width: 8%;">Semana 4</th>
+                <th colspan="2" class="group-semana" style="width: 8%;">Semana 5</th>
+                <th colspan="2" class="group-total" style="width: 8%;">Total Mes</th>
+                <th rowspan="2" style="width: 11%;">Consideracoes</th>
+            </tr>
+            <tr>
+                <th>Meta</th>
+                <th>Compromisso</th>
+                <th class="group-semana">Conferencia</th>
+                <th class="group-semana">Resultado</th>
+                <th class="group-semana">Conferencia</th>
+                <th class="group-semana">Resultado</th>
+                <th class="group-semana">Conferencia</th>
+                <th class="group-semana">Resultado</th>
+                <th class="group-semana">Conferencia</th>
+                <th class="group-semana">Resultado</th>
+                <th class="group-semana">Conferencia</th>
+                <th class="group-semana">Resultado</th>
+                <th class="group-total">Conferencia</th>
+                <th class="group-total">Resultado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in linhas %}
+            <tr>
+                <td class="center">{{ item.analise }}</td>
+                <td class="center">{{ item.tipo }}</td>
+                <td>{{ item.descricao }}</td>
+                <td>{{ item.parametro_meta }}</td>
+                <td>{{ item.parametro_compromisso }}</td>
+                <td class="center">{{ item.semana_1_conferencia }}</td>
+                <td class="center {% if item.semana_1_resultado == 'Ok' %}resultado-ok{% elif item.semana_1_resultado == 'Alerta' %}resultado-alerta{% endif %}">{{ item.semana_1_resultado }}</td>
+                <td class="center">{{ item.semana_2_conferencia }}</td>
+                <td class="center {% if item.semana_2_resultado == 'Ok' %}resultado-ok{% elif item.semana_2_resultado == 'Alerta' %}resultado-alerta{% endif %}">{{ item.semana_2_resultado }}</td>
+                <td class="center">{{ item.semana_3_conferencia }}</td>
+                <td class="center {% if item.semana_3_resultado == 'Ok' %}resultado-ok{% elif item.semana_3_resultado == 'Alerta' %}resultado-alerta{% endif %}">{{ item.semana_3_resultado }}</td>
+                <td class="center">{{ item.semana_4_conferencia }}</td>
+                <td class="center {% if item.semana_4_resultado == 'Ok' %}resultado-ok{% elif item.semana_4_resultado == 'Alerta' %}resultado-alerta{% endif %}">{{ item.semana_4_resultado }}</td>
+                <td class="center">{{ item.semana_5_conferencia }}</td>
+                <td class="center {% if item.semana_5_resultado == 'Ok' %}resultado-ok{% elif item.semana_5_resultado == 'Alerta' %}resultado-alerta{% endif %}">{{ item.semana_5_resultado }}</td>
+                <td class="center">{{ item.total_mes_conferencia }}</td>
+                <td class="center {% if item.total_mes_resultado == 'Ok' %}resultado-ok{% elif item.total_mes_resultado == 'Alerta' %}resultado-alerta{% endif %}">{{ item.total_mes_resultado }}</td>
+                <td>{{ item.consideracoes }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

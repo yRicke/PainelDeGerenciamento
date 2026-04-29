@@ -489,6 +489,45 @@ def build_plano_cargos_salarios_tabulator(planos_qs, empresa_id: int):
     return resultado
 
 
+def build_kpis_controladoria_tabulator(kpis_qs, empresa_id: int):
+    resultado = []
+    for item in kpis_qs:
+        resultado.append(build_kpi_controladoria_tabulator_item(item, empresa_id))
+    return resultado
+
+
+def build_kpi_controladoria_tabulator_item(item, empresa_id: int):
+    return {
+        "id": item.id,
+        "analise": item.analise,
+        "tipo": item.tipo or "",
+        "descricao": item.descricao or "",
+        "parametro_meta": item.parametro_meta or "",
+        "parametro_compromisso": item.parametro_compromisso or "",
+        "semana_1_conferencia": bool(item.semana_1_conferencia),
+        "semana_1_resultado": item.semana_1_resultado or "",
+        "semana_2_conferencia": bool(item.semana_2_conferencia),
+        "semana_2_resultado": item.semana_2_resultado or "",
+        "semana_3_conferencia": bool(item.semana_3_conferencia),
+        "semana_3_resultado": item.semana_3_resultado or "",
+        "semana_4_conferencia": bool(item.semana_4_conferencia),
+        "semana_4_resultado": item.semana_4_resultado or "",
+        "semana_5_conferencia": bool(item.semana_5_conferencia),
+        "semana_5_resultado": item.semana_5_resultado or "",
+        "total_mes_conferencia": bool(item.total_mes_conferencia),
+        "total_mes_resultado": item.total_mes_resultado or "",
+        "consideracoes": item.consideracoes or "",
+        "editar_url": reverse(
+            "editar_kpi_controladoria_modulo",
+            kwargs={"empresa_id": empresa_id, "kpi_controladoria_id": item.id},
+        ),
+        "excluir_url": reverse(
+            "excluir_kpi_controladoria_modulo",
+            kwargs={"empresa_id": empresa_id, "kpi_controladoria_id": item.id},
+        ),
+    }
+
+
 def build_descritivo_tabulator_item(item, empresa_id: int):
     return {
         "id": item.id,

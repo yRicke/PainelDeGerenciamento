@@ -31,6 +31,7 @@ from .models import (
     Operacao,
     Orcamento,
     OrcamentoPlanejado,
+    KpiControladoria,
     Parceiro,
     Permissao,
     ParametroMargemFinanceiro,
@@ -315,6 +316,163 @@ class DashboardGeralViewTest(TestCase):
         self.assertIn("dashboard-geral", response["Content-Disposition"])
         self.assertEqual(response.content, b"%PDF-dashboard-geral%")
         render_pdf_mock.assert_called_once()
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class KpiControladoriaViewTest(TestCase):
+    def setUp(self):
+        self.empresa = Empresa.criar_empresa(nome="Empresa KPI")
+        self.permissao = Permissao.objects.create(nome="KPI - Controladoria")
+        self.usuario = Usuario.criar_usuario(
+            username="usuario_kpi_controladoria",
+            password="senha123",
+            empresa=self.empresa,
+            permissoes=[self.permissao],
+        )
+        self.item = KpiControladoria.criar_kpi_controladoria(
+            empresa=self.empresa,
+            analise=1,
+            tipo="Controle",
+            descricao="Fechamento semanal",
+            parametro_meta="Meta A",
+            parametro_compromisso="Compromisso A",
+            semana_1_conferencia=True,
+            semana_1_resultado="Ok",
+            semana_2_conferencia=True,
+            semana_2_resultado="Alerta",
+            total_mes_conferencia=True,
+            total_mes_resultado="Ok",
+            consideracoes="Observacao inicial",
+        )
+        self.lista_url = reverse("kpi_controladoria", kwargs={"empresa_id": self.empresa.id})
+        self.criar_url = reverse("criar_kpi_controladoria_modulo", kwargs={"empresa_id": self.empresa.id})
+        self.editar_url = reverse(
+            "editar_kpi_controladoria_modulo",
+            kwargs={"empresa_id": self.empresa.id, "kpi_controladoria_id": self.item.id},
+        )
+        self.limpar_url = reverse("limpar_dados_kpi_controladoria_modulo", kwargs={"empresa_id": self.empresa.id})
+        self.pdf_url = reverse("kpi_controladoria_pdf", kwargs={"empresa_id": self.empresa.id})
+
+    def test_index_exibe_atalho_quando_usuario_tem_permissao(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "KPI - Controladoria")
+
+    def test_lista_renderiza_modulo(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.get(self.lista_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("kpis_controladoria_tabulator", response.context)
+        self.assertEqual(response.context["proxima_analise_kpi_controladoria"], 2)
+
+    def test_criar_registro_ajax(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.criar_url,
+            {
+                "analise": "2",
+                "tipo": "Verificacao",
+                "descricao": "Acompanhamento novo",
+                "parametro_meta": "Meta B",
+                "parametro_compromisso": "Compromisso B",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("proxima_analise"), 3)
+        self.assertEqual(payload.get("registro", {}).get("analise"), 2)
+        self.assertTrue(KpiControladoria.objects.filter(empresa=self.empresa, analise=2).exists())
+
+    def test_edicao_inline_ajax(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.editar_url,
+            {
+                "analise": "1",
+                "tipo": "Controle",
+                "descricao": "Fechamento atualizado",
+                "parametro_meta": "Meta X",
+                "parametro_compromisso": "Compromisso X",
+                "semana_1_conferencia": "false",
+                "semana_1_resultado": "Alerta",
+                "semana_2_conferencia": "true",
+                "semana_2_resultado": "Ok",
+                "semana_3_conferencia": "true",
+                "semana_3_resultado": "Ok",
+                "semana_4_conferencia": "false",
+                "semana_4_resultado": "",
+                "semana_5_conferencia": "false",
+                "semana_5_resultado": "",
+                "total_mes_conferencia": "true",
+                "total_mes_resultado": "Alerta",
+                "consideracoes": "Nova observacao",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.descricao, "Fechamento atualizado")
+        self.assertFalse(self.item.semana_1_conferencia)
+        self.assertEqual(self.item.total_mes_resultado, "Alerta")
+
+    def test_limpar_dados_ajax(self):
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.limpar_url,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.item.refresh_from_db()
+        self.assertFalse(self.item.semana_1_conferencia)
+        self.assertEqual(self.item.semana_1_resultado, "")
+        self.assertEqual(self.item.consideracoes, "")
+
+    @patch("app.views.administrativo.render_template_to_pdf_bytes")
+    def test_pdf_retorna_arquivo(self, render_pdf_mock):
+        render_pdf_mock.return_value = b"%PDF-kpi-controladoria%"
+        self.client.login(username=self.usuario.username, password="senha123")
+        response = self.client.post(
+            self.pdf_url,
+            {
+                "payload_json": json.dumps(
+                    {
+                        "rows": [
+                            {
+                                "analise": 1,
+                                "tipo": "Controle",
+                                "descricao": "Fechamento semanal",
+                                "parametro_meta": "Meta",
+                                "parametro_compromisso": "Compromisso",
+                                "semana_1_conferencia": True,
+                                "semana_1_resultado": "Ok",
+                                "semana_2_conferencia": False,
+                                "semana_2_resultado": "",
+                                "semana_3_conferencia": False,
+                                "semana_3_resultado": "",
+                                "semana_4_conferencia": False,
+                                "semana_4_resultado": "",
+                                "semana_5_conferencia": False,
+                                "semana_5_resultado": "",
+                                "total_mes_conferencia": True,
+                                "total_mes_resultado": "Alerta",
+                                "consideracoes": "Obs",
+                            }
+                        ]
+                    }
+                )
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("kpi-controladoria", response["Content-Disposition"])
+        self.assertEqual(response.content, b"%PDF-kpi-controladoria%")
 
 
 class ColaboradorModelTest(TestCase):

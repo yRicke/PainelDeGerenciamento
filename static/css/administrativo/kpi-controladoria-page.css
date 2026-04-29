@@ -1,0 +1,76 @@
+@import url("../shared/module-crud.css");
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.kpi-controladoria-form-span-2 {
+    grid-column: span 2;
+}
+
+.kpi-controladoria-actions {
+    margin-top: 0.9rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.kpi-controladoria-actions .btn-light,
+.kpi-controladoria-actions .btn-primary {
+    min-width: 210px;
+}
+
+#kpi-controladoria-save-status {
+    margin-top: 0.65rem;
+}
+
+.kpi-controladoria-save-status--ok {
+    color: #166534;
+}
+
+.kpi-controladoria-save-status--error {
+    color: #b42318;
+}
+
+.kpi-controladoria-save-status--progress {
+    color: #1d4ed8;
+}
+
+.tabulator .tabulator-col.kpi-col-parametros {
+    background: #eef6ff;
+}
+
+.tabulator .tabulator-col.kpi-col-semana {
+    background: #f7fbf3;
+}
+
+.tabulator .tabulator-col.kpi-col-total-mes {
+    background: #fff7ed;
+}
+
+.tabulator .tabulator-cell.kpi-cell-alerta {
+    background: #fff1f2;
+    color: #9f1239;
+    font-weight: 700;
+}
+
+.tabulator .tabulator-cell.kpi-cell-ok {
+    background: #ecfdf3;
+    color: #166534;
+    font-weight: 700;
+}
+
+@media (max-width: 900px) {
+    .kpi-controladoria-form-span-2 {
+        grid-column: auto;
+    }
+
+    .kpi-controladoria-actions .btn-light,
+    .kpi-controladoria-actions .btn-primary {
+        width: 100%;
+    }
+}

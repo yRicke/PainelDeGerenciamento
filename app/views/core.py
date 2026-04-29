@@ -29,6 +29,14 @@ def index(request):
                 or _usuario_tem_permissao_modulo(request.user, NOME_PERMISSAO_DASHBOARD_GERAL)
             )
         ),
+        "kpi_controladoria_permitido": bool(
+            getattr(request.user, "empresa_id", None)
+            and (
+                request.user.is_staff
+                or request.user.is_superuser
+                or _usuario_tem_permissao_modulo(request.user, "KPI - Controladoria")
+            )
+        ),
     }
     return render(request, "index.html", contexto)
 

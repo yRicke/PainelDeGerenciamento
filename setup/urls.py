@@ -30,6 +30,12 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views_core.index, name='index'),
     path('dashboard_geral/<int:empresa_id>/', views_core.dashboard_geral, name='dashboard_geral'),
+    path('kpi_controladoria/<int:empresa_id>/', views_administrativo.kpi_controladoria, name='kpi_controladoria'),
+    path('kpi_controladoria/<int:empresa_id>/criar/', views_administrativo.criar_kpi_controladoria_modulo, name='criar_kpi_controladoria_modulo'),
+    path('kpi_controladoria/<int:empresa_id>/editar/<int:kpi_controladoria_id>/', views_administrativo.editar_kpi_controladoria_modulo, name='editar_kpi_controladoria_modulo'),
+    path('kpi_controladoria/<int:empresa_id>/excluir/<int:kpi_controladoria_id>/', views_administrativo.excluir_kpi_controladoria_modulo, name='excluir_kpi_controladoria_modulo'),
+    path('kpi_controladoria/<int:empresa_id>/limpar-dados/', views_administrativo.limpar_dados_kpi_controladoria_modulo, name='limpar_dados_kpi_controladoria_modulo'),
+    path('kpi_controladoria/<int:empresa_id>/pdf/', views_administrativo.kpi_controladoria_pdf, name='kpi_controladoria_pdf'),
     path(
         'api/v1/empresas/<int:empresa_id>/atividades/',
         views_api_v1.AtividadeListAPIView.as_view(),

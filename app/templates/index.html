@@ -17,6 +17,12 @@
             <p>Indicadores executivos dos principais módulos.</p>
         </a>
         {% endif %}
+        {% if kpi_controladoria_permitido %}
+        <a class="kpi-card" href="{% url 'kpi_controladoria' user.empresa_id %}">
+            <h3>KPI - Controladoria</h3>
+            <p>Acompanhamento semanal e mensal dos pontos de controladoria.</p>
+        </a>
+        {% endif %}
         <a class="kpi-card" href="{% url 'financeiro' %}">
             <h3>Financeiro</h3>
             <p>Acompanhe receita, caixa e metas.</p>
