@@ -11,13 +11,13 @@
 <section class="page-hero">
     <a href="{% url 'index' %}" class="module-hero-back-link">Voltar</a>
     <h1>Painel Consolidado</h1>
-    <p>Empresa: {{ empresa.nome }} | Periodo: {{ periodo_inicio }} a {{ periodo_fim }}</p>
+    <p>Empresa: {{ empresa.nome }} | Período: {{ periodo_inicio }} a {{ periodo_fim }}</p>
 </section>
 
 <section class="panel dashboard-geral-filtros">
     <form id="dashboard-geral-filtro-mes-form" method="get">
         <label for="dashboard-geral-mes">
-            <span>Mes de referencia</span>
+            <span>Mês de referência</span>
             <input type="month" id="dashboard-geral-mes" name="mes" value="{{ mes_referencia }}">
         </label>
     </form>
@@ -30,7 +30,7 @@
             <div><span>Total</span><strong>{{ dashboard.tofu.total_atividades }}</strong></div>
             <div><span>Atrasados</span><strong>{{ dashboard.tofu.atrasados.total }}</strong></div>
             <div><span>Alertas</span><strong>{{ dashboard.tofu.alertas.total }}</strong></div>
-            <div><span>Concluidos</span><strong>{{ dashboard.tofu.concluidos.total }}</strong></div>
+            <div><span>Concluídos</span><strong>{{ dashboard.tofu.concluidos.total }}</strong></div>
         </div>
     </article>
 
@@ -50,9 +50,9 @@
             <div><span>Valor Faturamento</span><strong>{{ dashboard.faturamento.valor_faturamento }}</strong></div>
             <div><span>Meta Geral</span><strong>{{ dashboard.faturamento.meta_geral }}</strong></div>
             <div><span>Gap Faturamento</span><strong>{{ dashboard.faturamento.gap_faturamento }}</strong></div>
-            <div><span>Prazo Medio</span><strong>{{ dashboard.faturamento.prazo_medio }}</strong></div>
-            <div><span>Dias Uteis Restantes</span><strong>{{ dashboard.faturamento.dias_uteis }}</strong></div>
-            <div><span>Meta Diaria</span><strong>{{ dashboard.faturamento.meta_diaria }}</strong></div>
+            <div><span>Prazo Médio</span><strong>{{ dashboard.faturamento.prazo_medio }}</strong></div>
+            <div><span>Dias Úteis Restantes</span><strong>{{ dashboard.faturamento.dias_uteis }}</strong></div>
+            <div><span>Meta Diária</span><strong>{{ dashboard.faturamento.meta_diaria }}</strong></div>
         </div>
         <div class="dashboard-geral-faturamento-extra">
             <article class="dashboard-geral-reloginho-card">
@@ -101,9 +101,9 @@
     </article>
 
     <article class="panel dashboard-geral-section dashboard-geral-section--wide dashboard-geral-section--producao">
-        <h2>Producao</h2>
+        <h2>Produção</h2>
         <div class="dashboard-geral-kpis dashboard-geral-kpis--producao-topo">
-            <div><span>Meta Mes</span><strong>{{ dashboard.producao.meta_mes }}</strong></div>
+            <div><span>Meta Mês</span><strong>{{ dashboard.producao.meta_mes }}</strong></div>
             <div><span>Meta Acumulada</span><strong>{{ dashboard.producao.meta_acumulada }}</strong></div>
             <div><span>Realizado</span><strong>{{ dashboard.producao.realizado }}</strong></div>
             <div><span>Atingimento</span><strong>{{ dashboard.producao.percentual }}</strong></div>
