@@ -23,8 +23,8 @@
         data: data,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
-            {title: "Codigo", field: "tipo_titulo_codigo", editor: "input"},
-            {title: "Descricao", field: "descricao", editor: "input"},
+            {title: "Código", field: "tipo_titulo_codigo", editor: "input"},
+            {title: "Descrição", field: "descricao", editor: "input"},
             colunaAcoes,
         ],
     });

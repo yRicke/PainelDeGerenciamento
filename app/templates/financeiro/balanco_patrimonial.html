@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Balanco Patrimonial{% endblock %}
+{% block title %}Balanço Patrimonial{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -15,10 +15,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Financeiro</span>
+                <span class="module-hero-pill">Módulo Financeiro</span>
             </div>
-            <h1>Balanco Patrimonial</h1>
-            <p class="module-hero-subtitle">Modulo estruturado no padrao dos demais, com dashboard e visualizacao em tabela.</p>
+            <h1>Balanço Patrimonial</h1>
+            <p class="module-hero-subtitle">Módulo estruturado no padrão dos demais, com dashboard e visualização em tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -36,7 +36,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros por Empresa BP, Tipo Movimentacao e Descricao BP.</p>
+            <p class="form-note module-filters-placeholder">Filtros por Empresa BP, Tipo Movimentação e Descrição BP.</p>
             <div class="module-filter-columns">
                 <div id="balanco-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="balanco-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -55,28 +55,28 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Balanco Patrimonial">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de Balanço Patrimonial">
                 <a href="#sec-cadastro">Cadastro</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <a href="{{ balanco_patrimonial_ativos_url }}" class="btn-light">Submodulo Ativos</a>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
 
         <section id="sec-cadastro" class="panel module-section">
-            <h2>Novo Registro de Balanco Patrimonial</h2>
-            <p class="form-note">Empresa e vinculada automaticamente. Numero de registro e sequencial e nao editavel.</p>
+            <h2>Novo Registro de Balanço Patrimonial</h2>
+            <p class="form-note">Empresa é vinculada automaticamente. Número de registro é sequencial e não editável.</p>
             <form id="balanco-patrimonial-cadastro-form" action="{% url 'criar_balanco_patrimonial_modulo' empresa.id %}" method="post">
                 {% csrf_token %}
                 <div class="form-grid">
                     <div>
-                        <label>Numero Registro</label>
+                        <label>Número Registro</label>
                         <input type="text" id="balanco-patrimonial-numero-registro" value="{{ balanco_patrimonial_proximo_numero_registro }}" readonly>
                     </div>
                     <div>
-                        <label>Data Lancamento</label>
+                        <label>Data Lançamento</label>
                         <input type="date" name="data_lancamento" value="{{ hoje_iso }}">
                     </div>
                     <div>
@@ -93,7 +93,7 @@
                         </select>
                     </div>
                     <div class="balanco-patrimonial-radio-wrap">
-                        <label>Tipo Movimentacao</label>
+                        <label>Tipo Movimentação</label>
                         <div class="balanco-patrimonial-radio-group">
                             {% for opcao in balanco_patrimonial_tipo_movimentacao_opcoes %}
                             <label class="balanco-patrimonial-radio-item">
@@ -104,7 +104,7 @@
                         </div>
                     </div>
                     <div>
-                        <label>Descricao BP</label>
+                        <label>Descrição BP</label>
                         <div class="balanco-descricao-field">
                             <select name="descricao_bp_id" id="balanco-patrimonial-descricao-input" required>
                                 <option value="">Selecione</option>
@@ -112,7 +112,7 @@
                                 <option value="{{ opcao.id }}">{{ opcao.descricao }}</option>
                                 {% endfor %}
                             </select>
-                            <a href="{{ balanco_patrimonial_descricoes_bp_url }}" class="btn-light">Adicionar descricao</a>
+                            <a href="{{ balanco_patrimonial_descricoes_bp_url }}" class="btn-light">Adicionar descrição</a>
                         </div>
                     </div>
                     <div>
@@ -120,7 +120,7 @@
                         <input type="text" name="valor" id="balanco-patrimonial-valor-input" placeholder="R$ 0,00" required>
                     </div>
                     <div>
-                        <label>Observacao</label>
+                        <label>Observação</label>
                         <input type="text" name="observacao">
                     </div>
                 </div>
@@ -132,15 +132,15 @@
         </section>
 
         <section id="sec-dashboard" class="panel module-section">
-            <h2>Dashboard Balanco Patrimonial</h2>
+            <h2>Dashboard Balanço Patrimonial</h2>
             <div class="balanco-dashboard-data-base">
                 <div class="balanco-dashboard-data-base-field">
                     <div>
-                        <label for="balanco-dashboard-data-referencia">Data Referencia</label>
+                        <label for="balanco-dashboard-data-referencia">Data Referência</label>
                         <input type="date" id="balanco-dashboard-data-referencia">
                     </div>
                     <div>
-                        <label for="balanco-dashboard-data-evolucao">Data Evolucao</label>
+                        <label for="balanco-dashboard-data-evolucao">Data Evolução</label>
                         <input type="date" id="balanco-dashboard-data-evolucao">
                     </div>
                 </div>
@@ -160,20 +160,20 @@
 
             <div class="dashboard-kpi-grid balanco-kpi-grid">
                 <article class="dashboard-kpi-card">
-                    <h3>Patrimonio Liquido</h3>
+                    <h3>Patrimônio Líquido</h3>
                     <div class="balanco-kpi-list">
                         <div class="balanco-kpi-list-item">
-                            <span>Referencia</span>
+                            <span>Referência</span>
                             <strong id="balanco-kpi-pl-referencia">R$ 0,00</strong>
                         </div>
                         <div class="balanco-kpi-list-item">
-                            <span>Evolucao</span>
+                            <span>Evolução</span>
                             <strong id="balanco-kpi-pl-evolucao">R$ 0,00</strong>
                         </div>
                     </div>
                 </article>
                 <article class="dashboard-kpi-card">
-                    <h3>Evolucao do PL</h3>
+                    <h3>Evolução do PL</h3>
                     <div class="balanco-kpi-list">
                         <div class="balanco-kpi-list-item">
                             <span>Valor</span>
@@ -192,7 +192,7 @@
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">
-            <h2>Tabela Balanco Patrimonial</h2>
+            <h2>Tabela Balanço Patrimonial</h2>
             <div class="table-wrapper">
                 <div id="balanco-patrimonial-tabulator"></div>
             </div>
@@ -209,7 +209,7 @@
 <div
     id="dashboard-pdf-config"
     data-endpoint="{% url 'dashboard_pdf_generico' empresa.id 'financeiro_balanco_patrimonial' %}"
-    data-title="Dashboard Balanco Patrimonial"
+    data-title="Dashboard Balanço Patrimonial"
     data-dashboard-slug="financeiro_balanco_patrimonial"
 ></div>
 {{ balanco_patrimonial_tabulator|json_script:"balanco-patrimonial-tabulator-data" }}

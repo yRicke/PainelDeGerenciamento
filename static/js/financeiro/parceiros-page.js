@@ -36,7 +36,7 @@
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {title: "Nome", field: "nome", editor: "input"},
-            {title: "Codigo", field: "codigo", editor: "input"},
+            {title: "Código", field: "codigo", editor: "input"},
             {
                 title: "Cidade",
                 field: "cidade_id",

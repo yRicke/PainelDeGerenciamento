@@ -17,11 +17,11 @@
 
 <section class="panel">
     <h2>Nova Operacao</h2>
-    <p class="form-note">Cadastre o tipo de operacao e sua classificacao de receita/despesa.</p>
+    <p class="form-note">Cadastre o tipo de operação e sua classificação de receita/despesa.</p>
     <form action="{% url 'criar_operacao_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
-        <input type="text" name="tipo_operacao_codigo" placeholder="Codigo" required>
-        <input type="text" name="descricao_receita_despesa" placeholder="Descricao Receita/Despesa">
+        <input type="text" name="tipo_operacao_codigo" placeholder="Código" required>
+        <input type="text" name="descricao_receita_despesa" placeholder="Descrição Receita/Despesa">
         <button type="submit" class="btn-primary">Cadastrar</button>
     </form>
 </section>

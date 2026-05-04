@@ -190,7 +190,7 @@
         return [
             {
                 key: "descricao_acordos",
-                label: "Descricao dos Acordos",
+                label: "Descrição dos Acordos",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.descricao_acordos : "";
@@ -321,10 +321,10 @@
     var tabela = window.TabulatorDefaults.create("#contratos-redes-tabulator", {
         data: data,
         columns: [
-            {title: "Codigo Registro", field: "codigo_registro", editor: "input", headerFilter: false},
-            {title: "Numero do Contrato", field: "numero_contrato", editor: "input", headerFilter: false},
+            {title: "Código Registro", field: "codigo_registro", editor: "input", headerFilter: false},
+            {title: "Número do Contrato", field: "numero_contrato", editor: "input", headerFilter: false},
             {
-                title: "Data Inicio",
+                title: "Data Início",
                 field: "data_inicio",
                 editor: "date",
                 headerFilter: false,
@@ -367,10 +367,10 @@
                     });
                 },
             },
-            {title: "Codigo Parceiro", field: "parceiro_codigo", headerFilter: false},
+            {title: "Código Parceiro", field: "parceiro_codigo", headerFilter: false},
             {title: "Nome Parceiro", field: "parceiro_nome", headerFilter: false},
             {
-                title: "Descricao dos Acordos",
+                title: "Descrição dos Acordos",
                 field: "descricao_acordos",
                 editor: "textarea",
                 headerFilter: "input",

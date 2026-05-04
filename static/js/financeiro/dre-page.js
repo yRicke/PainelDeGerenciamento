@@ -39,10 +39,10 @@
     var analyticalSummaryRows = [
         {label: "Receita Bruta", summaryKey: "receita-bruta", badge: "+", bucketKey: "receitaBruta"},
         {label: "Despesas", summaryKey: "despesas", badge: "-", bucketKey: "despesas"},
-        {label: "Devolucoes", summaryKey: "devolucoes", badge: "-", bucketKey: "devolucoes"},
-        {label: "Faturamento Liquido", summaryKey: "faturamento-liquido", badge: "=", bucketKey: "faturamentoLiquido"},
+        {label: "Devoluções", summaryKey: "devolucoes", badge: "-", bucketKey: "devolucoes"},
+        {label: "Faturamento Líquido", summaryKey: "faturamento-liquido", badge: "=", bucketKey: "faturamentoLiquido"},
         {label: "Lucro Bruto", summaryKey: "lucro-bruto", badge: "=", bucketKey: "lucroBruto"},
-        {label: "Lucro Liquido", summaryKey: "lucro-liquido", badge: "=", bucketKey: "lucroLiquido"},
+        {label: "Lucro Líquido", summaryKey: "lucro-liquido", badge: "=", bucketKey: "lucroLiquido"},
     ];
 
     function toText(value) {
@@ -204,7 +204,7 @@
         return (
             toText(rowData && rowData.descricao_tipo_operacao) ||
             toText(rowData && rowData.descricao_natureza) ||
-            "Sem tipo de operacao"
+            "Sem tipo de operação"
         );
     }
 
@@ -530,7 +530,7 @@
         var devolucaoDetailRows = buildAnalyticalSectionRowsByKind(
             structure.devolucoesCenters,
             "despesa",
-            "Devolucao",
+            "Devolução",
             centerOnlyOptions
         );
         var despesaDetailRows = buildAnalyticalSectionRowsByKind(
@@ -641,7 +641,7 @@
         html.push(
             '<thead>',
             '<tr>',
-            '<th class="dre-analitico-cell dre-analitico-cell--description dre-analitico-cell--description-head">Descricao</th>'
+            '<th class="dre-analitico-cell dre-analitico-cell--description dre-analitico-cell--description-head">Descrição</th>'
         );
 
         analyticalMonths.forEach(function (month) {
@@ -654,7 +654,7 @@
     function renderAnalyticalEmptyState() {
         if (!analiticoTableHost) return;
         analiticoTableHost.innerHTML =
-            '<div class="dre-analitico-empty"><strong>Nenhum dado encontrado</strong><span>Os filtros atuais nao retornaram registros para montar a tabela analitica.</span></div>';
+            '<div class="dre-analitico-empty"><strong>Nenhum dado encontrado</strong><span>Os filtros atuais não retornaram registros para montar a tabela analítica.</span></div>';
     }
 
     function bindAnalyticalExpanders() {
@@ -925,9 +925,9 @@
                 {title: "Nome Parceiro (Parceiro)", field: "nome_parceiro", headerFilter: "input", minWidth: 220},
                 {title: "Nro Nota", field: "numero_nota", headerFilter: "input", minWidth: 120},
                 {title: "Natureza", field: "natureza", headerFilter: "input", minWidth: 110},
-                {title: "Descricao (Natureza)", field: "descricao_natureza", headerFilter: "input", minWidth: 220},
+                {title: "Descrição (Natureza)", field: "descricao_natureza", headerFilter: "input", minWidth: 220},
                 {
-                    title: "Valor Liquido",
+                    title: "Valor Líquido",
                     field: "valor_liquido",
                     hozAlign: "right",
                     headerFilter: "input",
@@ -947,8 +947,8 @@
                         return formatMoney(value);
                     },
                 },
-                {title: "Descricao (Tipo de Operacao)", field: "descricao_tipo_operacao", headerFilter: "input", minWidth: 220},
-                {title: "Descricao (Centro de Resultado)", field: "descricao_centro_resultado", headerFilter: "input", minWidth: 230},
+                {title: "Descrição (Tipo de Operação)", field: "descricao_tipo_operacao", headerFilter: "input", minWidth: 220},
+                {title: "Descrição (Centro de Resultado)", field: "descricao_centro_resultado", headerFilter: "input", minWidth: 230},
                 {
                     title: "Plano Contas.Tipo Movimento",
                     field: "plano_contas_tipo_movimento",

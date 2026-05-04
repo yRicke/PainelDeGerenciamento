@@ -140,8 +140,8 @@
         ? window.TabulatorDefaults.create("#mascara-contrato-tabulator", {
             data: [],
             columns: [
-                {title: "Descricao Parceiro", field: "parceiro_descricao"},
-                {title: "Descricao dos Acordos", field: "descricao_acordos"},
+                {title: "Descrição Parceiro", field: "parceiro_descricao"},
+                {title: "Descrição dos Acordos", field: "descricao_acordos"},
                 {
                     title: "Valor do Acordo (%)",
                     field: "valor_acordo",
@@ -166,8 +166,8 @@
             layout: "fitDataStretch",
             maxHeight: "62vh",
             columns: [
-                {title: "Descricao Parceiro", field: "parceiro_descricao"},
-                {title: "Descricao dos Acordos", field: "descricao_acordos"},
+                {title: "Descrição Parceiro", field: "parceiro_descricao"},
+                {title: "Descrição dos Acordos", field: "descricao_acordos"},
                 {title: "Valor do Acordo (%)", field: "valor_acordo"},
                 {title: "Valor Calculado", field: "valor_calculado"},
                 {title: "Status do Contrato", field: "status_contrato"},

@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Financeiro</span>
+                <span class="module-hero-pill">Módulo Financeiro</span>
             </div>
             <h1>DFC</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, importação, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -28,20 +28,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de DFC">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de DFC">
             <div class="module-hero-import-head">
-                <h2>Importacao de DFC</h2>
+                <h2>Importação de DFC</h2>
                 <span class="module-hero-import-badge">.xls</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -92,15 +92,15 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes do DFC">
+            <nav class="module-sections-nav" aria-label="Navegação de seções do DFC">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
                 <a href="#sec-saldo-projecao">Saldo Projetado</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -108,17 +108,17 @@
         {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
             <h2>Novo Registro DFC (Cadastro Manual)</h2>
-            <p class="form-note">Preencha os dados essenciais do lancamento e conclua o cadastro.</p>
+            <p class="form-note">Preencha os dados essenciais do lançamento e conclua o cadastro.</p>
             <form action="{% url 'dfc' empresa.id %}" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_dfc">
                 <div class="form-grid">
-                    <div><label>Data negociacao</label><input type="date" name="data_negociacao" value="{{ hoje_iso }}" required></div>
+                    <div><label>Data negociação</label><input type="date" name="data_negociacao" value="{{ hoje_iso }}" required></div>
                     <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ hoje_iso }}" required></div>
-                    <div><label>Valor liquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
-                    <div><label>Numero nota</label><input type="text" name="numero_nota"></div>
+                    <div><label>Valor líquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
+                    <div><label>Número da Nota</label><input type="text" name="numero_nota"></div>
                     <div>
-                        <label>Titulo</label>
+                        <label>Título</label>
                         <select name="titulo_id">
                             <option value="">-</option>
                             {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
@@ -138,7 +138,7 @@
                             {% for item in naturezas %}<option value="{{ item.id }}">{{ item.codigo }} - {{ item.descricao }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div><label>Historico</label><input type="text" name="historico"></div>
+                    <div><label>Histórico</label><input type="text" name="historico"></div>
                     <div>
                         <label>Parceiro</label>
                         <select name="parceiro_id">
@@ -147,7 +147,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Operacao</label>
+                        <label>Operação</label>
                         <select name="operacao_id">
                             <option value="">-</option>
                             {% for item in operacoes %}<option value="{{ item.id }}">{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>{% endfor %}
@@ -174,18 +174,18 @@
                     <p id="dfc-kpi-despesa">R$ 0,00</p>
                 </article>
                 <article class="dashboard-kpi-card dashboard-kpi-card-saldo">
-                    <h3>Projecao de Saldo</h3>
+                    <h3>Projeção de Saldo</h3>
                     <div class="dfc-kpi-saldo-list">
                         <div class="dfc-kpi-saldo-item">
                             <span>Saldo Final Hoje</span>
                             <strong id="dfc-kpi-saldo-atual">R$ -</strong>
                         </div>
                         <div class="dfc-kpi-saldo-item">
-                            <span>Saldo Final Periodo</span>
+                            <span>Saldo Final Período</span>
                             <strong id="dfc-kpi-saldo-periodo">R$ -</strong>
                         </div>
                         <div class="dfc-kpi-saldo-item">
-                            <span>Diferenca (Periodo - Hoje)</span>
+                            <span>Diferença (Período - Hoje)</span>
                             <strong id="dfc-kpi-saldo-diferenca" class="dfc-kpi-saldo-diff-neutral">R$ -</strong>
                         </div>
                     </div>
@@ -195,15 +195,15 @@
 
         <section id="sec-saldo-projecao" class="panel module-section">
             <h2>Saldo Projetado (Hoje + 10 dias)</h2>
-            <p class="form-note">Valores manuais sao salvos automaticamente ao sair do campo.</p>
+            <p class="form-note">Valores manuais são salvos automaticamente ao sair do campo.</p>
             <div class="dfc-saldo-controls">
                 <label class="dfc-saldo-checkbox">
                     <input type="checkbox" id="dfc-saldo-incluir-previsoes" checked>
-                    Calcular "Previsoes" no saldo
+                    Calcular "Previsões" no saldo
                 </label>
                 <label class="dfc-saldo-checkbox">
                     <input type="checkbox" id="dfc-saldo-incluir-outras" checked>
-                    Calcular "Outras consideracoes" no saldo
+                    Calcular "Outras considerações" no saldo
                 </label>
                 <span id="dfc-saldo-save-status" class="file-status"></span>
             </div>

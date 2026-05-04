@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Comite Diario{% endblock %}
+{% block title %}Comitê Diário{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -15,10 +15,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Financeiro</span>
+                <span class="module-hero-pill">Módulo Financeiro</span>
             </div>
-            <h1>Comite Diario</h1>
-            <p class="module-hero-subtitle">Cadastro manual, dashboard, filtros e tabela com edicao inline.</p>
+            <h1>Comitê Diário</h1>
+            <p class="module-hero-subtitle">Cadastro manual, dashboard, filtros e tabela com edição inline.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -27,20 +27,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Comite Diario">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Comitê Diário">
             <div class="module-hero-import-head">
-                <h2>Importacao de Comite Diario</h2>
+                <h2>Importação de Comitê Diário</h2>
                 <span class="module-hero-import-badge">.xls</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -79,7 +79,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros de Receita/Despesa, Decisao, Empresa Titular, Parceiro, Centro de Resultado e Data Vencimento.</p>
+            <p class="form-note module-filters-placeholder">Filtros de Receita/Despesa, Decisão, Empresa Titular, Parceiro, Centro de Resultado e Data Vencimento.</p>
             <div class="module-filter-columns">
                 <div id="comite-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="comite-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -98,27 +98,27 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Comite Diario">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de Comitê Diário">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
 
         {% if not bloquear_cadastro_edicao_importacao %}
         <section id="sec-cadastro" class="panel module-section">
-            <h2>Novo Registro de Comite Diario</h2>
-            <p class="form-note">Empresa e vinculada automaticamente. Todos os campos principais sao obrigatorios.</p>
+            <h2>Novo Registro de Comitê Diário</h2>
+            <p class="form-note">Empresa é vinculada automaticamente. Todos os campos principais são obrigatórios.</p>
             <form id="comite-diario-cadastro-form" action="{% url 'criar_comite_diario_modulo' empresa.id %}" method="post">
                 {% csrf_token %}
                 <div class="form-grid">
                     <div>
-                        <label>Data de Negociacao</label>
+                        <label>Data de Negociação</label>
                         <input type="date" name="data_negociacao" value="{{ hoje_iso }}" required>
                     </div>
                     <div>
@@ -171,15 +171,15 @@
                         </select>
                     </div>
                     <div>
-                        <label>Historico</label>
+                        <label>Histórico</label>
                         <input type="text" name="historico" required>
                     </div>
                     <div>
-                        <label>Numero Nota</label>
+                        <label>Número Nota</label>
                         <input type="number" name="numero_nota" required>
                     </div>
                     <div>
-                        <label>Valor Liquido</label>
+                        <label>Valor Líquido</label>
                         <input type="text" name="valor_liquido" placeholder="0,00" required>
                     </div>
                     <div>
@@ -192,7 +192,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Decisao</label>
+                        <label>Decisão</label>
                         <select name="decisao" required>
                             <option value="">Selecione</option>
                             {% for opcao in decisao_opcoes %}
@@ -241,14 +241,14 @@
         {% endif %}
 
         <section id="sec-dashboard" class="panel module-section">
-            <h2>Dashboard Comite Diario</h2>
+            <h2>Dashboard Comitê Diário</h2>
             <div class="dashboard-kpi-grid comite-dashboard-intro-grid">
                 <article class="dashboard-kpi-card">
                     <h3>Saldo Adiantamentos</h3>
                     <p id="comite-kpi-saldo-adiantamentos" class="comite-kpi-highlight">{{ comite_saldo_adiantamentos_texto }}</p>
                 </article>
                 <article class="dashboard-kpi-card">
-                    <h3>Contas a Receber (Ate 90 dias)</h3>
+                    <h3>Contas a Receber (Até 90 dias)</h3>
                     <p id="comite-kpi-contas-receber-90" class="comite-kpi-highlight">{{ comite_contas_receber_90_texto }}</p>
                 </article>
             </div>
@@ -256,7 +256,7 @@
             <div class="comite-dashboard-grid">
                 <article class="dashboard-kpi-card">
                     <div class="comite-card-head">
-                        <h3>Lancamentos Bancarios</h3>
+                        <h3>Lançamentos Bancários</h3>
                         <a href="{% url 'saldos_e_limites' empresa.id %}" class="btn-light">Saldos e Limites</a>
                     </div>
                     <div
@@ -267,12 +267,12 @@
                 </article>
 
                 <article class="dashboard-kpi-card">
-                    <h3>Contas a Pagar, Correcoes, Transferencias e Conciliar Adiantamentos</h3>
+                    <h3>Contas a Pagar, Correções, Transferências e Conciliar Adiantamentos</h3>
                     <div id="comite-resumo-wrapper" class="comite-resumo-wrapper"></div>
                 </article>
 
                 <article class="dashboard-kpi-card">
-                    <h3>Grafico</h3>
+                    <h3>Gráfico</h3>
                     <div id="comite-decisao-chart" class="comite-decisao-chart"></div>
                 </article>
             </div>
@@ -293,7 +293,7 @@
         </section>
 
         <section id="sec-visualizacao" class="panel module-section">
-            <h2>Tabela Comite Diario</h2>
+            <h2>Tabela Comitê Diário</h2>
             <div class="table-wrapper">
                 <div id="comite-diario-tabulator"></div>
             </div>

@@ -16,10 +16,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'financeiro' %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Financeiro</span>
+                <span class="module-hero-pill">Módulo Financeiro</span>
             </div>
             <h1>Contas a Receber</h1>
-            <p class="module-hero-subtitle">Visualizacao central de cadastro, importacao, filtros, dashboard e tabela.</p>
+            <p class="module-hero-subtitle">Visualização central de cadastro, importação, filtros, dashboard e tabela.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -28,20 +28,20 @@
             </dl>
         </div>
 
-        <section id="sec-importacao" class="module-hero-import" aria-label="Importacao de Contas a Receber">
+        <section id="sec-importacao" class="module-hero-import" aria-label="Importação de Contas a Receber">
             <div class="module-hero-import-head">
-                <h2>Importacao de Contas a Receber</h2>
+                <h2>Importação de Contas a Receber</h2>
                 <span class="module-hero-import-badge">.xls</span>
             </div>
 
-            <p class="form-note"><strong>Tipo importacao:</strong> {{ tipo_importacao_texto }}</p>
+            <p class="form-note"><strong>Tipo importação:</strong> {{ tipo_importacao_texto }}</p>
 
             {% if resumo_importacao.tem_arquivos %}
             <div class="importacao-resumo">
                 <p class="file-status">
-                    <strong>Data/Hora Ultima importacao:</strong> {{ resumo_importacao.data_referencia }}
+                    <strong>Data/Hora Última importação:</strong> {{ resumo_importacao.data_referencia }}
                     <span class="importacao-resumo-sep">|</span>
-                    <strong>Usuario:</strong> {{ resumo_importacao.usuario }}
+                    <strong>Usuário:</strong> {{ resumo_importacao.usuario }}
                 </p>
                 <p class="file-status"><strong>Quantidade de Arquivos:</strong> {{ resumo_importacao.quantidade_arquivos }}</p>
             </div>
@@ -71,7 +71,7 @@
                 </div>
 
                 <div id="contas-loading-status" class="loading-status">
-                    Carregamento em andamento. Os arquivos estao sendo enviados e a importacao foi iniciada.
+                    Carregamento em andamento. Os arquivos estão sendo enviados e a importação foi iniciada.
                 </div>
             </form>
         </section>
@@ -105,14 +105,14 @@
                 <span>Menu de filtros</span>
             </button>
 
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de contas a receber">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de contas a receber">
                 {% if not bloquear_cadastro_edicao_importacao %}
                 <a href="#sec-cadastro">Cadastro</a>
                 {% endif %}
-                <a href="#sec-importacao">Importacao</a>
+                <a href="#sec-importacao">Importação</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
 
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
@@ -125,7 +125,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="criar_conta">
                 <div class="form-grid">
-                    <div><label>Data negociacao</label><input type="date" name="data_negociacao" value="{{ hoje_iso }}" required></div>
+                    <div><label>Data negociação</label><input type="date" name="data_negociacao" value="{{ hoje_iso }}" required></div>
                     <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ hoje_iso }}" required></div>
                     <div><label>Data arquivo</label><input type="date" name="data_arquivo"></div>
                     <div><label>Nome fantasia empresa</label><input type="text" name="nome_fantasia_empresa"></div>
@@ -136,12 +136,12 @@
                             {% for item in parceiros %}<option value="{{ item.id }}">{{ item.nome }} ({{ item.codigo }})</option>{% endfor %}
                         </select>
                     </div>
-                    <div><label>Numero nota</label><input type="text" name="numero_nota"></div>
+                    <div><label>Número da Nota</label><input type="text" name="numero_nota"></div>
                     <div><label>Vendedor</label><input type="text" name="vendedor"></div>
                     <div><label>Valor desdobramento</label><input type="text" name="valor_desdobramento" placeholder="0,00"></div>
-                    <div><label>Valor liquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
+                    <div><label>Valor líquido</label><input type="text" name="valor_liquido" placeholder="0,00"></div>
                     <div>
-                        <label>Titulo</label>
+                        <label>Título</label>
                         <select name="titulo_id">
                             <option value="">-</option>
                             {% for item in titulos %}<option value="{{ item.id }}">{{ item.tipo_titulo_codigo }} - {{ item.descricao }}</option>{% endfor %}
@@ -162,7 +162,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Operacao</label>
+                        <label>Operação</label>
                         <select name="operacao_id">
                             <option value="">-</option>
                             {% for item in operacoes %}<option value="{{ item.id }}">{{ item.tipo_operacao_codigo }} - {{ item.descricao_receita_despesa }}</option>{% endfor %}
@@ -180,7 +180,7 @@
             <h2>Dashboard Contas a Receber</h2>
             <div class="contas-dashboard-grid">
                 <article class="contas-dashboard-card">
-                    <h3>Analise Ultimo Dia - Analitico</h3>
+                    <h3>Análise Último Dia - Analítico</h3>
                     <div class="contas-dashboard-analitico-grid">
                         <div class="contas-dashboard-kpi contas-dashboard-kpi--destaque">
                             <p class="contas-dashboard-kpi-label">Data Mais Recente</p>
@@ -193,12 +193,12 @@
                 </article>
 
                 <article class="contas-dashboard-card">
-                    <h3>Analise Faturamento</h3>
+                    <h3>Análise Faturamento</h3>
                     <div class="contas-dashboard-faturamento-grid">
                         <div class="contas-dashboard-filtros-card">
                             <div class="contas-dashboard-filtros-grid">
                                 <div class="contas-dashboard-filtro-item">
-                                    <label for="contas-dashboard-faturamento-inicio">Periodo Inicio</label>
+                                    <label for="contas-dashboard-faturamento-inicio">Período Início</label>
                                     <input
                                         type="date"
                                         id="contas-dashboard-faturamento-inicio"
@@ -206,7 +206,7 @@
                                     >
                                 </div>
                                 <div class="contas-dashboard-filtro-item">
-                                    <label for="contas-dashboard-faturamento-fim">Periodo Fim</label>
+                                    <label for="contas-dashboard-faturamento-fim">Período Fim</label>
                                     <input
                                         type="date"
                                         id="contas-dashboard-faturamento-fim"
@@ -238,7 +238,7 @@
                 </article>
 
                 <article class="contas-dashboard-card">
-                    <h3>Analise Periodo Completo</h3>
+                    <h3>Análise Período Completo</h3>
                     <div class="contas-dashboard-periodo-grid">
                         <div class="contas-dashboard-kpi contas-dashboard-kpi--periodo">
                             <p class="contas-dashboard-kpi-label">Data Inicial</p>

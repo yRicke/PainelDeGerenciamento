@@ -37,7 +37,7 @@
     </form>
 
     <div class="danger-zone">
-        <p>Acao irreversivel: exclui este registro de Adiantamentos.</p>
+        <p>Ação irreversível: exclui este registro de Adiantamentos.</p>
         <form action="{% url 'excluir_adiantamento_modulo' empresa.id adiantamento_item.id %}" method="POST" onsubmit="return confirm('Excluir registro de Adiantamentos {{ adiantamento_item.id }}?');">
             {% csrf_token %}
             <button type="submit" class="btn-danger">Excluir registro de Adiantamentos</button>

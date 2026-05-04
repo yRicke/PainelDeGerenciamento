@@ -324,13 +324,13 @@ def _descrever_filtros_pagina_contas(filtros):
         "status": "Status",
         "intervalo": "Intervalo",
         "data_arquivo_iso": "Data Arquivo",
-        "titulo_descricao": "Descricao Tipo Titulo",
+        "titulo_descricao": "Descrição Tipo Título",
         "nome_fantasia_empresa": "Nome Fantasia Empresa",
-        "natureza_descricao": "Descricao Natureza",
+        "natureza_descricao": "Descrição Natureza",
         "posicao_contagem": "Posicao",
         "data_negociacao": "Data Negociacao",
         "data_vencimento": "Data Vencimento",
-        "numero_nota": "Numero Nota",
+        "numero_nota": "Número Nota",
         "parceiro_nome": "Parceiro",
         "vendedor": "Vendedor",
         "operacao_descricao": "Receita/Despesa",
@@ -445,7 +445,7 @@ def _montar_contexto_dashboard_comite_pdf(empresa, payload):
         "gerado_em": timezone.localtime().strftime("%d/%m/%Y %H:%M"),
         "titulo_dashboard": _texto_pdf_comite(
             payload.get("title"),
-            fallback="Dashboard Comite Diario",
+            fallback="Dashboard Comitê Diário",
             limite=120,
         ),
         "top_kpis": top_kpis,
@@ -608,7 +608,7 @@ def comite_diario(request, empresa_id):
 def comite_diario_lancamentos_dashboard_data(request, empresa_id):
     empresa, autorizado = _obter_empresa_e_validar_permissao_modulo(request, empresa_id, "Comite Diario")
     if not autorizado:
-        return JsonResponse({"ok": False, "message": "Sem permissao."}, status=403)
+        return JsonResponse({"ok": False, "message": "Sem permissão."}, status=403)
 
     data_referencia_iso = str(request.GET.get("data") or "").strip()
     payload = _build_lancamentos_bancarios_payload(empresa, data_referencia_iso)
@@ -621,7 +621,7 @@ def comite_diario_dashboard_pdf(request, empresa_id):
     if not autorizado:
         return JsonResponse({"detail": "Acesso negado."}, status=403)
     if request.method != "POST":
-        return JsonResponse({"detail": "Metodo nao permitido."}, status=405)
+        return JsonResponse({"detail": "Método não permitido."}, status=405)
 
     payload = _carregar_payload_dashboard_comite_pdf(request)
     contexto = _montar_contexto_dashboard_comite_pdf(empresa, payload)
@@ -683,7 +683,7 @@ def criar_comite_diario_modulo(request, empresa_id):
     if _is_ajax_request(request):
         if item is None:
             return JsonResponse(
-                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                {"ok": False, "message": "Registro criado, mas não foi possível recarregar os dados."},
                 status=500,
             )
         return JsonResponse(
@@ -716,8 +716,8 @@ def editar_comite_diario_modulo(request, empresa_id, comite_diario_id):
     item = ComiteDiario.objects.filter(id=comite_diario_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("comite_diario", empresa_id=empresa.id)
 
     erro = atualizar_comite_diario_por_dados(item, empresa, request.POST)
@@ -772,8 +772,8 @@ def excluir_comite_diario_modulo(request, empresa_id, comite_diario_id):
     item = ComiteDiario.objects.filter(id=comite_diario_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("comite_diario", empresa_id=empresa.id)
 
     erro = excluir_comite_diario_por_dados(item, empresa)
@@ -784,9 +784,9 @@ def excluir_comite_diario_modulo(request, empresa_id, comite_diario_id):
         return redirect("comite_diario", empresa_id=empresa.id)
 
     if _is_ajax_request(request):
-        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": comite_diario_id})
+        return JsonResponse({"ok": True, "message": "Registro excluído com sucesso.", "id": comite_diario_id})
 
-    messages.success(request, "Registro excluido com sucesso.")
+    messages.success(request, "Registro excluído com sucesso.")
     return redirect("comite_diario", empresa_id=empresa.id)
 
 
@@ -849,7 +849,7 @@ def criar_balanco_patrimonial_modulo(request, empresa_id):
     if _is_ajax_request(request):
         if item is None:
             return JsonResponse(
-                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                {"ok": False, "message": "Registro criado, mas não foi possível recarregar os dados."},
                 status=500,
             )
         return JsonResponse(
@@ -876,8 +876,8 @@ def editar_balanco_patrimonial_modulo(request, empresa_id, balanco_patrimonial_i
     item = BalancoPatrimonial.objects.filter(id=balanco_patrimonial_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("balanco_patrimonial", empresa_id=empresa.id)
 
     erro = atualizar_balanco_patrimonial_por_dados(item, empresa, request.POST)
@@ -912,8 +912,8 @@ def excluir_balanco_patrimonial_modulo(request, empresa_id, balanco_patrimonial_
     item = BalancoPatrimonial.objects.filter(id=balanco_patrimonial_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("balanco_patrimonial", empresa_id=empresa.id)
 
     erro = excluir_balanco_patrimonial_por_dados(item, empresa)
@@ -927,13 +927,13 @@ def excluir_balanco_patrimonial_modulo(request, empresa_id, balanco_patrimonial_
         return JsonResponse(
             {
                 "ok": True,
-                "message": "Registro excluido com sucesso.",
+                "message": "Registro excluído com sucesso.",
                 "id": balanco_patrimonial_id,
                 "proximo_numero_registro": BalancoPatrimonial.proximo_numero_registro(empresa),
             }
         )
 
-    messages.success(request, "Registro excluido com sucesso.")
+    messages.success(request, "Registro excluído com sucesso.")
     return redirect("balanco_patrimonial", empresa_id=empresa.id)
 
 
@@ -991,7 +991,7 @@ def criar_balanco_patrimonial_ativo_modulo(request, empresa_id):
     if _is_ajax_request(request):
         if item is None:
             return JsonResponse(
-                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                {"ok": False, "message": "Registro criado, mas não foi possível recarregar os dados."},
                 status=500,
             )
         return JsonResponse(
@@ -1017,8 +1017,8 @@ def editar_balanco_patrimonial_ativo_modulo(request, empresa_id, ativo_id):
     item = BalancoPatrimonialAtivo.objects.filter(id=ativo_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
 
     erro = atualizar_balanco_patrimonial_ativo_por_dados(item, empresa, request.POST)
@@ -1053,8 +1053,8 @@ def excluir_balanco_patrimonial_ativo_modulo(request, empresa_id, ativo_id):
     item = BalancoPatrimonialAtivo.objects.filter(id=ativo_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
 
     erro = excluir_balanco_patrimonial_ativo_por_dados(item, empresa)
@@ -1065,9 +1065,9 @@ def excluir_balanco_patrimonial_ativo_modulo(request, empresa_id, ativo_id):
         return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
 
     if _is_ajax_request(request):
-        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": ativo_id})
+        return JsonResponse({"ok": True, "message": "Registro excluído com sucesso.", "id": ativo_id})
 
-    messages.success(request, "Registro excluido com sucesso.")
+    messages.success(request, "Registro excluído com sucesso.")
     return redirect("balanco_patrimonial_ativos", empresa_id=empresa.id)
 
 
@@ -1624,7 +1624,7 @@ def orcamento(request, empresa_id):
             else:
                 messages.error(request, mensagem)
         else:
-            messages.error(request, "Acao de importacao invalida.")
+            messages.error(request, "Ação de importação inválida.")
         return redirect("orcamento", empresa_id=empresa.id)
 
     orcamentos_realizados_qs = _orcamentos_realizados_qs_para_tabulator(empresa)
@@ -1667,9 +1667,9 @@ def orcamentos_realizados(request, empresa_id):
             if erro:
                 messages.error(request, erro)
             else:
-                messages.success(request, "Registro de Orcamento criado com sucesso.")
+                messages.success(request, "Registro de Orçamento criado com sucesso.")
         else:
-            messages.error(request, "Acao de Orcamento invalida.")
+            messages.error(request, "Ação de Orçamento inválida.")
         return redirect("orcamentos_realizados", empresa_id=empresa.id)
 
     orcamentos_realizados_qs = _orcamentos_realizados_qs_para_tabulator(empresa)
@@ -1720,9 +1720,9 @@ def orcamentos(request, empresa_id):
             if erro:
                 messages.error(request, erro)
             else:
-                messages.success(request, "Orcamento planejado criado com sucesso.")
+                messages.success(request, "Orçamento planejado criado com sucesso.")
         else:
-            messages.error(request, "Acao de Orcamento invalida.")
+            messages.error(request, "Ação de Orçamento inválida.")
         return redirect("orcamentos", empresa_id=empresa.id)
 
     orcamentos_qs = _orcamentos_planejados_qs_para_tabulator(empresa)
@@ -1753,7 +1753,7 @@ def editar_orcamento_modulo(request, empresa_id, orcamento_id):
 
     orcamento_item = Orcamento.objects.filter(id=orcamento_id, empresa=empresa).first()
     if not orcamento_item:
-        messages.error(request, "Registro de Orcamento nao encontrado.")
+        messages.error(request, "Registro de Orçamento não encontrado.")
         return redirect("orcamentos_realizados", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -1761,7 +1761,7 @@ def editar_orcamento_modulo(request, empresa_id, orcamento_id):
         if erro:
             messages.error(request, erro)
             return redirect("editar_orcamento_modulo", empresa_id=empresa.id, orcamento_id=orcamento_item.id)
-        messages.success(request, "Registro de Orcamento atualizado com sucesso.")
+        messages.success(request, "Registro de Orçamento atualizado com sucesso.")
         return redirect("orcamentos_realizados", empresa_id=empresa.id)
 
     contexto = {
@@ -1787,11 +1787,11 @@ def excluir_orcamento_modulo(request, empresa_id, orcamento_id):
 
     orcamento_item = Orcamento.objects.filter(id=orcamento_id, empresa=empresa).first()
     if not orcamento_item:
-        messages.error(request, "Registro de Orcamento nao encontrado.")
+        messages.error(request, "Registro de Orçamento não encontrado.")
         return redirect("orcamentos_realizados", empresa_id=empresa.id)
 
     orcamento_item.excluir_orcamento()
-    messages.success(request, "Registro de Orcamento excluido com sucesso.")
+    messages.success(request, "Registro de Orçamento excluído com sucesso.")
     return redirect("orcamentos_realizados", empresa_id=empresa.id)
 
 
@@ -1803,7 +1803,7 @@ def editar_orcamento_planejado_modulo(request, empresa_id, orcamento_planejado_i
 
     orcamento_planejado_item = OrcamentoPlanejado.objects.filter(id=orcamento_planejado_id, empresa=empresa).first()
     if not orcamento_planejado_item:
-        messages.error(request, "Orcamento planejado nao encontrado.")
+        messages.error(request, "Orçamento planejado não encontrado.")
         return redirect("orcamentos", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -1815,7 +1815,7 @@ def editar_orcamento_planejado_modulo(request, empresa_id, orcamento_planejado_i
                 empresa_id=empresa.id,
                 orcamento_planejado_id=orcamento_planejado_item.id,
             )
-        messages.success(request, "Orcamento planejado atualizado com sucesso.")
+        messages.success(request, "Orçamento planejado atualizado com sucesso.")
         return redirect("orcamentos", empresa_id=empresa.id)
 
     contexto = {
@@ -1838,11 +1838,11 @@ def excluir_orcamento_planejado_modulo(request, empresa_id, orcamento_planejado_
 
     orcamento_planejado_item = OrcamentoPlanejado.objects.filter(id=orcamento_planejado_id, empresa=empresa).first()
     if not orcamento_planejado_item:
-        messages.error(request, "Orcamento planejado nao encontrado.")
+        messages.error(request, "Orçamento planejado não encontrado.")
         return redirect("orcamentos", empresa_id=empresa.id)
 
     orcamento_planejado_item.excluir_orcamento_planejado()
-    messages.success(request, "Orcamento planejado excluido com sucesso.")
+    messages.success(request, "Orçamento planejado excluído com sucesso.")
     return redirect("orcamentos", empresa_id=empresa.id)
 
 
@@ -2030,7 +2030,7 @@ def criar_saldo_limite_modulo(request, empresa_id):
     if _is_ajax_request(request):
         if item is None:
             return JsonResponse(
-                {"ok": False, "message": "Registro criado, mas nao foi possivel recarregar os dados."},
+                {"ok": False, "message": "Registro criado, mas não foi possível recarregar os dados."},
                 status=500,
             )
         return JsonResponse(
@@ -2056,8 +2056,8 @@ def editar_saldo_limite_modulo(request, empresa_id, saldo_limite_id):
     item = SaldoLimite.objects.filter(id=saldo_limite_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("saldos_e_limites", empresa_id=empresa.id)
 
     erro = atualizar_saldo_limite_por_dados(item, empresa, request.POST)
@@ -2096,8 +2096,8 @@ def excluir_saldo_limite_modulo(request, empresa_id, saldo_limite_id):
     item = SaldoLimite.objects.filter(id=saldo_limite_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("saldos_e_limites", empresa_id=empresa.id)
 
     erro = excluir_saldo_limite_por_dados(item, empresa)
@@ -2108,9 +2108,9 @@ def excluir_saldo_limite_modulo(request, empresa_id, saldo_limite_id):
         return redirect("saldos_e_limites", empresa_id=empresa.id)
 
     if _is_ajax_request(request):
-        return JsonResponse({"ok": True, "message": "Registro excluido com sucesso.", "id": saldo_limite_id})
+        return JsonResponse({"ok": True, "message": "Registro excluído com sucesso.", "id": saldo_limite_id})
 
-    messages.success(request, "Registro excluido com sucesso.")
+    messages.success(request, "Registro excluído com sucesso.")
     return redirect("saldos_e_limites", empresa_id=empresa.id)
 
 
@@ -2197,7 +2197,7 @@ def editar_contrato_rede_modulo(request, empresa_id, contrato_id):
 
     contrato = ContratoRede.objects.filter(id=contrato_id, empresa=empresa).first()
     if not contrato:
-        messages.error(request, "Contrato de rede nao encontrado.")
+        messages.error(request, "Contrato de rede não encontrado.")
         return redirect("contratos_redes", empresa_id=empresa.id)
 
     erro = atualizar_contrato_rede_por_post(contrato, empresa, request.POST)
@@ -2218,11 +2218,11 @@ def excluir_contrato_rede_modulo(request, empresa_id, contrato_id):
 
     contrato = ContratoRede.objects.filter(id=contrato_id, empresa=empresa).first()
     if not contrato:
-        messages.error(request, "Contrato de rede nao encontrado.")
+        messages.error(request, "Contrato de rede não encontrado.")
         return redirect("contratos_redes", empresa_id=empresa.id)
 
     contrato.excluir_contrato_rede()
-    messages.success(request, "Contrato de rede excluido com sucesso.")
+    messages.success(request, "Contrato de rede excluído com sucesso.")
     return redirect("contratos_redes", empresa_id=empresa.id)
 
 
@@ -2254,7 +2254,7 @@ def criar_titulo_modulo(request, empresa_id):
     if erro:
         messages.error(request, erro)
         return redirect("titulos", empresa_id=empresa.id)
-    messages.success(request, "Titulo criado com sucesso.")
+    messages.success(request, "Título criado com sucesso.")
     return redirect("titulos", empresa_id=empresa.id)
 
 
@@ -2268,14 +2268,14 @@ def editar_titulo_modulo(request, empresa_id, titulo_id):
 
     titulo = Titulo.objects.filter(id=titulo_id, empresa=empresa).first()
     if not titulo:
-        messages.error(request, "Titulo nao encontrado.")
+        messages.error(request, "Título não encontrado.")
         return redirect("titulos", empresa_id=empresa.id)
 
     erro = atualizar_titulo_por_dados(titulo, request.POST.get("tipo_titulo_codigo"), request.POST.get("descricao"), empresa)
     if erro:
         messages.error(request, erro)
         return redirect("titulos", empresa_id=empresa.id)
-    messages.success(request, "Titulo atualizado com sucesso.")
+    messages.success(request, "Título atualizado com sucesso.")
     return redirect("titulos", empresa_id=empresa.id)
 
 
@@ -2289,10 +2289,10 @@ def excluir_titulo_modulo(request, empresa_id, titulo_id):
 
     titulo = Titulo.objects.filter(id=titulo_id, empresa=empresa).first()
     if not titulo:
-        messages.error(request, "Titulo nao encontrado.")
+        messages.error(request, "Título não encontrado.")
         return redirect("titulos", empresa_id=empresa.id)
     titulo.excluir_titulo()
-    messages.success(request, "Titulo excluido com sucesso.")
+    messages.success(request, "Título excluído com sucesso.")
     return redirect("titulos", empresa_id=empresa.id)
 
 
@@ -2338,7 +2338,7 @@ def editar_natureza_modulo(request, empresa_id, natureza_id):
 
     natureza = Natureza.objects.filter(id=natureza_id, empresa=empresa).first()
     if not natureza:
-        messages.error(request, "Natureza nao encontrada.")
+        messages.error(request, "Natureza não encontrada.")
         return redirect("naturezas", empresa_id=empresa.id)
 
     erro = atualizar_natureza_por_dados(natureza, request.POST.get("codigo"), request.POST.get("descricao"), empresa)
@@ -2359,10 +2359,10 @@ def excluir_natureza_modulo(request, empresa_id, natureza_id):
 
     natureza = Natureza.objects.filter(id=natureza_id, empresa=empresa).first()
     if not natureza:
-        messages.error(request, "Natureza nao encontrada.")
+        messages.error(request, "Natureza não encontrada.")
         return redirect("naturezas", empresa_id=empresa.id)
     natureza.excluir_natureza()
-    messages.success(request, "Natureza excluida com sucesso.")
+    messages.success(request, "Natureza excluída com sucesso.")
     return redirect("naturezas", empresa_id=empresa.id)
 
 
@@ -2398,7 +2398,7 @@ def criar_operacao_modulo(request, empresa_id):
     if erro:
         messages.error(request, erro)
         return redirect("operacoes", empresa_id=empresa.id)
-    messages.success(request, "Operacao criada com sucesso.")
+    messages.success(request, "Operação criada com sucesso.")
     return redirect("operacoes", empresa_id=empresa.id)
 
 
@@ -2412,7 +2412,7 @@ def editar_operacao_modulo(request, empresa_id, operacao_id):
 
     operacao = Operacao.objects.filter(id=operacao_id, empresa=empresa).first()
     if not operacao:
-        messages.error(request, "Operacao nao encontrada.")
+        messages.error(request, "Operação não encontrada.")
         return redirect("operacoes", empresa_id=empresa.id)
 
     erro = atualizar_operacao_por_dados(
@@ -2424,7 +2424,7 @@ def editar_operacao_modulo(request, empresa_id, operacao_id):
     if erro:
         messages.error(request, erro)
         return redirect("operacoes", empresa_id=empresa.id)
-    messages.success(request, "Operacao atualizada com sucesso.")
+    messages.success(request, "Operação atualizada com sucesso.")
     return redirect("operacoes", empresa_id=empresa.id)
 
 
@@ -2438,10 +2438,10 @@ def excluir_operacao_modulo(request, empresa_id, operacao_id):
 
     operacao = Operacao.objects.filter(id=operacao_id, empresa=empresa).first()
     if not operacao:
-        messages.error(request, "Operacao nao encontrada.")
+        messages.error(request, "Operação não encontrada.")
         return redirect("operacoes", empresa_id=empresa.id)
     operacao.excluir_operacao()
-    messages.success(request, "Operacao excluida com sucesso.")
+    messages.success(request, "Operação excluída com sucesso.")
     return redirect("operacoes", empresa_id=empresa.id)
 
 
@@ -2487,7 +2487,7 @@ def editar_centro_resultado_modulo(request, empresa_id, centro_resultado_id):
 
     centro_resultado = CentroResultado.objects.filter(id=centro_resultado_id, empresa=empresa).first()
     if not centro_resultado:
-        messages.error(request, "Centro resultado nao encontrado.")
+        messages.error(request, "Centro resultado não encontrado.")
         return redirect("centros_resultado", empresa_id=empresa.id)
 
     erro = atualizar_centro_resultado_por_dados(centro_resultado, request.POST.get("descricao"), empresa)
@@ -2508,17 +2508,17 @@ def excluir_centro_resultado_modulo(request, empresa_id, centro_resultado_id):
 
     centro_resultado = CentroResultado.objects.filter(id=centro_resultado_id, empresa=empresa).first()
     if not centro_resultado:
-        messages.error(request, "Centro resultado nao encontrado.")
+        messages.error(request, "Centro resultado não encontrado.")
         return redirect("centros_resultado", empresa_id=empresa.id)
     try:
         centro_resultado.excluir_centro_resultado()
     except ProtectedError:
         messages.error(
             request,
-            "Nao e possivel excluir este centro de resultado porque ele esta vinculado a Orcamentos Realizados.",
+            "Não é possível excluir este centro de resultado porque ele está vinculado a Orçamentos Realizados.",
         )
         return redirect("centros_resultado", empresa_id=empresa.id)
-    messages.success(request, "Centro resultado excluido com sucesso.")
+    messages.success(request, "Centro resultado excluído com sucesso.")
     return redirect("centros_resultado", empresa_id=empresa.id)
 
 
@@ -2533,8 +2533,8 @@ def editar_dre_modulo(request, empresa_id, dre_id):
     item = DRE.objects.filter(id=dre_id, empresa=empresa).first()
     if not item:
         if _is_ajax_request(request):
-            return JsonResponse({"ok": False, "message": "Registro nao encontrado."}, status=404)
-        messages.error(request, "Registro nao encontrado.")
+            return JsonResponse({"ok": False, "message": "Registro não encontrado."}, status=404)
+        messages.error(request, "Registro não encontrado.")
         return redirect("dre", empresa_id=empresa.id)
 
     erro = atualizar_dre_por_post(item, empresa, request.POST)
@@ -2569,7 +2569,7 @@ def editar_dfc_modulo(request, empresa_id, dfc_id):
 
     dfc_item = FluxoDeCaixaDFC.objects.filter(id=dfc_id, empresa=empresa).first()
     if not dfc_item:
-        messages.error(request, "Registro DFC nao encontrado.")
+        messages.error(request, "Registro DFC não encontrado.")
         return redirect("dfc", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -2603,13 +2603,13 @@ def excluir_dfc_modulo(request, empresa_id, dfc_id):
 
     dfc_item = FluxoDeCaixaDFC.objects.filter(id=dfc_id, empresa=empresa).first()
     if not dfc_item:
-        messages.error(request, "Registro DFC nao encontrado.")
+        messages.error(request, "Registro DFC não encontrado.")
         return redirect("dfc", empresa_id=empresa.id)
     erro = excluir_dfc_por_dados(dfc_item, empresa)
     if erro:
         messages.error(request, erro)
         return redirect("dfc", empresa_id=empresa.id)
-    messages.success(request, "Registro DFC excluido com sucesso.")
+    messages.success(request, "Registro DFC excluído com sucesso.")
     return redirect("dfc", empresa_id=empresa.id)
 
 
@@ -2624,7 +2624,7 @@ def editar_adiantamento_modulo(request, empresa_id, adiantamento_id):
 
     adiantamento_item = Adiantamento.objects.filter(id=adiantamento_id, empresa=empresa).first()
     if not adiantamento_item:
-        messages.error(request, "Registro de Adiantamentos nao encontrado.")
+        messages.error(request, "Registro de Adiantamentos não encontrado.")
         return redirect("adiantamentos", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -2653,10 +2653,10 @@ def excluir_adiantamento_modulo(request, empresa_id, adiantamento_id):
 
     adiantamento_item = Adiantamento.objects.filter(id=adiantamento_id, empresa=empresa).first()
     if not adiantamento_item:
-        messages.error(request, "Registro de Adiantamentos nao encontrado.")
+        messages.error(request, "Registro de Adiantamentos não encontrado.")
         return redirect("adiantamentos", empresa_id=empresa.id)
     adiantamento_item.excluir_adiantamento()
-    messages.success(request, "Registro de Adiantamentos excluido com sucesso.")
+    messages.success(request, "Registro de Adiantamentos excluído com sucesso.")
     return redirect("adiantamentos", empresa_id=empresa.id)
 
 
@@ -2671,7 +2671,7 @@ def editar_contas_a_receber_modulo(request, empresa_id, conta_id):
 
     conta_item = ContasAReceber.objects.filter(id=conta_id, empresa=empresa).first()
     if not conta_item:
-        messages.error(request, "Registro de Contas a Receber nao encontrado.")
+        messages.error(request, "Registro de Contas a Receber não encontrado.")
         return redirect("contas_a_receber", empresa_id=empresa.id)
 
     if request.method == "POST":
@@ -2705,9 +2705,9 @@ def excluir_contas_a_receber_modulo(request, empresa_id, conta_id):
 
     conta_item = ContasAReceber.objects.filter(id=conta_id, empresa=empresa).first()
     if not conta_item:
-        messages.error(request, "Registro de Contas a Receber nao encontrado.")
+        messages.error(request, "Registro de Contas a Receber não encontrado.")
         return redirect("contas_a_receber", empresa_id=empresa.id)
     conta_item.excluir_conta_a_receber()
-    messages.success(request, "Registro de Contas a Receber excluido com sucesso.")
+    messages.success(request, "Registro de Contas a Receber excluído com sucesso.")
     return redirect("contas_a_receber", empresa_id=empresa.id)
 

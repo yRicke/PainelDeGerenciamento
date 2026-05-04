@@ -66,22 +66,22 @@
         },
         {
             title: "Outros Ativos",
-            rows: [{label: "Adiantamentos de socios"}, {label: "Creditos de Impostos"}],
+            rows: [{label: "Adiantamentos de sócios"}, {label: "Créditos de Impostos"}],
         },
         {
             title: "Imobilizado",
-            rows: [{label: "Imoveis"}, {label: "Veiculos"}, {label: "Equipamentos"}],
+            rows: [{label: "Imóveis"}, {label: "Veiculos"}, {label: "Equipamentos"}],
         },
     ];
 
     var PASSIVO_COMPONENT_ROWS = [
-        {label: "Emprestimos"},
+        {label: "Empréstimos"},
         {label: "Impostos"},
         {label: "Forncedores", aliases: ["Fornecedores"]},
         {label: "Contas a Receber Antecipado"},
         {label: "Contas a Pagar Vencer"},
         {label: "Contas a Pagar Vencido"},
-        {label: "Saldo Emprestimos"},
+        {label: "Saldo Empréstimos"},
         {label: "Contas a Pagar Impostos"},
         {label: "Contas a Pagar Safia"},
         {label: "Contas a Pagar CA"},
@@ -449,7 +449,7 @@
         if (!dashboardAtivoTableWrapEl) return;
         var html = [
             '<table class="balanco-dashboard-table balanco-dashboard-table--ativo">',
-            "<thead><tr><th>Descricao</th><th>Valor Referencia</th><th>Valor Evolucao</th></tr></thead>",
+            "<thead><tr><th>Descrição</th><th>Valor Referência</th><th>Valor Evolução</th></tr></thead>",
             "<tbody>",
         ];
 
@@ -492,7 +492,7 @@
         if (!dashboardPassivoTableWrapEl) return;
         var html = [
             '<table class="balanco-dashboard-table balanco-dashboard-table--passivo">',
-            "<thead><tr><th>Descricao</th><th>Valor Referencia</th><th>Valor Evolucao</th></tr></thead>",
+            "<thead><tr><th>Descrição</th><th>Valor Referência</th><th>Valor Evolução</th></tr></thead>",
             "<tbody>",
         ];
 
@@ -542,8 +542,8 @@
             dashboardDataInfoEl.textContent = "Sem dados para as datas selecionadas.";
             return;
         }
-        var texto = "Referencia: " + formatDateIsoToBr(referenciaDateIso);
-        texto += " | Evolucao: " + formatDateIsoToBr(evolucaoDateIso);
+        var texto = "Referência: " + formatDateIsoToBr(referenciaDateIso);
+        texto += " | Evolução: " + formatDateIsoToBr(evolucaoDateIso);
         texto += " | Registros ref/evo: " + String(referenciaRows || 0) + "/" + String(evolucaoRows || 0);
         dashboardDataInfoEl.textContent = texto;
     }
@@ -610,7 +610,7 @@
             },
             {
                 key: "tipo_movimentacao_label",
-                label: "Tipo Movimentacao",
+                label: "Tipo Movimentação",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.tipo_movimentacao_label : "";
@@ -618,7 +618,7 @@
             },
             {
                 key: "descricao",
-                label: "Descricao BP",
+                label: "Descrição BP",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     return rowData ? rowData.descricao : "";
@@ -1043,9 +1043,9 @@
     tabela = createTable("#balanco-patrimonial-tabulator", {
         data: data,
         columns: [
-            {title: "Numero Registro", field: "numero_registro", width: 150, hozAlign: "center"},
+            {title: "Número Registro", field: "numero_registro", width: 150, hozAlign: "center"},
             {
-                title: "Data Lancamento",
+                title: "Data Lançamento",
                 field: "data_lancamento_iso",
                 editor: "input",
                 editorParams: {
@@ -1087,7 +1087,7 @@
                 minWidth: 210,
             },
             {
-                title: "Tipo Movimentacao",
+                title: "Tipo Movimentação",
                 field: "tipo_movimentacao",
                 editor: "list",
                 editorParams: {
@@ -1103,7 +1103,7 @@
                 minWidth: 180,
             },
             {
-                title: "Descricao BP",
+                title: "Descrição BP",
                 field: "descricao_bp_id",
                 editor: "list",
                 editorParams: function (cell) {
@@ -1139,7 +1139,7 @@
                 minWidth: 150,
             },
             {
-                title: "Observacao",
+                title: "Observação",
                 field: "observacao",
                 editor: "input",
                 cellEdited: onCellEdited,

@@ -255,7 +255,7 @@
             return;
         }
         if (periodoInicio > periodoFim) {
-            window.alert("O Periodo Inicio deve ser menor ou igual ao Periodo Fim.");
+            window.alert("O Período Início deve ser menor ou igual ao Período Fim.");
             return;
         }
 
@@ -591,7 +591,7 @@
         }));
 
         columns.left.appendChild(buildFilterCard({
-            titulo: "Descricao (Tipo de Titulo)",
+            titulo: "Descrição (Tipo de Título)",
             opcoes: opcoesFiltros.titulo_descricao,
             selecionados: estadoFiltros.titulo_descricao.size,
             isAtivo: function (valor) { return estadoFiltros.titulo_descricao.has(valor); },
@@ -611,7 +611,7 @@
         }));
 
         columns.right.appendChild(buildFilterCard({
-            titulo: "Descricao (Natureza)",
+            titulo: "Descrição (Natureza)",
             opcoes: opcoesFiltros.natureza_descricao,
             selecionados: estadoFiltros.natureza_descricao.size,
             isAtivo: function (valor) { return estadoFiltros.natureza_descricao.has(valor); },
@@ -660,17 +660,17 @@
 
     function construirColunas() {
         var colunas = [
-            {title: "Data de Negociacao", field: "data_negociacao"},
+            {title: "Data de Negociação", field: "data_negociacao"},
             {title: "Data de Vencimento", field: "data_vencimento"},
             {title: "Data do Arquivo", field: "data_arquivo"},
             {title: "Nome Fantasia (Empresa)", field: "nome_fantasia_empresa"},
             {title: "Nome do Parceiro", field: "parceiro_nome"},
-            {title: "Numero da Nota", field: "numero_nota"},
+            {title: "Número da Nota", field: "numero_nota"},
             {title: "Valor do Desdobramento", field: "valor_desdobramento"},
-            {title: "Valor Liquido", field: "valor_liquido"},
-            {title: "Descricao do Tipo de Titulo", field: "titulo_descricao"},
-            {title: "Descricao da Natureza", field: "natureza_descricao"},
-            {title: "Descricao do Centro de Resultado", field: "centro_resultado_descricao"},
+            {title: "Valor Líquido", field: "valor_liquido"},
+            {title: "Descrição do Tipo de Título", field: "titulo_descricao"},
+            {title: "Descrição da Natureza", field: "natureza_descricao"},
+            {title: "Descrição do Centro de Resultado", field: "centro_resultado_descricao"},
             {title: "Vendedor", field: "vendedor"},
             {title: "Receita/Despesa", field: "operacao_descricao"},
             {title: "Status", field: "status", width: 110, hozAlign: "center", headerFilterLiveFilter: false},

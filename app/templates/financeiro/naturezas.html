@@ -17,11 +17,11 @@
 
 <section class="panel">
     <h2>Nova Natureza</h2>
-    <p class="form-note">Cadastre codigo e descricao para uso nos lancamentos financeiros.</p>
+    <p class="form-note">Cadastre código e descrição para uso nos lançamentos financeiros.</p>
     <form action="{% url 'criar_natureza_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
-        <input type="text" name="codigo" placeholder="Codigo" required>
-        <input type="text" name="descricao" placeholder="Descricao">
+        <input type="text" name="codigo" placeholder="Código" required>
+        <input type="text" name="descricao" placeholder="Descrição">
         <button type="submit" class="btn-primary">Cadastrar</button>
     </form>
 </section>

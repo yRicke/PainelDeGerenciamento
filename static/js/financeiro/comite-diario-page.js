@@ -280,7 +280,7 @@
     function collectActiveFilterLabels() {
         var labels = [];
         if (selectedDateIso) {
-            labels.push("Data de Negociacao: " + formatDateIsoToBr(selectedDateIso));
+            labels.push("Data de Negociação: " + formatDateIsoToBr(selectedDateIso));
         }
 
         var chips = document.querySelectorAll("#sec-filtros .module-filter-chip.is-active");
@@ -346,18 +346,18 @@
     function extractTableSnapshot() {
         var headers = [
             "ID",
-            "Data Negociacao",
+            "Data Negociação",
             "Data Vencimento",
             "Receita/Despesa",
             "Empresa Titular",
             "Parceiro",
             "Natureza",
             "Centro Resultado",
-            "Historico",
-            "Numero Nota",
-            "Valor Liquido",
+            "Histórico",
+            "Número Nota",
+            "Valor Líquido",
             "Tipo Movimento",
-            "Decisao",
+            "Decisão",
             "Data Prorrogada",
             "De Banco",
             "Para Banco",
@@ -415,7 +415,7 @@
 
     function buildDashboardPdfPayload(chartImgUri) {
         return {
-            title: "Dashboard Comite Diario",
+            title: "Dashboard Comitê Diário",
             top_kpis: [
                 {
                     label: "Saldo Adiantamentos",
@@ -564,8 +564,8 @@
 
         renderLinha("saldo_atual", "Saldo atual", linhaSaldo, false);
         renderLinha("limite", "Limite", linhaLimite, true);
-        renderLinha("antecipacoes", "Antecipacoes", linhaAntecipacoes, false);
-        renderLinha("transferencias", "Transferencias", linhaTransferencias, false);
+        renderLinha("antecipacoes", "Antecipações", linhaAntecipacoes, false);
+        renderLinha("transferencias", "Transferências", linhaTransferencias, false);
 
         var totalSaldoDisponivel = 0;
         html.push("<tr>");
@@ -587,7 +587,7 @@
         var meta = dados.meta || {};
         var legenda = [];
         if (toText(meta.data_saldos)) legenda.push("Saldos/Limites: " + formatDateIsoToBr(meta.data_saldos));
-        if (toText(meta.data_transferencias)) legenda.push("Transferencias: " + formatDateIsoToBr(meta.data_transferencias));
+        if (toText(meta.data_transferencias)) legenda.push("Transferências: " + formatDateIsoToBr(meta.data_transferencias));
         if (legenda.length) {
             html.push('<div class="comite-lancamentos-meta">' + legenda.join(" | ") + "</div>");
         }
@@ -679,7 +679,7 @@
         var dataset = buildDecisaoChartDataset(linhas);
 
         if (!window.ApexCharts) {
-            comiteDecisaoChartEl.innerHTML = '<p class="comite-decisao-chart-fallback">Grafico indisponivel no momento.</p>';
+            comiteDecisaoChartEl.innerHTML = '<p class="comite-decisao-chart-fallback">Gráfico indisponível no momento.</p>';
             return;
         }
 
@@ -792,7 +792,7 @@
             })
             .catch(function () {
                 if (!opts.silent) {
-                    setSaveStatus("Falha ao atualizar lancamentos bancarios.", "comite-diario-save-status--error");
+                    setSaveStatus("Falha ao atualizar lançamentos bancários.", "comite-diario-save-status--error");
                 }
             })
             .finally(function () {
@@ -1036,7 +1036,7 @@
         if (!canEdit) {
             var valorAnterior = typeof cell.getOldValue === "function" ? cell.getOldValue() : null;
             restoreCellValue(cell, valorAnterior);
-            setSaveStatus("Edicao manual desabilitada para esta empresa neste modulo.", "comite-diario-save-status--error");
+            setSaveStatus("Edição manual desabilitada para esta empresa neste módulo.", "comite-diario-save-status--error");
             return;
         }
         if (internalUpdate) return;
@@ -1083,7 +1083,7 @@
             },
             {
                 key: "decisao_label",
-                label: "Decisao",
+                label: "Decisão",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     if (!rowData) return "";
@@ -1200,11 +1200,11 @@
         html.push(buildResumoRow("Pagar", valores.pagar, "", "pagar"));
         html.push(buildResumoRow("Prorrogado", valores.adiar, "", "adiar"));
         html.push(buildResumoRow("Saldo em Conta", valores.saldo_em_conta, "", "saldo_em_conta"));
-        html.push(buildResumoRow("Correcoes", valores.corrigir, "", "corrigir"));
-        html.push(buildResumoRow("Transferencias", valores.transferir, "", "transferir"));
+        html.push(buildResumoRow("Correções", valores.corrigir, "", "corrigir"));
+        html.push(buildResumoRow("Transferências", valores.transferir, "", "transferir"));
         html.push(buildResumoRow("Conciliar Adiantamento", valores.conciliar_adiantamento, "", "conciliar_adiantamento"));
         html.push(buildResumoRow("Total a Pagar", totalAPagar, "is-total"));
-        html.push(buildResumoRow("Saldo Comite", saldoComite, "is-saldo"));
+        html.push(buildResumoRow("Saldo Comitê", saldoComite, "is-saldo"));
         if (comiteResumoWrapper) {
             comiteResumoWrapper.innerHTML = html.join("");
         }
@@ -1376,7 +1376,7 @@
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
             {
-                title: "Data Negociacao",
+                title: "Data Negociação",
                 field: "data_negociacao_iso",
                 editor: "input",
                 editorParams: {elementAttributes: {type: "date"}},
@@ -1458,10 +1458,10 @@
                 cellEdited: onCellEdited,
                 width: 220,
             },
-            {title: "Historico", field: "historico", editor: "input", cellEdited: onCellEdited, width: 260},
-            {title: "Numero Nota", field: "numero_nota", editor: "input", cellEdited: onCellEdited, width: 130},
+            {title: "Histórico", field: "historico", editor: "input", cellEdited: onCellEdited, width: 260},
+            {title: "Número Nota", field: "numero_nota", editor: "input", cellEdited: onCellEdited, width: 130},
             {
-                title: "Valor Liquido",
+                title: "Valor Líquido",
                 field: "valor_liquido",
                 editor: "input",
                 hozAlign: "right",
@@ -1485,7 +1485,7 @@
                 width: 170,
             },
             {
-                title: "Decisao",
+                title: "Decisão",
                 field: "decisao",
                 editor: "list",
                 editorParams: {values: decisaoValues, clearable: false},

@@ -31,12 +31,12 @@
                     {% endfor %}
                 </select>
             </div>
-            <div><label>Numero nota</label><input type="text" name="numero_nota" value="{{ conta_item.numero_nota }}"></div>
+            <div><label>Número nota</label><input type="text" name="numero_nota" value="{{ conta_item.numero_nota }}"></div>
             <div><label>Vendedor</label><input type="text" name="vendedor" value="{{ conta_item.vendedor }}"></div>
             <div><label>Valor desdobramento</label><input type="text" name="valor_desdobramento" value="{{ conta_item.valor_desdobramento }}"></div>
             <div><label>Valor liquido</label><input type="text" name="valor_liquido" value="{{ conta_item.valor_liquido }}"></div>
             <div>
-                <label>Titulo</label>
+                <label>Título</label>
                 <select name="titulo_id">
                     <option value="">-</option>
                     {% for item in titulos %}

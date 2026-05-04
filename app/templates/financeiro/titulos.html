@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Titulos{% endblock %}
+{% block title %}Títulos{% endblock %}
 
 {% block extra_css %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -11,23 +11,23 @@
 {% block content %}
 <section class="page-hero">
     <a href="{% url 'parametros' %}" onclick="const ref = document.referrer; const sameOrigin = ref && new URL(ref).origin === location.origin; if (sameOrigin && history.length > 1) { history.back(); return false; }" class="module-hero-back-link">Voltar</a>
-    <h1>Titulos</h1>
+    <h1>Títulos</h1>
     <p>Empresa: {{ empresa.nome }}</p>
 </section>
 
 <section class="panel">
-    <h2>Novo Titulo</h2>
-    <p class="form-note">Cadastre codigo e descricao do titulo para reutilizacao nos registros DFC.</p>
+    <h2>Novo Título</h2>
+    <p class="form-note">Cadastre código e descrição do título para reutilização nos registros DFC.</p>
     <form action="{% url 'criar_titulo_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
-        <input type="text" name="tipo_titulo_codigo" placeholder="Codigo" required>
-        <input type="text" name="descricao" placeholder="Descricao">
+        <input type="text" name="tipo_titulo_codigo" placeholder="Código" required>
+        <input type="text" name="descricao" placeholder="Descrição">
         <button type="submit" class="btn-primary">Cadastrar</button>
     </form>
 </section>
 
 <section class="panel">
-    <h2>Lista de Titulos</h2>
+    <h2>Lista de Títulos</h2>
     <div class="table-wrapper"><div id="titulos-tabulator"></div></div>
 </section>
 {% endblock %}

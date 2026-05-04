@@ -22,7 +22,7 @@
         data: data,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
-            {title: "Descricao", field: "descricao", editor: "input"},
+            {title: "Descrição", field: "descricao", editor: "input"},
             colunaAcoes,
         ],
     });

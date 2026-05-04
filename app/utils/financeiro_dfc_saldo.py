@@ -531,7 +531,7 @@ def construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_p
         *detalhes_contas_receber,
         {
             "key": "previsao_recebivel",
-            "label": "PREVISAO RECEBIVEL",
+            "label": "PREVISÃO RECEBÍVEL",
             "group": "receita",
             "editable_day": True,
             "manual_tipo": DFCSaldoManual.TIPO_PREVISAO_RECEBIVEL,
@@ -539,7 +539,7 @@ def construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_p
         },
         {
             "key": "outras_consideracoes_receita",
-            "label": "OUTRAS CONSIDERACOES",
+            "label": "OUTRAS CONSIDERAÇÕES",
             "group": "receita",
             "editable_day": True,
             "manual_tipo": DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_RECEITA,
@@ -555,7 +555,7 @@ def construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_p
         },
         {
             "key": "adiantamentos_previsao",
-            "label": "ADIANTAMENTOS PREVISAO",
+            "label": "ADIANTAMENTOS PREVISÃO",
             "group": "despesa",
             "editable_day": True,
             "manual_tipo": DFCSaldoManual.TIPO_ADIANTAMENTOS_PREVISAO,
@@ -568,7 +568,7 @@ def construir_payload_tabela_saldo_dfc(empresa, dfc_registros, hoje=None, dias_p
         },
         {
             "key": "outras_consideracoes_despesa",
-            "label": "OUTRAS CONSIDERACOES",
+            "label": "OUTRAS CONSIDERAÇÕES",
             "group": "despesa",
             "editable_day": True,
             "manual_tipo": DFCSaldoManual.TIPO_OUTRAS_CONSIDERACOES_DESPESA,

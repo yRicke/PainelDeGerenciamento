@@ -15,10 +15,10 @@
         <div class="module-hero-main">
             <div class="module-hero-topline">
                 <a href="{% url 'comite_diario' empresa.id %}" class="module-hero-back-link">Voltar</a>
-                <span class="module-hero-pill">Modulo Financeiro</span>
+                <span class="module-hero-pill">Módulo Financeiro</span>
             </div>
             <h1>Saldos e Limites</h1>
-            <p class="module-hero-subtitle">Cadastro manual, filtros, dashboard e tabela com edicao inline.</p>
+            <p class="module-hero-subtitle">Cadastro manual, filtros, dashboard e tabela com edição inline.</p>
             <dl class="module-hero-facts">
                 <div>
                     <dt>Empresa</dt>
@@ -36,7 +36,7 @@
                 <h2>Filtros</h2>
                 <button type="button" class="btn-light module-filters-clear-all">Limpar filtros</button>
             </div>
-            <p class="form-note module-filters-placeholder">Filtros de Banco, Tipo de Movimentacao e Empresa Titular.</p>
+            <p class="form-note module-filters-placeholder">Filtros de Banco, Tipo de Movimentação e Empresa Titular.</p>
             <div class="module-filter-columns">
                 <div id="saldos-filtros-coluna-esquerda" class="module-filter-column" data-module-filter-column="left"></div>
                 <div id="saldos-filtros-coluna-direita" class="module-filter-column" data-module-filter-column="right"></div>
@@ -55,11 +55,11 @@
                 <span aria-hidden="true">&#9776;</span>
                 <span>Menu de filtros</span>
             </button>
-            <nav class="module-sections-nav" aria-label="Navegacao de secoes de Saldos e Limites">
+            <nav class="module-sections-nav" aria-label="Navegação de seções de Saldos e Limites">
                 <a href="#sec-cadastro">Cadastro</a>
                 <a href="#sec-filtros" class="module-sections-nav-mobile-filters">Filtros</a>
                 <a href="#sec-dashboard">Dashboard</a>
-                <a href="#sec-visualizacao">Visualizacao</a>
+                <a href="#sec-visualizacao">Visualização</a>
             </nav>
             <button type="button" class="btn-light module-shell-clear-filters">Limpar todos os filtros</button>
         </div>
@@ -93,7 +93,7 @@
                         </select>
                     </div>
                     <div>
-                        <label>Tipo de Movimentacao</label>
+                        <label>Tipo de Movimentação</label>
                         <select name="tipo_movimentacao" required>
                             <option value="">Selecione</option>
                             {% for opcao in tipos_movimentacao_opcoes %}
@@ -121,7 +121,7 @@
                         <label for="saldos-limites-data-filtro">Data de Referencia</label>
                         <input type="date" id="saldos-limites-data-filtro">
                     </div>
-                    <button type="button" id="saldos-limites-btn-ultima-data" class="btn-light">Ultima data</button>
+                    <button type="button" id="saldos-limites-btn-ultima-data" class="btn-light">Última data</button>
                     <button type="button" id="saldos-limites-btn-limpar-data" class="btn-light">Limpar data</button>
                 </div>
 

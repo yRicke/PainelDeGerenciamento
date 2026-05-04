@@ -16,15 +16,15 @@
         getDeleteUrl: function (row) {
             return row.excluir_url;
         },
-        deleteConfirm: "Excluir operacao?",
+        deleteConfirm: "Excluir operação?",
     });
 
     var tabela = window.TabulatorDefaults.create("#operacoes-tabulator", {
         data: data,
         columns: [
             {title: "ID", field: "id", width: 80, hozAlign: "center"},
-            {title: "Codigo", field: "tipo_operacao_codigo", editor: "input"},
-            {title: "Descricao Receita/Despesa", field: "descricao_receita_despesa", editor: "input"},
+            {title: "Código", field: "tipo_operacao_codigo", editor: "input"},
+            {title: "Descrição Receita/Despesa", field: "descricao_receita_despesa", editor: "input"},
             colunaAcoes,
         ],
     });

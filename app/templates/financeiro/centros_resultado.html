@@ -17,10 +17,10 @@
 
 <section class="panel">
     <h2>Novo Centro Resultado</h2>
-    <p class="form-note">Informe a descricao para uso nos lancamentos financeiros.</p>
+    <p class="form-note">Informe a descrição para uso nos lançamentos financeiros.</p>
     <form action="{% url 'criar_centro_resultado_modulo' empresa.id %}" method="POST" class="inline-form">
         {% csrf_token %}
-        <input type="text" name="descricao" placeholder="Descricao" required>
+        <input type="text" name="descricao" placeholder="Descrição" required>
         <button type="submit" class="btn-primary">Cadastrar</button>
     </form>
 </section>

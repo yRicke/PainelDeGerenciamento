@@ -360,7 +360,7 @@
             },
             {
                 key: "tipo_movimentacao_label",
-                label: "Tipo de Movimentacao",
+                label: "Tipo de Movimentação",
                 singleSelect: false,
                 extractValue: function (rowData) {
                     if (!rowData) return "";
@@ -657,7 +657,7 @@
             },
             {title: "Banco", field: "banco", width: 180},
             {
-                title: "Tipo de Movimentacao",
+                title: "Tipo de Movimentação",
                 field: "tipo_movimentacao",
                 editor: "list",
                 editorParams: {

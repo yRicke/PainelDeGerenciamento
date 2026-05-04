@@ -22,9 +22,9 @@
             <div><label>Data negociacao</label><input type="date" name="data_negociacao" value="{{ dfc_item.data_negociacao|date:'Y-m-d' }}" required></div>
             <div><label>Data vencimento</label><input type="date" name="data_vencimento" value="{{ dfc_item.data_vencimento|date:'Y-m-d' }}" required></div>
             <div><label>Valor liquido</label><input type="text" name="valor_liquido" value="{{ dfc_item.valor_liquido }}"></div>
-            <div><label>Numero nota</label><input type="text" name="numero_nota" value="{{ dfc_item.numero_nota }}"></div>
+            <div><label>Número nota</label><input type="text" name="numero_nota" value="{{ dfc_item.numero_nota }}"></div>
             <div>
-                <label>Titulo</label>
+                <label>Título</label>
                 <select name="titulo_id">
                     <option value="">-</option>
                     {% for item in titulos %}
